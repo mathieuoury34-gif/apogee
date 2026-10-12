@@ -212,6 +212,12 @@ export function SettingsScreen() {
           <input ref={dbInput} type="file" accept=".db,.sqlite,application/octet-stream,application/x-sqlite3,application/vnd.sqlite3" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onDb(f); e.target.value = ''; }} />
         </Section>
 
+        <Section id="p-help" title={$t("Aide")}>
+          <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
+            <Row icon="info" title={$t("Aide et mode d’emploi")} sub={$t("Toutes les fonctionnalités, tous les calculs, et où télécharger l’APK Android")} onClick={() => navigate('/parametres/aide')} />
+          </ul>
+        </Section>
+
         <Section id="p-about" title={$t("À propos")}>
           <div className="card g8" style={{ borderRadius: 'var(--radius-12)' }}>
             <span data-component="AppLogo"><Logo size={18} /></span>

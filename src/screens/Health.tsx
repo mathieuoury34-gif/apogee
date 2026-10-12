@@ -1,6 +1,8 @@
 // État de la liaison avec la montre (Health Connect, APK Android) : ce qui est accordé, ce qui a été lu,
 // quand, et ce que l'app contient déjà. Affiché en carte dans Paramètres, et en rappel sur l'Accueil tant
 // que la liaison n'est pas faite.
+import { ExtLink } from './Help';
+import { APK_PAGE } from './help-content';
 import { $t } from '../i18n';
 import { useState } from 'react';
 import { Icon } from '../ui/icons';
@@ -72,10 +74,11 @@ export function HealthCard({ compact = false }: { compact?: boolean }) {
           <span className="stack grow">
             <span className="t-strong" style={android ? { color: 'var(--warning-text)' } : undefined}>{android ? $t("Health Connect non relié : tu n’es pas dans l’APK") : $t("Health Connect : lu par le téléphone Android")}</span>
             <span className="t-caption c-neutral">{android
-              ? $t("Cette page tourne dans le navigateur (ou l’app installée depuis Chrome), qui n’a pas accès à Health Connect. Installe et ouvre l’APK Iron App : GitHub › Releases › iron-app.apk.")
+              ? $t("Cette page tourne dans le navigateur (ou l’app installée depuis Chrome), qui n’a pas accès à Health Connect. Installe et ouvre l’APK Iron App (lien ci-dessous).")
               : $t("Health Connect n’existe que sur Android : l’APK Iron App y lit les séances, le sommeil et la FC de repos envoyés par Garmin Connect, puis la synchronisation les amène ici.")}</span>
           </span>
         </div>
+        {android && <ExtLink href={APK_PAGE} className="help-link"><Icon name="download" size={20} /><span>{$t("Télécharger l’APK Iron App (GitHub › Releases)")}</span></ExtLink>}
         {!compact && <WatchKv st={st} />}
         {compact && <div className="row wrap"><button type="button" className="btn btn-tertiary" onClick={() => navigate('/parametres')}>{$t("Détails")}</button></div>}
         {!compact && <span className="t-legal c-moderate">{$t("Diagnostic :")} {native.diagnostic()}</span>}

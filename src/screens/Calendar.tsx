@@ -87,7 +87,7 @@ export function CalendarWeekScreen() {
         </div>
       </SubNav>
       <main className="content with-fab gap-12">
-        <div className="dgrid" style={{ gap: 'var(--space-12)' }}>
+        <div className="cal-top dgrid" style={{ gap: 'var(--space-12)' }}>
           <div className="dspan-6"><PhaseRibbon day={isThisWeek ? d.today : monday} /></div>
           <div className="grid-3 dspan-6">
             <div className="kpi"><span className="label">{$t("Séances")}</span><span className="value">{done}/{total}</span></div>

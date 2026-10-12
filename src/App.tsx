@@ -9,6 +9,7 @@ import { LoadScreen, ObjectiveScreen, ZoneHistoryScreen, ZonesScreen } from './s
 import { CoachScreen } from './screens/Coach';
 import { PeriodizationScreen } from './screens/Periodization';
 import { InterruptionsScreen, LoadingScreen, ProfileScreen, SettingsScreen } from './screens/Settings';
+import { HelpScreen } from './screens/Help';
 import { useSync } from './data/sync';
 import { useReady } from './data/store';
 
@@ -38,6 +39,7 @@ function Screen() {
       return <CoachScreen key={route.query.get('importer') ?? ''} />;
     case 'parametres':
       if (b === 'profil') return <ProfileScreen />;
+      if (b === 'aide') return <HelpScreen />;
       if (b === 'interruptions') return <InterruptionsScreen key={route.query.get('nouvelle') ?? ''} />;
       return <SettingsScreen />;
     default:
