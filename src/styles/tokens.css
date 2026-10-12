@@ -1,0 +1,283 @@
+/* ==========================================================================
+   Design tokens – Iron App v2 (refonte sur le système de PEAnalyze)
+   Même structure, mêmes noms de rôles, mêmes typographies, rayons, ombres et espacements que
+   PEAnalyze (01_Design/design-tokens.css v2). Seules les COULEURS sont celles d'Iron App
+   (theme/tokens.ts de la version Android) : neutres papier chaud, encre presque noire comme couleur
+   d'action, couleurs de discipline et rampe de forme du jour.
+   Polices : Montserrat 500/600/700 + Open Sans 400/600/700 (Google Fonts).
+   ========================================================================== */
+
+:root {
+  /* ---------- Typographie (identique à PEAnalyze) ---------- */
+  --font-heading: Montserrat, system-ui, ui-sans-serif, sans-serif;
+  --font-body: "Open Sans", system-ui, ui-sans-serif, sans-serif;
+  --fs-11: 11px;  --lh-11: 16.5px;
+  --fs-12: 12px;  --lh-12: 18px;
+  --fs-14: 14px;  --lh-14: 21px;
+  --fs-16: 16px;  --lh-16: 24px;
+  --fs-18: 18px;  --lh-18: 27px;
+  --fs-24: 24px;  --lh-24: 36px;
+  --fs-28: 28px;  --lh-28: 42px;
+  --fs-34: 34px;  --lh-34: 48px;
+  --fs-40: 40px;  --lh-40: 56px;
+  --fw-400: 400; --fw-500: 500; --fw-600: 600; --fw-700: 700;
+  --type-display: var(--fw-700) var(--fs-34)/var(--lh-34) var(--font-heading);
+  --type-h1: var(--fw-700) var(--fs-28)/var(--lh-28) var(--font-heading);
+  --type-h2: var(--fw-700) var(--fs-24)/var(--lh-24) var(--font-heading);
+  --type-h3: var(--fw-700) var(--fs-18)/var(--lh-18) var(--font-heading);
+  --type-amount-l: var(--fw-700) var(--fs-18)/var(--lh-18) var(--font-heading);
+  --type-amount-m: var(--fw-700) var(--fs-16)/var(--lh-16) var(--font-heading);
+  --type-amount-s: var(--fw-700) var(--fs-14)/var(--lh-14) var(--font-heading);
+  --type-button: var(--fw-700) var(--fs-14)/var(--lh-14) var(--font-heading);
+  --type-overline: var(--fw-700) var(--fs-12)/var(--lh-12) var(--font-heading);
+  --type-chip: var(--fw-700) var(--fs-12)/var(--lh-12) var(--font-heading);
+  --type-body: var(--fw-400) var(--fs-14)/var(--lh-14) var(--font-body);
+  --type-body-strong: var(--fw-600) var(--fs-14)/var(--lh-14) var(--font-body);
+  --type-label: var(--fw-600) var(--fs-14)/var(--lh-14) var(--font-body);
+  --type-caption: var(--fw-400) var(--fs-12)/var(--lh-12) var(--font-body);
+  --type-caption-strong: var(--fw-600) var(--fs-12)/var(--lh-12) var(--font-body);
+  --type-legal: var(--fw-400) var(--fs-11)/var(--lh-11) var(--font-body);
+  --type-tab: var(--fw-600) var(--fs-11)/var(--lh-11) var(--font-body);
+  --type-badge: var(--fw-600) var(--fs-11)/var(--lh-11) var(--font-body);
+  --type-hero: var(--fw-700) 56px/60px var(--font-heading);
+  --overline-tracking: 0.6px;
+
+  /* ---------- Couleur d'action : l'encre d'Iron App ---------- */
+  --brand-primary: #16181B;
+  --brand-primary-hover: #2C3035;
+  --brand-primary-pressed: #000000;
+  --brand-secondary: #3E7A86;
+  --brand-accent: #16181B;           /* carte héro */
+  --brand-tertiary: #1D6E80;         /* action « Modifier » du balayage */
+  --brand-light-green: #A9E3CD;      /* mise en valeur sur fond encre */
+  --primary-fg: #16181B;
+  --primary-fg-hover: #2C3035;
+
+  /* ---------- Fonds : papier chaud ---------- */
+  --bg-page: #FBFAF7;
+  --bg-surface: #FBFAF7;
+  --bg-surface-minimal: #F2F0EA;
+  --bg-brand-minimal: #E9E3D6;       /* fond de l'icône d'Iron App */
+  --bg-brand-moderate: #DCD5C4;
+  --bg-brand-neutral: #EDEAE2;
+  --bg-blue-minimal: #E1EDEF;
+  --bg-grey-minimal: #E9E6DF;
+  --bg-contrast: #16181B;
+  --bg-hover: #16181B12;
+  --bg-pressed: #16181B21;
+  --bg-highlight: #16181B10;
+  --bg-overlay: #0E121580;
+  --bg-reverse-subtle: #FFFFFF26;
+  --bg-disabled: #E9E6DF;
+
+  /* ---------- Textes ---------- */
+  --text: #16181B;
+  --text-strong: #0B0C0E;
+  --text-neutral: #55595F;
+  --text-moderate: #656970;
+  --text-primary: #16181B;
+  --text-accent: #16181B;
+  --text-blue: #1D6E80;
+  --text-reverse: #FBFAF7;
+  --text-reverse-muted: #C3BEB2;
+  --text-disabled: #8A8E94;
+
+  /* ---------- Bordures ---------- */
+  --border: #656970;
+  --border-minimal: #DCD8CF;
+  --border-moderate: #C3BEB2;
+  --border-primary: #16181B;
+  --divider: #C3BEB2;
+  --divider-minimal: #E9E6DF;
+  --divider-reverse: #FFFFFF33;
+  --focus-indicator: #1F84A0;
+
+  /* ---------- États ---------- */
+  --success: #2E7560;  --success-text: #2E7560; --success-bg: #E2F0EA;
+  --critical: #8E2B20; --critical-text: #8E2B20; --critical-bg: #F6E7E3;
+  --warning: #9A6B12;  --warning-text: #84590C; --warning-bg: #F5EDDB;
+  --info: #1D6E80;     --info-text: #1D6E80;    --info-bg: #E1EDEF;
+  --notification: #B4432A;
+
+  /* ---------- Disciplines (theme/tokens.ts) ---------- */
+  --d-RUN: #B4432A;
+  --d-BIKE: #9A6B12;
+  --d-SWIM: #1D6E80;
+  --d-STRENGTH: #4B4499;
+  --d-BRICK: #7C3663;
+  --d-OTHER: #6B6F76;
+  --d-RUN-bg: #F5E4DE;
+  --d-BIKE-bg: #F3EBDA;
+  --d-SWIM-bg: #DDEBEE;
+  --d-STRENGTH-bg: #E6E4F2;
+  --d-BRICK-bg: #F0E1EA;
+  --d-OTHER-bg: #E9E6DF;
+
+  /* ---------- Rampe de forme du jour ---------- */
+  --form-depleted: #4A3A6B;
+  --form-strained: #4C5C8E;
+  --form-steady: #3E7A86;
+  --form-ready: #4E9C86;
+  --form-fresh: #7BBFA8;
+
+  /* ---------- Graphiques ---------- */
+  --chart-1: #B4432A;
+  --chart-2: #9A6B12;
+  --chart-3: #1D6E80;
+  --chart-4: #4B4499;
+  --chart-5: #7C3663;
+  --chart-6: #3E7A86;
+  --chart-7: #4E9C86;
+  --chart-8: #7BBFA8;
+  --chart-other: #C3BEB2;
+  --chart-grid: #E9E6DF;
+  --chart-axis: #656970;
+  --chart-fitness: #3E7A86;
+  --chart-fatigue: #4C5C8E;
+  --chart-fresh-pos: #7BBFA8;
+  --chart-fresh-neg: #4A3A6B;
+  --chart-load: #C3BEB2;
+  --chart-value: #3E7A86;
+  --chart-value-area: #3E7A861F;
+
+  /* ---------- Rayons, ombres, espacements, mise en page (identiques à PEAnalyze) ---------- */
+  --radius-2: 2px; --radius-4: 4px; --radius-6: 6px; --radius-8: 8px;
+  --radius-12: 12px; --radius-16: 16px; --radius-20: 20px; --radius-24: 24px; --radius-32: 32px; --radius-40: 40px;
+  --radius-full: 999px;
+  --shadow-xs: 0 1px 3px 0 #16181B26;
+  --shadow-s: 0 4px 16px 0 #16181B12;
+  --shadow-m: 0 10px 60px 0 #16181B26;
+  --shadow-l: 0 20px 80px 0 #16181B4D;
+  --shadow-sticky: 0 -2px 12px 0 #16181B14;
+  --shadow-fab: 0 6px 20px 0 #16181B59;
+  --space-2: 2px; --space-4: 4px; --space-6: 6px; --space-8: 8px; --space-10: 10px; --space-12: 12px;
+  --space-16: 16px; --space-20: 20px; --space-24: 24px; --space-32: 32px; --space-40: 40px; --space-48: 48px; --space-64: 64px;
+  --screen-margin: 16px;
+  --header-height: 64px;
+  --tabbar-height: 64px;
+  --touch-min: 44px;
+  --fab-size: 56px;
+  --button-height: 40px;
+  --button-padding: 8px 24px;
+  --button-radius: 999px;
+  --chip-height: 36px;
+  --tab-indicator-height: 3px;
+  --input-height: 48px;
+  --input-radius: 4px;
+  --input-border: 1px solid #656970;
+  --input-border-focus: 2px solid #1F84A0;
+  --input-border-error: 2px solid #8E2B20;
+  --toast-bg: #16181B;
+  --tooltip-bg: #16181B;
+  --donut-ring: 24px;
+  --allocation-bar-height: 8px;
+}
+
+/* ==========================================================================
+   Thème sombre : mêmes rôles. L'encre devient claire (#ECE8E0) : boutons, carte héro, info-bulles et
+   toasts passent en clair avec un texte sombre, comme dans la version Android.
+   ========================================================================== */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --brand-primary: #ECE8E0;
+  --brand-primary-hover: #FFFFFF;
+  --brand-primary-pressed: #D6D1C7;
+  --brand-secondary: #57AEBC;
+  --brand-accent: #ECE8E0;
+  --brand-tertiary: #3D93A5;
+  --brand-light-green: #2E7560;
+  --primary-fg: #ECE8E0;
+  --primary-fg-hover: #FFFFFF;
+
+  --bg-page: #0E1215;
+  --bg-surface: #171C20;
+  --bg-surface-minimal: #0E1215;
+  --bg-brand-minimal: #22292E;
+  --bg-brand-moderate: #2A3238;
+  --bg-brand-neutral: #1C2226;
+  --bg-blue-minimal: #14282E;
+  --bg-grey-minimal: #222A30;
+  --bg-contrast: #ECE8E0;
+  --bg-hover: #ECE8E014;
+  --bg-pressed: #ECE8E024;
+  --bg-highlight: #ECE8E014;
+  --bg-overlay: #000000A6;
+  --bg-reverse-subtle: #0E121522;
+  --bg-disabled: #222A30;
+
+  --text: #ECE8E0;
+  --text-strong: #FFFFFF;
+  --text-neutral: #A3ABB2;
+  --text-moderate: #8A939B;
+  --text-primary: #ECE8E0;
+  --text-accent: #ECE8E0;
+  --text-blue: #6CC0D2;
+  --text-reverse: #0E1215;
+  --text-reverse-muted: #55595F;
+  --text-disabled: #6B737A;
+
+  --border: #7C858D;
+  --border-minimal: #2A3238;
+  --border-moderate: #3D474E;
+  --border-primary: #ECE8E0;
+  --divider: #3D474E;
+  --divider-minimal: #232A30;
+  --divider-reverse: #0E121533;
+  --focus-indicator: #3FA3BE;
+
+  --success: #63C9A6;  --success-text: #63C9A6; --success-bg: #14291F;
+  --critical: #E0705E; --critical-text: #E0705E; --critical-bg: #2A1613;
+  --warning: #D9A83F;  --warning-text: #D9A83F; --warning-bg: #2A2112;
+  --info: #5CB6C9;     --info-text: #5CB6C9;    --info-bg: #13262B;
+  --notification: #E88663;
+
+  --d-RUN: #E88663;
+  --d-BIKE: #D9A83F;
+  --d-SWIM: #5CB6C9;
+  --d-STRENGTH: #8E88E0;
+  --d-BRICK: #C97BAE;
+  --d-OTHER: #9AA1A8;
+  --d-RUN-bg: #2E1C16;
+  --d-BIKE-bg: #2B2414;
+  --d-SWIM-bg: #13272C;
+  --d-STRENGTH-bg: #1E1D33;
+  --d-BRICK-bg: #2A1A25;
+  --d-OTHER-bg: #222A30;
+
+  --form-depleted: #7A63A8;
+  --form-strained: #7189C4;
+  --form-steady: #57AEBC;
+  --form-ready: #63C9A6;
+  --form-fresh: #A9E3CD;
+
+  --chart-1: #E88663;
+  --chart-2: #D9A83F;
+  --chart-3: #5CB6C9;
+  --chart-4: #8E88E0;
+  --chart-5: #C97BAE;
+  --chart-6: #57AEBC;
+  --chart-7: #63C9A6;
+  --chart-8: #A9E3CD;
+  --chart-other: #3D474E;
+  --chart-grid: #232A30;
+  --chart-axis: #8A939B;
+  --chart-fitness: #57AEBC;
+  --chart-fatigue: #7189C4;
+  --chart-fresh-pos: #A9E3CD;
+  --chart-fresh-neg: #7A63A8;
+  --chart-load: #3D474E;
+  --chart-value: #57AEBC;
+  --chart-value-area: #57AEBC26;
+
+  --shadow-xs: 0 1px 3px 0 #00000066;
+  --shadow-s: 0 4px 16px 0 #00000059;
+  --shadow-m: 0 10px 60px 0 #00000080;
+  --shadow-l: 0 20px 80px 0 #00000099;
+  --shadow-sticky: 0 -2px 12px 0 #00000066;
+  --shadow-fab: 0 6px 20px 0 #00000080;
+  --input-border: 1px solid #7C858D;
+  --input-border-focus: 2px solid #3FA3BE;
+  --input-border-error: 2px solid #E0705E;
+  --toast-bg: #ECE8E0;
+  --tooltip-bg: #ECE8E0;
+}

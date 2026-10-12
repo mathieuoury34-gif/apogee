@@ -1,0 +1,412 @@
+// Paramètres (même organisation que PEAnalyze : sections titrées, cartes, lignes à chevron),
+// profil athlète, interruptions, écran de connexion et écran de chargement.
+import { useRef, useState } from 'react';
+import { DatePicker, Empty, Sheet, SubHeader, Switch, showToast } from '../ui/kit';
+import { Icon, Logo } from '../ui/icons';
+import { navigate, useRoute } from '../ui/router';
+import { getData, getPrefs, setPrefs, useCalc, usePrefs } from '../data/store';
+import { deleteCloud, signIn, signOut, syncNow, useSync } from '../data/sync';
+import { backupBlob, importLegacy, parseBackup, restoreBackup } from '../data/backup';
+import { deleteEverything, deleteInterruption, restore, saveAthlete, saveInterruption } from '../data/actions';
+import { native } from '../native/bridge';
+import { openHealthSettings, requestHealthPermissions, runHealthSync, useHealth } from '../native/healthSync';
+import { addDays, ageAt } from '../domain/dates';
+import { newId } from '../domain/ids';
+import { liveRecords } from '../domain/load';
+import type { InjuryEntry, Interruption, InterruptionReason, Weekday } from '../domain/types';
+import { WEEKDAYS } from '../domain/types';
+import { dateFr, dateTimeFr, dayTitle, num, parseNum, toInput } from '../ui/format';
+import { setThemePref, themePref, type ThemePref } from '../theme';
+
+function Row({ icon, title, sub, onClick, right, danger }: { icon: string; title: string; sub: string; onClick: () => void; right?: React.ReactNode; danger?: boolean }) {
+  return (
+    <li>
+      <button type="button" className="settings-row" onClick={onClick}>
+        <Icon name={icon} style={{ color: danger ? 'var(--critical-text)' : 'var(--primary-fg)' }} />
+        <span className="stack"><span className="t-strong" style={danger ? { color: 'var(--critical-text)' } : undefined}>{title}</span><span className="t-caption c-moderate">{sub}</span></span>
+        {right ?? <Icon name="next" size={20} style={{ color: 'var(--text-moderate)' }} />}
+      </button>
+    </li>
+  );
+}
+
+function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+  return (
+    <section aria-labelledby={id} className="stack-8">
+      <h2 id={id} className="overline c-neutral" style={{ padding: '0 var(--space-4)' }}>{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+const stamp = () => new Date().toISOString().slice(0, 10);
+
+export function SettingsScreen() {
+  const { data, d } = useCalc();
+  const sync = useSync();
+  const health = useHealth();
+  const prefs = usePrefs();
+  const [busy, setBusy] = useState('');
+  const [reset, setReset] = useState(false);
+  const [typed, setTyped] = useState('');
+  const [theme, setTheme] = useState<ThemePref>(themePref());
+  const jsonInput = useRef<HTMLInputElement>(null);
+  const dbInput = useRef<HTMLInputElement>(null);
+  const a = data.athlete.main && !data.athlete.main.deleted ? data.athlete.main : null;
+  const interruptions = liveRecords(data.interruptions);
+  const total = liveRecords(data.actual).length;
+  const running = interruptions.find((i) => i.startDate <= d.today && d.today <= i.endDate);
+  const app = native.isApp();
+  const report = prefs.healthLastReport ? (JSON.parse(prefs.healthLastReport) as { found: number; inserted: number; updated: number; nights: number }) : null;
+
+  const exportXlsx = async () => {
+    setBusy('xlsx');
+    try {
+      const { exportExcel } = await import('../data/excel');
+      await native.saveFile('Iron App ' + stamp() + '.xlsx', await exportExcel(getData(), d));
+      showToast('Classeur Excel exporté');
+    } catch (e) { showToast('Export impossible : ' + (e as Error).message, { error: true }); } finally { setBusy(''); }
+  };
+  const exportJson = async () => {
+    try { await native.saveFile('ironapp-sauvegarde-' + stamp() + '.json', backupBlob(getData())); showToast('Sauvegarde exportée'); }
+    catch (e) { showToast('Export impossible : ' + (e as Error).message, { error: true }); }
+  };
+  const onJson = async (f: File) => {
+    try {
+      const prev = getData();
+      restoreBackup(parseBackup(await f.text()));
+      showToast('Sauvegarde restaurée', { undo: () => restoreBackup(prev) });
+    } catch (e) { showToast('Restauration impossible : ' + (e as Error).message, { error: true }); }
+  };
+  const onDb = async (f: File) => {
+    setBusy('db');
+    try {
+      const prev = getData();
+      const r = importLegacy(new Uint8Array(await f.arrayBuffer()));
+      showToast(`Reprise : ${r.counts.actual ?? 0} séances réalisées (dernière le ${r.lastActual ? dateFr(r.lastActual) : '—'}), ${r.counts.planned ?? 0} prévues${r.skipped.length ? `, ${r.skipped.length} élément(s) ignoré(s)` : ''}`, { undo: () => restoreBackup(prev) });
+    } catch (e) { showToast('Reprise impossible : ' + (e as Error).message, { error: true }); } finally { setBusy(''); }
+  };
+  const readNow = async () => {
+    setBusy('health');
+    try {
+      const r = await runHealthSync();
+      showToast(r ? `${r.inserted} nouvelle(s) séance(s), ${r.updated} mise(s) à jour` : 'Lecture impossible : vérifie les autorisations', { error: !r });
+    } finally { setBusy(''); }
+  };
+  const wipe = async () => {
+    const n = deleteEverything();
+    setReset(false);
+    showToast(`${n} enregistrement(s) effacé(s)${sync.user ? ', aussi dans le compte' : ''}`);
+  };
+
+  return (
+    <div className="screen" data-screen="parametres">
+      <SubHeader title="Paramètres" fallback="/accueil" />
+      <main className="content form-narrow" style={{ gap: 'var(--space-24)' }}>
+        <Section id="p-sync" title="Compte & synchronisation">
+          <div className="card g12" style={{ borderRadius: 'var(--radius-12)' }}>
+            {!sync.configured ? (
+              <div className="row" style={{ alignItems: 'flex-start', gap: 'var(--space-12)' }}>
+                <Icon name="cloud" style={{ color: 'var(--text-moderate)' }} />
+                <span className="stack">
+                  <span className="t-strong">Synchronisation pas encore activée</span>
+                  <span className="t-caption c-moderate">Les données sont enregistrées sur cet appareil. La connexion Google sera disponible dès que le projet Firebase « ironapp » sera relié à l’app (voir le README).</span>
+                </span>
+              </div>
+            ) : sync.user ? (
+              <>
+                <div className="row" style={{ gap: 'var(--space-12)' }}>
+                  {sync.user.photo
+                    ? <img src={sync.user.photo} alt="" width={40} height={40} style={{ borderRadius: 'var(--radius-full)' }} referrerPolicy="no-referrer" />
+                    : <span className="op-icon" style={{ background: 'var(--bg-brand-minimal)', color: 'var(--primary-fg)' }}>{(sync.user.name || sync.user.email).charAt(0).toUpperCase()}</span>}
+                  <span className="stack grow">
+                    <span className="t-strong ellipsis">{sync.user.name || 'Compte Google'}</span>
+                    <span className="t-caption c-moderate ellipsis">{sync.user.email}</span>
+                  </span>
+                </div>
+                <div className="row t-caption" style={{ color: sync.state === 'error' ? 'var(--critical-text)' : 'var(--success-text)' }}>
+                  <Icon name={sync.state === 'error' ? 'alert' : 'success'} size={18} />
+                  {sync.state === 'error' ? sync.error : sync.state === 'syncing' ? 'Synchronisation…' : (sync.lastSync ? 'Synchronisé le ' + dateTimeFr(sync.lastSync) : 'Synchronisé') + ' · téléphone, PC et iPhone partagent les mêmes données'}
+                </div>
+                <div className="row wrap">
+                  <button type="button" className="btn btn-secondary" onClick={() => syncNow()}><Icon name="refresh" size={18} />Synchroniser maintenant</button>
+                  <button type="button" className="btn btn-tertiary" style={{ color: 'var(--text-neutral)' }} onClick={() => signOut()}><Icon name="logout" size={18} />Se déconnecter</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="t-caption c-moderate">Connecte-toi pour retrouver les mêmes données sur ton téléphone, ton PC et ton iPhone (sauvegarde automatique, gratuite).</span>
+                <button type="button" className="btn btn-primary" onClick={() => signIn().catch((e) => showToast('Connexion impossible : ' + e.message, { error: true }))}>Continuer avec Google</button>
+              </>
+            )}
+          </div>
+        </Section>
+
+        <Section id="p-health" title="Montre (Health Connect)">
+          <div className="card g12" style={{ borderRadius: 'var(--radius-12)' }}>
+            {!app ? (
+              <div className="row" style={{ alignItems: 'flex-start', gap: 'var(--space-12)' }}>
+                <Icon name="phone" style={{ color: 'var(--text-moderate)' }} />
+                <span className="stack">
+                  <span className="t-strong">Lu depuis l’application Android</span>
+                  <span className="t-caption c-moderate">Health Connect n’existe que sur Android : l’APK Iron App y lit les séances, le sommeil et la FC de repos envoyés par Garmin Connect, puis la synchronisation les amène ici.</span>
+                </span>
+              </div>
+            ) : health.availability !== 'available' ? (
+              <div className="note note-warning"><Icon name="alert" size={20} /><span>{health.availability === 'update_required' ? 'Health Connect doit être mis à jour depuis le Play Store.' : health.availability === 'unavailable' ? 'Health Connect n’est pas disponible sur ce téléphone.' : 'Module Health Connect introuvable dans cette version de l’APK.'}</span></div>
+            ) : (
+              <>
+                <div className="row t-caption" style={{ color: health.missing.length ? 'var(--warning-text)' : 'var(--success-text)' }}>
+                  <Icon name={health.missing.length ? 'alert' : 'success'} size={18} />
+                  {health.missing.length ? `Autorisations manquantes : ${health.missing.join(', ')}` : `Autorisations accordées${health.history ? ' · historique complet' : ' · 30 derniers jours seulement'}`}
+                </div>
+                <span className="t-caption c-moderate">{prefs.healthLastRun ? `Dernière lecture le ${dateTimeFr(prefs.healthLastRun)}${report ? ` · ${report.found} séance(s) vue(s), ${report.inserted} nouvelle(s), ${report.updated} complétée(s), ${report.nights} nuit(s)` : ''}.` : 'Jamais lue.'} La montre est relue à chaque ouverture de l’app.</span>
+                {prefs.healthLastError && <span className="t-caption-strong c-critical">{prefs.healthLastError}</span>}
+                <div className="row wrap">
+                  <button type="button" className="btn btn-secondary" disabled={busy === 'health' || health.running} onClick={readNow}><Icon name="refresh" size={18} />{busy === 'health' || health.running ? 'Lecture…' : 'Relire la montre'}</button>
+                  {health.missing.length > 0 || !health.history ? <button type="button" className="btn btn-primary" onClick={() => requestHealthPermissions()}>Accorder les autorisations</button>
+                    : <button type="button" className="btn btn-tertiary" onClick={() => openHealthSettings()}>Gérer dans Health Connect</button>}
+                </div>
+              </>
+            )}
+          </div>
+        </Section>
+
+        <Section id="p-athlete" title="Athlète">
+          <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
+            <Row icon="user" title="Profil" sub={a ? [a.displayName, a.birthDate ? `${ageAt(a.birthDate)} ans` : null, a.availability.length ? `${a.availability.length} jour(s) dispo.` : null].filter(Boolean).join(' · ') || 'À compléter' : 'Date de naissance, sexe, disponibilités, blessures'} onClick={() => navigate('/parametres/profil')} />
+            <Row icon="gauge" title="Indicateurs (VMA, FTP, CSS, FC max)" sub="Historique des tests et estimations" onClick={() => navigate('/progression/zones')} />
+            <Row icon="flag" title="Course objectif" sub={data.race.main && !data.race.main.deleted ? `${data.race.main.name} · ${dateFr(data.race.main.raceDate)}` : 'À renseigner'} onClick={() => navigate('/progression/objectif')} />
+            <Row icon="layers" title="Périodisation" sub={`${liveRecords(data.phases).length} bloc(s)`} onClick={() => navigate('/calendrier/periodisation')} />
+            <Row icon="pause" title="Interruptions" sub={running ? `En cours : ${running.label}` : `${interruptions.length} enregistrée(s) · blessure, voyage, charge externe`} onClick={() => navigate('/parametres/interruptions')} />
+          </ul>
+        </Section>
+
+        <Section id="p-calc" title="Calculs">
+          <div className="card g12" style={{ borderRadius: 'var(--radius-12)' }}>
+            <div className="between" style={{ gap: 'var(--space-12)' }}>
+              <span className="stack"><span className="t-strong" id="lbl-prov">Charge provisoire</span><span className="t-caption c-moderate">Une séance sans FC ni ressenti compte d’après tes habitudes (charge par minute × durée), marquée « estimée », au lieu de zéro.</span></span>
+              <Switch checked={prefs.provisionalLoad} labelledBy="lbl-prov" onChange={(v) => setPrefs({ provisionalLoad: v })} />
+            </div>
+            {app && (
+              <label className="field">
+                <span className="lbl">Heure des rappels de séance</span>
+                <select className="input" value={prefs.reminderHour} onChange={(e) => setPrefs({ reminderHour: Number(e.target.value) })}>
+                  {[6, 7, 8, 9, 12, 18, 20].map((h) => <option key={h} value={h}>{h} h 00</option>)}
+                </select>
+                <span className="hint">Rappel le matin d’une séance prévue, et la veille d’un ressenti oublié. Suspendus pendant une interruption.</span>
+              </label>
+            )}
+          </div>
+        </Section>
+
+        <Section id="p-theme" title="Thème">
+          <div className="card g8" style={{ borderRadius: 'var(--radius-12)' }}>
+            <div className="seg" role="group" aria-label="Thème de l’application">
+              {([['light', 'Clair'], ['dark', 'Sombre'], ['system', 'Système']] as [ThemePref, string][]).map(([v, l]) => (
+                <button key={v} type="button" aria-pressed={theme === v} onClick={() => { setThemePref(v); setTheme(v); }}>{l}</button>
+              ))}
+            </div>
+            <span className="t-caption c-moderate">« Système » suit le réglage clair ou sombre du téléphone ou de l’ordinateur.</span>
+          </div>
+        </Section>
+
+        <Section id="p-data" title="Données">
+          <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
+            <Row icon="sheet" title="Exporter en Excel (.xlsx)" sub={busy === 'xlsx' ? 'Préparation du fichier…' : 'Tableau de bord, séances, plan, charge, zones, périodisation — formules et graphiques'} onClick={exportXlsx} />
+            <Row icon="download" title="Exporter une sauvegarde (.json)" sub="Toutes les données, relisibles par l’app" onClick={exportJson} />
+            <Row icon="upload" title="Restaurer une sauvegarde" sub="Remplace les données de l’app (annulable)" onClick={() => jsonInput.current?.click()} />
+            <Row icon="database" title="Reprendre l’ancienne base (.db)" sub={busy === 'db' ? 'Lecture en cours…' : 'Fichier exporté par l’ancienne app Android — fusion sans doublon'} onClick={() => dbInput.current?.click()} />
+          </ul>
+          <input ref={jsonInput} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onJson(f); e.target.value = ''; }} />
+          <input ref={dbInput} type="file" accept=".db,.sqlite,application/octet-stream,application/x-sqlite3,application/vnd.sqlite3" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onDb(f); e.target.value = ''; }} />
+        </Section>
+
+        <Section id="p-about" title="À propos">
+          <div className="card g8" style={{ borderRadius: 'var(--radius-12)' }}>
+            <span data-component="AppLogo"><Logo size={18} /></span>
+            <span className="t-caption c-neutral">Application personnelle de suivi d’entraînement triathlon. Les données restent les tiennes : sur cet appareil et, si tu te connectes, dans ton espace Firebase privé. Version 2.0.</span>
+            {!reset
+              ? <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start', color: 'var(--critical-text)', whiteSpace: 'normal', textAlign: 'left' }} onClick={() => { setReset(true); setTyped(''); }}>Effacer toutes mes données</button>
+              : (
+                <div className="stack-8">
+                  {/* deux étapes, jamais la même question deux fois (décision du 06/09) */}
+                  <label className="field">
+                    <span className="lbl c-critical">Pour continuer, recopie le nombre de séances réalisées enregistrées : {total}</span>
+                    <input className="input num" inputMode="numeric" value={typed} onChange={(e) => setTyped(e.target.value)} />
+                  </label>
+                  {typed.trim() === String(total) && (
+                    <span className="t-caption-strong c-critical">Séances, plans, relevés, réglages d’athlète : tout sera effacé{sync.user ? ', sur tous tes appareils' : ''}. Exporte d’abord une sauvegarde si tu veux pouvoir revenir en arrière.</span>
+                  )}
+                  <div className="row wrap">
+                    <button type="button" className="btn btn-danger" disabled={typed.trim() !== String(total)} onClick={wipe}>Tout effacer définitivement</button>
+                    <button type="button" className="btn btn-secondary" onClick={() => setReset(false)}>Annuler</button>
+                  </div>
+                  {sync.user && <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start', color: 'var(--text-neutral)' }} onClick={() => deleteCloud().then(() => showToast('Copie en ligne supprimée'))}>Supprimer seulement la copie en ligne</button>}
+                </div>
+              )}
+          </div>
+        </Section>
+      </main>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ Profil
+const WD_LABEL: Record<Weekday, string> = { mon: 'Lun', tue: 'Mar', wed: 'Mer', thu: 'Jeu', fri: 'Ven', sat: 'Sam', sun: 'Dim' };
+
+export function ProfileScreen() {
+  const { data, d } = useCalc();
+  const a = data.athlete.main && !data.athlete.main.deleted ? data.athlete.main : null;
+  const [name, setName] = useState(a?.displayName ?? '');
+  const [birth, setBirth] = useState(a?.birthDate ?? '');
+  const [cal, setCal] = useState(false);
+  const [sex, setSex] = useState<'M' | 'F' | null>(a?.sex ?? null);
+  const [avail, setAvail] = useState<Weekday[]>(a?.availability ?? []);
+  const [equip, setEquip] = useState((a?.equipment ?? []).join(', '));
+  const [injuries, setInjuries] = useState<InjuryEntry[]>(a?.injuries ?? []);
+  const [newInjury, setNewInjury] = useState('');
+  const save = () => {
+    saveAthlete({ displayName: name.trim() || null, birthDate: birth || null, sex, availability: WEEKDAYS.filter((w) => avail.includes(w)), equipment: equip.split(',').map((x) => x.trim()).filter(Boolean), injuries });
+    showToast('Profil enregistré');
+    navigate('/parametres', { replace: true });
+  };
+  return (
+    <div className="screen screen-white" data-screen="profil">
+      <SubHeader title="Profil" fallback="/parametres" bordered />
+      <div className="stack grow">
+        <div className="stack form-narrow grow" style={{ gap: 'var(--space-20)', padding: 'var(--space-16) var(--screen-margin) var(--space-24)' }}>
+          <label className="field"><span className="lbl">Prénom</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></label>
+          <div className="field"><span className="lbl">Date de naissance</span>
+            <button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setCal(!cal)}><span>{birth ? `${dateFr(birth)} · ${ageAt(birth)} ans` : 'Choisir'}</span><Icon name="calendar" size={20} /></button>
+            {cal && <DatePicker value={birth || '1990-01-01'} onChange={(v) => { setBirth(v); setCal(false); }} />}
+            <span className="hint">Sert à estimer la FC max (Tanaka) tant qu’aucune valeur testée n’est déclarée.</span>
+          </div>
+          <div className="field"><span className="lbl">Sexe</span>
+            <div className="seg" role="group" aria-label="Sexe"><button type="button" aria-pressed={sex === 'M'} onClick={() => setSex('M')}>Homme</button><button type="button" aria-pressed={sex === 'F'} onClick={() => setSex('F')}>Femme</button></div>
+            <span className="hint">Le TRIMP de Banister utilise un coefficient différent selon le sexe.</span>
+          </div>
+          <div className="field"><span className="lbl">Jours disponibles pour s’entraîner</span>
+            <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>
+              {WEEKDAYS.map((w) => <button key={w} type="button" className="chip" aria-pressed={avail.includes(w)} onClick={() => setAvail(avail.includes(w) ? avail.filter((x) => x !== w) : [...avail, w])}>{WD_LABEL[w]}</button>)}
+            </div>
+          </div>
+          <label className="field"><span className="lbl">Matériel</span><input className="input" value={equip} placeholder="Home trainer, piscine 25 m, capteur de puissance…" onChange={(e) => setEquip(e.target.value)} /><span className="hint">Séparé par des virgules. Transmis au coach.</span></label>
+          <div className="field"><span className="lbl">Blessures et points de vigilance</span>
+            <ul className="tile-list divided">
+              {injuries.map((i) => (
+                <li key={i.id} className="between" style={{ padding: 'var(--space-8) 0', gap: 'var(--space-8)' }}>
+                  <span className="stack"><span className="t-strong" style={i.resolved ? { textDecoration: 'line-through', color: 'var(--text-moderate)' } : undefined}>{i.label}</span><span className="t-caption c-moderate">{i.date ? dateFr(i.date) : 'date inconnue'}{i.resolved ? ' · résolue' : ''}</span></span>
+                  <span className="row" style={{ gap: 0 }}>
+                    <button type="button" className="icon-btn" aria-label={i.resolved ? 'Marquer active' : 'Marquer résolue'} onClick={() => setInjuries(injuries.map((x) => (x.id === i.id ? { ...x, resolved: !x.resolved } : x)))}><Icon name={i.resolved ? 'refresh' : 'check'} size={20} /></button>
+                    <button type="button" className="icon-btn" aria-label="Retirer" onClick={() => setInjuries(injuries.filter((x) => x.id !== i.id))}><Icon name="trash" size={20} /></button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="row" style={{ gap: 'var(--space-8)' }}>
+              <input className="input grow" value={newInjury} placeholder="Tendinite d’Achille gauche…" onChange={(e) => setNewInjury(e.target.value)} />
+              <button type="button" className="btn btn-secondary" disabled={!newInjury.trim()} onClick={() => { setInjuries([...injuries, { id: newId(), label: newInjury.trim(), date: d.today, notes: null, resolved: false }]); setNewInjury(''); }}>Ajouter</button>
+            </div>
+          </div>
+        </div>
+        <div className="sticky-foot"><div className="form-narrow"><button type="button" className="btn btn-primary block" onClick={save}>Enregistrer</button></div></div>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ Interruptions
+const REASON_LABEL: Record<InterruptionReason, string> = { injury: 'Blessure', travel: 'Voyage', external_load: 'Charge externe', other: 'Autre' };
+
+export function InterruptionsScreen() {
+  const route = useRoute();
+  const { data, d } = useCalc();
+  const ask = route.query.get('nouvelle');
+  const [edit, setEdit] = useState<Interruption | 'new' | null>(ask !== null ? 'new' : null);
+  const list = liveRecords(data.interruptions).sort((a, b) => (a.startDate < b.startDate ? 1 : -1));
+  const remove = (i: Interruption) => { const snap = deleteInterruption(i.id); showToast('Interruption supprimée', { undo: () => restore(snap) }); };
+  return (
+    <div className="screen" data-screen="interruptions">
+      <SubHeader title="Interruptions" fallback="/parametres" right={<button type="button" className="icon-btn" aria-label="Nouvelle interruption" onClick={() => setEdit('new')}><Icon name="plus" /></button>} />
+      <main className="content stack-16 form-narrow-d">
+        <p className="t-caption c-neutral">Une interruption (blessure, voyage, charge externe comme un déménagement) suspend les rappels et les alertes de séances manquées. Une charge forfaitaire quotidienne peut remplacer la charge mesurée, pour que la forme de fond reflète la réalité.</p>
+        {!list.length ? <Empty icon="pause" title="Aucune interruption" text="Ajoute une période avec le bouton +." /> : (
+          <ul className="tile-list divided card" style={{ padding: '0 var(--space-16)' }}>
+            {list.map((i) => {
+              const now = i.startDate <= d.today && d.today <= i.endDate;
+              return (
+                <li key={i.id}>
+                  <button type="button" className="settings-row" onClick={() => setEdit(i)}>
+                    <Icon name="pause" style={{ color: now ? 'var(--warning-text)' : 'var(--text-neutral)' }} />
+                    <span className="stack"><span className="t-strong">{i.label}{now ? <span className="var-chip warn" style={{ marginLeft: 8 }}>en cours</span> : null}</span><span className="t-caption c-moderate">{REASON_LABEL[i.reason]} · du {dateFr(i.startDate)} au {dateFr(i.endDate)}{i.dailyLoadOverride !== null ? ` · forfait ${num(i.dailyLoadOverride, 0)}/j` : ''}</span></span>
+                    <Icon name="next" size={20} style={{ color: 'var(--text-moderate)' }} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </main>
+      {edit && <InterruptionSheet value={edit === 'new' ? null : edit} defaultStart={d.today} onDelete={edit !== 'new' ? () => { remove(edit); setEdit(null); } : undefined} onClose={() => { setEdit(null); if (ask !== null) navigate('/parametres/interruptions', { replace: true }); }} />}
+    </div>
+  );
+}
+
+function InterruptionSheet({ value, defaultStart, onClose, onDelete }: { value: Interruption | null; defaultStart: string; onClose: () => void; onDelete?: () => void }) {
+  const [label, setLabel] = useState(value?.label ?? '');
+  const [reason, setReason] = useState<InterruptionReason>(value?.reason ?? 'injury');
+  const [start, setStart] = useState(value?.startDate ?? defaultStart);
+  const [end, setEnd] = useState(value?.endDate ?? addDays(defaultStart, 6));
+  const [open, setOpen] = useState<'start' | 'end' | null>(null);
+  const [load, setLoad] = useState(value?.dailyLoadOverride !== null && value?.dailyLoadOverride !== undefined ? toInput(value.dailyLoadOverride, 0) : '');
+  const [suspends, setSuspends] = useState(value?.suspendsReminders ?? true);
+  const [notes, setNotes] = useState(value?.notes ?? '');
+  const lv = load.trim() ? parseNum(load) : null;
+  const bad = !label.trim() || end < start || (lv !== null && (!Number.isFinite(lv) || lv < 0));
+  const save = () => {
+    saveInterruption({ id: value?.id ?? newId(), updatedAt: '', label: label.trim(), reason, startDate: start, endDate: end, dailyLoadOverride: lv, suspendsReminders: suspends, notes: notes.trim() || null });
+    onClose(); showToast('Interruption enregistrée');
+  };
+  return (
+    <Sheet title={value ? 'Modifier l’interruption' : 'Nouvelle interruption'} onClose={onClose} full footer={<button type="button" className="btn btn-primary block" disabled={bad} onClick={save}>Enregistrer</button>}>
+      <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
+        <label className="field"><span className="lbl">Nom</span><input className="input" value={label} placeholder="Entorse cheville, vacances…" onChange={(e) => setLabel(e.target.value)} /></label>
+        <div className="field"><span className="lbl">Motif</span>
+          <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>{(Object.keys(REASON_LABEL) as InterruptionReason[]).map((r) => <button key={r} type="button" className="chip" aria-pressed={reason === r} onClick={() => setReason(r)}>{REASON_LABEL[r]}</button>)}</div>
+        </div>
+        <div className="grid-2" style={{ gap: 'var(--space-12)' }}>
+          <div className="field"><span className="lbl">Du</span><button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setOpen(open === 'start' ? null : 'start')}><span>{dayTitle(start)}</span><Icon name="calendar" size={20} /></button></div>
+          <div className="field"><span className="lbl">Au</span><button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setOpen(open === 'end' ? null : 'end')}><span>{dayTitle(end)}</span><Icon name="calendar" size={20} /></button></div>
+        </div>
+        {open && <DatePicker value={open === 'start' ? start : end} onChange={(v) => { if (open === 'start') { setStart(v); if (end < v) setEnd(v); } else setEnd(v); setOpen(null); }} />}
+        {end < start && <span className="t-caption-strong c-critical">La fin précède le début.</span>}
+        <label className="field"><span className="lbl">Charge forfaitaire par jour <span className="c-moderate" style={{ fontWeight: 400 }}>(facultatif)</span></span><input className="input num" inputMode="numeric" value={load} placeholder="vide = charge mesurée" onChange={(e) => setLoad(e.target.value)} /><span className="hint">Remplace la charge des jours sans séance. 0 pour un arrêt complet ; une valeur pour un effort non mesuré (déménagement, randonnée).</span></label>
+        <div className="between" style={{ gap: 'var(--space-12)' }}><span className="t-strong" id="lbl-susp">Suspendre les rappels et alertes</span><Switch checked={suspends} labelledBy="lbl-susp" onChange={setSuspends} /></div>
+        <label className="field"><span className="lbl">Notes</span><textarea className="input textarea" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
+        {onDelete && <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start', color: 'var(--critical-text)' }} onClick={onDelete}><Icon name="trash" size={18} />Supprimer</button>}
+      </div>
+    </Sheet>
+  );
+}
+
+// ------------------------------------------------------------------ Chargement
+// Pas d'écran de connexion au premier lancement (décision du 12/10) : la connexion Google se fait depuis
+// Paramètres › Compte, ou depuis la carte de bienvenue de l'Accueil.
+export function LoadingScreen() {
+  return (
+    <div className="screen" aria-busy="true" aria-label="Chargement" data-component="Skeleton">
+      <div className="stack-16" style={{ padding: 'calc(var(--safe-top) + var(--space-16)) var(--screen-margin)' }}>
+        <div className="skel" style={{ height: 44, borderRadius: 'var(--radius-full)' }} />
+        <div className="skel" style={{ height: 150, borderRadius: 'var(--radius-16)' }} />
+        <div className="skel" style={{ height: 96, borderRadius: 'var(--radius-16)' }} />
+        <div className="row" style={{ gap: 'var(--space-16)' }}>
+          {[1, 2, 3].map((k) => <div key={k} className="skel grow" style={{ height: 64, borderRadius: 'var(--radius-12)' }} />)}
+        </div>
+        <div className="skel" style={{ height: 120, borderRadius: 'var(--radius-16)' }} />
+      </div>
+    </div>
+  );
+}
+
+export { getPrefs };

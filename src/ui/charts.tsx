@@ -1,0 +1,257 @@
+// Graphiques SVG — même grammaire que PEAnalyze : graduations à droite, grille discrète, curseur vertical
+// et info-bulle sombre au survol / au toucher, largeur fluide.
+import { useState, type ReactNode } from 'react';
+import { useWidth } from './kit';
+import { dateShort, dayMonth, DISCIPLINE_LABEL, duration, num, NBSP, monthShort, signed } from './format';
+import type { DayLoad } from '../domain/load';
+import type { DailyForm } from '../domain/form';
+import { formStep, FORM_STEP_LABEL } from '../domain/form';
+import type { ZoneReading } from '../domain/types';
+const AXIS = 36;
+
+export function niceStep(raw: number): number {
+  if (!(raw > 0)) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / p;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p;
+}
+
+function hoverIndex(ev: React.PointerEvent<HTMLDivElement>, n: number): number {
+  const r = ev.currentTarget.getBoundingClientRect();
+  return Math.round(Math.min(Math.max((ev.clientX - r.left) / r.width, 0), 1) * (n - 1));
+}
+
+// ------------------------------------------------------------------ Charge : deux panneaux, échelles indépendantes
+export function LoadChart({ days, height = 150, compact = false }: { days: DayLoad[]; height?: number; compact?: boolean }) {
+  const [ref, cw] = useWidth<HTMLDivElement>();
+  const [hover, setHover] = useState<number | null>(null);
+  const n = days.length;
+  if (n < 2) return <div ref={ref} className="t-caption c-moderate" style={{ padding: 'var(--space-16) 0' }}>Pas encore assez de jours collectés pour tracer la charge.</div>;
+  const W = cw - AXIS, T = 8, H1 = height, gap = compact ? 10 : 14, H2 = compact ? 44 : 64;
+  const B1 = T + H1, T2 = B1 + gap, B2 = T2 + H2, total = B2 + 22;
+  const top = Math.max(...days.map((d) => Math.max(d.load, d.fitness, d.fatigue)), 1);
+  const step = niceStep(top / 3), max = Math.ceil(top / step) * step;
+  const fr = Math.max(...days.map((d) => Math.abs(d.freshness)), 5);
+  const X = (i: number) => (n === 1 ? W / 2 : ((i + 0.5) / n) * W);
+  const Y = (v: number) => T + H1 - (v / max) * H1;
+  const mid = T2 + H2 / 2;
+  const YF = (v: number) => mid - (v / fr) * (H2 / 2);
+  const bw = Math.max(1.5, (W / n) * 0.62);
+  const line = (k: 'fitness' | 'fatigue') => days.map((d, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ',' + Y(d[k]).toFixed(1)).join(' ');
+  let grid = '';
+  const ticks: ReactNode[] = [];
+  for (let v = step; v <= max + 1e-6; v += step) {
+    grid += 'M0,' + Y(v).toFixed(1) + ' H' + W + ' ';
+    ticks.push(<span key={v} className="tick" style={{ left: W + 6, top: Y(v) - 9 }}>{num(v, 0)}</span>);
+  }
+  const h = hover ?? n - 1;
+  const hd = days[h];
+  const picks = compact ? [0, n - 1] : [0, Math.round((n - 1) / 2), n - 1];
+  return (
+    <div ref={ref} className="chart" data-component="LoadChart" style={{ height: total }}>
+      <svg viewBox={`0 0 ${cw} ${total}`} width={cw} height={total} role="img" aria-label={`Charge, forme de fond et fatigue sur ${n} jours ; fraîcheur du jour ${signed(days[n - 1].freshness, 0)}`}>
+        <path d={grid} fill="none" strokeWidth="1" style={{ stroke: 'var(--chart-grid)' }} />
+        {days.map((d, i) => d.load > 0 && <rect key={i} x={X(i) - bw / 2} y={Y(d.load)} width={bw} height={B1 - Y(d.load)} rx={Math.min(2, bw / 2)} style={{ fill: d.estimated ? 'var(--bg-brand-moderate)' : 'var(--chart-load)' }} />)}
+        <path d={line('fatigue')} fill="none" strokeWidth="1.75" strokeDasharray="6 4" style={{ stroke: 'var(--chart-fatigue)' }} />
+        <path d={line('fitness')} fill="none" strokeWidth="2.5" strokeLinejoin="round" style={{ stroke: 'var(--chart-fitness)' }} />
+        <line x1="0" x2={W} y1={B1} y2={B1} strokeWidth="1" style={{ stroke: 'var(--border-moderate)' }} />
+        <line x1="0" x2={W} y1={mid} y2={mid} strokeWidth="1" style={{ stroke: 'var(--border-minimal)' }} />
+        {days.map((d, i) => <rect key={'f' + i} x={X(i) - bw / 2} y={Math.min(mid, YF(d.freshness))} width={bw} height={Math.max(0.5, Math.abs(YF(d.freshness) - mid))} style={{ fill: d.freshness >= 0 ? 'var(--chart-fresh-pos)' : 'var(--chart-fresh-neg)' }} />)}
+      </svg>
+      {ticks}
+      <span className="tick" style={{ left: W + 6, top: T2 - 4 }}>{'+' + num(fr, 0)}</span>
+      <span className="tick" style={{ left: W + 6, top: B2 - 14 }}>{'−' + num(fr, 0)}</span>
+      {picks.map((i, k) => <span key={k} className="tick" style={{ top: B2 + 4, ...(k === 0 ? { left: 0 } : k === picks.length - 1 ? { right: AXIS } : { left: X(i) - 30, width: 60, textAlign: 'center' as const }) }}>{dateShort(days[i].day)}</span>)}
+      <div className="cross" style={{ top: T, height: B2 - T, left: X(h) }} />
+      <span aria-hidden="true" className="marker-dot" style={{ background: 'var(--chart-fitness)', border: '2px solid var(--bg-surface)', left: X(h) - 5, top: Y(hd.fitness) - 5 }} />
+      <div className="hit" style={{ width: W, height: B2 }} onPointerMove={(e) => setHover(hoverIndex(e, n))} onPointerDown={(e) => setHover(hoverIndex(e, n))} onPointerLeave={() => setHover(null)} />
+      <div role="status" className="tip" style={{ minWidth: 150, left: Math.min(Math.max(X(h) - 75, 0), W - 150), top: Y(hd.fitness) > 70 ? 6 : Math.min(B1 - 80, Y(hd.fitness) + 14) }}>
+        <span className="t-caption-strong" style={{ color: 'var(--text-reverse)' }}>{dayMonth(hd.day)}{hd.interruptionFill ? ' · forfait' : ''}</span>
+        <span className="t-caption c-reverse-muted">Charge {num(hd.load, 0)}{hd.estimated && hd.load ? ' (estimée)' : ''}</span>
+        <span className="t-caption" style={{ color: 'var(--text-reverse)' }}>Fond {num(hd.fitness, 0)} · Fatigue {num(hd.fatigue, 0)}</span>
+        <span className="t-caption-strong" style={{ color: hd.freshness >= 0 ? 'var(--brand-light-green)' : 'var(--text-reverse-muted)' }}>Fraîcheur {signed(hd.freshness, 0)}</span>
+      </div>
+    </div>
+  );
+}
+
+export function LoadLegend() {
+  return (
+    <div className="legend">
+      <span><span style={{ width: 16, height: 3, borderRadius: 'var(--radius-full)', background: 'var(--chart-fitness)' }} />Forme de fond</span>
+      <span><span style={{ width: 16, borderTop: '2px dashed var(--chart-fatigue)' }} />Fatigue</span>
+      <span><span style={{ width: 10, height: 10, borderRadius: 'var(--radius-2)', background: 'var(--chart-load)' }} />Charge du jour</span>
+      <span><span style={{ width: 10, height: 10, borderRadius: 'var(--radius-2)', background: 'var(--chart-fresh-pos)' }} />Fraîcheur</span>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ Forme du jour dans le temps
+export function FormChart({ days, forms }: { days: string[]; forms: Map<string, DailyForm> }) {
+  const [ref, cw] = useWidth<HTMLDivElement>();
+  const [hover, setHover] = useState<number | null>(null);
+  const pts = days.map((d, i) => ({ i, d, f: forms.get(d) })).filter((p) => p.f);
+  const n = days.length;
+  if (pts.length < 2) return <div ref={ref} className="t-caption c-moderate">La forme du jour apparaîtra ici dès qu’elle sera calculable plusieurs jours de suite.</div>;
+  const W = cw - AXIS, T = 8, H = 120, B = T + H;
+  const X = (i: number) => (i / (n - 1)) * W;
+  const Y = (v: number) => T + H - (v / 100) * H;
+  const path = pts.map((p, k) => (k ? 'L' : 'M') + X(p.i).toFixed(1) + ',' + Y(p.f!.score).toFixed(1)).join(' ');
+  const bands: [number, number, string][] = [[0, 25, 'depleted'], [25, 45, 'strained'], [45, 65, 'steady'], [65, 83, 'ready'], [83, 100, 'fresh']];
+  const h = hover === null ? pts[pts.length - 1] : pts.reduce((a, b) => (Math.abs(b.i - hover) < Math.abs(a.i - hover) ? b : a));
+  return (
+    <div ref={ref} className="chart" style={{ height: B + 22 }}>
+      <svg viewBox={`0 0 ${cw} ${B + 22}`} width={cw} height={B + 22} role="img" aria-label={`Forme du jour sur ${n} jours`}>
+        {bands.map(([a, b, k]) => <rect key={k} x="0" y={Y(b)} width={W} height={Y(a) - Y(b)} style={{ fill: `var(--form-${k})`, opacity: 0.1 }} />)}
+        <path d={path} fill="none" strokeWidth="2.5" strokeLinejoin="round" style={{ stroke: 'var(--text)' }} />
+        {pts.map((p) => <circle key={p.i} cx={X(p.i)} cy={Y(p.f!.score)} r="2.5" style={{ fill: `var(--form-${formStep(p.f!.score)})` }} />)}
+      </svg>
+      {[25, 50, 75, 100].map((v) => <span key={v} className="tick" style={{ left: W + 6, top: Y(v) - 9 }}>{v}</span>)}
+      <span className="tick" style={{ top: B + 4, left: 0 }}>{dateShort(days[0])}</span>
+      <span className="tick" style={{ top: B + 4, right: AXIS }}>{dateShort(days[n - 1])}</span>
+      <div className="cross" style={{ top: T, height: H, left: X(h.i) }} />
+      <div className="hit" style={{ width: W, height: B }} onPointerMove={(e) => setHover(hoverIndex(e, n))} onPointerDown={(e) => setHover(hoverIndex(e, n))} onPointerLeave={() => setHover(null)} />
+      <div role="status" className="tip" style={{ minWidth: 120, left: Math.min(Math.max(X(h.i) - 60, 0), W - 120), top: 6 }}>
+        <span className="t-caption-strong" style={{ color: 'var(--text-reverse)' }}>{dayMonth(h.d)}</span>
+        <span className="t-amount-s" style={{ color: 'var(--text-reverse)' }}>{num(h.f!.score, 0)}{NBSP}/{NBSP}100 · {FORM_STEP_LABEL[formStep(h.f!.score)]}</span>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ barres hebdomadaires (volume, séances)
+export function WeekBars({ weeks, color = 'var(--brand-primary)', label }: { weeks: { start: string; seconds: number; sessions: number }[]; color?: string; label: string }) {
+  const [ref, cw] = useWidth<HTMLDivElement>();
+  const [hover, setHover] = useState<number | null>(null);
+  const n = weeks.length;
+  const W = cw - AXIS, T = 8, H = 120, B = T + H;
+  const top = Math.max(...weeks.map((w) => w.seconds), 3600);
+  const step = niceStep(top / 3600 / 3) * 3600, max = Math.ceil(top / step) * step;
+  const bw = (W / n) * 0.62;
+  const X = (i: number) => ((i + 0.5) / n) * W;
+  const Y = (v: number) => T + H - (v / max) * H;
+  const h = hover ?? n - 1;
+  return (
+    <div ref={ref} className="chart" style={{ height: B + 36 }} data-component="WeekBars">
+      <svg viewBox={`0 0 ${cw} ${B + 36}`} width={cw} height={B + 36} role="img" aria-label={label}>
+        {Array.from({ length: Math.round(max / step) }, (_, k) => <line key={k} x1="0" x2={W} y1={Y((k + 1) * step)} y2={Y((k + 1) * step)} strokeWidth="1" style={{ stroke: 'var(--chart-grid)' }} />)}
+        {weeks.map((w, i) => <rect key={i} x={X(i) - bw / 2} y={Y(w.seconds)} width={bw} height={Math.max(0, B - Y(w.seconds))} rx="3" style={{ fill: color, opacity: i === h ? 1 : 0.55 }} />)}
+        <line x1="0" x2={W} y1={B} y2={B} strokeWidth="1" style={{ stroke: 'var(--border-moderate)' }} />
+      </svg>
+      {Array.from({ length: Math.round(max / step) }, (_, k) => <span key={k} className="tick" style={{ left: W + 6, top: Y((k + 1) * step) - 9 }}>{num(((k + 1) * step) / 3600, 0)}{NBSP}h</span>)}
+      {weeks.map((w, i) => <span key={i} className="tick" style={{ top: B + 4, left: X(i) - 14, width: 28, textAlign: 'center' }}>{w.sessions || ''}</span>)}
+      <span className="tick" style={{ top: B + 18, left: 0 }}>{dateShort(weeks[0].start)}</span>
+      <span className="tick" style={{ top: B + 18, right: AXIS }}>{dateShort(weeks[n - 1].start)}</span>
+      <div className="hit" style={{ width: W, height: B }} onPointerMove={(e) => setHover(hoverIndex(e, n))} onPointerDown={(e) => setHover(hoverIndex(e, n))} onPointerLeave={() => setHover(null)} />
+      {hover !== null && (
+        <div role="status" className="tip" style={{ minWidth: 120, left: Math.min(Math.max(X(h) - 60, 0), W - 120), top: 4 }}>
+          <span className="t-caption c-reverse-muted">Semaine du {dateShort(weeks[h].start)}</span>
+          <span className="t-amount-s" style={{ color: 'var(--text-reverse)' }}>{duration(weeks[h].seconds)} · {weeks[h].sessions} séance{weeks[h].sessions > 1 ? 's' : ''}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ volume hebdomadaire empilé par discipline
+export function StackedWeeks({ weeks, order }: { weeks: { start: string; byDiscipline: Record<string, number>; total: number }[]; order: string[] }) {
+  const [ref, cw] = useWidth<HTMLDivElement>();
+  const [hover, setHover] = useState<number | null>(null);
+  const n = weeks.length;
+  const W = cw - AXIS, T = 8, H = 150, B = T + H;
+  const top = Math.max(...weeks.map((w) => w.total), 3600);
+  const step = niceStep(top / 3600 / 3) * 3600, max = Math.ceil(top / step) * step;
+  const bw = (W / n) * 0.62;
+  const X = (i: number) => ((i + 0.5) / n) * W;
+  const Y = (v: number) => T + H - (v / max) * H;
+  const h = hover ?? n - 1;
+  return (
+    <div ref={ref} className="chart" style={{ height: B + 22 }} data-component="StackedWeeks">
+      <svg viewBox={`0 0 ${cw} ${B + 22}`} width={cw} height={B + 22} role="img" aria-label={`Volume hebdomadaire par discipline sur ${n} semaines`}>
+        {Array.from({ length: Math.round(max / step) }, (_, k) => <line key={k} x1="0" x2={W} y1={Y((k + 1) * step)} y2={Y((k + 1) * step)} strokeWidth="1" style={{ stroke: 'var(--chart-grid)' }} />)}
+        {weeks.map((w, i) => {
+          let acc = 0;
+          return order.map((d) => {
+            const v = w.byDiscipline[d] ?? 0;
+            if (!v) return null;
+            const y0 = Y(acc), y1 = Y(acc + v);
+            acc += v;
+            return <rect key={i + d} x={X(i) - bw / 2} y={y1} width={bw} height={Math.max(0, y0 - y1 - 1)} style={{ fill: `var(--d-${d})`, opacity: hover === null || i === h ? 1 : 0.5 }} />;
+          });
+        })}
+        <line x1="0" x2={W} y1={B} y2={B} strokeWidth="1" style={{ stroke: 'var(--border-moderate)' }} />
+      </svg>
+      {Array.from({ length: Math.round(max / step) }, (_, k) => <span key={k} className="tick" style={{ left: W + 6, top: Y((k + 1) * step) - 9 }}>{num(((k + 1) * step) / 3600, 0)}{NBSP}h</span>)}
+      <span className="tick" style={{ top: B + 4, left: 0 }}>{dateShort(weeks[0].start)}</span>
+      <span className="tick" style={{ top: B + 4, right: AXIS }}>{dateShort(weeks[n - 1].start)}</span>
+      <div className="hit" style={{ width: W, height: B }} onPointerMove={(e) => setHover(hoverIndex(e, n))} onPointerDown={(e) => setHover(hoverIndex(e, n))} onPointerLeave={() => setHover(null)} />
+      {hover !== null && (
+        <div role="status" className="tip" style={{ minWidth: 140, left: Math.min(Math.max(X(h) - 70, 0), W - 140), top: 4 }}>
+          <span className="t-caption-strong" style={{ color: 'var(--text-reverse)' }}>Semaine du {dateShort(weeks[h].start)} · {duration(weeks[h].total)}</span>
+          {order.filter((d) => weeks[h].byDiscipline[d]).map((d) => <span key={d} className="t-caption c-reverse-muted">{DISCIPLINE_LABEL[d as 'RUN']} {duration(weeks[h].byDiscipline[d])}</span>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ indicateur en escalier (VMA, CSS…)
+export function StepChart({ history, format, color = 'var(--brand-primary)' }: { history: ZoneReading[]; format: (v: number) => string; color?: string }) {
+  const [ref, cw] = useWidth<HTMLDivElement>();
+  const pts = [...history].sort((a, b) => (a.measuredAt < b.measuredAt ? -1 : 1));
+  if (pts.length < 2) return <div ref={ref} />;
+  const W = cw - AXIS - 4, T = 14, H = 90, B = T + H;
+  const t0 = Date.parse(pts[0].measuredAt), t1 = Math.max(Date.now(), Date.parse(pts[pts.length - 1].measuredAt) + 864e5);
+  const lo = Math.min(...pts.map((p) => p.value)), hi = Math.max(...pts.map((p) => p.value));
+  const pad = (hi - lo) * 0.2 || hi * 0.05;
+  const X = (t: number) => ((t - t0) / (t1 - t0)) * W;
+  const Y = (v: number) => T + H - ((v - (lo - pad)) / (hi + pad - (lo - pad))) * H;
+  return (
+    <div ref={ref} className="chart" style={{ height: B + 22 }}>
+      <svg viewBox={`0 0 ${cw} ${B + 22}`} width={cw} height={B + 22} role="img" aria-label="Progression de l’indicateur">
+        {pts.map((p, i) => {
+          const x0 = X(Date.parse(p.measuredAt)), x1 = i + 1 < pts.length ? X(Date.parse(pts[i + 1].measuredAt)) : W;
+          const dashed = p.source !== 'test';
+          return (
+            <g key={p.id}>
+              <line x1={x0} x2={x1} y1={Y(p.value)} y2={Y(p.value)} strokeWidth="2.5" strokeDasharray={dashed ? '6 4' : undefined} style={{ stroke: color }} />
+              {i + 1 < pts.length && <line x1={x1} x2={x1} y1={Y(p.value)} y2={Y(pts[i + 1].value)} strokeWidth="1" style={{ stroke: color, opacity: 0.5 }} />}
+              <circle cx={x0} cy={Y(p.value)} r="3.5" style={{ fill: 'var(--bg-surface)', stroke: color }} strokeWidth="2" />
+            </g>
+          );
+        })}
+      </svg>
+      <span className="tick" style={{ left: W + 6, top: Y(hi) - 9 }}>{format(hi)}</span>
+      {hi !== lo && <span className="tick" style={{ left: W + 6, top: Y(lo) - 9 }}>{format(lo)}</span>}
+      <span className="tick" style={{ top: B + 4, left: 0 }}>{monthShort(pts[0].measuredAt.slice(0, 7))}</span>
+      <span className="tick" style={{ top: B + 4, right: AXIS }}>aujourd’hui</span>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ anneau (copie de PEAnalyze)
+export interface Slice { value: number; color: string }
+function rings(slices: Slice[], r: number, c: number, width: number) {
+  const C = 2 * Math.PI * r;
+  const total = slices.reduce((s, x) => s + x.value, 0) || 1;
+  const visible = slices.filter((x) => x.value > 0);
+  const gap = visible.length > 1 ? 2 : 0;
+  let off = 0;
+  return visible.map((x, i) => {
+    const len = Math.max((x.value / total) * C - gap, 0.5);
+    const el = <circle key={i} cx={c} cy={c} r={r} fill="none" strokeWidth={width} strokeDasharray={`${len.toFixed(2)} ${(C - len).toFixed(2)}`} strokeDashoffset={(-off).toFixed(2)} transform={`rotate(-90 ${c} ${c})`} style={{ stroke: x.color }} />;
+    off += len + gap;
+    return el;
+  });
+}
+export function Donut({ slices, size = 150, ring = 22, label, children }: { slices: Slice[]; size?: number; ring?: number; label: string; children?: ReactNode }) {
+  const c = size / 2, r = c - ring / 2 - 4;
+  return (
+    <div className="donut-wrap" style={{ width: size, height: size }}>
+      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} role="img" aria-label={label}>
+        {slices.some((s) => s.value > 0) ? rings(slices, r, c, ring) : <circle cx={c} cy={c} r={r} fill="none" strokeWidth={ring} style={{ stroke: 'var(--bg-grey-minimal)' }} />}
+      </svg>
+      <div className="donut-center">{children}</div>
+    </div>
+  );
+}

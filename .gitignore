@@ -1,0 +1,8 @@
+node_modules/
+dist/
+android-shell/node_modules/
+android-shell/android/
+android-shell/capacitor.config.json
+tools/demo.json
+*.log
+.DS_Store
