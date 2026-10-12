@@ -2,6 +2,7 @@
 // Changements : le « rapport aux habitudes » compare désormais à la médiane des 8 dernières semaines
 // de la même discipline (avant : tout l'historique, toutes méthodes de charge confondues) ;
 // l'alerte de hausse de charge rapide (LOAD_RAMP), déclarée mais jamais produite, existe enfin.
+import { $t } from '../i18n';
 import { estimateDistance, estimateDuration, hasSet, type Certainty, type RefValues } from './blocks';
 import { addDays } from './dates';
 import { median } from './hr';
@@ -19,13 +20,13 @@ export const RPE_HIGH = 8;
 
 export type Verdict = 'onPlan' | 'shorter' | 'longer' | 'above' | 'typical' | 'below' | 'pending';
 export const VERDICT_TEXT: Record<Verdict, string> = {
-  onPlan: 'Conforme à ce qui était prévu',
-  shorter: 'Plus courte que ce qui était prévu',
-  longer: 'Plus longue que ce qui était prévu',
-  above: 'Plus chargée que tes séances habituelles',
-  typical: 'Charge conforme à tes séances habituelles',
-  below: 'Plus légère que tes séances habituelles',
-  pending: 'Charge en attente de ton ressenti',
+  onPlan: $t("Conforme à ce qui était prévu"),
+  shorter: $t("Plus courte que ce qui était prévu"),
+  longer: $t("Plus longue que ce qui était prévu"),
+  above: $t("Plus chargée que tes séances habituelles"),
+  typical: $t("Charge conforme à tes séances habituelles"),
+  below: $t("Plus légère que tes séances habituelles"),
+  pending: $t("Charge en attente de ton ressenti"),
 };
 
 export interface PlanComparison {
@@ -97,11 +98,11 @@ export function verdictFor(planRatio: number | null, habit: number | null): { ve
 
 export type DriftReason = 'continuous' | 'noValue' | 'tooShort' | 'structured' | 'unknownStructure';
 export const DRIFT_REASON_TEXT: Record<DriftReason, string> = {
-  noValue: 'Pas de série de fréquence cardiaque exploitable pour cette séance.',
-  tooShort: 'Séance trop courte pour qu’une dérive veuille dire quelque chose.',
-  structured: 'Le plan rattaché contient une série (fractionné) : la dérive reflète la structure de la séance, pas l’effort continu.',
-  unknownStructure: 'Aucun plan rattaché : impossible de savoir si l’effort était continu ou fractionné.',
-  continuous: 'Effort continu, dérive interprétable.',
+  noValue: $t("Pas de série de fréquence cardiaque exploitable pour cette séance."),
+  tooShort: $t("Séance trop courte pour qu’une dérive veuille dire quelque chose."),
+  structured: $t("Le plan rattaché contient une série (fractionné) : la dérive reflète la structure de la séance, pas l’effort continu."),
+  unknownStructure: $t("Aucun plan rattaché : impossible de savoir si l’effort était continu ou fractionné."),
+  continuous: $t("Effort continu, dérive interprétable."),
 };
 
 export function readDrift(drift: number | null, durationSec: number, plan: PlanComparison | null): { value: number | null; interpretable: boolean; reason: DriftReason } {
@@ -165,8 +166,8 @@ export function trainingAlerts(data: AppData, links: Links, loads: Map<string, S
 }
 
 export const ALERT_TEXT: Record<TrainingAlertCode, (a: TrainingAlert) => string> = {
-  MISSED_SESSIONS: (a) => (a.count > 1 ? `${a.count} séances prévues non réalisées sur les 7 derniers jours.` : '1 séance prévue non réalisée sur les 7 derniers jours.'),
-  RPE_HIGH_STREAK: () => '3 séances de suite à ressenti élevé (RPE 8 ou plus).',
-  LOAD_RAMP: (a) => `Hausse de charge rapide : ratio aigu/chronique à ${(a.value ?? 0).toFixed(2).replace('.', ',')} (au-delà de 1,5).`,
-  PENDING_RPE: (a) => (a.count > 1 ? `${a.count} séances récentes attendent ton ressenti pour une charge fiable.` : '1 séance récente attend ton ressenti pour une charge fiable.'),
+  MISSED_SESSIONS: (a) => (a.count > 1 ? $t("{0} séances prévues non réalisées sur les 7 derniers jours.", { 0: a.count }) : $t("1 séance prévue non réalisée sur les 7 derniers jours.")),
+  RPE_HIGH_STREAK: () => $t("3 séances de suite à ressenti élevé (RPE 8 ou plus)."),
+  LOAD_RAMP: (a) => $t("Hausse de charge rapide : ratio aigu/chronique à {0} (au-delà de 1,5).", { 0: (a.value ?? 0).toFixed(2).replace('.', $t(",")) }),
+  PENDING_RPE: (a) => (a.count > 1 ? $t("{0} séances récentes attendent ton ressenti pour une charge fiable.", { 0: a.count }) : $t("1 séance récente attend ton ressenti pour une charge fiable.")),
 };

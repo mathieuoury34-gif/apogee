@@ -5,6 +5,7 @@
 //  2. une cible RELATIVE (% VMA, % CSS) est résolue avec le dernier relevé connu pour estimer durée et
 //     distance — le total devient alors « estimé » plutôt que « inconnu ». Le bloc lui-même reste écrit
 //     en pourcentage (format d'échange inchangé).
+import { $t } from '../i18n';
 import type { Block, BlockKind, PlannedDiscipline, PlannedSession } from './types';
 
 export interface RefValues {
@@ -115,18 +116,18 @@ export type DraftIssueCode =
 export interface DraftIssue { code: DraftIssueCode; path: number[] }
 
 export const ISSUE_TEXT: Record<DraftIssueCode, string> = {
-  EMPTY_SESSION: 'La séance ne contient aucun bloc.',
-  SET_WITHOUT_CHILDREN: 'Une série vide ne répète rien.',
-  SET_WITHOUT_MODE: 'Le mode de la série n’est pas choisi.',
-  SET_MISSING_COUNT: 'Le nombre de répétitions manque.',
-  SET_MISSING_WINDOW: 'La fenêtre de temps manque.',
-  MEASURE_MISSING: 'Rien ne dit ce qui termine ce bloc.',
-  MEASURE_VALUE_MISSING: 'La valeur de la mesure manque.',
-  TARGET_VALUE_MISSING: 'Une cible est choisie mais sans valeur.',
-  TARGET_RANGE_INVERTED: 'La borne haute est inférieure à la borne basse.',
-  DISCIPLINE_OVERRIDE_OUTSIDE_BRICK: 'Une discipline de bloc n’a de sens que dans un enchaînement.',
-  TRANSITION_OUTSIDE_BRICK: 'Une transition n’a de sens que dans un enchaînement.',
-  DATE_INVALID: 'La date est invalide.',
+  EMPTY_SESSION: $t("La séance ne contient aucun bloc."),
+  SET_WITHOUT_CHILDREN: $t("Une série vide ne répète rien."),
+  SET_WITHOUT_MODE: $t("Le mode de la série n’est pas choisi."),
+  SET_MISSING_COUNT: $t("Le nombre de répétitions manque."),
+  SET_MISSING_WINDOW: $t("La fenêtre de temps manque."),
+  MEASURE_MISSING: $t("Rien ne dit ce qui termine ce bloc."),
+  MEASURE_VALUE_MISSING: $t("La valeur de la mesure manque."),
+  TARGET_VALUE_MISSING: $t("Une cible est choisie mais sans valeur."),
+  TARGET_RANGE_INVERTED: $t("La borne haute est inférieure à la borne basse."),
+  DISCIPLINE_OVERRIDE_OUTSIDE_BRICK: $t("Une discipline de bloc n’a de sens que dans un enchaînement."),
+  TRANSITION_OUTSIDE_BRICK: $t("Une transition n’a de sens que dans un enchaînement."),
+  DATE_INVALID: $t("La date est invalide."),
 };
 
 function validateBlock(b: Block, path: number[], brick: boolean, out: DraftIssue[]) {

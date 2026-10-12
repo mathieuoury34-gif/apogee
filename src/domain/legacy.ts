@@ -2,6 +2,7 @@
 // Les identifiants d'origine sont conservés : les clés `session:482` / `phase:12` déjà connues du coach
 // restent valables. Ce qui est un CACHE dans l'ancienne base (daily_load, charges des séances, estimations
 // automatiques de FC max) n'est pas repris : la nouvelle app le recalcule.
+import { $t } from '../i18n';
 import { readSqlite, type SqlValue } from './sqlite';
 import { nowIso } from './ids';
 import type { ActualSession, AppData, Athlete, Block, BrickPair, CoachExchange, Interruption, PlannedSession, Race, RestingHr, SessionSeries, SleepNight, TrainingPhase, ZoneReading } from './types';
@@ -22,7 +23,7 @@ export function emptyData(): AppData {
 export function importLegacyDb(bytes: Uint8Array): { data: AppData; report: LegacyReport } {
   const t = readSqlite(bytes);
   const rows = (name: string) => t.get(name)?.rows ?? [];
-  if (!t.has('actual_session') || !t.has('planned_session')) throw new Error('ce fichier ne ressemble pas à une base Iron App');
+  if (!t.has('actual_session') || !t.has('planned_session')) throw new Error($t("ce fichier ne ressemble pas à une base Iron App"));
   const now = nowIso();
   const d = emptyData();
   const skipped: string[] = [];
@@ -44,7 +45,7 @@ export function importLegacyDb(bytes: Uint8Array): { data: AppData; report: Lega
   }
   for (const z of rows('zone')) {
     const kind = s(z.kind) as ZoneReading['kind'];
-    if (!(ZONE_KINDS as readonly string[]).includes(kind)) { skipped.push('relevé ' + kind); continue; }
+    if (!(ZONE_KINDS as readonly string[]).includes(kind)) { skipped.push($t("relevé ") + kind); continue; }
     const notes = s(z.notes);
     // estimations automatiques de l'ancienne app : recalculées désormais, pas reprises comme saisies
     if (kind === 'hr_max' && s(z.source) === 'estimation' && notes && /^(Pic observé|Estimation de Tanaka)/.test(notes)) continue;
@@ -141,7 +142,7 @@ export function importLegacyDb(bytes: Uint8Array): { data: AppData; report: Lega
     d.exchanges[id] = ex;
   }
   const overrides = rows('manual_override').length;
-  if (overrides) skipped.push(overrides + ' correction(s) manuelle(s) de charge quotidienne (jamais utilisées par l’ancienne interface)');
+  if (overrides) skipped.push(overrides + $t(" correction(s) manuelle(s) de charge quotidienne (jamais utilisées par l’ancienne interface)"));
   d.updatedAt = now;
   const counts: Record<string, number> = {};
   for (const c of COLLECTIONS) counts[c] = Object.keys(d[c]).length;

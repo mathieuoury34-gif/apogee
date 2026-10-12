@@ -1,6 +1,7 @@
 // Notifications locales (APK) : les quatre comportements de la version Android (SPECS-TECH §8), recalculés en
 // entier à chaque changement : rappel de séance (3 jours glissants), plan bientôt à échéance, plan échu
 // (relance hebdomadaire), suspension pendant une interruption. Ton neutre, jamais culpabilisant.
+import { $t } from '../i18n';
 import { addDays, today } from '../domain/dates';
 import { lastPlanValidity } from '../domain/coach';
 import { liveRecords } from '../domain/load';
@@ -31,14 +32,14 @@ export async function scheduleReminders(data: AppData, d: Derived): Promise<void
     const when = at(p.plannedDate);
     if (when <= now) continue;
     const disc = DISCIPLINE_LABEL[p.discipline];
-    list.push({ id: id++, title: 'Séance du jour', body: p.title ? `${disc} — ${p.title}` : `${disc} au programme aujourd’hui.`, schedule: { at: when, allowWhileIdle: true } });
+    list.push({ id: id++, title: $t("Séance du jour"), body: p.title ? `${disc} — ${p.title}` : $t("{0} au programme aujourd’hui.", { 0: disc }), schedule: { at: when, allowWhileIdle: true } });
   }
   const valid = lastPlanValidity(data);
-  const overdue = (day: string) => !suspended(data, day) && at(day) > now && list.push({ id: id++, title: 'Plan à renouveler', body: 'Ton plan n’a pas été renouvelé depuis un moment. Un nouvel échange avec ton coach, quand tu es prêt.', schedule: { at: at(day), allowWhileIdle: true } });
+  const overdue = (day: string) => !suspended(data, day) && at(day) > now && list.push({ id: id++, title: $t("Plan à renouveler"), body: $t("Ton plan n’a pas été renouvelé depuis un moment. Un nouvel échange avec ton coach, quand tu es prêt."), schedule: { at: at(day), allowWhileIdle: true } });
   if (!valid) overdue(at(t) > now ? t : addDays(t, 1));
   else {
     const warn = addDays(valid, -DUE_WARNING);
-    if (warn >= t && !suspended(data, warn) && at(warn) > now) list.push({ id: id++, title: 'Plan bientôt à échéance', body: `Ton plan arrive à échéance dans ${DUE_WARNING} jours — pense à échanger avec ton coach.`, schedule: { at: at(warn), allowWhileIdle: true } });
+    if (warn >= t && !suspended(data, warn) && at(warn) > now) list.push({ id: id++, title: $t("Plan bientôt à échéance"), body: $t("Ton plan arrive à échéance dans {0} jours — pense à échanger avec ton coach.", { 0: DUE_WARNING }), schedule: { at: at(warn), allowWhileIdle: true } });
     let o = addDays(valid, OVERDUE_AFTER);
     while (o < t) o = addDays(o, OVERDUE_REPEAT);
     overdue(o);

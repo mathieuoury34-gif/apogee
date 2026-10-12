@@ -8,7 +8,11 @@ import { liveRecords, sessionDay, zoneHistory, METHOD_LABEL } from '../domain/lo
 import type { AppData } from '../domain/types';
 import { CORE } from '../domain/stats';
 import { FORM_STEP_LABEL, formStep } from '../domain/form';
-import { blocksSummary, DISCIPLINE_LABEL } from '../ui/format';
+import { blocksSummary } from '../ui/format';
+import type { Discipline } from '../domain/types';
+
+// Le classeur reste en français quelle que soit la langue de l'app : ses formules filtrent sur ces libellés.
+const DISCIPLINE_LABEL: Record<Discipline, string> = { RUN: 'Course', BIKE: 'Vélo', SWIM: 'Natation', STRENGTH: 'Renforcement', BRICK: 'Enchaînement', OTHER: 'Autre' };
 import { Workbook, colName as L, excelDate, type Sheet, type Style, type Value } from './xlsx';
 
 const INK = '16181B', MUTED = '656970', DIV = 'E9E6DF', SUB = 'C3BEB2';

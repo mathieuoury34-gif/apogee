@@ -7,6 +7,7 @@
 //    automatique existe depuis T4) ; « heuristic » ne reste qu'en dernier recours ;
 //  - les champs ajoutés sont additifs (méthode de charge enrichie, `loadSummary.srpeFactor`), donc
 //    lisibles par un coach qui ne connaît que la version précédente.
+import { $t } from '../i18n';
 import { validateSession, type DraftIssueCode } from './blocks';
 import { addDays, mondayOf, today } from './dates';
 import type { Derived } from './engine';
@@ -285,9 +286,9 @@ export function parsePlan(raw: string): ParseResult {
 // ------------------------------------------------------------------ aperçu et application
 export type PhaseIssueCode = 'PHASE_LABEL_MISSING' | 'PHASE_DATES_INVERTED' | 'PHASE_OVERLAP';
 export const PHASE_ISSUE_TEXT: Record<PhaseIssueCode, string> = {
-  PHASE_LABEL_MISSING: 'Le bloc n’a pas de nom.',
-  PHASE_DATES_INVERTED: 'La date de fin précède la date de début.',
-  PHASE_OVERLAP: 'Cette période en chevauche une autre.',
+  PHASE_LABEL_MISSING: $t("Le bloc n’a pas de nom."),
+  PHASE_DATES_INVERTED: $t("La date de fin précède la date de début."),
+  PHASE_OVERLAP: $t("Cette période en chevauche une autre."),
 };
 export const ISSUE_LABEL = (code: string) => (code in PHASE_ISSUE_TEXT ? PHASE_ISSUE_TEXT[code as PhaseIssueCode] : code);
 
@@ -309,7 +310,7 @@ function resolve<T extends { id: string; idempotencyKey: string | null; deleted?
 export interface ResolvedOp { op: CoachOp; existingId: string | null; category: 'create' | 'update' | 'delete' | 'noop' | 'rejected' }
 export interface Preview { resolved: ResolvedOp[]; created: PreviewItem[]; updated: PreviewItem[]; deleted: PreviewItem[]; rejected: PreviewItem[]; noop: PreviewItem[]; malformed: number }
 
-const DISC_FR: Record<string, string> = { RUN: 'Course', BIKE: 'Vélo', SWIM: 'Natation', STRENGTH: 'Renforcement', BRICK: 'Enchaînement' };
+const DISC_FR: Record<string, string> = { RUN: $t("Course"), BIKE: $t("Vélo"), SWIM: $t("Natation"), STRENGTH: $t("Renforcement"), BRICK: $t("Enchaînement") };
 const dateFr = (d: string | null) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : d);
 const sessionLabel = (o: { discipline: string | null; plannedDate: string | null; title: string | null }) => [o.discipline ? DISC_FR[o.discipline] ?? o.discipline : null, dateFr(o.plannedDate), o.title].filter(Boolean).join(' · ');
 
@@ -353,7 +354,7 @@ export function preview(data: AppData, plan: CoachPlan, malformed: number): Prev
     const me = { id: tmpId, label: op.label ?? '', startDate: op.startDate ?? '', endDate: op.endDate ?? '' };
     const issues = validatePhase(me, [...phaseState.values()]);
     const withNames = [...new Set(issues.map((i) => i.with).filter(Boolean))];
-    const item: PreviewItem = { entity: 'phase', idempotencyKey: op.idempotencyKey, label, issueCodes: [...new Set(issues.map((i) => i.code))], ...(withNames.length ? { detail: 'En conflit avec : ' + withNames.map((n) => `« ${n} »`).join(', ') } : {}) };
+    const item: PreviewItem = { entity: 'phase', idempotencyKey: op.idempotencyKey, label, issueCodes: [...new Set(issues.map((i) => i.code))], ...(withNames.length ? { detail: $t("En conflit avec : ") + withNames.map((n) => `« ${n} »`).join(', ') } : {}) };
     if (issues.length) { pv.rejected.push(item); pv.resolved.push({ op, existingId: existing?.id ?? null, category: 'rejected' }); restoreRejected(existing); continue; }
     phaseState.set(tmpId, me);
     (existing ? pv.updated : pv.created).push(item);
@@ -396,9 +397,9 @@ export function alreadyImported(data: AppData, hash: string): CoachExchange | nu
 }
 
 export const PARSE_ERROR_TEXT = {
-  JSON_INVALID: 'Ce fichier n’est pas un JSON valide.',
-  SCHEMA_VERSION_UNSUPPORTED: 'Format de fichier non reconnu. Cette version de l’app attend "ironapp/1".',
-  STRUCTURE_INVALID: 'Le fichier ne correspond pas à la forme attendue d’un plan coach.',
+  JSON_INVALID: $t("Ce fichier n’est pas un JSON valide."),
+  SCHEMA_VERSION_UNSUPPORTED: $t("Format de fichier non reconnu. Cette version de l’app attend \"ironapp/1\"."),
+  STRUCTURE_INVALID: $t("Le fichier ne correspond pas à la forme attendue d’un plan coach."),
 };
 
 export function lastPlanValidity(data: AppData): string | null {

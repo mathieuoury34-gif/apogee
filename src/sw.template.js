@@ -10,7 +10,10 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith('iron-shell-') && k !== SHELL).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
+// Dans l'APK (WebView Android), rien ne passe par ici : Capacitor doit voir chaque page pour y injecter son pont.
+const IN_APP = /Android/.test(self.navigator.userAgent) && /; wv\)/.test(self.navigator.userAgent);
 self.addEventListener('fetch', (e) => {
+  if (IN_APP) return;
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);

@@ -5,6 +5,7 @@
 //  - plusieurs sommeils pour une même nuit (sieste) : on garde le plus long (avant : le premier lu) ;
 //  - l'identifiant d'une séance ne change jamais, même après édition (avant : l'édition fabriquait un
 //    nouvel identifiant `manual:` et la séance revenait en double à la collecte suivante).
+import { $t } from '../i18n';
 import { aggregates, cleanHr } from './hr';
 import { localDay } from './dates';
 import { newId, nowIso } from './ids';
@@ -16,10 +17,10 @@ export const EXERCISE_TO_DISCIPLINE: Record<number, ActualDiscipline> = {
   8: 'BIKE', 9: 'BIKE', 56: 'RUN', 57: 'RUN', 73: 'SWIM', 74: 'SWIM', 70: 'STRENGTH', 81: 'STRENGTH', 13: 'STRENGTH', 36: 'STRENGTH', 10: 'STRENGTH',
 };
 export const EXERCISE_LABEL: Record<number, string> = {
-  0: 'Autre', 8: 'Vélo', 9: 'Vélo intérieur', 10: 'Circuit', 13: 'Renforcement au poids du corps', 25: 'Elliptique', 36: 'Fractionné haute intensité', 37: 'Randonnée', 53: 'Aviron',
-  56: 'Course', 57: 'Tapis de course', 61: 'Ski', 70: 'Renforcement', 71: 'Étirements', 73: 'Natation eau libre', 74: 'Natation en bassin', 79: 'Marche', 81: 'Musculation', 83: 'Yoga',
+  0: $t("Autre"), 8: $t("Vélo"), 9: $t("Vélo intérieur"), 10: $t("Circuit"), 13: $t("Renforcement au poids du corps"), 25: $t("Elliptique"), 36: $t("Fractionné haute intensité"), 37: $t("Randonnée"), 53: $t("Aviron"),
+  56: $t("Course"), 57: $t("Tapis de course"), 61: $t("Ski"), 70: $t("Renforcement"), 71: $t("Étirements"), 73: $t("Natation eau libre"), 74: $t("Natation en bassin"), 79: $t("Marche"), 81: $t("Musculation"), 83: $t("Yoga"),
 };
-export const exerciseLabel = (t: string | null) => (t === null || t === 'manual' ? 'Saisie manuelle' : EXERCISE_LABEL[+t] ?? 'Type ' + t);
+export const exerciseLabel = (t: string | null) => (t === null || t === 'manual' ? $t("Saisie manuelle") : EXERCISE_LABEL[+t] ?? $t("Type ") + t);
 
 /** Ce que rend le module natif `IronHealth.readSessions`. */
 export interface NativeSession {

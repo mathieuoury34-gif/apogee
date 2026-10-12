@@ -10,6 +10,7 @@
 //    d'un zéro qui la faisait passer pour un jour de repos (réglable dans Paramètres).
 //  - la FC max saisie (test ou manuelle) n'est plus écrasée par l'estimation de Tanaka ; seul un pic
 //    réellement observé et SOUTENU (60 s) en course ou à vélo peut la relever.
+import { $t } from '../i18n';
 import type { ActualSession, AppData, CalcSettings, ZoneKind, ZoneReading, ZoneSource } from './types';
 import { addDays, ageAt, daysBetween, localDay } from './dates';
 import { cleanHr, hrDrift, median, srpe, sustainedPeak, trimpFromAverage, trimpFromSeries, type Sex, type TrimpContext } from './hr';
@@ -18,11 +19,11 @@ export type LoadMethod = 'trimp' | 'trimp_avg' | 'srpe' | 'provisional' | 'pendi
 export type Assise = 'measured' | 'estimated' | 'entered' | 'none';
 
 export const METHOD_LABEL: Record<LoadMethod, string> = {
-  trimp: 'mesurée sur la fréquence cardiaque',
-  trimp_avg: 'estimée sur la FC moyenne',
-  srpe: 'estimée depuis ton ressenti',
-  provisional: 'provisoire, en attente de ton ressenti',
-  pending: 'en attente de ton ressenti',
+  trimp: $t("mesurée sur la fréquence cardiaque"),
+  trimp_avg: $t("estimée sur la FC moyenne"),
+  srpe: $t("estimée depuis ton ressenti"),
+  provisional: $t("provisoire, en attente de ton ressenti"),
+  pending: $t("en attente de ton ressenti"),
 };
 
 export interface SessionLoad { load: number | null; method: LoadMethod; drift: number | null; assise: Assise }

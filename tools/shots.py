@@ -26,8 +26,9 @@ SEED = """async (rows) => {
 async def main():
     async with async_playwright() as p:
         b = await p.chromium.launch()
-        ctx = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=2 if w < 800 else 1, color_scheme=theme)
-        await ctx.add_init_script("try{localStorage.setItem('ironapp:theme','%s')}catch(e){}" % theme)
+        opts = {'user_agent': os.environ['UA']} if os.environ.get('UA') else {}
+        ctx = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=2 if w < 800 else 1, color_scheme=theme, **opts)
+        await ctx.add_init_script("try{localStorage.setItem('ironapp:theme','%s');localStorage.setItem('ironapp:lang','%s')}catch(e){}" % (theme, os.environ.get('APP_LANG', 'fr')))
         pg = await ctx.new_page()
         msgs = []
         pg.on('console', lambda m: msgs.append(m.type + ': ' + m.text) if m.type in ('error', 'warning') else None)

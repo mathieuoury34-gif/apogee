@@ -1,5 +1,6 @@
 // Graphiques SVG — même grammaire que PEAnalyze : graduations à droite, grille discrète, curseur vertical
 // et info-bulle sombre au survol / au toucher, largeur fluide.
+import { $t } from '../i18n';
 import { useState, type ReactNode } from 'react';
 import { useWidth } from './kit';
 import { dateShort, dayMonth, DISCIPLINE_LABEL, duration, num, NBSP, monthShort, signed } from './format';
@@ -26,7 +27,7 @@ export function LoadChart({ days, height = 150, compact = false }: { days: DayLo
   const [ref, cw] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const n = days.length;
-  if (n < 2) return <div ref={ref} className="t-caption c-moderate" style={{ padding: 'var(--space-16) 0' }}>Pas encore assez de jours collectés pour tracer la charge.</div>;
+  if (n < 2) return <div ref={ref} className="t-caption c-moderate" style={{ padding: 'var(--space-16) 0' }}>{$t("Pas encore assez de jours collectés pour tracer la charge.")}</div>;
   const W = cw - AXIS, T = 8, H1 = height, gap = compact ? 10 : 14, H2 = compact ? 44 : 64;
   const B1 = T + H1, T2 = B1 + gap, B2 = T2 + H2, total = B2 + 22;
   const top = Math.max(...days.map((d) => Math.max(d.load, d.fitness, d.fatigue)), 1);
@@ -49,7 +50,7 @@ export function LoadChart({ days, height = 150, compact = false }: { days: DayLo
   const picks = compact ? [0, n - 1] : [0, Math.round((n - 1) / 2), n - 1];
   return (
     <div ref={ref} className="chart" data-component="LoadChart" style={{ height: total }}>
-      <svg viewBox={`0 0 ${cw} ${total}`} width={cw} height={total} role="img" aria-label={`Charge, forme de fond et fatigue sur ${n} jours ; fraîcheur du jour ${signed(days[n - 1].freshness, 0)}`}>
+      <svg viewBox={`0 0 ${cw} ${total}`} width={cw} height={total} role="img" aria-label={$t("Charge, forme de fond et fatigue sur {0} jours ; fraîcheur du jour {1}", { 0: n, 1: signed(days[n - 1].freshness, 0) })}>
         <path d={grid} fill="none" strokeWidth="1" style={{ stroke: 'var(--chart-grid)' }} />
         {days.map((d, i) => d.load > 0 && <rect key={i} x={X(i) - bw / 2} y={Y(d.load)} width={bw} height={B1 - Y(d.load)} rx={Math.min(2, bw / 2)} style={{ fill: d.estimated ? 'var(--bg-brand-moderate)' : 'var(--chart-load)' }} />)}
         <path d={line('fatigue')} fill="none" strokeWidth="1.75" strokeDasharray="6 4" style={{ stroke: 'var(--chart-fatigue)' }} />
@@ -66,10 +67,10 @@ export function LoadChart({ days, height = 150, compact = false }: { days: DayLo
       <span aria-hidden="true" className="marker-dot" style={{ background: 'var(--chart-fitness)', border: '2px solid var(--bg-surface)', left: X(h) - 5, top: Y(hd.fitness) - 5 }} />
       <div className="hit" style={{ width: W, height: B2 }} onPointerMove={(e) => setHover(hoverIndex(e, n))} onPointerDown={(e) => setHover(hoverIndex(e, n))} onPointerLeave={() => setHover(null)} />
       <div role="status" className="tip" style={{ minWidth: 150, left: Math.min(Math.max(X(h) - 75, 0), W - 150), top: Y(hd.fitness) > 70 ? 6 : Math.min(B1 - 80, Y(hd.fitness) + 14) }}>
-        <span className="t-caption-strong" style={{ color: 'var(--text-reverse)' }}>{dayMonth(hd.day)}{hd.interruptionFill ? ' · forfait' : ''}</span>
-        <span className="t-caption c-reverse-muted">Charge {num(hd.load, 0)}{hd.estimated && hd.load ? ' (estimée)' : ''}</span>
-        <span className="t-caption" style={{ color: 'var(--text-reverse)' }}>Fond {num(hd.fitness, 0)} · Fatigue {num(hd.fatigue, 0)}</span>
-        <span className="t-caption-strong" style={{ color: hd.freshness >= 0 ? 'var(--brand-light-green)' : 'var(--text-reverse-muted)' }}>Fraîcheur {signed(hd.freshness, 0)}</span>
+        <span className="t-caption-strong" style={{ color: 'var(--text-reverse)' }}>{dayMonth(hd.day)}{hd.interruptionFill ? $t(" · forfait") : ''}</span>
+        <span className="t-caption c-reverse-muted">{$t("Charge")} {num(hd.load, 0)}{hd.estimated && hd.load ? $t(" (estimée)") : ''}</span>
+        <span className="t-caption" style={{ color: 'var(--text-reverse)' }}>{$t("Fond")} {num(hd.fitness, 0)} {$t("· Fatigue")} {num(hd.fatigue, 0)}</span>
+        <span className="t-caption-strong" style={{ color: hd.freshness >= 0 ? 'var(--brand-light-green)' : 'var(--text-reverse-muted)' }}>{$t("Fraîcheur")} {signed(hd.freshness, 0)}</span>
       </div>
     </div>
   );
@@ -78,10 +79,10 @@ export function LoadChart({ days, height = 150, compact = false }: { days: DayLo
 export function LoadLegend() {
   return (
     <div className="legend">
-      <span><span style={{ width: 16, height: 3, borderRadius: 'var(--radius-full)', background: 'var(--chart-fitness)' }} />Forme de fond</span>
-      <span><span style={{ width: 16, borderTop: '2px dashed var(--chart-fatigue)' }} />Fatigue</span>
-      <span><span style={{ width: 10, height: 10, borderRadius: 'var(--radius-2)', background: 'var(--chart-load)' }} />Charge du jour</span>
-      <span><span style={{ width: 10, height: 10, borderRadius: 'var(--radius-2)', background: 'var(--chart-fresh-pos)' }} />Fraîcheur</span>
+      <span><span style={{ width: 16, height: 3, borderRadius: 'var(--radius-full)', background: 'var(--chart-fitness)' }} />{$t("Forme de fond")}</span>
+      <span><span style={{ width: 16, borderTop: '2px dashed var(--chart-fatigue)' }} />{$t("Fatigue")}</span>
+      <span><span style={{ width: 10, height: 10, borderRadius: 'var(--radius-2)', background: 'var(--chart-load)' }} />{$t("Charge du jour")}</span>
+      <span><span style={{ width: 10, height: 10, borderRadius: 'var(--radius-2)', background: 'var(--chart-fresh-pos)' }} />{$t("Fraîcheur")}</span>
     </div>
   );
 }
@@ -92,7 +93,7 @@ export function FormChart({ days, forms }: { days: string[]; forms: Map<string, 
   const [hover, setHover] = useState<number | null>(null);
   const pts = days.map((d, i) => ({ i, d, f: forms.get(d) })).filter((p) => p.f);
   const n = days.length;
-  if (pts.length < 2) return <div ref={ref} className="t-caption c-moderate">La forme du jour apparaîtra ici dès qu’elle sera calculable plusieurs jours de suite.</div>;
+  if (pts.length < 2) return <div ref={ref} className="t-caption c-moderate">{$t("La forme du jour apparaîtra ici dès qu’elle sera calculable plusieurs jours de suite.")}</div>;
   const W = cw - AXIS, T = 8, H = 120, B = T + H;
   const X = (i: number) => (i / (n - 1)) * W;
   const Y = (v: number) => T + H - (v / 100) * H;
@@ -101,7 +102,7 @@ export function FormChart({ days, forms }: { days: string[]; forms: Map<string, 
   const h = hover === null ? pts[pts.length - 1] : pts.reduce((a, b) => (Math.abs(b.i - hover) < Math.abs(a.i - hover) ? b : a));
   return (
     <div ref={ref} className="chart" style={{ height: B + 22 }}>
-      <svg viewBox={`0 0 ${cw} ${B + 22}`} width={cw} height={B + 22} role="img" aria-label={`Forme du jour sur ${n} jours`}>
+      <svg viewBox={`0 0 ${cw} ${B + 22}`} width={cw} height={B + 22} role="img" aria-label={$t("Forme du jour sur {0} jours", { 0: n })}>
         {bands.map(([a, b, k]) => <rect key={k} x="0" y={Y(b)} width={W} height={Y(a) - Y(b)} style={{ fill: `var(--form-${k})`, opacity: 0.1 }} />)}
         <path d={path} fill="none" strokeWidth="2.5" strokeLinejoin="round" style={{ stroke: 'var(--text)' }} />
         {pts.map((p) => <circle key={p.i} cx={X(p.i)} cy={Y(p.f!.score)} r="2.5" style={{ fill: `var(--form-${formStep(p.f!.score)})` }} />)}
@@ -145,8 +146,8 @@ export function WeekBars({ weeks, color = 'var(--brand-primary)', label }: { wee
       <div className="hit" style={{ width: W, height: B }} onPointerMove={(e) => setHover(hoverIndex(e, n))} onPointerDown={(e) => setHover(hoverIndex(e, n))} onPointerLeave={() => setHover(null)} />
       {hover !== null && (
         <div role="status" className="tip" style={{ minWidth: 120, left: Math.min(Math.max(X(h) - 60, 0), W - 120), top: 4 }}>
-          <span className="t-caption c-reverse-muted">Semaine du {dateShort(weeks[h].start)}</span>
-          <span className="t-amount-s" style={{ color: 'var(--text-reverse)' }}>{duration(weeks[h].seconds)} · {weeks[h].sessions} séance{weeks[h].sessions > 1 ? 's' : ''}</span>
+          <span className="t-caption c-reverse-muted">{$t("Semaine du")} {dateShort(weeks[h].start)}</span>
+          <span className="t-amount-s" style={{ color: 'var(--text-reverse)' }}>{duration(weeks[h].seconds)} · {weeks[h].sessions} {$t("séance")}{weeks[h].sessions > 1 ? 's' : ''}</span>
         </div>
       )}
     </div>
@@ -167,7 +168,7 @@ export function StackedWeeks({ weeks, order }: { weeks: { start: string; byDisci
   const h = hover ?? n - 1;
   return (
     <div ref={ref} className="chart" style={{ height: B + 22 }} data-component="StackedWeeks">
-      <svg viewBox={`0 0 ${cw} ${B + 22}`} width={cw} height={B + 22} role="img" aria-label={`Volume hebdomadaire par discipline sur ${n} semaines`}>
+      <svg viewBox={`0 0 ${cw} ${B + 22}`} width={cw} height={B + 22} role="img" aria-label={$t("Volume hebdomadaire par discipline sur {0} semaines", { 0: n })}>
         {Array.from({ length: Math.round(max / step) }, (_, k) => <line key={k} x1="0" x2={W} y1={Y((k + 1) * step)} y2={Y((k + 1) * step)} strokeWidth="1" style={{ stroke: 'var(--chart-grid)' }} />)}
         {weeks.map((w, i) => {
           let acc = 0;
@@ -187,7 +188,7 @@ export function StackedWeeks({ weeks, order }: { weeks: { start: string; byDisci
       <div className="hit" style={{ width: W, height: B }} onPointerMove={(e) => setHover(hoverIndex(e, n))} onPointerDown={(e) => setHover(hoverIndex(e, n))} onPointerLeave={() => setHover(null)} />
       {hover !== null && (
         <div role="status" className="tip" style={{ minWidth: 140, left: Math.min(Math.max(X(h) - 70, 0), W - 140), top: 4 }}>
-          <span className="t-caption-strong" style={{ color: 'var(--text-reverse)' }}>Semaine du {dateShort(weeks[h].start)} · {duration(weeks[h].total)}</span>
+          <span className="t-caption-strong" style={{ color: 'var(--text-reverse)' }}>{$t("Semaine du")} {dateShort(weeks[h].start)} · {duration(weeks[h].total)}</span>
           {order.filter((d) => weeks[h].byDiscipline[d]).map((d) => <span key={d} className="t-caption c-reverse-muted">{DISCIPLINE_LABEL[d as 'RUN']} {duration(weeks[h].byDiscipline[d])}</span>)}
         </div>
       )}
@@ -208,7 +209,7 @@ export function StepChart({ history, format, color = 'var(--brand-primary)' }: {
   const Y = (v: number) => T + H - ((v - (lo - pad)) / (hi + pad - (lo - pad))) * H;
   return (
     <div ref={ref} className="chart" style={{ height: B + 22 }}>
-      <svg viewBox={`0 0 ${cw} ${B + 22}`} width={cw} height={B + 22} role="img" aria-label="Progression de l’indicateur">
+      <svg viewBox={`0 0 ${cw} ${B + 22}`} width={cw} height={B + 22} role="img" aria-label={$t("Progression de l’indicateur")}>
         {pts.map((p, i) => {
           const x0 = X(Date.parse(p.measuredAt)), x1 = i + 1 < pts.length ? X(Date.parse(pts[i + 1].measuredAt)) : W;
           const dashed = p.source !== 'test';
@@ -224,7 +225,7 @@ export function StepChart({ history, format, color = 'var(--brand-primary)' }: {
       <span className="tick" style={{ left: W + 6, top: Y(hi) - 9 }}>{format(hi)}</span>
       {hi !== lo && <span className="tick" style={{ left: W + 6, top: Y(lo) - 9 }}>{format(lo)}</span>}
       <span className="tick" style={{ top: B + 4, left: 0 }}>{monthShort(pts[0].measuredAt.slice(0, 7))}</span>
-      <span className="tick" style={{ top: B + 4, right: AXIS }}>aujourd’hui</span>
+      <span className="tick" style={{ top: B + 4, right: AXIS }}>{$t("aujourd’hui")}</span>
     </div>
   );
 }

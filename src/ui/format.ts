@@ -1,5 +1,6 @@
 // Formatage français (règles de PEAnalyze : espace fine insécable pour les milliers, espace insécable
 // avant l'unité, signe moins typographique, virgule décimale).
+import { $t, lang } from '../i18n';
 import type { Block, Discipline, PlannedDiscipline } from '../domain/types';
 
 export const NBSP = ' ';
@@ -9,7 +10,7 @@ const cache = new Map<string, Intl.NumberFormat>();
 function nf(min: number, max: number) {
   const k = min + ':' + max;
   let f = cache.get(k);
-  if (!f) { f = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: min, maximumFractionDigits: max }); cache.set(k, f); }
+  if (!f) { f = new Intl.NumberFormat(lang === 'en' ? 'en-GB' : 'fr-FR', { minimumFractionDigits: min, maximumFractionDigits: max }); cache.set(k, f); }
   return f;
 }
 export function num(v: number, min = 0, max = min): string {
@@ -24,8 +25,8 @@ export function pct(ratio: number, d = 0): string { return num(ratio * 100, d) +
 export function pctSigned(ratio: number, d = 0): string { const r = Math.round(ratio * 100 * Math.pow(10, d)); return (r > 0 ? '+' : '') + pct(ratio, d); }
 
 // ------------------------------------------------------------------ disciplines
-export const DISCIPLINE_LABEL: Record<Discipline, string> = { RUN: 'Course', BIKE: 'Vélo', SWIM: 'Natation', STRENGTH: 'Renforcement', BRICK: 'Enchaînement', OTHER: 'Autre' };
-export const DISCIPLINE_SHORT: Record<Discipline, string> = { RUN: 'Course', BIKE: 'Vélo', SWIM: 'Natation', STRENGTH: 'Renfo', BRICK: 'Enchaîn.', OTHER: 'Autre' };
+export const DISCIPLINE_LABEL: Record<Discipline, string> = { RUN: $t("Course"), BIKE: $t("Vélo"), SWIM: $t("Natation"), STRENGTH: $t("Renforcement"), BRICK: $t("Enchaînement"), OTHER: $t("Autre") };
+export const DISCIPLINE_SHORT: Record<Discipline, string> = { RUN: $t("Course"), BIKE: $t("Vélo"), SWIM: $t("Natation"), STRENGTH: $t("Renfo"), BRICK: $t("Enchaîn."), OTHER: $t("Autre") };
 export const DISCIPLINE_ICON: Record<Discipline, string> = { RUN: 'run', BIKE: 'bike', SWIM: 'swim', STRENGTH: 'strength', BRICK: 'brick', OTHER: 'other' };
 export const dvar = (d: Discipline) => `var(--d-${d})`;
 
@@ -34,7 +35,7 @@ export const dvar = (d: Discipline) => `var(--d-${d})`;
 export function duration(sec: number | null | undefined): string {
   if (sec === null || sec === undefined || !isFinite(sec)) return '—';
   const s = Math.max(0, Math.round(sec));
-  if (s === 0) return `0${NBSP}min`;
+  if (s === 0) return $t("0{0}min", { 0: NBSP });
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
   if (h) return `${h}${NBSP}h${NBSP}${String(m).padStart(2, '0')}`;
   if (m) return r && m < 10 ? `${m}${NBSP}min${NBSP}${String(r).padStart(2, '0')}` : `${m}${NBSP}min`;
@@ -65,18 +66,21 @@ export function mmss(sec: number): string {
 /** Allure lisible selon la discipline : « 5:12 /km », « 1:52 /100 m », « 28,4 km/h » */
 export function paceFor(secPerUnit: number | null, discipline: string): string {
   if (secPerUnit === null || !isFinite(secPerUnit) || secPerUnit <= 0) return '—';
-  if (discipline === 'BIKE') return num((discipline === 'BIKE' ? 3600 / secPerUnit : 0), 1) + NBSP + 'km/h';
+  if (discipline === 'BIKE') return num((discipline === 'BIKE' ? 3600 / secPerUnit : 0), 1) + NBSP + $t("km/h");
   return mmss(secPerUnit) + NBSP + (discipline === 'SWIM' ? '/100' + NBSP + 'm' : '/km');
 }
-export function speedKmh(ms: number | null): string { return ms ? num(ms * 3.6, 1) + NBSP + 'km/h' : '—'; }
+export function speedKmh(ms: number | null): string { return ms ? num(ms * 3.6, 1) + NBSP + $t("km/h") : '—'; }
 export function bpm(v: number | null | undefined): string { return v ? num(v, 0) + NBSP + 'bpm' : '—'; }
 
 // ------------------------------------------------------------------ dates
-const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-const MONTHS_SHORT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-const WEEKDAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-export const WD_LETTER = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-export const WD_SHORT = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
+const EN = lang === 'en';
+const MONTHS = EN ? ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  : ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+const MONTHS_SHORT = EN ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  : ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const WEEKDAYS = EN ? ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] : ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+export const WD_LETTER = EN ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+export const WD_SHORT = EN ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
 const wd = (iso: string) => new Date(iso + 'T12:00:00Z').getUTCDay();
 export const MONTHS_TITLE = MONTHS.map((m) => m[0].toUpperCase() + m.slice(1));
 
@@ -94,7 +98,7 @@ export function dateTimeFr(isoDateTime: string): string {
   if (!isoDateTime) return '';
   const d = new Date(isoDateTime);
   const p = (n: number) => String(n).padStart(2, '0');
-  return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' à ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + (EN ? ' at ' : ' à ') + p(d.getHours()) + ':' + p(d.getMinutes());
 }
 export function timeOf(isoDateTime: string, offsetMin: number | null): string {
   const d = new Date(Date.parse(isoDateTime) + (offsetMin ?? 0) * 60000);
@@ -117,7 +121,7 @@ export function parseNum(s: string): number {
 export function toInput(v: number | null | undefined, d = 0): string {
   if (v === null || v === undefined || !isFinite(v)) return '';
   const s = d ? v.toFixed(d) : String(Math.round(v));
-  return s.replace('.', ',');
+  return EN ? s : s.replace('.', ',');
 }
 /** « 4:30 » ou « 4'30 » → secondes */
 export function parseMmss(s: string): number {
@@ -127,26 +131,26 @@ export function parseMmss(s: string): number {
   return isFinite(v) ? v * 60 : NaN;
 }
 export function relDays(n: number): string {
-  if (n === 0) return 'aujourd’hui';
-  if (n === 1) return 'demain';
-  if (n === -1) return 'hier';
-  return n > 0 ? `dans ${n}${NBSP}j` : `il y a ${-n}${NBSP}j`;
+  if (n === 0) return $t("aujourd’hui");
+  if (n === 1) return EN ? 'tomorrow' : 'demain';
+  if (n === -1) return EN ? 'yesterday' : 'hier';
+  return n > 0 ? $t("dans {0}{1}j", { 0: n, 1: NBSP }) : EN ? `${-n}${NBSP}d ago` : `il y a ${-n}${NBSP}j`;
 }
 
 // ------------------------------------------------------------------ blocs (repris de planning/blockText.ts)
-export const KIND_LABEL: Record<Block['kind'], string> = { WARMUP: 'Échauffement', WORK: 'Effort', RECOVERY: 'Récup. active', REST: 'Repos', COOLDOWN: 'Retour au calme', TRANSITION: 'Transition', SET: 'Série' };
-export const MEASURE_LABEL: Record<NonNullable<Block['measure']>, string> = { TIME: 'Temps', DISTANCE: 'Distance', REPS: 'Répétitions', OPEN: 'Libre' };
-export const SETMODE_LABEL: Record<NonNullable<Block['setMode']>, string> = { REPEAT: 'Répétitions', AMRAP: 'AMRAP', EVERY: 'Départ fixe' };
-export const TARGET_LABEL: Record<Block['targetType'], string> = { NONE: 'Aucune', ZONE: 'Zone', PACE: 'Allure', SPEED: 'Vitesse', POWER: 'Puissance', HR: 'FC', LOAD: 'Charge', RPE: 'RPE' };
-export const REL_LABEL: Record<NonNullable<Block['relativeTo']>, string> = { FTP: 'FTP', VMA: 'VMA', CSS: 'CSS', HRMAX: 'FC max', ONE_RM: '1RM' };
+export const KIND_LABEL: Record<Block['kind'], string> = { WARMUP: $t("Échauffement"), WORK: $t("Effort"), RECOVERY: $t("Récup. active"), REST: $t("Repos"), COOLDOWN: $t("Retour au calme"), TRANSITION: $t("Transition"), SET: $t("Série") };
+export const MEASURE_LABEL: Record<NonNullable<Block['measure']>, string> = { TIME: $t("Temps"), DISTANCE: $t("Distance"), REPS: $t("Répétitions"), OPEN: $t("Libre") };
+export const SETMODE_LABEL: Record<NonNullable<Block['setMode']>, string> = { REPEAT: $t("Répétitions"), AMRAP: 'AMRAP', EVERY: $t("Départ fixe") };
+export const TARGET_LABEL: Record<Block['targetType'], string> = { NONE: $t("Aucune"), ZONE: $t("Zone"), PACE: $t("Allure"), SPEED: $t("Vitesse"), POWER: $t("Puissance"), HR: EN ? 'HR' : 'FC', LOAD: $t("Charge"), RPE: 'RPE' };
+export const REL_LABEL: Record<NonNullable<Block['relativeTo']>, string> = { FTP: 'FTP', VMA: EN ? 'MAS' : 'VMA', CSS: 'CSS', HRMAX: $t("FC max"), ONE_RM: '1RM' };
 
 export function measureText(b: Block): string {
   if (b.measure === null) return '';
-  if (b.measure === 'OPEN') return 'libre';
+  if (b.measure === 'OPEN') return EN ? 'open' : 'libre';
   if (b.measureValue === null) return '';
   if (b.measure === 'TIME') return duration(b.measureValue);
   if (b.measure === 'DISTANCE') return b.measureValue >= 1000 ? km(b.measureValue) : num(b.measureValue, 0) + NBSP + 'm';
-  return num(b.measureValue, 0) + NBSP + 'rép.';
+  return num(b.measureValue, 0) + NBSP + $t("rép.");
 }
 
 function targetDigits(v: number, b: Block): string {
@@ -163,7 +167,7 @@ export function targetText(b: Block, d: PlannedDiscipline): string {
   const eff = b.discipline ?? d;
   const unit = b.relativeTo !== null ? '%' + NBSP + REL_LABEL[b.relativeTo]
     : b.targetType === 'PACE' ? (eff === 'SWIM' ? '/100' + NBSP + 'm' : '/km')
-      : b.targetType === 'SPEED' ? 'km/h' : b.targetType === 'POWER' ? 'W' : b.targetType === 'HR' ? 'bpm' : b.targetType === 'LOAD' ? 'kg' : '';
+      : b.targetType === 'SPEED' ? $t("km/h") : b.targetType === 'POWER' ? 'W' : b.targetType === 'HR' ? 'bpm' : b.targetType === 'LOAD' ? 'kg' : '';
   const prefix = b.relativeTo === null && (b.targetType === 'ZONE' || b.targetType === 'RPE') ? TARGET_LABEL[b.targetType] + ' ' : b.relativeTo !== null ? TARGET_LABEL[b.targetType] === 'Aucune' ? '' : TARGET_LABEL[b.targetType].toLowerCase() + ' ' : '';
   const digits = targetDigits(b.targetLow, b) + (b.targetHigh !== null ? '–' + targetDigits(b.targetHigh, b) : '');
   return (prefix + digits + (unit ? NBSP + unit : '')).trim();
@@ -171,7 +175,7 @@ export function targetText(b: Block, d: PlannedDiscipline): string {
 export function blockHead(b: Block): string {
   if (b.kind === 'SET') {
     const w = b.setWindowS !== null ? duration(b.setWindowS) : '';
-    const h = b.setMode === 'AMRAP' ? `AMRAP ${w}` : b.setMode === 'EVERY' ? `${b.setCount ?? '?'} × départ toutes les ${w}` : `${b.setCount ?? '?'} ×`;
+    const h = b.setMode === 'AMRAP' ? $t("AMRAP {0}", { 0: w }) : b.setMode === 'EVERY' ? $t("{0} × départ toutes les {1}", { 0: b.setCount ?? '?', 1: w }) : `${b.setCount ?? '?'} ×`;
     return (b.label ? h + ' — ' + b.label : h).trim();
   }
   return b.label ? KIND_LABEL[b.kind] + ' — ' + b.label : KIND_LABEL[b.kind];
@@ -188,5 +192,5 @@ export function blocksSummary(blocks: Block[], d: PlannedDiscipline): string {
 }
 
 /** Types de bloc de périodisation (vocabulaire libre du coach ; les valeurs connues sont traduites). */
-export const PHASE_TYPES: [string, string][] = [['base', 'Foncier'], ['build', 'Développement'], ['peak', 'Spécifique'], ['taper', 'Affûtage'], ['recovery', 'Récupération'], ['race', 'Course'], ['transition', 'Transition']];
+export const PHASE_TYPES: [string, string][] = [['base', $t("Foncier")], ['build', $t("Développement")], ['peak', $t("Spécifique")], ['taper', $t("Affûtage")], ['recovery', $t("Récupération")], ['race', $t("Course")], ['transition', $t("Transition")]];
 export const phaseLabel = (p: string | null | undefined) => (p ? (Object.fromEntries(PHASE_TYPES) as Record<string, string>)[p] ?? p : '');

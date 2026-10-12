@@ -29,7 +29,20 @@ createRoot(document.getElementById('root')!).render(<App />);
   }
 })();
 
-// Application hors ligne (service worker) – uniquement en production (https), aussi dans l'APK
+// Application hors ligne (service worker) – uniquement en production (https), et jamais dans l'APK : une page
+// servie par le service worker ne passe pas par Capacitor, qui n'y injecte alors pas son pont natif (plus de
+// Health Connect, plus de notifications). Dans l'APK, on désinstalle donc un service worker resté d'avant.
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => undefined));
+  if (native.inWebView()) {
+    navigator.serviceWorker.getRegistrations().then(async (regs) => {
+      if (!regs.length) return;
+      await Promise.all(regs.map((r) => r.unregister()));
+      if (!native.isApp()) {
+        try { if (sessionStorage.getItem('ironapp:sw-reload')) return; sessionStorage.setItem('ironapp:sw-reload', '1'); } catch { /* rien */ }
+        location.reload();
+      }
+    }).catch(() => undefined);
+  } else {
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => undefined));
+  }
 }

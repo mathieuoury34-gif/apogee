@@ -3,6 +3,7 @@
 //   réalisées : AAAA-MM-JJ;DISCIPLINE;durée_min;distance_km;FC_moyenne;RPE
 //   planifiées : AAAA-MM-JJ;DISCIPLINE;durée_min;titre
 // Dates acceptées aussi en jj/mm/aaaa.
+import { $t } from '../i18n';
 import { newBlock } from './blocks';
 import { fnv1a, newId, nowIso } from './ids';
 import { liveRecords } from './load';
@@ -31,18 +32,18 @@ const num = (raw: string | undefined): number | null => {
 
 export function parseManualFields(f: { date: string; discipline: string; durationMin: string; distanceKm?: string; avgHrBpm?: string; rpe?: string }): { input: ManualInput } | { error: string } {
   const date = parseDate(f.date);
-  if (!date) return { error: `date invalide : « ${f.date} »` };
+  if (!date) return { error: $t("date invalide : « {0} »", { 0: f.date }) };
   const up = f.discipline.trim().toUpperCase();
   const disc = ALIASES[up] ?? up;
-  if (!(ACTUAL_DISCIPLINES as readonly string[]).includes(disc)) return { error: `discipline inconnue « ${f.discipline} » (RUN, BIKE, SWIM, STRENGTH, OTHER)` };
+  if (!(ACTUAL_DISCIPLINES as readonly string[]).includes(disc)) return { error: $t("discipline inconnue « {0} » (RUN, BIKE, SWIM, STRENGTH, OTHER)", { 0: f.discipline }) };
   const dur = num(f.durationMin);
-  if (dur === null || Number.isNaN(dur) || dur <= 0) return { error: `durée invalide : « ${f.durationMin} »` };
+  if (dur === null || Number.isNaN(dur) || dur <= 0) return { error: $t("durée invalide : « {0} »", { 0: f.durationMin }) };
   const dist = num(f.distanceKm);
-  if (Number.isNaN(dist)) return { error: `distance invalide : « ${f.distanceKm} »` };
+  if (Number.isNaN(dist)) return { error: $t("distance invalide : « {0} »", { 0: f.distanceKm }) };
   const hr = num(f.avgHrBpm);
-  if (Number.isNaN(hr) || (hr !== null && (hr < 30 || hr > 230))) return { error: `FC moyenne invalide : « ${f.avgHrBpm} »` };
+  if (Number.isNaN(hr) || (hr !== null && (hr < 30 || hr > 230))) return { error: $t("FC moyenne invalide : « {0} »", { 0: f.avgHrBpm }) };
   const rpe = num(f.rpe);
-  if (Number.isNaN(rpe) || (rpe !== null && (rpe < 1 || rpe > 10))) return { error: `RPE invalide (1 à 10) : « ${f.rpe} »` };
+  if (Number.isNaN(rpe) || (rpe !== null && (rpe < 1 || rpe > 10))) return { error: $t("RPE invalide (1 à 10) : « {0} »", { 0: f.rpe }) };
   return { input: { date, discipline: disc as ActualDiscipline, durationMin: dur, distanceKm: dist, avgHrBpm: hr, rpe: rpe === null ? null : Math.round(rpe) } };
 }
 
@@ -52,7 +53,7 @@ export function parseBulkActual(text: string): { valid: ManualInput[]; issues: {
     const line = raw.trim();
     if (!line || line.startsWith('#')) return;
     const p = line.split(/[;\t]/);
-    if (p.length < 3) { issues.push({ line: i + 1, message: 'attendu au moins date;discipline;durée' }); return; }
+    if (p.length < 3) { issues.push({ line: i + 1, message: $t("attendu au moins date;discipline;durée") }); return; }
     const r = parseManualFields({ date: p[0], discipline: p[1], durationMin: p[2], distanceKm: p[3], avgHrBpm: p[4], rpe: p[5] });
     if ('error' in r) issues.push({ line: i + 1, message: r.error }); else valid.push(r.input);
   });
@@ -92,9 +93,9 @@ export function parseBulkPlanned(text: string): { valid: PlannedSession[]; issue
     const up = (p[1] ?? '').trim().toUpperCase();
     const disc = ALIASES[up] ?? up;
     const dur = num(p[2]);
-    if (!date) { issues.push({ line: i + 1, message: `date invalide : « ${p[0] ?? ''} »` }); return; }
-    if (!(PLANNED_DISCIPLINES as readonly string[]).includes(disc)) { issues.push({ line: i + 1, message: `discipline inconnue « ${p[1] ?? ''} »` }); return; }
-    if (dur === null || Number.isNaN(dur) || dur <= 0) { issues.push({ line: i + 1, message: `durée invalide : « ${p[2] ?? ''} »` }); return; }
+    if (!date) { issues.push({ line: i + 1, message: $t("date invalide : « {0} »", { 0: p[0] ?? '' }) }); return; }
+    if (!(PLANNED_DISCIPLINES as readonly string[]).includes(disc)) { issues.push({ line: i + 1, message: $t("discipline inconnue « {0} »", { 0: p[1] ?? '' }) }); return; }
+    if (dur === null || Number.isNaN(dur) || dur <= 0) { issues.push({ line: i + 1, message: $t("durée invalide : « {0} »", { 0: p[2] ?? '' }) }); return; }
     const now = nowIso();
     const work = { ...newBlock('WORK'), measureValue: Math.round(dur * 60) };
     valid.push({ id: newId(), updatedAt: now, createdAt: now, discipline: disc as PlannedDiscipline, plannedDate: date, title: (p[3] ?? '').trim() || null, notes: null, origin: 'manual', idempotencyKey: null, coachExchangeId: null, blocks: [work] });

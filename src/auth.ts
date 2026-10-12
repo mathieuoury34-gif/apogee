@@ -8,6 +8,28 @@ const SDK = 'https://www.gstatic.com/firebasejs/10.14.1/';
 type Any = any;
 const $ = (id: string) => document.getElementById(id)!;
 
+// Langue transmise par l'app (?lang=en), gardée le temps d'une éventuelle redirection Google.
+const EN = (() => {
+  const q = new URLSearchParams(location.search).get('lang');
+  try { if (q) sessionStorage.setItem('ironapp:auth-lang', q); return (q ?? sessionStorage.getItem('ironapp:auth-lang')) === 'en'; } catch { return q === 'en'; }
+})();
+const T: Record<string, string> = {
+  'Connecté. Retour dans Iron App…': 'Signed in. Back to Iron App…',
+  'La synchronisation n’est pas encore configurée (firebase-config.ts).': 'Sync is not configured yet (firebase-config.ts).',
+  'Connexion impossible : ': 'Sign-in failed: ',
+  'Ouverture de Google…': 'Opening Google…',
+  'Connexion annulée.': 'Sign-in cancelled.',
+  'Erreur : ': 'Error: ',
+};
+const t = (fr: string) => (EN ? T[fr] ?? fr : fr);
+if (EN) {
+  document.documentElement.lang = 'en';
+  document.title = 'Sign in · Iron App';
+  $('lead').textContent = 'Sign in with your Google account: the Android app will get your synced data back.';
+  $('go-label').textContent = 'Continue with Google';
+  $('back').textContent = 'Back to Iron App';
+}
+
 function status(text: string, error = false) {
   const el = $('status');
   el.textContent = text;
@@ -23,36 +45,36 @@ function handOff(cred: Any) {
   back.href = url;
   back.hidden = false;
   ($('go') as HTMLButtonElement).hidden = true;
-  status('Connecté. Retour dans Iron App…');
+  status(t('Connecté. Retour dans Iron App…'));
   location.href = url;
 }
 
 async function main() {
   const go = $('go') as HTMLButtonElement;
-  if (!FIREBASE_CONFIG.apiKey) { status('La synchronisation n’est pas encore configurée (firebase-config.ts).', true); go.disabled = true; return; }
+  if (!FIREBASE_CONFIG.apiKey) { status(t('La synchronisation n’est pas encore configurée (firebase-config.ts).'), true); go.disabled = true; return; }
   const [app, a] = await Promise.all([import(/* @vite-ignore */ SDK + 'firebase-app.js'), import(/* @vite-ignore */ SDK + 'firebase-auth.js')]) as [Any, Any];
   const auth = a.getAuth(app.initializeApp(FIREBASE_CONFIG));
-  auth.languageCode = 'fr';
+  auth.languageCode = EN ? 'en' : 'fr';
   const provider = new a.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
   try {
     const r = await a.getRedirectResult(auth);
     if (r) { handOff(a.GoogleAuthProvider.credentialFromResult(r)); return; }
-  } catch (e) { status('Connexion impossible : ' + (e as Error).message, true); }
+  } catch (e) { status(t('Connexion impossible : ') + (e as Error).message, true); }
   go.disabled = false;
   go.onclick = async () => {
     go.disabled = true;
-    status('Ouverture de Google…');
+    status(t('Ouverture de Google…'));
     try {
       const r = await a.signInWithPopup(auth, provider);
       handOff(a.GoogleAuthProvider.credentialFromResult(r));
     } catch (e) {
       const code = (e as { code?: string }).code || '';
       if (code.includes('popup-blocked') || code.includes('operation-not-supported')) { await a.signInWithRedirect(auth, provider); return; }
-      status(code.includes('popup-closed') || code.includes('cancelled') ? 'Connexion annulée.' : 'Connexion impossible : ' + (e as Error).message, !code.includes('popup-closed'));
+      status(code.includes('popup-closed') || code.includes('cancelled') ? t('Connexion annulée.') : t('Connexion impossible : ') + (e as Error).message, !code.includes('popup-closed'));
       go.disabled = false;
     }
   };
 }
 
-main().catch((e) => status('Erreur : ' + (e as Error).message, true));
+main().catch((e) => status(t('Erreur : ') + (e as Error).message, true));

@@ -1,6 +1,7 @@
 // Progression — Charge | Objectif | Zones. Reprend la grammaire de l'écran Analyse de PEAnalyze :
 // carte héro, graphiques plein cadre, puis cartes de détail. Aucun verdict de faisabilité sur l'objectif
 // (décision du 31/08) : l'écran juxtapose les chiffres.
+import { $t } from '../i18n';
 import { useState } from 'react';
 import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast } from '../ui/kit';
 import { FormChart, LoadChart, LoadLegend, StackedWeeks, StepChart } from '../ui/charts';
@@ -16,7 +17,7 @@ import { weeklyVolume } from '../domain/stats';
 import type { ZoneKind, ZoneReading, ZoneSource } from '../domain/types';
 import { dateFr, dayTitle, DISCIPLINE_LABEL, duration, dvar, hhmm, km, mmss, num, parseMmss, parseNum, pct, signed, toInput, NBSP } from '../ui/format';
 
-const NAV = [{ to: '/progression', label: 'Charge' }, { to: '/progression/objectif', label: 'Objectif' }, { to: '/progression/zones', label: 'Zones' }];
+const NAV = [{ to: '/progression', label: $t("Charge") }, { to: '/progression/objectif', label: $t("Objectif") }, { to: '/progression/zones', label: $t("Zones") }];
 
 // ------------------------------------------------------------------ Charge
 export function LoadScreen() {
@@ -34,54 +35,54 @@ export function LoadScreen() {
   const acwrZone = acwr === null ? null : acwr > 1.5 ? 'critical' : acwr > 1.3 ? 'warning' : acwr < 0.8 ? 'low' : 'ok';
   if (!d.series.days.length) {
     return (
-      <div className="screen" data-screen="charge"><AppHeader title="Progression" /><ErrorBanner /><SubNav items={NAV} label="Sections Progression" />
-        <main className="content"><Empty icon="progression" title="Pas encore de charge" text="La charge se calcule dès la première séance enregistrée (montre ou saisie)." /></main></div>
+      <div className="screen" data-screen="charge"><AppHeader title={$t("Progression")} /><ErrorBanner /><SubNav items={NAV} label={$t("Sections Progression")} />
+        <main className="content"><Empty icon="progression" title={$t("Pas encore de charge")} text={$t("La charge se calcule dès la première séance enregistrée (montre ou saisie).")} /></main></div>
     );
   }
   return (
     <div className="screen" data-screen="charge">
-      <AppHeader title="Progression" />
+      <AppHeader title={$t("Progression")} />
       <ErrorBanner />
-      <SubNav items={NAV} label="Sections Progression" />
+      <SubNav items={NAV} label={$t("Sections Progression")} />
       <main className="content dgrid">
-        <Hero className="dspan-5" label="Forme de fond" value={c.fitness === null ? '—' : num(c.fitness, 0)} chip={c.fitnessDelta === null ? undefined : `${signed(c.fitnessDelta, 0)} en 7 jours`}>
+        <Hero className="dspan-5" label={$t("Forme de fond")} value={c.fitness === null ? '—' : num(c.fitness, 0)} chip={c.fitnessDelta === null ? undefined : $t("{0} en 7 jours", { 0: signed(c.fitnessDelta, 0) })}>
           <div className="foot">
-            <span>Fatigue <strong>{c.fatigue === null ? '—' : num(c.fatigue, 0)}</strong></span>
-            <span>Fraîcheur <strong>{c.freshness === null ? '—' : signed(c.freshness, 0)}</strong></span>
-            <span>Rampe <strong>{c.rampPerWeek === null ? '—' : signed(c.rampPerWeek, 1) + '/sem.'}</strong></span>
+            <span>{$t("Fatigue")} <strong>{c.fatigue === null ? '—' : num(c.fatigue, 0)}</strong></span>
+            <span>{$t("Fraîcheur")} <strong>{c.freshness === null ? '—' : signed(c.freshness, 0)}</strong></span>
+            <span>{$t("Rampe")} <strong>{c.rampPerWeek === null ? '—' : signed(c.rampPerWeek, 1) + $t("/sem.")}</strong></span>
           </div>
         </Hero>
 
-        <section className="card g12 dspan-7" aria-label="Rapport aigu / chronique">
-          <div className="between"><h2>Charge aiguë / chronique</h2>{acwr !== null && <span className={'var-chip' + (acwrZone === 'ok' ? '' : acwrZone === 'low' ? ' flat' : ' warn')}>{num(acwr, 2)}</span>}</div>
-          {acwr === null ? <p className="t-caption c-moderate">Disponible après 28 jours d’historique{d.series.firstDay ? ` (dès le ${dateFr(addDays(d.series.firstDay, 28))})` : ''}.</p> : (
+        <section className="card g12 dspan-7" aria-label={$t("Rapport aigu / chronique")}>
+          <div className="between"><h2>{$t("Charge aiguë / chronique")}</h2>{acwr !== null && <span className={'var-chip' + (acwrZone === 'ok' ? '' : acwrZone === 'low' ? ' flat' : ' warn')}>{num(acwr, 2)}</span>}</div>
+          {acwr === null ? <p className="t-caption c-moderate">{$t("Disponible après 28 jours d’historique")}{d.series.firstDay ? $t(" (dès le {0})", { 0: dateFr(addDays(d.series.firstDay, 28)) }) : ''}.</p> : (
             <>
               <div className="acwr-bar" aria-hidden="true">
                 <span className="seg low" /><span className="seg ok" /><span className="seg warn" /><span className="seg crit" />
                 <span className="cursor" style={{ left: `${Math.min(100, Math.max(0, ((acwr - 0.5) / 1.5) * 100))}%` }} />
               </div>
-              <div className="between t-legal c-moderate"><span>0,5</span><span>0,8</span><span>1,3</span><span>1,5</span><span>2,0</span></div>
-              <p className="t-caption c-neutral">{acwrZone === 'ok' ? 'La charge des 7 derniers jours est dans la ligne des 4 dernières semaines.' : acwrZone === 'low' ? 'Semaine nettement plus légère que d’habitude : récupération ou baisse de régime.' : acwrZone === 'warning' ? 'Hausse marquée de la charge récente. À surveiller.' : 'Hausse brutale de la charge récente (au-delà de 1,5) : le risque de blessure augmente.'}</p>
+              <div className="between t-legal c-moderate">{[0.5, 0.8, 1.3, 1.5, 2].map((v) => <span key={v}>{num(v, 1)}</span>)}</div>
+              <p className="t-caption c-neutral">{acwrZone === 'ok' ? $t("La charge des 7 derniers jours est dans la ligne des 4 dernières semaines.") : acwrZone === 'low' ? $t("Semaine nettement plus légère que d’habitude : récupération ou baisse de régime.") : acwrZone === 'warning' ? $t("Hausse marquée de la charge récente. À surveiller.") : $t("Hausse brutale de la charge récente (au-delà de 1,5) : le risque de blessure augmente.")}</p>
             </>
           )}
-          {d.series.isPriming && <div className="note"><Icon name="info" size={20} /><span>Historique court : forme et fatigue sont amorcées sur ta charge habituelle des 14 premiers jours, et se stabilisent vers le {dateFr(d.series.primingEndsOn!)}.</span></div>}
+          {d.series.isPriming && <div className="note"><Icon name="info" size={20} /><span>{$t("Historique court : forme et fatigue sont amorcées sur ta charge habituelle des 14 premiers jours, et se stabilisent vers le")} {dateFr(d.series.primingEndsOn!)}.</span></div>}
         </section>
 
-        <section className="card g12 dspan-12" aria-label="Évolution">
+        <section className="card g12 dspan-12" aria-label={$t("Évolution")}>
           <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
-            <Segmented label="Courbe" value={view} onChange={setView} options={[['charge', 'Charge'], ['forme', 'Forme du jour']]} />
-            <ChipGroup label="Période" value={period} onChange={setPeriod} options={[['1', '1 mois'], ['3', '3 mois'], ['6', '6 mois'], ['12', '1 an']]} />
+            <Segmented label={$t("Courbe")} value={view} onChange={setView} options={[['charge', $t("Charge")], ['forme', $t("Forme du jour")]]} />
+            <ChipGroup label={$t("Période")} value={period} onChange={setPeriod} options={[['1', $t("1 mois")], ['3', $t("3 mois")], ['6', $t("6 mois")], ['12', $t("1 an")]]} />
           </div>
           {view === 'charge' ? (<><LoadChart days={days} height={190} /><LoadLegend /></>) : (
             <>
               <FormChart days={formDays} forms={d.formByDay} />
-              <p className="t-caption c-moderate">Score sur 100, calculé chaque matin à partir de ta nuit, de ta FC de repos, de ta fraîcheur au réveil et du ressenti de la veille, comparés à tes 14 jours précédents.</p>
+              <p className="t-caption c-moderate">{$t("Score sur 100, calculé chaque matin à partir de ta nuit, de ta FC de repos, de ta fraîcheur au réveil et du ressenti de la veille, comparés à tes 14 jours précédents.")}</p>
             </>
           )}
         </section>
 
-        <section className="card g12 dspan-6" aria-label="Forme du jour, détail">
-          <div className="between"><h2>Forme du jour, détail</h2>{form && <span className="t-caption c-moderate">{form.day === d.today ? 'ce matin' : dayTitle(form.day)}</span>}</div>
+        <section className="card g12 dspan-6" aria-label={$t("Forme du jour, détail")}>
+          <div className="between"><h2>{$t("Forme du jour, détail")}</h2>{form && <span className="t-caption c-moderate">{form.day === d.today ? $t("ce matin") : dayTitle(form.day)}</span>}</div>
           {form ? (
             <>
               <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2">{num(form.score, 0)}</span><span className="t-strong" style={{ color: `var(--form-${formStep(form.score)})` }}>{FORM_STEP_LABEL[formStep(form.score)]}</span></div>
@@ -90,27 +91,27 @@ export function LoadScreen() {
                   const comp = form.components.find((x) => x.key === k);
                   return (
                     <li key={k} className="stack-4">
-                      <div className="between t-caption"><span className="t-caption-strong">{FORM_LABEL[k]} <span className="c-moderate" style={{ fontWeight: 400 }}>· poids {pct(comp ? comp.effectiveWeight : 0)}</span></span><span className="c-neutral">{comp ? componentText(k, comp.value, comp.center) : 'pas de donnée'}</span></div>
+                      <div className="between t-caption"><span className="t-caption-strong">{FORM_LABEL[k]} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("· poids")} {pct(comp ? comp.effectiveWeight : 0)}</span></span><span className="c-neutral">{comp ? componentText(k, comp.value, comp.center) : $t("pas de donnée")}</span></div>
                       <div className="meter"><span style={{ width: comp ? `${comp.score}%` : 0, background: comp ? `var(--form-${formStep(comp.score)})` : undefined }} /></div>
                     </li>
                   );
                 })}
               </ul>
-              {form.missing.length > 0 && <p className="t-legal c-moderate">Le poids des données manquantes est réparti sur les autres.</p>}
+              {form.missing.length > 0 && <p className="t-legal c-moderate">{$t("Le poids des données manquantes est réparti sur les autres.")}</p>}
             </>
-          ) : <p className="t-caption c-moderate">Il faut au moins 3 jours de sommeil, de FC de repos ou de fraîcheur pour calculer un score. Avec une montre lue par Health Connect, il apparaît en quelques jours.</p>}
+          ) : <p className="t-caption c-moderate">{$t("Il faut au moins 3 jours de sommeil, de FC de repos ou de fraîcheur pour calculer un score. Avec une montre lue par Health Connect, il apparaît en quelques jours.")}</p>}
         </section>
 
-        <section className="card g12 dspan-6" aria-label="Volume par semaine">
-          <div className="between baseline"><h2>Volume — 12 semaines</h2><span className="t-caption c-moderate">heures</span></div>
+        <section className="card g12 dspan-6" aria-label={$t("Volume par semaine")}>
+          <div className="between baseline"><h2>{$t("Volume — 12 semaines")}</h2><span className="t-caption c-moderate">{$t("heures")}</span></div>
           <StackedWeeks weeks={weeks} order={['SWIM', 'BIKE', 'RUN', 'STRENGTH', 'OTHER']} />
           <div className="legend">{['SWIM', 'BIKE', 'RUN', 'STRENGTH', 'OTHER'].map((k) => <span key={k}><span className="dot s10" style={{ background: dvar(k as never) }} />{DISCIPLINE_LABEL[k as never]}</span>)}</div>
         </section>
 
-        <section className="card g8 dspan-12" aria-label="Méthode">
-          <h2>Comment la charge est calculée</h2>
-          <p className="t-caption c-neutral">Chaque séance reçoit une charge, de la plus fiable à la moins fiable : TRIMP sur la courbe cardiaque de la montre ; TRIMP sur la FC moyenne ; ressenti × durée recalé sur l’échelle du TRIMP (coefficient {num(d.ctx.srpeFactor, 2)}, {d.ctx.srpeCalibrationPairs >= 5 ? `appris sur ${d.ctx.srpeCalibrationPairs} de tes séances` : 'valeur type tant qu’il y a moins de 5 séances avec FC et ressenti'}) ; à défaut, une charge provisoire tirée de tes habitudes. Forme de fond = moyenne exponentielle sur 42 jours, fatigue = sur 7 jours, fraîcheur = forme − fatigue.</p>
-          <p className="t-caption c-moderate">FC max retenue : {d.ctx.hrMax.bpm ? `${num(d.ctx.hrMax.bpm, 0)} bpm (${d.ctx.hrMax.origin === 'observed' ? 'pic soutenu observé' : d.ctx.hrMax.origin === 'tanaka' ? 'formule de Tanaka, faute de mieux' : 'valeur déclarée'})` : 'inconnue — renseigne ta date de naissance ou une FC max'}. FC de repos de référence : {d.ctx.resting.at(d.today) ? `${num(d.ctx.resting.at(d.today)!, 0)} bpm` : '—'}.</p>
+        <section className="card g8 dspan-12" aria-label={$t("Méthode")}>
+          <h2>{$t("Comment la charge est calculée")}</h2>
+          <p className="t-caption c-neutral">{$t("Chaque séance reçoit une charge, de la plus fiable à la moins fiable : TRIMP sur la courbe cardiaque de la montre ; TRIMP sur la FC moyenne ; ressenti × durée recalé sur l’échelle du TRIMP (coefficient")} {num(d.ctx.srpeFactor, 2)}, {d.ctx.srpeCalibrationPairs >= 5 ? $t("appris sur {0} de tes séances", { 0: d.ctx.srpeCalibrationPairs }) : $t("valeur type tant qu’il y a moins de 5 séances avec FC et ressenti")}{$t(") ; à défaut, une charge provisoire tirée de tes habitudes. Forme de fond = moyenne exponentielle sur 42 jours, fatigue = sur 7 jours, fraîcheur = forme − fatigue.")}</p>
+          <p className="t-caption c-moderate">{$t("FC max retenue :")} {d.ctx.hrMax.bpm ? $t("{0} bpm ({1})", { 0: num(d.ctx.hrMax.bpm, 0), 1: d.ctx.hrMax.origin === 'observed' ? $t("pic soutenu observé") : d.ctx.hrMax.origin === 'tanaka' ? $t("formule de Tanaka, faute de mieux") : $t("valeur déclarée") }) : $t("inconnue — renseigne ta date de naissance ou une FC max")}{$t(". FC de repos de référence :")} {d.ctx.resting.at(d.today) ? $t("{0} bpm", { 0: num(d.ctx.resting.at(d.today)!, 0) }) : '—'}.</p>
         </section>
       </main>
     </div>
@@ -118,10 +119,10 @@ export function LoadScreen() {
 }
 
 function componentText(k: FormKey, v: number, center: number) {
-  if (k === 'sleep') return `${hhmm(v)} (habituel ${hhmm(center)})`;
-  if (k === 'restingHr') return `${num(v, 0)} bpm (habituel ${num(center, 0)})`;
-  if (k === 'freshness') return `${signed(v, 0)} (habituel ${signed(center, 0)})`;
-  return `RPE ${num(v, 0)} (habituel ${num(center, 1)})`;
+  if (k === 'sleep') return $t("{0} (habituel {1})", { 0: hhmm(v), 1: hhmm(center) });
+  if (k === 'restingHr') return $t("{0} bpm (habituel {1})", { 0: num(v, 0), 1: num(center, 0) });
+  if (k === 'freshness') return $t("{0} (habituel {1})", { 0: signed(v, 0), 1: signed(center, 0) });
+  return $t("RPE {0} (habituel {1})", { 0: num(v, 0), 1: num(center, 1) });
 }
 
 // ------------------------------------------------------------------ Objectif
@@ -131,8 +132,8 @@ export function ObjectiveScreen() {
   const race = data.race.main && !data.race.main.deleted ? data.race.main : null;
   if (!race) {
     return (
-      <div className="screen" data-screen="objectif"><AppHeader title="Progression" /><ErrorBanner /><SubNav items={NAV} label="Sections Progression" />
-        <main className="content"><Empty icon="flag" title="Aucune course objectif" text="Renseigne ta course : date, distances et chrono visé. L’écran décompose le chrono en allures et les met en face de tes indicateurs." action={<button type="button" className="btn btn-primary" onClick={() => setEditing(true)}>Renseigner ma course</button>} /></main>
+      <div className="screen" data-screen="objectif"><AppHeader title={$t("Progression")} /><ErrorBanner /><SubNav items={NAV} label={$t("Sections Progression")} />
+        <main className="content"><Empty icon="flag" title={$t("Aucune course objectif")} text={$t("Renseigne ta course : date, distances et chrono visé. L’écran décompose le chrono en allures et les met en face de tes indicateurs.")} action={<button type="button" className="btn btn-primary" onClick={() => setEditing(true)}>{$t("Renseigner ma course")}</button>} /></main>
         {editing && <RaceSheet onClose={() => setEditing(false)} />}
       </div>
     );
@@ -143,40 +144,40 @@ export function ObjectiveScreen() {
   const gap = total !== null && rp.allocatedTotal !== null ? total - rp.allocatedTotal : null;
   return (
     <div className="screen" data-screen="objectif">
-      <AppHeader title="Progression" />
+      <AppHeader title={$t("Progression")} />
       <ErrorBanner />
-      <SubNav items={NAV} label="Sections Progression" />
+      <SubNav items={NAV} label={$t("Sections Progression")} />
       <main className="content dgrid">
-        <Hero className="dspan-5" label={race.name} value={left > 0 ? 'J−' + left : left === 0 ? 'Jour J' : 'Passée'} chip={dateFr(race.raceDate)}>
+        <Hero className="dspan-5" label={race.name} value={left > 0 ? $t("J−{0}", { 0: left }) : left === 0 ? $t("Jour J") : $t("Passée")} chip={dateFr(race.raceDate)}>
           <div className="foot">
-            <span>Chrono visé <strong>{total !== null ? hhmm(total) : '—'}</strong></span>
-            <span>{left > 0 ? `${Math.floor(left / 7)} semaines` : ''}</span>
-            <button type="button" className="btn btn-tertiary on-hero" onClick={() => setEditing(true)}><Icon name="pencil" size={16} />Modifier</button>
+            <span>{$t("Chrono visé")} <strong>{total !== null ? hhmm(total) : '—'}</strong></span>
+            <span>{left > 0 ? $t("{0} semaines", { 0: Math.floor(left / 7) }) : ''}</span>
+            <button type="button" className="btn btn-tertiary on-hero" onClick={() => setEditing(true)}><Icon name="pencil" size={16} />{$t("Modifier")}</button>
           </div>
         </Hero>
 
-        <section className="card g12 dspan-7" aria-label="Décomposition du chrono">
-          <h2>Décomposition du chrono</h2>
+        <section className="card g12 dspan-7" aria-label={$t("Décomposition du chrono")}>
+          <h2>{$t("Décomposition du chrono")}</h2>
           {total !== null && <div className="split-bar" aria-hidden="true">
             {[['SWIM', race.targetSwimSeconds], ['BIKE', race.targetBikeSeconds], ['RUN', race.targetRunSeconds], ['OTHER', race.targetTransitionSeconds]].map(([k, v]) => v ? <span key={k as string} style={{ flex: v as number, background: dvar(k as never) }} /> : null)}
           </div>}
           <dl className="kv">
-            <dt>Natation</dt><dd>{race.targetSwimSeconds !== null ? hhmm(race.targetSwimSeconds) : '—'}</dd>
-            <dt>Vélo</dt><dd>{race.targetBikeSeconds !== null ? hhmm(race.targetBikeSeconds) : '—'}</dd>
-            <dt>Course</dt><dd>{race.targetRunSeconds !== null ? hhmm(race.targetRunSeconds) : '—'}</dd>
-            <dt>Transitions</dt><dd>{race.targetTransitionSeconds !== null ? mmss(race.targetTransitionSeconds) : '—'}</dd>
-            <dt className="t-strong">Somme des parties</dt><dd className="t-strong">{rp.allocatedTotal !== null ? hhmm(rp.allocatedTotal) : '—'}</dd>
+            <dt>{$t("Natation")}</dt><dd>{race.targetSwimSeconds !== null ? hhmm(race.targetSwimSeconds) : '—'}</dd>
+            <dt>{$t("Vélo")}</dt><dd>{race.targetBikeSeconds !== null ? hhmm(race.targetBikeSeconds) : '—'}</dd>
+            <dt>{$t("Course")}</dt><dd>{race.targetRunSeconds !== null ? hhmm(race.targetRunSeconds) : '—'}</dd>
+            <dt>{$t("Transitions")}</dt><dd>{race.targetTransitionSeconds !== null ? mmss(race.targetTransitionSeconds) : '—'}</dd>
+            <dt className="t-strong">{$t("Somme des parties")}</dt><dd className="t-strong">{rp.allocatedTotal !== null ? hhmm(rp.allocatedTotal) : '—'}</dd>
           </dl>
-          {gap !== null && Math.abs(gap) >= 60 && <div className="note note-warning"><Icon name="alert" size={20} /><span>La somme des parties {gap > 0 ? 'est inférieure' : 'dépasse'} au chrono visé de {duration(Math.abs(gap))}.</span></div>}
-          {race.targetRevisedAt && <p className="t-legal c-moderate">Chrono révisé le {dateFr(race.targetRevisedAt.slice(0, 10))}.</p>}
+          {gap !== null && Math.abs(gap) >= 60 && <div className="note note-warning"><Icon name="alert" size={20} /><span>{$t("La somme des parties")} {gap > 0 ? $t("est inférieure") : $t("dépasse")} {$t("au chrono visé de")} {duration(Math.abs(gap))}.</span></div>}
+          {race.targetRevisedAt && <p className="t-legal c-moderate">{$t("Chrono révisé le")} {dateFr(race.targetRevisedAt.slice(0, 10))}.</p>}
         </section>
 
-        <section className="dspan-12 grid-3 objective-grid" aria-label="Allures requises">
+        <section className="dspan-12 grid-3 objective-grid" aria-label={$t("Allures requises")}>
           <PaceCard p={rp.swim} />
           <PaceCard p={rp.bike} />
           <PaceCard p={rp.run} />
         </section>
-        <p className="t-caption c-moderate dspan-12">Les allures requises et tes indicateurs sont mis côte à côte, sans jugement de faisabilité : c’est au coach d’en tirer un plan.</p>
+        <p className="t-caption c-moderate dspan-12">{$t("Les allures requises et tes indicateurs sont mis côte à côte, sans jugement de faisabilité : c’est au coach d’en tirer un plan.")}</p>
       </main>
       {editing && <RaceSheet onClose={() => setEditing(false)} />}
     </div>
@@ -184,19 +185,19 @@ export function ObjectiveScreen() {
 }
 
 function PaceCard({ p }: { p: RequiredPace }) {
-  const req = p.required === null ? '—' : p.discipline === 'RUN' ? mmss(p.required) + NBSP + '/km' : p.discipline === 'SWIM' ? mmss(p.required) + NBSP + '/100' + NBSP + 'm' : num(p.required, 1) + NBSP + 'km/h';
+  const req = p.required === null ? '—' : p.discipline === 'RUN' ? mmss(p.required) + NBSP + '/km' : p.discipline === 'SWIM' ? mmss(p.required) + NBSP + '/100' + NBSP + 'm' : num(p.required, 1) + NBSP + $t("km/h");
   const ref = p.reference;
-  const refLabel = p.discipline === 'RUN' ? 'VMA' : p.discipline === 'SWIM' ? 'CSS' : 'FTP';
-  const refText = !ref ? '—' : p.discipline === 'RUN' ? num(ref.value * 3.6, 1) + NBSP + 'km/h' : p.discipline === 'SWIM' ? mmss(100 / ref.value) + NBSP + '/100' + NBSP + 'm' : num(ref.value, 0) + NBSP + 'W';
+  const refLabel = p.discipline === 'RUN' ? $t("VMA") : p.discipline === 'SWIM' ? 'CSS' : 'FTP';
+  const refText = !ref ? '—' : p.discipline === 'RUN' ? num(ref.value * 3.6, 1) + NBSP + $t("km/h") : p.discipline === 'SWIM' ? mmss(100 / ref.value) + NBSP + '/100' + NBSP + 'm' : num(ref.value, 0) + NBSP + 'W';
   return (
     <section className="card g8" style={{ borderTop: `3px solid ${dvar(p.discipline)}` }}>
       <span className="t-label">{DISCIPLINE_LABEL[p.discipline]}{p.distanceM ? ' · ' + (p.discipline === 'SWIM' ? num(p.distanceM, 0) + NBSP + 'm' : km(p.distanceM, 1)) : ''}</span>
       <span className="t-h3">{req}</span>
-      <span className="t-caption c-moderate">{p.allocated ? 'en ' + hhmm(p.allocated) : 'temps non réparti'}</span>
+      <span className="t-caption c-moderate">{p.allocated ? $t("en ") + hhmm(p.allocated) : $t("temps non réparti")}</span>
       <div className="divider" />
       <div className="between t-caption"><span className="c-neutral">{refLabel}</span><span className="t-caption-strong">{refText}</span></div>
-      {p.ofReference !== null && <div className="between t-caption"><span className="c-neutral">Allure requise</span><span className="t-caption-strong">{pct(p.ofReference)} de la {refLabel}</span></div>}
-      {ref && <span className="t-legal c-moderate">{SOURCE_LABEL[ref.source]} du {dateFr(ref.measuredAt.slice(0, 10))}</span>}
+      {p.ofReference !== null && <div className="between t-caption"><span className="c-neutral">{$t("Allure requise")}</span><span className="t-caption-strong">{pct(p.ofReference)} {$t("de la")} {refLabel}</span></div>}
+      {ref && <span className="t-legal c-moderate">{SOURCE_LABEL[ref.source]} {$t("du")} {dateFr(ref.measuredAt.slice(0, 10))}</span>}
     </section>
   );
 }
@@ -204,7 +205,7 @@ function PaceCard({ p }: { p: RequiredPace }) {
 function RaceSheet({ onClose }: { onClose: () => void }) {
   const { data } = useCalc();
   const r = data.race.main && !data.race.main.deleted ? data.race.main : null;
-  const [name, setName] = useState(r?.name ?? 'Ironman');
+  const [name, setName] = useState(r?.name ?? $t("Ironman"));
   const [date, setDate] = useState(r?.raceDate ?? addDays(new Date().toISOString().slice(0, 10), 180));
   const [cal, setCal] = useState(false);
   const [swim, setSwim] = useState(r?.swimDistanceM ? String(r.swimDistanceM) : '3800');
@@ -223,43 +224,43 @@ function RaceSheet({ onClose }: { onClose: () => void }) {
   const dist = (s: string, k: number) => { const v = parseNum(s); return Number.isFinite(v) && v > 0 ? Math.round(v * k) : null; };
   const save = () => {
     saveRace({ name: name.trim(), raceDate: date, swimDistanceM: dist(swim, 1), bikeDistanceM: dist(bike, 1000), runDistanceM: dist(run, 1000), targetTotalSeconds: vals.total, targetSwimSeconds: vals.ts, targetBikeSeconds: vals.tb, targetRunSeconds: vals.tr, targetTransitionSeconds: vals.tt, notes: r?.notes ?? null });
-    onClose(); showToast('Course enregistrée');
+    onClose(); showToast($t("Course enregistrée"));
   };
   return (
-    <Sheet title="Course objectif" onClose={onClose} full footer={<button type="button" className="btn btn-primary block" disabled={bad} onClick={save}>Enregistrer</button>}>
+    <Sheet title={$t("Course objectif")} onClose={onClose} full footer={<button type="button" className="btn btn-primary block" disabled={bad} onClick={save}>{$t("Enregistrer")}</button>}>
       <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
-        <label className="field"><span className="lbl">Nom</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></label>
-        <div className="field"><span className="lbl">Date</span>
+        <label className="field"><span className="lbl">{$t("Nom")}</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></label>
+        <div className="field"><span className="lbl">{$t("Date")}</span>
           <button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setCal(!cal)}><span>{dayTitle(date)} {date.slice(0, 4)}</span><Icon name="calendar" size={20} /></button>
           {cal && <DatePicker value={date} onChange={(v) => { setDate(v); setCal(false); }} />}
         </div>
         <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
-          <label className="field"><span className="lbl">Natation (m)</span><input className="input num" inputMode="numeric" value={swim} onChange={(e) => setSwim(e.target.value)} /></label>
-          <label className="field"><span className="lbl">Vélo (km)</span><input className="input num" inputMode="decimal" value={bike} onChange={(e) => setBike(e.target.value)} /></label>
-          <label className="field"><span className="lbl">Course (km)</span><input className="input num" inputMode="decimal" value={run} onChange={(e) => setRun(e.target.value)} /></label>
+          <label className="field"><span className="lbl">{$t("Natation (m)")}</span><input className="input num" inputMode="numeric" value={swim} onChange={(e) => setSwim(e.target.value)} /></label>
+          <label className="field"><span className="lbl">{$t("Vélo (km)")}</span><input className="input num" inputMode="decimal" value={bike} onChange={(e) => setBike(e.target.value)} /></label>
+          <label className="field"><span className="lbl">{$t("Course (km)")}</span><input className="input num" inputMode="decimal" value={run} onChange={(e) => setRun(e.target.value)} /></label>
         </div>
-        <label className="field"><span className="lbl">Chrono visé (h:mm)</span><input className="input num" value={total} placeholder="11:30" onChange={(e) => setTotal(e.target.value)} /></label>
+        <label className="field"><span className="lbl">{$t("Chrono visé (h:mm)")}</span><input className="input num" value={total} placeholder="11:30" onChange={(e) => setTotal(e.target.value)} /></label>
         <div className="grid-2" style={{ gap: 'var(--space-12)' }}>
-          <label className="field"><span className="lbl">Natation (h:mm)</span><input className="input num" value={ts} placeholder="1:15" onChange={(e) => setTs(e.target.value)} /></label>
-          <label className="field"><span className="lbl">Vélo (h:mm)</span><input className="input num" value={tb} placeholder="5:45" onChange={(e) => setTb(e.target.value)} /></label>
-          <label className="field"><span className="lbl">Course (h:mm)</span><input className="input num" value={tr} placeholder="4:15" onChange={(e) => setTr(e.target.value)} /></label>
-          <label className="field"><span className="lbl">Transitions (mm:ss)</span><input className="input num" value={tt} placeholder="15:00" onChange={(e) => setTt(e.target.value)} /></label>
+          <label className="field"><span className="lbl">{$t("Natation (h:mm)")}</span><input className="input num" value={ts} placeholder="1:15" onChange={(e) => setTs(e.target.value)} /></label>
+          <label className="field"><span className="lbl">{$t("Vélo (h:mm)")}</span><input className="input num" value={tb} placeholder="5:45" onChange={(e) => setTb(e.target.value)} /></label>
+          <label className="field"><span className="lbl">{$t("Course (h:mm)")}</span><input className="input num" value={tr} placeholder="4:15" onChange={(e) => setTr(e.target.value)} /></label>
+          <label className="field"><span className="lbl">{$t("Transitions (mm:ss)")}</span><input className="input num" value={tt} placeholder="15:00" onChange={(e) => setTt(e.target.value)} /></label>
         </div>
-        {bad && <span className="t-caption-strong c-critical">Format attendu : 11:30 ou 11h30 pour les heures, 15:00 pour les transitions.</span>}
+        {bad && <span className="t-caption-strong c-critical">{$t("Format attendu : 11:30 ou 11h30 pour les heures, 15:00 pour les transitions.")}</span>}
       </div>
     </Sheet>
   );
 }
 
 // ------------------------------------------------------------------ Zones
-const SOURCE_LABEL: Record<ZoneSource, string> = { test: 'Test', estimation: 'Estimation', manual: 'Saisie' };
+const SOURCE_LABEL: Record<ZoneSource, string> = { test: $t("Test"), estimation: $t("Estimation"), manual: $t("Saisie") };
 const KIND_INFO: Record<ZoneKind, { label: string; long: string; unit: string; hint: string; color: string }> = {
-  vma: { label: 'VMA', long: 'Vitesse maximale aérobie', unit: 'km/h', hint: '17,5', color: dvar('RUN') },
-  ftp: { label: 'FTP', long: 'Puissance seuil fonctionnelle', unit: 'W', hint: '240', color: dvar('BIKE') },
-  css: { label: 'CSS', long: 'Vitesse critique de nage', unit: 'mm:ss /100 m', hint: '1:45', color: dvar('SWIM') },
-  hr_max: { label: 'FC max', long: 'Fréquence cardiaque maximale', unit: 'bpm', hint: '186', color: 'var(--critical)' },
+  vma: { label: $t("VMA"), long: $t("Vitesse maximale aérobie"), unit: $t("km/h"), hint: '17,5', color: dvar('RUN') },
+  ftp: { label: 'FTP', long: $t("Puissance seuil fonctionnelle"), unit: 'W', hint: '240', color: dvar('BIKE') },
+  css: { label: 'CSS', long: $t("Vitesse critique de nage"), unit: $t("mm:ss /100 m"), hint: '1:45', color: dvar('SWIM') },
+  hr_max: { label: $t("FC max"), long: $t("Fréquence cardiaque maximale"), unit: 'bpm', hint: '186', color: 'var(--critical)' },
 };
-export const zoneText = (k: ZoneKind, v: number) => (k === 'vma' ? num(v * 3.6, 1) + NBSP + 'km/h' : k === 'css' ? mmss(100 / v) + NBSP + '/100' + NBSP + 'm' : num(v, 0) + NBSP + (k === 'ftp' ? 'W' : 'bpm'));
+export const zoneText = (k: ZoneKind, v: number) => (k === 'vma' ? num(v * 3.6, 1) + NBSP + $t("km/h") : k === 'css' ? mmss(100 / v) + NBSP + '/100' + NBSP + 'm' : num(v, 0) + NBSP + (k === 'ftp' ? 'W' : 'bpm'));
 const ROUTE_KIND: Record<string, ZoneKind> = { vma: 'vma', ftp: 'ftp', css: 'css', fcmax: 'hr_max' };
 const KIND_ROUTE: Record<ZoneKind, string> = { vma: 'vma', ftp: 'ftp', css: 'css', hr_max: 'fcmax' };
 
@@ -271,9 +272,9 @@ export function ZonesScreen() {
   const hm = d.ctx.hrMax;
   return (
     <div className="screen" data-screen="zones">
-      <AppHeader title="Progression" />
+      <AppHeader title={$t("Progression")} />
       <ErrorBanner />
-      <SubNav items={NAV} label="Sections Progression" />
+      <SubNav items={NAV} label={$t("Sections Progression")} />
       <main className="content dgrid">
         {(['vma', 'ftp', 'css', 'hr_max'] as ZoneKind[]).map((k) => {
           const h = zoneHistory(data, k);
@@ -285,25 +286,25 @@ export function ZonesScreen() {
                   <span className="stack grow"><span className="t-label">{KIND_INFO[k].label}</span><span className="t-caption c-moderate">{KIND_INFO[k].long}</span></span>
                   <Icon name="next" size={20} style={{ color: 'var(--text-moderate)' }} />
                 </button>
-                <button type="button" className="icon-btn" aria-label={'Nouvelle valeur de ' + KIND_INFO[k].label} onClick={() => setAdding(k)}><Icon name="plusCircle" /></button>
+                <button type="button" className="icon-btn" aria-label={$t("Nouvelle valeur de ") + KIND_INFO[k].label} onClick={() => setAdding(k)}><Icon name="plusCircle" /></button>
               </div>
               {k === 'hr_max' ? (
                 <>
                   <span className="t-h2">{hm.bpm ? num(hm.bpm, 0) + NBSP + 'bpm' : '—'}</span>
-                  <span className="t-caption c-moderate">{hm.origin === 'observed' ? `Pic soutenu observé en séance (au-dessus de la valeur déclarée${hm.declared ? ' ' + num(hm.declared.value, 0) : ''})` : hm.origin === 'tanaka' ? 'Formule de Tanaka (208 − 0,7 × âge) : déclare une valeur testée pour plus de justesse' : z ? `${SOURCE_LABEL[z.source]} du ${dateFr(z.measuredAt.slice(0, 10))}` : 'Renseigne ta date de naissance ou une valeur testée'}</span>
-                  <span className="t-legal c-moderate">{[hm.declared ? `déclarée ${num(hm.declared.value, 0)}` : null, hm.observed ? `pic observé ${num(hm.observed, 0)}` : null, hm.tanaka ? `Tanaka ${num(hm.tanaka, 0)}` : null].filter(Boolean).join(' · ')}</span>
+                  <span className="t-caption c-moderate">{hm.origin === 'observed' ? $t("Pic soutenu observé en séance (au-dessus de la valeur déclarée{0})", { 0: hm.declared ? ' ' + num(hm.declared.value, 0) : '' }) : hm.origin === 'tanaka' ? $t("Formule de Tanaka (208 − 0,7 × âge) : déclare une valeur testée pour plus de justesse") : z ? `${SOURCE_LABEL[z.source]} du ${dateFr(z.measuredAt.slice(0, 10))}` : $t("Renseigne ta date de naissance ou une valeur testée")}</span>
+                  <span className="t-legal c-moderate">{[hm.declared ? $t("déclarée {0}", { 0: num(hm.declared.value, 0) }) : null, hm.observed ? $t("pic observé {0}", { 0: num(hm.observed, 0) }) : null, hm.tanaka ? $t("Tanaka {0}", { 0: num(hm.tanaka, 0) }) : null].filter(Boolean).join(' · ')}</span>
                 </>
               ) : z ? (
                 <>
                   <span className="t-h2">{zoneText(k, z.value)}</span>
-                  <span className="t-caption c-moderate">{SOURCE_LABEL[z.source]} du {dateFr(z.measuredAt.slice(0, 10))}{h[1] ? ` · précédente ${zoneText(k, h[1].value)}` : ''}</span>
+                  <span className="t-caption c-moderate">{SOURCE_LABEL[z.source]} {$t("du")} {dateFr(z.measuredAt.slice(0, 10))}{h[1] ? $t(" · précédente {0}", { 0: zoneText(k, h[1].value) }) : ''}</span>
                   {h.length > 1 && <StepChart history={h} format={(v) => zoneText(k, v)} color={KIND_INFO[k].color} />}
                 </>
-              ) : <span className="t-caption c-moderate">Aucune valeur. Le coach peut programmer un test.</span>}
+              ) : <span className="t-caption c-moderate">{$t("Aucune valeur. Le coach peut programmer un test.")}</span>}
             </section>
           );
         })}
-        <p className="t-caption c-moderate dspan-12">Chaque valeur est historisée, jamais écrasée. La plus récente sert aux cibles relatives des séances (% VMA, % FTP, % CSS) et au calcul de la charge.</p>
+        <p className="t-caption c-moderate dspan-12">{$t("Chaque valeur est historisée, jamais écrasée. La plus récente sert aux cibles relatives des séances (% VMA, % FTP, % CSS) et au calcul de la charge.")}</p>
       </main>
       {adding && <ZoneSheet kind={adding} onClose={() => { setAdding(null); if (ask) navigate('/progression/zones', { replace: true }); }} />}
     </div>
@@ -315,19 +316,19 @@ export function ZoneHistoryScreen({ kind: routeKind }: { kind: string }) {
   const kind = ROUTE_KIND[routeKind] ?? 'vma';
   const [adding, setAdding] = useState(false);
   const h = zoneHistory(data, kind);
-  const remove = (z: ZoneReading) => { const snap = deleteZone(z.id); showToast('Valeur supprimée', { undo: () => restore(snap) }); };
+  const remove = (z: ZoneReading) => { const snap = deleteZone(z.id); showToast($t("Valeur supprimée"), { undo: () => restore(snap) }); };
   return (
     <div className="screen" data-screen="zone-historique">
-      <SubHeader title={KIND_INFO[kind].label} fallback="/progression/zones" right={<button type="button" className="icon-btn" aria-label="Nouvelle valeur" onClick={() => setAdding(true)}><Icon name="plus" /></button>} />
+      <SubHeader title={KIND_INFO[kind].label} fallback="/progression/zones" right={<button type="button" className="icon-btn" aria-label={$t("Nouvelle valeur")} onClick={() => setAdding(true)}><Icon name="plus" /></button>} />
       <main className="content stack-16 form-narrow-d">
         <p className="c-neutral">{KIND_INFO[kind].long}</p>
         {h.length > 1 && <section className="card"><StepChart history={h} format={(v) => zoneText(kind, v)} color={KIND_INFO[kind].color} /></section>}
-        {!h.length ? <Empty icon="gauge" title="Aucune valeur" text="Ajoute un résultat de test ou une estimation." /> : (
+        {!h.length ? <Empty icon="gauge" title={$t("Aucune valeur")} text={$t("Ajoute un résultat de test ou une estimation.")} /> : (
           <ul className="tile-list divided card" style={{ padding: '0 var(--space-16)' }}>
             {h.map((z, i) => (
               <li key={z.id} className="settings-row" style={{ cursor: 'default' }}>
-                <span className="stack"><span className="t-strong">{zoneText(kind, z.value)}{i === 0 ? <span className="var-chip" style={{ marginLeft: 8 }}>en vigueur</span> : null}</span><span className="t-caption c-moderate">{SOURCE_LABEL[z.source]} · {dateFr(z.measuredAt.slice(0, 10))}{z.notes ? ' · ' + z.notes : ''}</span></span>
-                <button type="button" className="icon-btn" aria-label="Supprimer cette valeur" onClick={() => remove(z)}><Icon name="trash" size={20} /></button>
+                <span className="stack"><span className="t-strong">{zoneText(kind, z.value)}{i === 0 ? <span className="var-chip" style={{ marginLeft: 8 }}>{$t("en vigueur")}</span> : null}</span><span className="t-caption c-moderate">{SOURCE_LABEL[z.source]} · {dateFr(z.measuredAt.slice(0, 10))}{z.notes ? ' · ' + z.notes : ''}</span></span>
+                <button type="button" className="icon-btn" aria-label={$t("Supprimer cette valeur")} onClick={() => remove(z)}><Icon name="trash" size={20} /></button>
               </li>
             ))}
           </ul>
@@ -349,18 +350,18 @@ function ZoneSheet({ kind, onClose }: { kind: ZoneKind; onClose: () => void }) {
   const si = !Number.isFinite(raw) || raw <= 0 ? NaN : kind === 'vma' ? raw / 3.6 : kind === 'css' ? 100 / raw : raw;
   const bounds: Record<ZoneKind, [number, number]> = { vma: [8 / 3.6, 26 / 3.6], ftp: [60, 600], css: [100 / 300, 100 / 50], hr_max: [120, 230] };
   const ok = Number.isFinite(si) && si >= bounds[kind][0] && si <= bounds[kind][1];
-  const save = () => { addZone({ kind, value: si, measuredAt: date + 'T12:00:00.000Z', source, notes: notes.trim() || null }); onClose(); showToast(KIND_INFO[kind].label + ' enregistrée'); };
+  const save = () => { addZone({ kind, value: si, measuredAt: date + 'T12:00:00.000Z', source, notes: notes.trim() || null }); onClose(); showToast(KIND_INFO[kind].label + $t(" enregistrée")); };
   return (
-    <Sheet title={'Nouvelle valeur — ' + KIND_INFO[kind].label} onClose={onClose} footer={<button type="button" className="btn btn-primary block" disabled={!ok} onClick={save}>Enregistrer</button>}>
+    <Sheet title={$t("Nouvelle valeur — ") + KIND_INFO[kind].label} onClose={onClose} footer={<button type="button" className="btn btn-primary block" disabled={!ok} onClick={save}>{$t("Enregistrer")}</button>}>
       <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
         <label className="field"><span className="lbl">{KIND_INFO[kind].label} ({KIND_INFO[kind].unit})</span><input className="input num" autoFocus inputMode={kind === 'css' ? 'text' : 'decimal'} placeholder={KIND_INFO[kind].hint} value={v} onChange={(e) => setV(e.target.value)} /></label>
-        {v && !ok && <span className="t-caption-strong c-critical">Valeur hors des bornes plausibles.</span>}
-        <div className="field"><span className="lbl">Source</span><Segmented label="Source" value={source} onChange={setSource} options={[['test', 'Test'], ['estimation', 'Estimation'], ['manual', 'Saisie']]} /></div>
-        <div className="field"><span className="lbl">Date</span>
+        {v && !ok && <span className="t-caption-strong c-critical">{$t("Valeur hors des bornes plausibles.")}</span>}
+        <div className="field"><span className="lbl">{$t("Source")}</span><Segmented label={$t("Source")} value={source} onChange={setSource} options={[['test', $t("Test")], ['estimation', $t("Estimation")], ['manual', $t("Saisie")]]} /></div>
+        <div className="field"><span className="lbl">{$t("Date")}</span>
           <button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setCal(!cal)}><span>{dayTitle(date)} {date.slice(0, 4)}</span><Icon name="calendar" size={20} /></button>
           {cal && <DatePicker value={date} onChange={(x) => { setDate(x); setCal(false); }} />}
         </div>
-        <label className="field"><span className="lbl">Note <span className="c-moderate" style={{ fontWeight: 400 }}>(facultatif)</span></span><input className="input" value={notes} placeholder="Test demi-Cooper, piste…" onChange={(e) => setNotes(e.target.value)} /></label>
+        <label className="field"><span className="lbl">{$t("Note")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><input className="input" value={notes} placeholder={$t("Test demi-Cooper, piste…")} onChange={(e) => setNotes(e.target.value)} /></label>
       </div>
     </Sheet>
   );

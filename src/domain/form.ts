@@ -4,6 +4,7 @@
 //    faite le matin faisait baisser la « forme du jour » du jour même, qui changeait donc dans la journée ;
 //  - la référence personnelle (médiane, dispersion sur 14 jours) n'inclut plus le jour évalué lui-même,
 //    qui atténuait son propre écart.
+import { $t } from '../i18n';
 import { addDays } from './dates';
 import { median } from './hr';
 import type { LoadSeries } from './load';
@@ -12,7 +13,7 @@ import type { AppData } from './types';
 
 export type FormKey = 'sleep' | 'restingHr' | 'freshness' | 'previousRpe';
 export const FORM_WEIGHTS: Record<FormKey, number> = { sleep: 0.3, restingHr: 0.25, freshness: 0.3, previousRpe: 0.15 };
-export const FORM_LABEL: Record<FormKey, string> = { sleep: 'Sommeil', restingHr: 'FC de repos', freshness: 'Fraîcheur', previousRpe: 'RPE de la veille' };
+export const FORM_LABEL: Record<FormKey, string> = { sleep: $t("Sommeil"), restingHr: $t("FC de repos"), freshness: $t("Fraîcheur"), previousRpe: $t("RPE de la veille") };
 const DIRECTION: Record<FormKey, 1 | -1> = { sleep: 1, restingHr: -1, freshness: 1, previousRpe: -1 };
 const SPREAD_FLOOR: Record<FormKey, number> = { sleep: 1800, restingHr: 1.5, freshness: 5, previousRpe: 0.8 };
 export const FORM_WINDOW = 14;
@@ -24,7 +25,7 @@ export interface DailyForm { day: string; score: number; components: FormCompone
 
 export type FormStep = 'depleted' | 'strained' | 'steady' | 'ready' | 'fresh';
 export const FORM_STEPS: FormStep[] = ['depleted', 'strained', 'steady', 'ready', 'fresh'];
-export const FORM_STEP_LABEL: Record<FormStep, string> = { depleted: 'Épuisé', strained: 'Entamé', steady: 'Correct', ready: 'Disponible', fresh: 'Frais' };
+export const FORM_STEP_LABEL: Record<FormStep, string> = { depleted: $t("Épuisé"), strained: $t("Entamé"), steady: $t("Correct"), ready: $t("Disponible"), fresh: $t("Frais") };
 export function formStep(score: number): FormStep {
   return score >= 83 ? 'fresh' : score >= 65 ? 'ready' : score >= 45 ? 'steady' : score >= 25 ? 'strained' : 'depleted';
 }

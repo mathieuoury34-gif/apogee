@@ -33,6 +33,19 @@ function parseAuthLink(url: string) {
 }
 
 export const native = {
+  /** Vue web Android d'une application (l'APK), par opposition à Chrome ou à l'app installée depuis Chrome. */
+  inWebView(): boolean {
+    return typeof navigator !== 'undefined' && /Android/.test(navigator.userAgent) && /; wv\)/.test(navigator.userAgent);
+  },
+  isAndroid(): boolean {
+    return typeof navigator !== 'undefined' && /Android/.test(navigator.userAgent);
+  },
+  /** Ce que voit l'app de son environnement, pour l'écran Montre. */
+  diagnostic(): string {
+    const c = cap();
+    const plugins = c?.Plugins ? Object.keys(c.Plugins).filter((k) => ['IronHealth', 'App', 'Browser', 'LocalNotifications'].includes(k)).join(', ') : '';
+    return [native.inWebView() ? 'WebView Android' : native.isAndroid() ? 'navigateur Android' : 'navigateur', c ? 'Capacitor ' + (c.getPlatform?.() ?? '?') : 'sans Capacitor', plugins ? 'modules : ' + plugins : 'aucun module natif', navigator.serviceWorker?.controller ? 'service worker actif' : 'sans service worker'].join(' · ');
+  },
   isApp(): boolean {
     return !!cap()?.isNativePlatform?.() && cap()?.getPlatform?.() === 'android';
   },

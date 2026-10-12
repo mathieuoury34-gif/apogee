@@ -1,6 +1,7 @@
 // État de la liaison avec la montre (Health Connect, APK Android) : ce qui est accordé, ce qui a été lu,
 // quand, et ce que l'app contient déjà. Affiché en carte dans Paramètres, et en rappel sur l'Accueil tant
 // que la liaison n'est pas faite.
+import { $t } from '../i18n';
 import { useState } from 'react';
 import { Icon } from '../ui/icons';
 import { navigate } from '../ui/router';
@@ -11,12 +12,12 @@ import { openHealthSettings, requestHealthPermissions, runHealthSync, useHealth 
 import { liveRecords, sessionDay } from '../domain/load';
 import { dateFr, dateTimeFr, num } from '../ui/format';
 
-export type HealthLevel = 'web' | 'module' | 'unavailable' | 'update' | 'permissions' | 'never' | 'ok' | 'error';
+export type HealthLevel = 'web' | 'bridge' | 'module' | 'unavailable' | 'update' | 'permissions' | 'never' | 'ok' | 'error';
 
 export function useHealthLevel(): HealthLevel {
   const h = useHealth();
   const prefs = usePrefs();
-  if (!native.isApp()) return 'web';
+  if (!native.isApp()) return native.inWebView() ? 'bridge' : 'web';
   if (!native.hasHealth() || h.availability === 'absent') return 'module';
   if (h.availability === 'update_required') return 'update';
   if (h.availability === 'unavailable') return 'unavailable';
@@ -56,33 +57,42 @@ export function HealthCard({ compact = false }: { compact?: boolean }) {
     setBusy(true);
     try {
       const r = await runHealthSync();
-      showToast(r ? `Montre lue : ${r.found} séance(s) vue(s), ${r.inserted} nouvelle(s), ${r.updated} complétée(s), ${r.nights} nuit(s)` : 'Lecture impossible : vérifie les autorisations', { error: !r });
+      showToast(r ? $t("Montre lue : {0} séance(s) vue(s), {1} nouvelle(s), {2} complétée(s), {3} nuit(s)", { 0: r.found, 1: r.inserted, 2: r.updated, 3: r.nights }) : $t("Lecture impossible : vérifie les autorisations"), { error: !r });
     } finally { setBusy(false); }
   };
   const grant = async () => { await requestHealthPermissions(); };
 
   if (level === 'web') {
-    if (compact) return null;
+    const android = native.isAndroid();
+    if (compact && !android) return null;
     return (
-      <div className="row" style={{ alignItems: 'flex-start', gap: 'var(--space-12)' }}>
-        <Icon name="phone" style={{ color: 'var(--text-moderate)' }} />
-        <span className="stack">
-          <span className="t-strong">Lu depuis l’application Android</span>
-          <span className="t-caption c-moderate">Health Connect n’existe que sur Android : l’APK Iron App y lit les séances, le sommeil et la FC de repos envoyés par Garmin Connect, puis la synchronisation les amène ici.{st.lastSession ? ` Dernière séance de la montre : ${dateFr(st.lastSession)}.` : ''}</span>
-        </span>
+      <div className={compact ? 'card g12 dspan-12' : 'stack-12'} data-component="HealthCard">
+        <div className="row" style={{ alignItems: 'flex-start', gap: 'var(--space-12)' }}>
+          <Icon name={android ? 'alert' : 'phone'} style={{ color: android ? 'var(--warning-text)' : 'var(--text-moderate)', flexShrink: 0 }} />
+          <span className="stack grow">
+            <span className="t-strong" style={android ? { color: 'var(--warning-text)' } : undefined}>{android ? $t("Health Connect non relié : tu n’es pas dans l’APK") : $t("Health Connect : lu par le téléphone Android")}</span>
+            <span className="t-caption c-neutral">{android
+              ? $t("Cette page tourne dans le navigateur (ou l’app installée depuis Chrome), qui n’a pas accès à Health Connect. Installe et ouvre l’APK Iron App : GitHub › Releases › iron-app.apk.")
+              : $t("Health Connect n’existe que sur Android : l’APK Iron App y lit les séances, le sommeil et la FC de repos envoyés par Garmin Connect, puis la synchronisation les amène ici.")}</span>
+          </span>
+        </div>
+        {!compact && <WatchKv st={st} />}
+        {compact && <div className="row wrap"><button type="button" className="btn btn-tertiary" onClick={() => navigate('/parametres')}>{$t("Détails")}</button></div>}
+        {!compact && <span className="t-legal c-moderate">{$t("Diagnostic :")} {native.diagnostic()}</span>}
       </div>
     );
   }
   if (compact && level === 'ok') return null;
 
   const status: Record<Exclude<HealthLevel, 'web'>, { tone: 'ok' | 'warn' | 'crit'; title: string; text: string }> = {
-    module: { tone: 'crit', title: 'Module Health Connect introuvable', text: 'Cette version de l’APK ne contient pas le lecteur Health Connect. Réinstalle la dernière version (page Releases du dépôt GitHub).' },
-    update: { tone: 'warn', title: 'Health Connect doit être mis à jour', text: 'Mets à jour « Health Connect » depuis le Play Store, puis reviens dans l’app.' },
-    unavailable: { tone: 'crit', title: 'Health Connect indisponible', text: 'Health Connect n’est pas installé sur ce téléphone. Installe-le depuis le Play Store, puis relie Garmin Connect à Health Connect.' },
-    error: { tone: 'crit', title: 'La dernière lecture a échoué', text: prefs.healthLastError || h.error || 'Erreur inconnue.' },
-    permissions: { tone: 'warn', title: 'Montre pas encore reliée', text: 'Autorise Iron App à lire tes séances, ta FC, ton sommeil et ta FC de repos dans Health Connect. Coche aussi « Historique » pour reprendre tes séances passées.' },
-    never: { tone: 'warn', title: 'Autorisations accordées, montre jamais lue', text: 'Lance une première lecture : elle remonte jusqu’à 400 jours si l’historique est autorisé.' },
-    ok: { tone: 'ok', title: 'Montre reliée', text: `Dernière lecture le ${dateTimeFr(prefs.healthLastRun!)}${report ? ` : ${report.found} séance(s) vue(s), ${report.inserted} nouvelle(s), ${report.updated} complétée(s), ${report.nights} nuit(s), ${report.restingDays} FC de repos` : ''}.` },
+    bridge: { tone: 'crit', title: $t("APK ouvert, mais module natif non chargé"), text: $t("L’app n’a pas reçu le pont vers Android, donc ni Health Connect ni les notifications. Ferme complètement l’app (balaye-la des apps récentes) et rouvre-la ; si le message reste, réinstalle la dernière version de l’APK.") },
+    module: { tone: 'crit', title: $t("Module Health Connect introuvable"), text: $t("Cette version de l’APK ne contient pas le lecteur Health Connect. Réinstalle la dernière version (page Releases du dépôt GitHub).") },
+    update: { tone: 'warn', title: $t("Health Connect doit être mis à jour"), text: $t("Mets à jour « Health Connect » depuis le Play Store, puis reviens dans l’app.") },
+    unavailable: { tone: 'crit', title: $t("Health Connect indisponible"), text: $t("Health Connect n’est pas installé sur ce téléphone. Installe-le depuis le Play Store, puis relie Garmin Connect à Health Connect.") },
+    error: { tone: 'crit', title: $t("La dernière lecture a échoué"), text: prefs.healthLastError || h.error || $t("Erreur inconnue.") },
+    permissions: { tone: 'warn', title: $t("Montre pas encore reliée"), text: $t("Autorise Iron App à lire tes séances, ta FC, ton sommeil et ta FC de repos dans Health Connect. Coche aussi « Historique » pour reprendre tes séances passées.") },
+    never: { tone: 'warn', title: $t("Autorisations accordées, montre jamais lue"), text: $t("Lance une première lecture : elle remonte jusqu’à 400 jours si l’historique est autorisé.") },
+    ok: { tone: 'ok', title: $t("Montre reliée"), text: $t("Dernière lecture le {0}{1}.", { 0: dateTimeFr(prefs.healthLastRun!), 1: report ? $t(" : {0} séance(s) vue(s), {1} nouvelle(s), {2} complétée(s), {3} nuit(s), {4} FC de repos", { 0: report.found, 1: report.inserted, 2: report.updated, 3: report.nights, 4: report.restingDays }) : '' }) },
   };
   const s = status[level];
   const color = s.tone === 'ok' ? 'var(--success-text)' : s.tone === 'warn' ? 'var(--warning-text)' : 'var(--critical-text)';
@@ -96,26 +106,36 @@ export function HealthCard({ compact = false }: { compact?: boolean }) {
           <span className="t-caption c-neutral">{s.text}</span>
         </span>
       </div>
-      {!compact && level !== 'module' && (
+      {!compact && level !== 'module' && level !== 'bridge' && (
         <dl className="kv">
-          <dt>Autorisations</dt><dd className="t-caption">{h.granted.length ? `${h.granted.length} accordée(s)${h.missing.length ? `, ${h.missing.length} manquante(s)` : ''}${h.history ? ' · historique' : ' · sans historique'}` : 'aucune'}</dd>
-          <dt>Séances de la montre</dt><dd className="t-caption">{st.sessions ? `${num(st.sessions)} (${num(st.withHr)} avec courbe cardio) · dernière ${dateFr(st.lastSession)}` : 'aucune'}</dd>
-          <dt>Nuits</dt><dd className="t-caption">{st.nights ? `${num(st.nights)} · dernière ${dateFr(st.lastNight)}` : 'aucune'}</dd>
-          <dt>FC de repos</dt><dd className="t-caption">{st.resting ? `${num(st.resting)} jour(s) · dernier ${dateFr(st.lastResting)}` : 'aucune'}</dd>
+          <dt>{$t("Autorisations")}</dt><dd className="t-caption">{h.granted.length ? $t("{0} accordée(s){1}{2}", { 0: h.granted.length, 1: h.missing.length ? $t(", {0} manquante(s)", { 0: h.missing.length }) : '', 2: h.history ? $t(" · historique") : $t(" · sans historique") }) : $t("aucune")}</dd>
         </dl>
       )}
-      {!compact && h.missing.length > 0 && h.granted.length > 0 && <span className="t-legal c-moderate">Manquantes : {h.missing.join(', ')}</span>}
+      {!compact && <WatchKv st={st} />}
+      {!compact && h.missing.length > 0 && h.granted.length > 0 && <span className="t-legal c-moderate">{$t("Manquantes :")} {h.missing.join(', ')}</span>}
       <div className="row wrap">
-        {(level === 'permissions' || (level !== 'module' && level !== 'unavailable' && level !== 'update' && (!h.history || h.missing.length > 0))) && (
-          <button type="button" className="btn btn-primary" onClick={grant}><Icon name="link" size={18} />Autoriser Health Connect</button>
+        {level !== 'bridge' && (level === 'permissions' || (level !== 'module' && level !== 'unavailable' && level !== 'update' && (!h.history || h.missing.length > 0))) && (
+          <button type="button" className="btn btn-primary" onClick={grant}><Icon name="link" size={18} />{$t("Autoriser Health Connect")}</button>
         )}
         {(level === 'ok' || level === 'never' || level === 'error') && (
-          <button type="button" className="btn btn-secondary" disabled={busy || h.running} onClick={read}><Icon name="refresh" size={18} />{busy || h.running ? 'Lecture…' : 'Lire la montre'}</button>
+          <button type="button" className="btn btn-secondary" disabled={busy || h.running} onClick={read}><Icon name="refresh" size={18} />{busy || h.running ? $t("Lecture…") : $t("Lire la montre")}</button>
         )}
-        {compact ? <button type="button" className="btn btn-tertiary" onClick={() => navigate('/parametres')}>Détails</button>
-          : level !== 'module' && level !== 'unavailable' && <button type="button" className="btn btn-tertiary" onClick={() => openHealthSettings()}>Ouvrir Health Connect</button>}
+        {compact ? <button type="button" className="btn btn-tertiary" onClick={() => navigate('/parametres')}>{$t("Détails")}</button>
+          : level !== 'module' && level !== 'unavailable' && level !== 'bridge' && <button type="button" className="btn btn-tertiary" onClick={() => openHealthSettings()}>{$t("Ouvrir Health Connect")}</button>}
       </div>
-      {!compact && <span className="t-legal c-moderate">La montre est relue à chaque ouverture de l’app (au plus toutes les 10 min) et avec le bouton ↻ de l’en-tête. Garmin Connect doit lui-même être relié à Health Connect (Garmin Connect › Paramètres › Health Connect).</span>}
+      {!compact && (level === 'bridge' || level === 'module' || level === 'error') && <span className="t-legal c-moderate">{$t("Diagnostic :")} {native.diagnostic()}</span>}
+      {!compact && <span className="t-legal c-moderate">{$t("La montre est relue à chaque ouverture de l’app (au plus toutes les 10 min) et avec le bouton ↻ de l’en-tête. Garmin Connect doit lui-même être relié à Health Connect (Garmin Connect › Paramètres › Health Connect).")}</span>}
     </div>
+  );
+}
+
+function WatchKv({ st }: { st: ReturnType<typeof useWatchStats> }) {
+  const none = $t("aucune");
+  return (
+    <dl className="kv">
+      <dt>{$t("Séances de la montre")}</dt><dd className="t-caption">{st.sessions ? $t("{0} ({1} avec courbe cardio) · dernière {2}", { 0: num(st.sessions), 1: num(st.withHr), 2: dateFr(st.lastSession) }) : none}</dd>
+      <dt>{$t("Nuits")}</dt><dd className="t-caption">{st.nights ? $t("{0} · dernière {1}", { 0: num(st.nights), 1: dateFr(st.lastNight) }) : none}</dd>
+      <dt>{$t("FC de repos")}</dt><dd className="t-caption">{st.resting ? $t("{0} jour(s) · dernier {1}", { 0: num(st.resting), 1: dateFr(st.lastResting) }) : none}</dd>
+    </dl>
   );
 }

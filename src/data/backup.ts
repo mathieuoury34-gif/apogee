@@ -1,4 +1,5 @@
 // Sauvegarde JSON complète, restauration, reprise de l'ancienne base Android.
+import { $t } from '../i18n';
 import { emptyData, importLegacyDb, type LegacyReport } from '../domain/legacy';
 import { liveRecords } from '../domain/load';
 import { importDossierData, isDossier, type Dossier, type DossierReport } from '../domain/dossier';
@@ -14,7 +15,7 @@ export function backupBlob(data: AppData): Blob {
 
 export function parseBackup(text: string): AppData {
   const j = JSON.parse(text) as { format?: string; data?: AppData };
-  if (j.format !== BACKUP_FORMAT || !j.data) throw new Error('ce fichier n’est pas une sauvegarde Iron App');
+  if (j.format !== BACKUP_FORMAT || !j.data) throw new Error($t("ce fichier n’est pas une sauvegarde Iron App"));
   const d = emptyData();
   for (const c of COLLECTIONS) (d as unknown as Record<string, unknown>)[c] = j.data[c] ?? {};
   return d;
@@ -73,16 +74,16 @@ export function importDossier(dossier: Dossier): DossierReport {
 /** Lit un fichier JSON choisi par l'utilisateur : sauvegarde Iron App ou dossier coach de l'ancienne app. */
 export function readJsonFile(text: string): { kind: 'backup'; data: AppData } | { kind: 'dossier'; dossier: Dossier } {
   let j: unknown;
-  try { j = JSON.parse(text); } catch { throw new Error('ce fichier n’est pas un JSON lisible'); }
+  try { j = JSON.parse(text); } catch { throw new Error($t("ce fichier n’est pas un JSON lisible")); }
   if (isDossier(j)) return { kind: 'dossier', dossier: j };
   return { kind: 'backup', data: parseBackup(text) };
 }
 
 export function dossierMessage(r: DossierReport): string {
-  const parts = [`${r.added} séance(s) ajoutée(s)`];
-  if (r.completed) parts.push(`${r.completed} complétée(s) (ressenti, commentaire)`);
-  if (r.known) parts.push(`${r.known} déjà présente(s)`);
-  if (r.plannedAdded) parts.push(`${r.plannedAdded} séance(s) prévue(s) ajoutée(s)`);
-  return 'Dossier coach : ' + parts.join(', ');
+  const parts = [$t("{0} séance(s) ajoutée(s)", { 0: r.added })];
+  if (r.completed) parts.push($t("{0} complétée(s) (ressenti, commentaire)", { 0: r.completed }));
+  if (r.known) parts.push($t("{0} déjà présente(s)", { 0: r.known }));
+  if (r.plannedAdded) parts.push($t("{0} séance(s) prévue(s) ajoutée(s)", { 0: r.plannedAdded }));
+  return $t("Dossier coach : ") + parts.join(', ');
 }
 

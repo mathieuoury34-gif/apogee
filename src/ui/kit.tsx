@@ -1,5 +1,6 @@
 // Composants partagés (planche Système de PEAnalyze, adaptés à Iron App)
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { $t } from '../i18n';
 import { Icon, Logo } from './icons';
 import { back, closeSheet, navigate, tabOf, useRoute, type Tab } from './router';
 import { usePrefs } from '../data/store';
@@ -8,8 +9,6 @@ import { native } from '../native/bridge';
 import { runHealthSync, useHealth } from '../native/healthSync';
 import { dateTimeFr, dayTitle, MONTHS_TITLE, DISCIPLINE_ICON, dvar } from './format';
 import type { Discipline } from '../domain/types';
-const t = (s: string, v?: Record<string, string | number>) => (v ? s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m)) : s);
-const tr = t;
 
 // ------------------------------------------------------------------ mesure
 export function useWidth<T extends HTMLElement>(fallback = 326): [React.RefObject<T | null>, number] {
@@ -44,10 +43,10 @@ export function useScrolled(threshold = 20): boolean {
 export function useUpdatedText(): string {
   const prefs = usePrefs();
   const sync = useSync();
-  if (native.hasHealth() && prefs.healthLastRun) return t('Montre lue le {d}', { d: dateTimeFr(prefs.healthLastRun) });
-  if (sync.user && sync.lastSync) return t('Synchronisé le {d}', { d: dateTimeFr(sync.lastSync) });
-  if (sync.user) return t('Synchronisation…');
-  return t('Données enregistrées sur cet appareil');
+  if (native.hasHealth() && prefs.healthLastRun) return $t('Montre lue le {d}', { d: dateTimeFr(prefs.healthLastRun) });
+  if (sync.user && sync.lastSync) return $t('Synchronisé le {d}', { d: dateTimeFr(sync.lastSync) });
+  if (sync.user) return $t('Synchronisation…');
+  return $t('Données enregistrées sur cet appareil');
 }
 
 export function AppHeader({ title }: { title: string }) {
@@ -66,12 +65,12 @@ export function AppHeader({ title }: { title: string }) {
         </div>
         <div className="actions">
           {showRefresh && (
-            <button type="button" className={'icon-btn' + (busy ? ' spin' : '')} aria-label={t('Lire la montre (Health Connect)')} onClick={() => { runHealthSync().then((r) => r && showToast(r.inserted || r.updated ? t('{n} séance(s) nouvelle(s) ou complétée(s)', { n: r.inserted + r.updated }) : t('Rien de nouveau sur la montre'))); }} disabled={busy}>
+            <button type="button" className={'icon-btn' + (busy ? ' spin' : '')} aria-label={$t('Lire la montre (Health Connect)')} onClick={() => { runHealthSync().then((r) => r && showToast(r.inserted || r.updated ? $t('{n} séance(s) nouvelle(s) ou complétée(s)', { n: r.inserted + r.updated }) : $t('Rien de nouveau sur la montre'))); }} disabled={busy}>
               <Icon name="refresh" />
             </button>
           )}
-          {!showRefresh && sync.state === 'syncing' && <span className="icon-btn spin neutral" aria-label={t('Synchronisation')}><Icon name="cloud" /></span>}
-          <a href="#/parametres" className="icon-btn" aria-label={t('Paramètres')} onClick={(e) => { e.preventDefault(); navigate('/parametres'); }}>
+          {!showRefresh && sync.state === 'syncing' && <span className="icon-btn spin neutral" aria-label={$t('Synchronisation')}><Icon name="cloud" /></span>}
+          <a href="#/parametres" className="icon-btn" aria-label={$t('Paramètres')} onClick={(e) => { e.preventDefault(); navigate('/parametres'); }}>
             <Icon name="settings" />
           </a>
         </div>
@@ -84,7 +83,7 @@ export function SubHeader({ title, fallback, close, bordered, right }: { title: 
   return (
     <header className={'sub-header' + (bordered ? ' bordered' : '')}>
       <div className="bar">
-        <button type="button" className={'icon-btn' + (close ? ' neutral' : '')} aria-label={close ? t('Fermer sans enregistrer') : t('Retour')} onClick={() => back(fallback)}>
+        <button type="button" className={'icon-btn' + (close ? ' neutral' : '')} aria-label={close ? $t('Fermer sans enregistrer') : $t('Retour')} onClick={() => back(fallback)}>
           <Icon name={close ? 'close' : 'back'} />
         </button>
         <h1>{title}</h1>
@@ -98,13 +97,13 @@ export function SubHeader({ title, fallback, close, bordered, right }: { title: 
 export function ErrorBanner() {
   const sync = useSync();
   const health = useHealth();
-  const msg = health.error ? t('Lecture de la montre impossible : {e}', { e: health.error }) : sync.state === 'error' ? sync.error : '';
+  const msg = health.error ? $t('Lecture de la montre impossible : {e}', { e: health.error }) : sync.state === 'error' ? sync.error : '';
   if (!msg) return null;
   return (
     <div role="alert" className="banner-error">
       <Icon name="alert" size={20} />
       <span>{msg}</span>
-      <button type="button" onClick={() => navigate('/parametres')}>{t('Paramètres')}</button>
+      <button type="button" onClick={() => navigate('/parametres')}>{$t('Paramètres')}</button>
     </div>
   );
 }
@@ -149,11 +148,11 @@ export function ChipGroup<T extends string>({ value, options, onChange, label, c
 
 // ------------------------------------------------------------------ navigation principale
 const TABS: { id: Exclude<Tab, 'none'>; label: string; to: string }[] = [
-  { id: 'accueil', label: 'Accueil', to: '/accueil' },
-  { id: 'calendrier', label: 'Calendrier', to: '/calendrier' },
-  { id: 'seances', label: 'Séances', to: '/seances' },
-  { id: 'progression', label: 'Progression', to: '/progression' },
-  { id: 'coach', label: 'Coach', to: '/coach' },
+  { id: 'accueil', label: $t("Accueil"), to: '/accueil' },
+  { id: 'calendrier', label: $t("Calendrier"), to: '/calendrier' },
+  { id: 'seances', label: $t("Séances"), to: '/seances' },
+  { id: 'progression', label: $t("Progression"), to: '/progression' },
+  { id: 'coach', label: $t("Coach"), to: '/coach' },
 ];
 
 export function TabBar() {
@@ -162,24 +161,24 @@ export function TabBar() {
   const go = (to: string) => (e: React.MouseEvent) => { e.preventDefault(); if (route.path !== to) navigate(to); };
   return (
     <>
-      <nav aria-label={tr('Navigation principale')} className="tabbar" data-component="TabBar">
+      <nav aria-label={$t('Navigation principale')} className="tabbar" data-component="TabBar">
         {TABS.map((t) => (
           <a key={t.id} href={'#' + t.to} aria-current={active === t.id ? 'page' : undefined} onClick={go(t.to)}>
             <span className="pill"><Icon name={t.id} /></span>
-            {tr(t.label)}
+            {$t(t.label)}
           </a>
         ))}
       </nav>
-      <aside className="sidenav" aria-label={tr('Navigation principale')}>
+      <aside className="sidenav" aria-label={$t('Navigation principale')}>
         <Logo size={20} />
         <nav>
           {TABS.map((t) => (
             <a key={t.id} href={'#' + t.to} aria-current={active === t.id ? 'page' : undefined} onClick={go(t.to)}>
-              <Icon name={t.id} />{tr(t.label)}
+              <Icon name={t.id} />{$t(t.label)}
             </a>
           ))}
           <a href="#/parametres" aria-current={route.path.startsWith('/parametres') ? 'page' : undefined} onClick={go('/parametres')}>
-            <Icon name="settings" />{tr('Paramètres')}
+            <Icon name="settings" />{$t('Paramètres')}
           </a>
         </nav>
         <SyncFoot />
@@ -193,7 +192,7 @@ function SyncFoot() {
   return <div className="foot">{updated}</div>;
 }
 
-export function Fab({ onClick, label = t('Ajouter une séance') }: { onClick: () => void; label?: string }) {
+export function Fab({ onClick, label = $t('Ajouter une séance') }: { onClick: () => void; label?: string }) {
   return (
     <button type="button" className="fab" aria-label={label} onClick={onClick} data-component="Button.fab">
       <Icon name="plus" />
@@ -222,7 +221,7 @@ export function Sheet({ title, children, footer, full, onClose = closeSheet, hea
         <div className="sheet-head" style={full ? { borderBottom: '1px solid var(--divider-minimal)' } : undefined}>
           <div className="between">
             <h2 className="t-h2">{title}</h2>
-            <button type="button" className="icon-btn neutral" aria-label={t('Fermer')} onClick={onClose} style={{ marginRight: 'calc(-1 * var(--space-10))' }}>
+            <button type="button" className="icon-btn neutral" aria-label={$t('Fermer')} onClick={onClose} style={{ marginRight: 'calc(-1 * var(--space-10))' }}>
               <Icon name="close" />
             </button>
           </div>
@@ -253,7 +252,7 @@ export function ToastHost() {
     <div role="status" className={'toast' + (t.error ? ' error' : '')} key={t.id} data-component="Toast">
       <Icon name={t.error ? 'alert' : 'success'} />
       <span className="t-strong">{t.text}</span>
-      {t.undo ? <button type="button" onClick={() => { t.undo!(); toast = null; toastListeners.forEach((l) => l()); }}>{tr('Annuler')}</button> : <span />}
+      {t.undo ? <button type="button" onClick={() => { t.undo!(); toast = null; toastListeners.forEach((l) => l()); }}>{$t('Annuler')}</button> : <span />}
     </div>
   );
 }
@@ -288,7 +287,7 @@ export function Empty({ icon = 'inbox', title, text, action }: { icon?: string; 
 }
 
 /** Calendrier (DatePicker) : mois navigable, en-tête vert. */
-export function DatePicker({ value, onChange, label = t('Date') }: { value: string; onChange: (iso: string) => void; label?: string }) {
+export function DatePicker({ value, onChange, label = $t('Date') }: { value: string; onChange: (iso: string) => void; label?: string }) {
   const [view, setView] = useState(value.slice(0, 7));
   const y = +view.slice(0, 4), m = +view.slice(5, 7);
   const first = new Date(Date.UTC(y, m - 1, 1));
@@ -306,12 +305,12 @@ export function DatePicker({ value, onChange, label = t('Date') }: { value: stri
       </div>
       <div className="body">
         <div className="month">
-          <button type="button" className="icon-btn" aria-label={t('Mois précédent')} onClick={() => shift(-1)}><Icon name="back" size={20} /></button>
+          <button type="button" className="icon-btn" aria-label={$t('Mois précédent')} onClick={() => shift(-1)}><Icon name="back" size={20} /></button>
           <span>{MONTHS[m - 1]} {y}</span>
-          <button type="button" className="icon-btn" aria-label={t('Mois suivant')} onClick={() => shift(1)}><Icon name="next" size={20} /></button>
+          <button type="button" className="icon-btn" aria-label={$t('Mois suivant')} onClick={() => shift(1)}><Icon name="next" size={20} /></button>
         </div>
         <div className="grid">
-          {t('L,M,M,J,V,S,D').split(',').map((d, i) => <span key={i}>{d}</span>)}
+          {$t('L,M,M,J,V,S,D').split(',').map((d, i) => <span key={i}>{d}</span>)}
           {Array.from({ length: offset }, (_, i) => <button key={'b' + i} type="button" disabled tabIndex={-1} />)}
           {Array.from({ length: days }, (_, i) => {
             const iso = view + '-' + String(i + 1).padStart(2, '0');

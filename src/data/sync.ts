@@ -7,6 +7,7 @@
 //
 // Dans l'APK Android, Google refuse la connexion depuis une vue web intégrée : la connexion passe par le
 // navigateur du téléphone (page auth.html), qui renvoie le jeton à l'app par le lien ironapp://auth.
+import { $t, lang } from '../i18n';
 import { useSyncExternalStore } from 'react';
 import { FIREBASE_CONFIG } from './firebase-config';
 import { commit, dirty, getData, getPrefs, markClean, onChange, setPrefs } from './store';
@@ -48,11 +49,11 @@ async function init(): Promise<boolean> {
     fa = a; fs = f;
     const fbApp = app.initializeApp(FIREBASE_CONFIG);
     auth = a.getAuth(fbApp);
-    auth.languageCode = 'fr';
+    auth.languageCode = lang;
     try { db = f.initializeFirestore(fbApp, { localCache: f.persistentLocalCache() }); } catch { db = f.getFirestore(fbApp); }
     return true;
   } catch (e) {
-    set({ ready: true, state: 'error', error: 'Service de synchronisation injoignable (hors ligne ?)' });
+    set({ ready: true, state: 'error', error: $t("Service de synchronisation injoignable (hors ligne ?)") });
     console.warn('[sync] init', e);
     return false;
   }
@@ -83,7 +84,7 @@ async function push(): Promise<void> {
     }
     set({ state: 'ok', lastSync: new Date().toISOString(), error: '' });
   } catch (e) {
-    set({ state: 'error', error: 'Envoi impossible : ' + ((e as Error).message || 'erreur') });
+    set({ state: 'error', error: $t("Envoi impossible : ") + ((e as Error).message || $t("erreur")) });
   } finally {
     pushing = false;
     if (dirty.size) schedulePush(5000);
@@ -144,14 +145,14 @@ export async function startSync(): Promise<void> {
     try {
       await fa.signInWithCredential(auth, fa.GoogleAuthProvider.credential(idToken || null, accessToken || null));
     } catch (e) {
-      set({ error: 'Connexion impossible : ' + (e as Error).message, state: 'error' });
+      set({ error: $t("Connexion impossible : ") + (e as Error).message, state: 'error' });
     }
   });
 }
 
 export async function signIn(): Promise<void> {
-  if (!(await init())) throw new Error('Synchronisation non configurée');
-  if (native.isApp()) { await native.openBrowser(siteUrl() + 'auth.html?app=1'); return; }
+  if (!(await init())) throw new Error($t("Synchronisation non configurée"));
+  if (native.isApp()) { await native.openBrowser(siteUrl() + 'auth.html?app=1&lang=' + lang); return; }
   const provider = new fa.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
   try {

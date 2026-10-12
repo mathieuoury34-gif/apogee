@@ -1,3 +1,4 @@
+import { $t } from '../i18n';
 // Lecteur minimal du format de fichier SQLite 3 (lecture seule), pour reprendre la base de l'ancienne
 // application Android (Paramètres › Export › « Partager le fichier »). Sans dépendance : parcourt les
 // arbres B des tables, suit les pages de débordement, décode les enregistrements.
@@ -9,12 +10,12 @@ export interface SqlTable { name: string; columns: string[]; rows: Record<string
 export function readSqlite(buf: Uint8Array): Map<string, SqlTable> {
   const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
   const magic = new TextDecoder().decode(buf.subarray(0, 15));
-  if (magic !== 'SQLite format 3') throw new Error('ce fichier n’est pas une base SQLite');
+  if (magic !== 'SQLite format 3') throw new Error($t("ce fichier n’est pas une base SQLite"));
   let pageSize = dv.getUint16(16);
   if (pageSize === 1) pageSize = 65536;
   const reserved = buf[20];
   const usable = pageSize - reserved;
-  if (dv.getUint32(56) !== 1) throw new Error('encodage de texte non pris en charge');
+  if (dv.getUint32(56) !== 1) throw new Error($t("encodage de texte non pris en charge"));
   const utf8 = new TextDecoder();
 
   const pageAt = (n: number) => (n - 1) * pageSize;
@@ -82,7 +83,7 @@ export function readSqlite(buf: Uint8Array): Map<string, SqlTable> {
   }
 
   function walk(page: number, cb: (rowid: number, values: SqlValue[]) => void, guard = 0) {
-    if (guard > 64) throw new Error('arbre trop profond (fichier endommagé ?)');
+    if (guard > 64) throw new Error($t("arbre trop profond (fichier endommagé ?)"));
     const base = pageAt(page);
     const h = page === 1 ? base + 100 : base;
     const type = buf[h];
