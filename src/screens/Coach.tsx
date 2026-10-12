@@ -7,8 +7,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppHeader, ChipGroup, DiscIcon, Empty, ErrorBanner, Sheet, showToast } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { navigate, useRoute } from '../ui/router';
-import { useCalc } from '../data/store';
+import { getData, useCalc } from '../data/store';
 import { applyCoach, logExport } from '../data/actions';
+import { dossierMessage, importDossier, restoreBackup } from '../data/backup';
+import { isDossier, type Dossier } from '../domain/dossier';
 import { addDays } from '../domain/dates';
 import { ISSUE_TEXT, type DraftIssueCode } from '../domain/blocks';
 import { alreadyImported, buildDossier, ISSUE_LABEL, lastPlanValidity, PARSE_ERROR_TEXT, parsePlan, preview, type CoachPlan, type Preview } from '../domain/coach';
@@ -123,9 +125,19 @@ function ImportSheet({ onClose }: { onClose: () => void }) {
   const [text, setText] = useState('');
   const [state, setState] = useState<{ plan: CoachPlan; pv: Preview; hash: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dossier, setDossier] = useState<Dossier | null>(null);
   const file = useRef<HTMLInputElement>(null);
-  useEffect(() => { setState(null); setError(null); }, [text]);
+  useEffect(() => { setState(null); setError(null); setDossier(null); }, [text]);
+  const takeDossier = () => {
+    if (!dossier) return;
+    const prev = getData();
+    const r = importDossier(dossier);
+    onClose();
+    showToast(dossierMessage(r), { undo: () => restoreBackup(prev) });
+  };
   const analyse = (raw: string) => {
+    // un dossier-athlète (celui qu'on envoie au coach) n'est pas un plan : on propose d'en reprendre les séances
+    try { const j = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); if (isDossier(j)) { setDossier(j); return; } } catch { /* l'analyse ci-dessous dira pourquoi */ }
     const r = parsePlan(raw);
     if (!r.ok) { setError(PARSE_ERROR_TEXT[r.code] + (r.code === 'SCHEMA_VERSION_UNSUPPORTED' && r.found ? ` (trouvé : ${String(r.found)})` : '')); return; }
     const dup = alreadyImported(data, r.hash);
@@ -154,6 +166,13 @@ function ImportSheet({ onClose }: { onClose: () => void }) {
             <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start' }} onClick={() => file.current?.click()}><Icon name="folder" size={18} />Ouvrir un fichier</button>
             <input ref={file} type="file" accept=".json,application/json,text/plain" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; const t = await f.text(); setText(t); setTimeout(() => analyse(t), 0); }} />
             {error && <div className="note note-critical" role="alert"><Icon name="alert" size={20} /><span>{error}</span></div>}
+            {dossier && (
+              <div className="stack-12">
+                <div className="note note-warning" role="status"><Icon name="info" size={20} /><span>Ce fichier est un <strong>dossier-athlète</strong> (celui qu’on envoie au coach), pas un plan. Il contient {dossier.recentActualSessions.length} séance(s) réalisée(s) et {(dossier.upcomingPlannedSessions ?? []).length} séance(s) prévue(s).</span></div>
+                <button type="button" className="btn btn-primary block" onClick={takeDossier}>Ajouter à mes données ce qui manque</button>
+                <span className="t-caption c-moderate">Rien n’est écrasé : seules les séances absentes sont ajoutées, et les ressentis manquants complétés.</span>
+              </div>
+            )}
           </>
         ) : (
           <>

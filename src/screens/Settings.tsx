@@ -9,6 +9,7 @@ import { deleteCloud, signIn, signOut, syncNow, useSync } from '../data/sync';
 import { backupBlob, dossierMessage, importDossier, importLegacy, readJsonFile, restoreBackup } from '../data/backup';
 import { deleteEverything, deleteInterruption, restore, saveAthlete, saveInterruption } from '../data/actions';
 import { native } from '../native/bridge';
+import { HealthCard } from './Health';
 import { openHealthSettings, requestHealthPermissions, runHealthSync, useHealth } from '../native/healthSync';
 import { addDays, ageAt } from '../domain/dates';
 import { newId } from '../domain/ids';
@@ -145,31 +146,7 @@ export function SettingsScreen() {
 
         <Section id="p-health" title="Montre (Health Connect)">
           <div className="card g12" style={{ borderRadius: 'var(--radius-12)' }}>
-            {!app ? (
-              <div className="row" style={{ alignItems: 'flex-start', gap: 'var(--space-12)' }}>
-                <Icon name="phone" style={{ color: 'var(--text-moderate)' }} />
-                <span className="stack">
-                  <span className="t-strong">Lu depuis l’application Android</span>
-                  <span className="t-caption c-moderate">Health Connect n’existe que sur Android : l’APK Iron App y lit les séances, le sommeil et la FC de repos envoyés par Garmin Connect, puis la synchronisation les amène ici.</span>
-                </span>
-              </div>
-            ) : health.availability !== 'available' ? (
-              <div className="note note-warning"><Icon name="alert" size={20} /><span>{health.availability === 'update_required' ? 'Health Connect doit être mis à jour depuis le Play Store.' : health.availability === 'unavailable' ? 'Health Connect n’est pas disponible sur ce téléphone.' : 'Module Health Connect introuvable dans cette version de l’APK.'}</span></div>
-            ) : (
-              <>
-                <div className="row t-caption" style={{ color: health.missing.length ? 'var(--warning-text)' : 'var(--success-text)' }}>
-                  <Icon name={health.missing.length ? 'alert' : 'success'} size={18} />
-                  {health.missing.length ? `Autorisations manquantes : ${health.missing.join(', ')}` : `Autorisations accordées${health.history ? ' · historique complet' : ' · 30 derniers jours seulement'}`}
-                </div>
-                <span className="t-caption c-moderate">{prefs.healthLastRun ? `Dernière lecture le ${dateTimeFr(prefs.healthLastRun)}${report ? ` · ${report.found} séance(s) vue(s), ${report.inserted} nouvelle(s), ${report.updated} complétée(s), ${report.nights} nuit(s)` : ''}.` : 'Jamais lue.'} La montre est relue à chaque ouverture de l’app.</span>
-                {prefs.healthLastError && <span className="t-caption-strong c-critical">{prefs.healthLastError}</span>}
-                <div className="row wrap">
-                  <button type="button" className="btn btn-secondary" disabled={busy === 'health' || health.running} onClick={readNow}><Icon name="refresh" size={18} />{busy === 'health' || health.running ? 'Lecture…' : 'Relire la montre'}</button>
-                  {health.missing.length > 0 || !health.history ? <button type="button" className="btn btn-primary" onClick={() => requestHealthPermissions()}>Accorder les autorisations</button>
-                    : <button type="button" className="btn btn-tertiary" onClick={() => openHealthSettings()}>Gérer dans Health Connect</button>}
-                </div>
-              </>
-            )}
+            <HealthCard />
           </div>
         </Section>
 

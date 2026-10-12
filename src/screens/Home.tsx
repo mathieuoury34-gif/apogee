@@ -15,6 +15,7 @@ import { paceOf } from '../domain/stats';
 import type { ActualSession, PlannedSession } from '../domain/types';
 import { dateFr, dayLong, dayTitle, DISCIPLINE_LABEL, distanceFor, duration, dvar, num, paceFor, relDays, signed, WD_LETTER, NBSP } from '../ui/format';
 import { WelcomeCard } from './Welcome';
+import { HealthCard } from './Health';
 
 export function HomeScreen() {
   const { data, d } = useCalc();
@@ -36,6 +37,7 @@ export function HomeScreen() {
       <ErrorBanner />
       <main className="content with-fab dgrid">
         {empty && <WelcomeCard className="dspan-12" />}
+        <HealthCard compact />
 
         {race && <div className="dspan-12"><RaceCard name={race.name} date={race.raceDate} today={today} phase={phase ? { label: phase.label, start: phase.startDate, end: phase.endDate } : null} /></div>}
         <FormHero form={form} isToday={!!d.form} constat={d.constat} priming={d.series.isPriming} firstDay={d.series.firstDay} />
