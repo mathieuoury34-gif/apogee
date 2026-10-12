@@ -82,6 +82,10 @@ configuration.
 3. Le message affiche le nombre de séances reprises et la date de la dernière. L'ancienne app enregistre
    d'abord les dernières modifications dans un fichier annexe que le partage n'emporte pas. Si une saisie très
    récente (un ressenti, un commentaire) manque, refais-la dans la nouvelle app.
+   Si des séances récentes manquent, ouvre *Paramètres › Données › Restaurer ou compléter (.json)* et choisis le
+   dossier coach exporté depuis l'ancienne app (écran Coach) : les séances jointes et les séances prévues qui
+   manquent sont ajoutées, sans doublon. Quand la montre remonte ensuite ces mêmes séances, elles sont
+   complétées (courbe cardio), pas dupliquées.
 4. Dans l'APK, **Paramètres › Montre › Accorder les autorisations** avec « Historique » coché : la première
    lecture remonte 400 jours de Health Connect. Elle complète les séances sans doublon, car l'identifiant Garmin
    sert de clé.
@@ -93,7 +97,7 @@ connues du coach restent valables.
 
 - **Paramètres › Exporter en Excel** : classeur à 6 onglets (Tableau de bord, Séances, Plan, Charge, Zones,
   Périodisation), avec formules et graphiques recalculés à l'ouverture.
-- **Paramètres › Exporter une sauvegarde** : fichier JSON complet, à réimporter avec « Restaurer une sauvegarde ».
+- **Paramètres › Exporter une sauvegarde** : fichier JSON complet, à réimporter avec « Restaurer ou compléter (.json) ».
 - **Coach › Exporter le fichier / Copier** : dossier-athlète au format `ironapp/1` (format inchangé).
 
 Dans l'APK, chaque export ouvre le menu de partage d'Android. Sur PC et iPhone, le fichier est téléchargé.

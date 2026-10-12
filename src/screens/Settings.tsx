@@ -6,7 +6,7 @@ import { Icon, Logo } from '../ui/icons';
 import { navigate, useRoute } from '../ui/router';
 import { getData, getPrefs, setPrefs, useCalc, usePrefs } from '../data/store';
 import { deleteCloud, signIn, signOut, syncNow, useSync } from '../data/sync';
-import { backupBlob, importLegacy, parseBackup, restoreBackup } from '../data/backup';
+import { backupBlob, dossierMessage, importDossier, importLegacy, readJsonFile, restoreBackup } from '../data/backup';
 import { deleteEverything, deleteInterruption, restore, saveAthlete, saveInterruption } from '../data/actions';
 import { native } from '../native/bridge';
 import { openHealthSettings, requestHealthPermissions, runHealthSync, useHealth } from '../native/healthSync';
@@ -74,9 +74,10 @@ export function SettingsScreen() {
   const onJson = async (f: File) => {
     try {
       const prev = getData();
-      restoreBackup(parseBackup(await f.text()));
-      showToast('Sauvegarde restaurée', { undo: () => restoreBackup(prev) });
-    } catch (e) { showToast('Restauration impossible : ' + (e as Error).message, { error: true }); }
+      const file = readJsonFile(await f.text());
+      if (file.kind === 'dossier') showToast(dossierMessage(importDossier(file.dossier)), { undo: () => restoreBackup(prev) });
+      else { restoreBackup(file.data); showToast('Sauvegarde restaurée', { undo: () => restoreBackup(prev) }); }
+    } catch (e) { showToast('Lecture impossible : ' + (e as Error).message, { error: true }); }
   };
   const onDb = async (f: File) => {
     setBusy('db');
@@ -215,7 +216,7 @@ export function SettingsScreen() {
           <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
             <Row icon="sheet" title="Exporter en Excel (.xlsx)" sub={busy === 'xlsx' ? 'Préparation du fichier…' : 'Tableau de bord, séances, plan, charge, zones, périodisation — formules et graphiques'} onClick={exportXlsx} />
             <Row icon="download" title="Exporter une sauvegarde (.json)" sub="Toutes les données, relisibles par l’app" onClick={exportJson} />
-            <Row icon="upload" title="Restaurer une sauvegarde" sub="Remplace les données de l’app (annulable)" onClick={() => jsonInput.current?.click()} />
+            <Row icon="upload" title="Restaurer ou compléter (.json)" sub="Sauvegarde Iron App (remplace les données) ou dossier coach de l’ancienne app (ajoute les séances qui manquent)" onClick={() => jsonInput.current?.click()} />
             <Row icon="database" title="Reprendre l’ancienne base (.db)" sub={busy === 'db' ? 'Lecture en cours…' : 'Fichier exporté par l’ancienne app Android — fusion sans doublon'} onClick={() => dbInput.current?.click()} />
           </ul>
           <input ref={jsonInput} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onJson(f); e.target.value = ''; }} />

@@ -1,6 +1,7 @@
 // Sauvegarde JSON complète, restauration, reprise de l'ancienne base Android.
 import { emptyData, importLegacyDb, type LegacyReport } from '../domain/legacy';
 import { liveRecords } from '../domain/load';
+import { importDossierData, isDossier, type Dossier, type DossierReport } from '../domain/dossier';
 import type { AppData } from '../domain/types';
 import { COLLECTIONS } from '../domain/types';
 import { commit, getData, replaceAll } from './store';
@@ -61,3 +62,27 @@ export function importLegacy(bytes: Uint8Array): LegacyReport {
   });
   return report;
 }
+
+/** Complète les données avec le dossier coach `ironapp/1` exporté par l'ancienne app (voir domain/dossier.ts). */
+export function importDossier(dossier: Dossier): DossierReport {
+  const { actual, planned, report } = importDossierData(getData(), dossier);
+  commit((tx) => { actual.forEach((x) => tx.put('actual', x)); planned.forEach((x) => tx.put('planned', x)); });
+  return report;
+}
+
+/** Lit un fichier JSON choisi par l'utilisateur : sauvegarde Iron App ou dossier coach de l'ancienne app. */
+export function readJsonFile(text: string): { kind: 'backup'; data: AppData } | { kind: 'dossier'; dossier: Dossier } {
+  let j: unknown;
+  try { j = JSON.parse(text); } catch { throw new Error('ce fichier n’est pas un JSON lisible'); }
+  if (isDossier(j)) return { kind: 'dossier', dossier: j };
+  return { kind: 'backup', data: parseBackup(text) };
+}
+
+export function dossierMessage(r: DossierReport): string {
+  const parts = [`${r.added} séance(s) ajoutée(s)`];
+  if (r.completed) parts.push(`${r.completed} complétée(s) (ressenti, commentaire)`);
+  if (r.known) parts.push(`${r.known} déjà présente(s)`);
+  if (r.plannedAdded) parts.push(`${r.plannedAdded} séance(s) prévue(s) ajoutée(s)`);
+  return 'Dossier coach : ' + parts.join(', ');
+}
+

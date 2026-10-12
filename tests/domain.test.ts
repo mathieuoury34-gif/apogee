@@ -235,3 +235,40 @@ test('BRICK : la course d’un enchaînement n’est comparée qu’à la partie
   assert.equal(c.expectedDuration, 1500);
   assert.ok(c.ratio! > 1 && c.ratio! < 1.1);
 });
+
+test('dossier coach de l’ancienne app : complète sans doublon, puis la montre reprend la séance', async () => {
+  const { importDossierData, isDossier } = await import('../src/domain/dossier');
+  const d = emptyData();
+  const dossier = {
+    schemaVersion: 'ironapp/1',
+    recentActualSessions: [
+      { internalId: 53, discipline: 'BIKE', startAt: '2026-10-11T14:26:36.000Z', durationSec: 9522, distanceM: 61306, avgHrBpm: 144, rpe: 7, comment: null },
+      { internalId: 52, discipline: 'RUN', startAt: '2026-10-09T04:32:37.000Z', durationSec: 1802, distanceM: 9755, avgHrBpm: 167, rpe: 7, comment: 'ok' },
+    ],
+    upcomingPlannedSessions: [{ refKey: 'session:80', discipline: 'BIKE', plannedDate: '2026-10-11', title: 'Isar', notes: null, blocks: [{ ...newBlock('WORK'), measureValue: 5400 }] }],
+  };
+  assert.ok(isDossier(dossier));
+  // la course existe déjà (lue par la montre, autre identifiant, une minute d'écart) sans ressenti
+  d.actual['x'] = buildManualSession({ date: '2026-10-09', discipline: 'RUN', durationMin: 30, distanceKm: null, avgHrBpm: null, rpe: null, comment: null });
+  d.actual['x'] = { ...d.actual['x'], id: 'x', startAt: '2026-10-09T04:33:30.000Z', source: 'health', sourceId: 'garmin-1' };
+  const r = importDossierData(d, dossier as never);
+  assert.equal(r.report.added, 1);
+  assert.equal(r.report.completed, 1);
+  assert.equal(r.report.plannedAdded, 1);
+  assert.equal(r.planned[0].id, '80');
+  assert.equal(r.actual.find((x) => x.id === 'x')!.rpe, 7);
+  const bike = r.actual.find((x) => x.id === '53')!;
+  assert.equal(bike.sourceId, 'dossier:53');
+  // la montre remonte la même sortie vélo : la séance du dossier est complétée, pas dupliquée
+  for (const a of r.actual) d.actual[a.id] = a;
+  const t0 = Date.parse('2026-10-11T14:26:40.000Z') / 1000;
+  const hr: [number, number][] = Array.from({ length: 200 }, (_, i) => [t0 + i * 5, 140 + (i % 7)]);
+  const ing = ingest(d, [{ id: 'hc1', clientRecordId: 'garmin-53', startTime: '2026-10-11T14:26:40.000Z', endTime: '2026-10-11T17:05:20.000Z', startZoneOffsetSeconds: 7200, exerciseType: 8, distanceM: 61300, activeKcal: 900, totalKcal: null, elevationM: 300, hr, speed: [] }], [], []);
+  assert.equal(ing.report.inserted, 0);
+  assert.equal(ing.report.updated, 1);
+  const up = ing.ops.actual[0];
+  assert.equal(up.id, '53');
+  assert.equal(up.sourceId, 'garmin-53');
+  assert.equal(up.rpe, 7);
+  assert.equal(up.hasSeries, true);
+});

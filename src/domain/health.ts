@@ -9,6 +9,7 @@ import { aggregates, cleanHr } from './hr';
 import { localDay } from './dates';
 import { newId, nowIso } from './ids';
 import { liveRecords } from './load';
+import { sameActivity } from './dossier';
 import type { ActualDiscipline, ActualSession, AppData, RestingHr, SessionSeries, SleepNight } from './types';
 
 export const EXERCISE_TO_DISCIPLINE: Record<number, ActualDiscipline> = {
@@ -53,8 +54,10 @@ export function ingest(data: AppData, sessions: NativeSession[], nights: NativeS
     if (!sourceId) continue;
     const hr = cleanHr(n.hr);
     const speed = (n.speed || []).filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1])).sort((a, b) => a[0] - b[0]);
-    const existing = bySource.get(sourceId);
-    if (existing) {
+    // séance reprise du dossier coach de l'ancienne app (sans identifiant Garmin) : même activité, même heure
+    const placeholder = bySource.has(sourceId) ? undefined : liveRecords(data.actual).find((s) => s.sourceId.startsWith('dossier:') && sameActivity(s, EXERCISE_TO_DISCIPLINE[n.exerciseType] ?? 'OTHER', n.startTime));
+    const existing = bySource.get(sourceId) ?? placeholder;
+    if (existing && !placeholder) {
       const better = hr.length > (existing.hrSampleCount ?? 0) + 5 && existing.edited.length === 0;
       if (!better) { report.known++; continue; }
     }

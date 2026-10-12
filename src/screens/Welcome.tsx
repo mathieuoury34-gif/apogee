@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react';
 import { useSync, signIn } from '../data/sync';
 import { getData } from '../data/store';
-import { importLegacy, parseBackup, restoreBackup } from '../data/backup';
+import { dossierMessage, importDossier, importLegacy, readJsonFile, restoreBackup } from '../data/backup';
 import { navigate, openSheet } from '../ui/router';
 import { showToast } from '../ui/kit';
 import { Icon } from '../ui/icons';
@@ -22,7 +22,12 @@ export function WelcomeCard({ className = '' }: { className?: string }) {
     } catch (e) { showToast('Reprise impossible : ' + (e as Error).message, { error: true }); } finally { setBusy(false); }
   };
   const onJson = async (f: File) => {
-    try { restoreBackup(parseBackup(await f.text())); showToast('Sauvegarde restaurée'); } catch (e) { showToast('Restauration impossible : ' + (e as Error).message, { error: true }); }
+    try {
+      const prev = getData();
+      const file = readJsonFile(await f.text());
+      if (file.kind === 'dossier') showToast(dossierMessage(importDossier(file.dossier)), { undo: () => restoreBackup(prev) });
+      else { restoreBackup(file.data); showToast('Sauvegarde restaurée', { undo: () => restoreBackup(prev) }); }
+    } catch (e) { showToast('Lecture impossible : ' + (e as Error).message, { error: true }); }
   };
   return (
     <section className={'card g16 ' + className} aria-labelledby="welcome-title" data-component="WelcomeCard">
@@ -38,7 +43,7 @@ export function WelcomeCard({ className = '' }: { className?: string }) {
         <Icon name="database" size={20} /> {busy ? 'Lecture en cours…' : 'Reprendre l’ancienne base (.db)'}
       </button>
       <div className="row wrap" style={{ justifyContent: 'center', gap: 'var(--space-16)' }}>
-        <button type="button" className="btn btn-tertiary" onClick={() => js.current?.click()}>Restaurer une sauvegarde</button>
+        <button type="button" className="btn btn-tertiary" onClick={() => js.current?.click()}>Restaurer ou compléter (.json)</button>
         <button type="button" className="btn btn-tertiary" onClick={() => (location.hash.startsWith('#/accueil') ? openSheet('ajouter') : navigate('/seances/saisie'))}>Saisir une séance</button>
       </div>
       <input ref={db} type="file" accept=".db,.sqlite,application/octet-stream,application/x-sqlite3,application/vnd.sqlite3" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onDb(f); e.target.value = ''; }} />
