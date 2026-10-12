@@ -154,10 +154,15 @@ export function computeSessionLoads(data: AppData, settings: CalcSettings, now: 
   }
 
   // 3. Provisoire : charge par minute habituelle de la discipline (90 derniers jours), sinon toutes disciplines
+  //    (jamais pour « Autre » : une randonnée de 10 h n'a rien à voir avec la charge par minute d'un footing).
+  //    Pas de provisoire un jour couvert par une interruption à charge forfaitaire : le forfait fait foi.
+  const forfaitDays = liveRecords(data.interruptions).filter((i) => i.dailyLoadOverride !== null);
   for (const s of still) {
     let load: number | null = null;
-    if (settings.provisionalLoad && s.durationSec > 0) {
-      const day = sessionDay(s);
+    const sd = sessionDay(s);
+    const covered = forfaitDays.some((i) => i.startDate <= sd && sd <= i.endDate);
+    if (settings.provisionalLoad && s.durationSec > 0 && !covered) {
+      const day = sd;
       const from = addDays(day, -90);
       const rate = (filter: (x: ActualSession) => boolean) => median(sessions.filter((x) => {
         const l = loads.get(x.id);
@@ -165,7 +170,7 @@ export function computeSessionLoads(data: AppData, settings: CalcSettings, now: 
         const d = sessionDay(x);
         return d >= from && d <= day && filter(x);
       }).map((x) => loads.get(x.id)!.load! / (x.durationSec / 60)));
-      const r = rate((x) => x.discipline === s.discipline) ?? rate(() => true);
+      const r = rate((x) => x.discipline === s.discipline) ?? (s.discipline === 'OTHER' ? null : rate(() => true));
       if (r !== null) load = r * (s.durationSec / 60);
     }
     loads.set(s.id, load === null ? { load: null, method: 'pending', drift: null, assise: 'none' } : { load, method: 'provisional', drift: null, assise: 'estimated' });

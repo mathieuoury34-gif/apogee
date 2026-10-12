@@ -140,7 +140,7 @@ function ActualRow({ s }: { s: ActualSession }) {
         </span>
         <span className="stack" style={{ alignItems: 'flex-end' }}>
           <span className="t-amount-s nowrap">{duration(s.durationSec)}</span>
-          <span className="t-caption c-moderate nowrap">{s.distanceM ? distanceFor(s.distanceM, s.discipline) : l?.load != null ? 'charge ' + num(l.load, 0) : ''}</span>
+          <span className="t-caption c-moderate nowrap">{s.distanceM && s.discipline !== 'STRENGTH' ? distanceFor(s.distanceM, s.discipline) : l?.load != null ? 'charge ' + num(l.load, 0) : ''}</span>
         </span>
       </button>
     </li>

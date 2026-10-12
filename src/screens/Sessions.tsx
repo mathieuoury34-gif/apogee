@@ -100,7 +100,7 @@ function SessionItem({ s, load, swiped, confirming, onSwipe, onOpen, onEdit, onD
         <DiscIcon d={s.discipline} />
         <span className="stack" style={{ minWidth: 0 }}>
           <span className="t-strong ellipsis">{DISCIPLINE_LABEL[s.discipline]} · {dayTitle(sessionDay(s))}</span>
-          <span className="t-caption c-moderate ellipsis">{[s.distanceM ? distanceFor(s.distanceM, s.discipline) : null, pace ? paceFor(pace, s.discipline) : null, s.avgHrBpm ? num(s.avgHrBpm, 0) + NBSP + 'bpm' : null, s.source === 'manual' ? 'saisie' : null].filter(Boolean).join(' · ') || exerciseLabel(s.rawExerciseType)}</span>
+          <span className="t-caption c-moderate ellipsis">{[s.distanceM && s.discipline !== 'STRENGTH' ? distanceFor(s.distanceM, s.discipline) : null, pace ? paceFor(pace, s.discipline) : null, s.avgHrBpm ? num(s.avgHrBpm, 0) + NBSP + 'bpm' : null, s.source === 'manual' ? 'saisie' : null].filter(Boolean).join(' · ') || exerciseLabel(s.rawExerciseType)}</span>
           {!s.rpe && <span className="t-legal" style={{ color: 'var(--warning-text)' }}>Ressenti à noter</span>}
         </span>
         <span className="stack" style={{ alignItems: 'flex-end' }}>
@@ -147,7 +147,7 @@ export function ReviewScreen({ id }: { id: string }) {
           </div>
           <div className="grid-3 kpi-grid">
             <Kpi label="Durée" value={duration(s.durationSec)} cls={mark('durationSec')} />
-            <Kpi label="Distance" value={s.distanceM ? distanceFor(s.distanceM, s.discipline) : '—'} cls={mark('distanceM')} />
+            <Kpi label="Distance" value={s.distanceM && s.discipline !== 'STRENGTH' ? distanceFor(s.distanceM, s.discipline) : '—'} cls={mark('distanceM')} />
             <Kpi label={s.discipline === 'BIKE' ? 'Vitesse' : 'Allure'} value={pace ? paceFor(pace, s.discipline) : '—'} cls={mark('distanceM')} />
             <Kpi label="FC moyenne" value={bpm(s.avgHrBpm)} cls={mark('avgHrBpm')} />
             <Kpi label="FC max" value={bpm(s.maxHrBpm)} />
@@ -188,7 +188,7 @@ export function ReviewScreen({ id }: { id: string }) {
               </button>
               <dl className="dl">
                 <dt>{r.plan.part ? 'Prévu (partie ' + DISCIPLINE_LABEL[s.discipline].toLowerCase() + ')' : 'Prévu'}</dt><dd>{[r.plan.expectedDuration !== null ? duration(r.plan.expectedDuration) : null, r.plan.expectedDistance ? distanceFor(r.plan.expectedDistance, s.discipline) : null].filter(Boolean).join(' · ') || '—'}</dd>
-                <dt>Réalisé</dt><dd>{[duration(s.durationSec), s.distanceM ? distanceFor(s.distanceM, s.discipline) : null].filter(Boolean).join(' · ')}</dd>
+                <dt>Réalisé</dt><dd>{[duration(s.durationSec), s.distanceM && s.discipline !== 'STRENGTH' ? distanceFor(s.distanceM, s.discipline) : null].filter(Boolean).join(' · ')}</dd>
               </dl>
             </>
           ) : <p className="t-caption c-moderate">{link?.type === 'none' ? 'Marquée comme non prévue.' : 'Aucune séance prévue rattachée.'}</p>}
@@ -535,7 +535,7 @@ export function StatsScreen() {
                   <li key={s.id} className="op-item">
                     <button type="button" className="op-row" onClick={() => navigate('/seances/' + s.id)}>
                       <DiscIcon d={s.discipline} />
-                      <span className="stack" style={{ minWidth: 0 }}><span className="t-strong">{dayTitle(sessionDay(s))}</span><span className="t-caption c-moderate">{[s.distanceM ? distanceFor(s.distanceM, s.discipline) : null, paceOf(s) ? paceFor(paceOf(s), s.discipline) : null, s.avgHrBpm ? bpm(s.avgHrBpm) : null].filter(Boolean).join(' · ')}</span></span>
+                      <span className="stack" style={{ minWidth: 0 }}><span className="t-strong">{dayTitle(sessionDay(s))}</span><span className="t-caption c-moderate">{[s.distanceM && s.discipline !== 'STRENGTH' ? distanceFor(s.distanceM, s.discipline) : null, paceOf(s) ? paceFor(paceOf(s), s.discipline) : null, s.avgHrBpm ? bpm(s.avgHrBpm) : null].filter(Boolean).join(' · ')}</span></span>
                       <span className="t-amount-s nowrap">{duration(s.durationSec)}</span>
                     </button>
                   </li>

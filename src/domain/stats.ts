@@ -29,6 +29,7 @@ export interface DisciplineStats {
 
 export function paceOf(s: Pick<ActualSession, 'durationSec' | 'distanceM' | 'discipline'>): number | null {
   if (!s.distanceM || s.distanceM <= 0 || s.durationSec <= 0) return null;
+  if (s.discipline === 'STRENGTH') return null; // une distance de renforcement est un artefact de la montre
   return s.durationSec / (perHundred(s.discipline) ? s.distanceM / 100 : s.distanceM / 1000);
 }
 
