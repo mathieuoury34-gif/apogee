@@ -1,4 +1,4 @@
-// Modèle de données d'Quadra (version web + APK).
+// Modèle de données de Quadra (version web + APK).
 //
 // Une seule source de vérité : `AppData`, gardée en mémoire, persistée sur l'appareil (IndexedDB)
 // et synchronisée enregistrement par enregistrement avec Firestore quand le compte Google est relié.

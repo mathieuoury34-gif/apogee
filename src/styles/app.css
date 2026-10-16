@@ -37,6 +37,8 @@ ul { list-style: none; margin: 0; padding: 0; }
 .content { flex-grow: 1; display: flex; flex-direction: column; gap: var(--space-16); padding: var(--space-16) var(--screen-margin) calc(var(--tabbar-height) + var(--safe-bottom) + var(--space-32)); }
 .content.with-fab { padding-bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 96px); }
 .content.gap-12 { gap: var(--space-12); }
+/* groupe de blocs : empilé sur téléphone, deux colonnes sur ordinateur (voir .dmasonry) */
+.dmasonry { display: flex; flex-direction: column; gap: var(--space-16); }
 /* bandeau + trois mesures : empilés avec un espace sur téléphone, en grille sur ordinateur (voir .dgrid) */
 .cal-top { display: flex; flex-direction: column; gap: var(--space-12); }
 .content.flush-top { padding-top: 0; }
@@ -343,9 +345,12 @@ select.input { appearance: auto; }
   .sheet .handle { display: none; }
   .op-list { margin: 0; }
   .month-header { padding-left: 0; padding-right: 0; top: 44px; }
-  .dgrid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--space-16); align-items: stretch; grid-auto-flow: row dense; }
+  .dgrid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--space-16); align-items: start; align-content: start; }
+  /* deux colonnes qui se remplissent d'elles-mêmes : ni trou ni bloc étiré */
+  .dmasonry { grid-column: span 12; display: block; column-count: 2; column-gap: var(--space-16); }
+  .dmasonry > * { break-inside: avoid; margin: 0 0 var(--space-16); width: 100%; display: flex; flex-direction: column; }
+  .dmasonry > *:last-child { margin-bottom: 0; }
   .dgrid > * { grid-column: span 12; }
-  .dgrid-rows2 { grid-row: span 2; }
   .dspan-4 { grid-column: span 4 !important; }
   .dspan-5 { grid-column: span 5 !important; }
   .dspan-6 { grid-column: span 6 !important; }

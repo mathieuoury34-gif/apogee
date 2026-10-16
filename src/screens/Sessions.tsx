@@ -139,6 +139,7 @@ export function ReviewScreen({ id }: { id: string }) {
     <div className="screen" data-screen="bilan">
       <SubHeader title={$t("Bilan de séance")} fallback="/seances" right={<button type="button" className="icon-btn" aria-label={$t("Modifier la séance")} onClick={() => setEditing(true)}><Icon name="pencil" /></button>} />
       <main className="content dgrid">
+        <div className="dmasonry">
         <section className="card g16 dspan-7" aria-label={$t("Mesures")}>
           <div className="row" style={{ gap: 'var(--space-12)' }}>
             <DiscIcon d={s.discipline} sub={s.subSport} size={48} />
@@ -200,6 +201,7 @@ export function ReviewScreen({ id }: { id: string }) {
               : <button type="button" className="btn btn-tertiary" style={{ minHeight: 36 }} onClick={() => setManualLink(s.id, null)}>{$t("Ce n’était pas prévu")}</button>}
           </div>
         </section>
+        </div>
 
         {sibling && (
           <section className="card g12 dspan-12 highlight" aria-label={$t("Regroupement BRICK")}>
@@ -485,6 +487,7 @@ export function StatsScreen() {
       <ErrorBanner />
       <SubNav items={NAV} label={$t("Sections Séances")} />
       <main className="content with-fab dgrid">
+        <div className="dmasonry">
         <Hero className="dspan-5" label={ov.firstDay ? $t("Bilan depuis le ") + dateFr(ov.firstDay) : $t("Bilan global")} value={hours(ov.seconds)} chip={$t("{0} séances · {1} semaines · {2}", { 0: ov.sessions, 1: ov.weeks, 2: km(ov.metres, 0) })}>
           <div className="foot">
             <span><strong>{ov.weeks ? duration(ov.seconds / ov.weeks) : '—'}</strong> {$t("par semaine")}</span>
@@ -506,6 +509,7 @@ export function StatsScreen() {
             </ul>
           </div>
         </section>
+        </div>
 
         <div className="disc-select dspan-12" role="tablist" aria-label={$t("Discipline")}>
           {STATS_DISC.map((x) => (
@@ -519,6 +523,7 @@ export function StatsScreen() {
           <section className="card dspan-12"><Empty icon="brick" title={$t("Aucun enchaînement confirmé")} text={$t("Planifie une séance qui mélange deux disciplines, ou confirme la proposition de regroupement que le bilan affiche quand deux séances du même jour forment un enchaînement.")} /></section>
         ) : (
           <>
+            <div className="dmasonry">
             <section className="card g12 dspan-5" aria-label={$t("Totaux")}>
               <h2>{DISCIPLINE_LABEL[disc]}</h2>
               <div className="grid-3">
@@ -565,6 +570,7 @@ export function StatsScreen() {
               </ul>
               {st.sessions.length > 8 && <button type="button" className="btn btn-tertiary" onClick={() => navigate('/seances')}>{$t("Tout le journal")}</button>}
             </section>
+            </div>
           </>
         )}
       </main>

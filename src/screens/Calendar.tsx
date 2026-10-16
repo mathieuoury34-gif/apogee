@@ -52,7 +52,7 @@ function PhaseRibbon({ day }: { day: string }) {
 export function CalendarWeekScreen() {
   const route = useRoute();
   const { data, d } = useCalc();
-  const focus = route.query.get('jour') || d.today;
+  const focus = route.query.get('jour') || route.query.get('sem') || d.today;
   const [monday, setMonday] = useState(mondayOf(focus));
   useEffect(() => { setMonday(mondayOf(focus)); }, [focus]);
   useEffect(() => {
@@ -73,7 +73,8 @@ export function CalendarWeekScreen() {
   const ints = liveRecords(data.interruptions);
   const isThisWeek = monday === mondayOf(d.today);
   const [dir, setDir] = useState<'l' | 'r' | ''>('');
-  const go = (k: number) => { setDir(k > 0 ? 'l' : 'r'); setMonday(addDays(monday, 7 * k)); };
+  // La semaine affichée est gardée dans l'adresse (sans ajouter d'entrée d'historique) : en revenant d'une séance, on retrouve la même semaine.
+  const go = (k: number) => { setDir(k > 0 ? 'l' : 'r'); const m = addDays(monday, 7 * k); setMonday(m); navigate(m === mondayOf(d.today) ? '/calendrier' : '/calendrier?sem=' + m, { replace: true }); };
   const swipe = useSwipe(() => go(1), () => go(-1));
   return (
     <div className="screen" data-screen="calendrier-semaine">
@@ -175,8 +176,11 @@ function DiscGlyph({ d }: { d: PlannedSession['discipline'] }) {
 // ------------------------------------------------------------------ Mois
 export function CalendarMonthScreen() {
   const { data, d } = useCalc();
-  const [month, setMonth] = useState(d.today.slice(0, 7));
-  const [sel, setSel] = useState(d.today);
+  const route = useRoute();
+  const [month, setMonth] = useState(route.query.get('mois') || d.today.slice(0, 7));
+  const [sel, setSel] = useState(route.query.get('sel') || d.today);
+  // Mois et jour choisis restent dans l'adresse : retour depuis une séance = même mois, même jour.
+  useEffect(() => { navigate('/calendrier/mois?mois=' + month + '&sel=' + sel, { replace: true }); }, [month, sel]);
   const { map, links } = useDayIndex();
   const weeks = weeksOfMonth(month);
   const [dir, setDir] = useState<'l' | 'r' | ''>('');

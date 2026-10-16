@@ -1,4 +1,4 @@
-# Publication d'Quadra à chaque envoi sur la branche main :
+# Publication de Quadra à chaque envoi sur la branche main :
 #  1. tests des calculs + contrôle des types + construction de l'app web ;
 #  2. mise en ligne sur GitHub Pages (PC, iPhone, Android : https://<compte>.github.io/<dépôt>/) ;
 #  3. construction de l'APK Android (Capacitor + module Health Connect), publiée dans la release « apk ».

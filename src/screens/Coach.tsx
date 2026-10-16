@@ -50,6 +50,7 @@ export function CoachScreen() {
       <main className="content dgrid">
         {valid !== null && <div className={'note dspan-12' + (valid < d.today ? ' note-warning' : '')}><Icon name="calendar" size={20} /><span>{valid < d.today ? $t("Le dernier plan a expiré le {0}. Il est temps de redemander un plan.", { 0: dateFr(valid) }) : $t("Plan en cours valable jusqu’au {0}.", { 0: dateFr(valid) })}</span></div>}
 
+        <div className="dmasonry">
         <section className="card g12 dspan-7" aria-labelledby="h-export">
           <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
             <h2 id="h-export">{$t("1. Envoyer le dossier")}</h2>
@@ -73,7 +74,7 @@ export function CoachScreen() {
           <button type="button" className="btn btn-primary" style={{ alignSelf: 'flex-start' }} onClick={() => setImportOpen(true)}><Icon name="upload" size={18} />{$t("Importer un plan")}</button>
         </section>
 
-        <section className="card g8 dspan-5 dgrid-rows2" aria-labelledby="h-journal">
+        <section className="card g8 dspan-5" aria-labelledby="h-journal">
           <h2 id="h-journal">{$t("Journal des échanges")}</h2>
           {!exchanges.length ? <p className="t-caption c-moderate">{$t("Aucun échange pour l’instant.")}</p> : (
             <ul className="tile-list divided">
@@ -88,6 +89,7 @@ export function CoachScreen() {
             </ul>
           )}
         </section>
+        </div>
       </main>
       {importOpen && <ImportSheet onClose={() => { setImportOpen(false); if (route.query.get('importer')) navigate('/coach', { replace: true }); }} />}
     </div>

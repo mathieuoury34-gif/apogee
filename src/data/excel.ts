@@ -1,4 +1,4 @@
-// Classeur Excel d'Quadra (même générateur que PEAnalyze, aux couleurs d'Quadra).
+// Classeur Excel de Quadra (même générateur que PEAnalyze, aux couleurs de Quadra).
 // Les données (séances, charge, zones…) sont des valeurs ; les synthèses hebdomadaires et mensuelles sont
 // en FORMULES (SOMME.SI.ENS sur l'onglet Séances) : le fichier reste vivant si tu y ajoutes des lignes.
 import { estimateDistance, estimateDuration } from '../domain/blocks';

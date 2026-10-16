@@ -1,7 +1,7 @@
 # Quadra — web, Android, iPhone, PC
 
 Suivi personnel d'entraînement multisport (natation, vélo, course, renforcement), reconstruit sur le modèle de
-PEAnalyze : même typographie, mêmes icônes, mêmes fenêtres et même navigation, aux couleurs d'Quadra.
+PEAnalyze : même typographie, mêmes icônes, mêmes fenêtres et même navigation, aux couleurs de Quadra.
 **Une seule application web**, installable sur PC, iPhone et Android, synchronisée par un compte Google,
 plus **un APK Android** qui lit la montre Garmin via Health Connect.
 

@@ -1,4 +1,4 @@
-// Tests des calculs d'Quadra (node --test). Lancer : npm test
+// Tests des calculs de Quadra (node --test). Lancer : npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -272,4 +272,20 @@ test('dossier coach de l’ancienne app : complète sans doublon, puis la montre
   assert.equal(up.sourceId, 'garmin-53');
   assert.equal(up.rpe, 7);
   assert.equal(up.hasSeries, true);
+});
+
+test('sauvegarde : un export puis une restauration redonne exactement les mêmes données (aucune collection oubliée)', async () => {
+  const { backupBlob, parseBackup } = await import('../src/data/backup');
+  const { COLLECTIONS } = await import('../src/domain/types');
+  const rows = JSON.parse(readFileSync('tools/demo.json', 'utf8')) as [string, unknown][];
+  const data = emptyData() as unknown as Record<string, Record<string, unknown>>;
+  for (const [key, value] of rows) { const i = key.indexOf('/'); data[key.slice(0, i)][key.slice(i + 1)] = value; }
+  // supprimé = enregistrement conservé avec son drapeau : la sauvegarde doit aussi le garder
+  const firstActual = Object.keys(data.actual)[0];
+  (data.actual[firstActual] as { deleted?: boolean }).deleted = true;
+  const text = await backupBlob(data as unknown as AppData).text();
+  const back = parseBackup(text) as unknown as Record<string, Record<string, unknown>>;
+  assert.deepEqual(Object.keys(back).sort(), Object.keys(data).sort(), 'toutes les collections du modèle sont dans la sauvegarde');
+  for (const c of COLLECTIONS) assert.deepEqual(back[c], data[c], 'collection ' + c);
+  assert.ok(Object.values(data).flatMap((x) => Object.keys(x)).length > 100, 'jeu de données réaliste');
 });

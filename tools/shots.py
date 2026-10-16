@@ -1,4 +1,4 @@
-# Captures d'écran d'Quadra avec le jeu de démonstration (tools/demo.json).
+# Captures d'écran de Quadra avec le jeu de démonstration (tools/demo.json).
 # usage : shots.py base_url out_prefix route1,route2 [largeur hauteur] [light|dark] [vide]
 import asyncio, sys, base64, os, json
 from playwright.async_api import async_playwright

@@ -53,6 +53,7 @@ export function HomeScreen() {
           </section>
         )}
 
+        <div className="dmasonry">
         <FormHero form={form} isToday={!!d.form} constat={d.constat} priming={d.series.isPriming} firstDay={d.series.firstDay} />
         <section className="stack-12 dspan-7">
           {interruption && (
@@ -71,6 +72,7 @@ export function HomeScreen() {
         </section>
 
         {last && <LastSessionCard s={last} />}
+        </div>
 
       </main>
       <Fab onClick={() => openSheet('ajouter')} />
@@ -82,7 +84,7 @@ export function HomeScreen() {
 function FormHero({ form, isToday, constat, priming, firstDay }: { form: ReturnType<typeof useCalc>['d']['form']; isToday: boolean; constat: ReturnType<typeof useCalc>['d']['constat']; priming: boolean; firstDay: string | null }) {
   const step = form ? formStep(form.score) : null;
   return (
-    <section aria-label={$t("Forme du jour")} className="hero dspan-5 dgrid-rows2" data-component="Card.hero" onClick={() => navigate('/progression?vue=forme')} style={{ cursor: 'pointer' }}>
+    <section aria-label={$t("Forme du jour")} className="hero" data-component="Card.hero" onClick={() => navigate('/progression?vue=forme')} style={{ cursor: 'pointer' }}>
       <div className="between" style={{ alignItems: 'flex-start' }}>
         <span className="overline">{$t("Forme du jour")}</span>
         {step && <span className="chip-reverse">{FORM_STEP_LABEL[step]}</span>}

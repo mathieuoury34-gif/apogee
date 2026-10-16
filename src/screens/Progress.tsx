@@ -46,6 +46,7 @@ export function LoadScreen() {
       <ErrorBanner />
       <SubNav items={NAV} label={$t("Sections Progression")} />
       <main className="content dgrid">
+        <div className="dmasonry">
         <Hero className="dspan-5" label={$t("Forme de fond")} value={c.fitness === null ? '—' : num(c.fitness, 0)} chip={c.fitnessDelta === null ? undefined : $t("{0} en 7 jours", { 0: signed(c.fitnessDelta, 0) })}>
           <div className="foot">
             <span>{$t("Fatigue")} <strong>{c.fatigue === null ? '—' : num(c.fatigue, 0)}</strong></span>
@@ -73,6 +74,7 @@ export function LoadScreen() {
           )}
           {d.series.isPriming && <div className="note"><Icon name="info" size={20} /><span>{$t("Historique court : forme et fatigue sont amorcées sur ta charge habituelle des 14 premiers jours, et se stabilisent vers le")} {dateFr(d.series.primingEndsOn!)}.</span></div>}
         </section>
+        </div>
 
         <section className="card g12 dspan-12" aria-label={$t("Évolution")}>
           <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
@@ -87,6 +89,7 @@ export function LoadScreen() {
           )}
         </section>
 
+        <div className="dmasonry">
         <section className="card g12 dspan-6" aria-label={$t("Forme du jour, détail")}>
           <div className="between"><h2>{$t("Forme du jour, détail")}</h2>{form && <span className="t-caption c-moderate">{form.day === d.today ? $t("ce matin") : dayTitle(form.day)}</span>}</div>
           {form ? (
@@ -114,6 +117,7 @@ export function LoadScreen() {
           <StackedWeeks weeks={withOther ? weeks : weeks.map((w) => ({ ...w, total: w.total - (w.byDiscipline.OTHER ?? 0) }))} order={withOther ? ['SWIM', 'BIKE', 'RUN', 'STRENGTH', 'OTHER'] : ['SWIM', 'BIKE', 'RUN', 'STRENGTH']} />
           <div className="legend">{(withOther ? ['SWIM', 'BIKE', 'RUN', 'STRENGTH', 'OTHER'] : ['SWIM', 'BIKE', 'RUN', 'STRENGTH']).map((k) => <span key={k}><span className="dot s10" style={{ background: dvar(k as never) }} />{DISCIPLINE_LABEL[k as never]}</span>)}</div>
         </section>
+        </div>
 
         <section className="card g8 dspan-12" aria-label={$t("Méthode")}>
           <h2>{$t("Comment la charge est calculée")}</h2>
@@ -155,6 +159,7 @@ export function ObjectiveScreen() {
       <ErrorBanner />
       <SubNav items={NAV} label={$t("Sections Progression")} />
       <main className="content dgrid">
+        <div className="dmasonry">
         <Hero className="dspan-5" label={race.name} value={left > 0 ? $t("J−{0}", { 0: left }) : left === 0 ? $t("Jour J") : $t("Passée")} chip={dateFr(race.raceDate)}>
           <div className="foot">
             <span>{$t("Chrono visé")} <strong>{total !== null ? hhmm(total) : '—'}</strong></span>
@@ -178,12 +183,10 @@ export function ObjectiveScreen() {
           {gap !== null && Math.abs(gap) >= 60 && <div className="note note-warning"><Icon name="alert" size={20} /><span>{$t("La somme des parties")} {gap > 0 ? $t("est inférieure") : $t("dépasse")} {$t("au chrono visé de")} {duration(Math.abs(gap))}.</span></div>}
           {race.targetRevisedAt && <p className="t-legal c-moderate">{$t("Chrono révisé le")} {dateFr(race.targetRevisedAt.slice(0, 10))}.</p>}
         </section>
-
-        <section className="dspan-12 grid-3 objective-grid" aria-label={$t("Allures requises")}>
           <PaceCard p={rp.swim} />
           <PaceCard p={rp.bike} />
           <PaceCard p={rp.run} />
-        </section>
+        </div>
         <p className="t-caption c-moderate dspan-12">{$t("Les allures requises et tes indicateurs sont mis côte à côte, sans jugement de faisabilité : c’est au coach d’en tirer un plan.")}</p>
       </main>
       {editing && <RaceSheet onClose={() => setEditing(false)} />}

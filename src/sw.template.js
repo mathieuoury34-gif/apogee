@@ -1,4 +1,4 @@
-// Service worker d'Quadra : l'application fonctionne hors ligne.
+// Service worker de Quadra : l'application fonctionne hors ligne.
 const VERSION = '__VERSION__';
 const SHELL = 'quadra-shell-' + VERSION;
 const RUNTIME = 'quadra-runtime';

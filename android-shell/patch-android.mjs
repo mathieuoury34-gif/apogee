@@ -4,7 +4,7 @@
 //  - module natif QuadraHealth (Kotlin) enregistré dans MainActivity ;
 //  - minSdk 26 (Health Connect), Kotlin, keystore de debug versionné (les mises à jour s'installent
 //    par-dessus l'APK précédent au lieu d'exiger une désinstallation) ;
-//  - icônes d'Quadra.
+//  - icônes de Quadra.
 // Le script est idempotent : le relancer ne duplique rien.
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

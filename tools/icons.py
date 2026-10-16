@@ -1,4 +1,4 @@
-# Génère les icônes d'Quadra à partir du pictogramme : un anneau en quatre arcs, aux couleurs des quatre sports
+# Génère les icônes de Quadra à partir du pictogramme : un anneau en quatre arcs, aux couleurs des quatre sports
 # (natation, vélo, course, renforcement). usage : python3 tools/icons.py
 import math, os
 from PIL import Image, ImageDraw
