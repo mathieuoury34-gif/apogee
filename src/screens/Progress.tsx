@@ -3,7 +3,7 @@
 // (décision du 31/08) : l'écran juxtapose les chiffres.
 import { $t } from '../i18n';
 import { useState } from 'react';
-import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast } from '../ui/kit';
+import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast, OtherToggle, useWithOther } from '../ui/kit';
 import { FormChart, LoadChart, LoadLegend, StackedWeeks, StepChart } from '../ui/charts';
 import { Icon } from '../ui/icons';
 import { navigate, useRoute } from '../ui/router';
@@ -24,12 +24,13 @@ export function LoadScreen() {
   const route = useRoute();
   const { data, d } = useCalc();
   const [view, setView] = useState<'charge' | 'forme'>(route.query.get('vue') === 'forme' ? 'forme' : 'charge');
-  const [period, setPeriod] = useState<'1' | '3' | '6' | '12'>('3');
+  const [period, setPeriod] = useState<'7' | '14' | '30' | '90' | '180' | '365'>('7');
   const c = d.constat;
-  const n = +period * 30;
+  const n = +period;
   const days = d.series.days.slice(-n);
-  const formDays = dayRange(addDays(d.today, -Math.min(n, 119)), d.today);
+  const formDays = dayRange(addDays(d.today, -Math.min(n, 119) + 1), d.today);
   const weeks = weeklyVolume(data, d.today, 12);
+  const [withOther] = useWithOther();
   const form = d.form ?? d.lastForm;
   const acwr = c.acuteChronicRatio;
   const acwrZone = acwr === null ? null : acwr > 1.5 ? 'critical' : acwr > 1.3 ? 'warning' : acwr < 0.8 ? 'low' : 'ok';
@@ -62,6 +63,11 @@ export function LoadScreen() {
                 <span className="cursor" style={{ left: `${Math.min(100, Math.max(0, ((acwr - 0.5) / 1.5) * 100))}%` }} />
               </div>
               <div className="between t-legal c-moderate">{[0.5, 0.8, 1.3, 1.5, 2].map((v) => <span key={v}>{num(v, 1)}</span>)}</div>
+              <dl className="kv">
+                <dt>{$t("Aiguë (7 derniers jours)")}</dt><dd>{c.acuteLoad === null ? '—' : num(c.acuteLoad, 0)}</dd>
+                <dt>{$t("Chronique (moyenne par semaine, 28 j)")}</dt><dd>{c.chronicWeeklyLoad === null ? '—' : num(c.chronicWeeklyLoad, 0)}</dd>
+              </dl>
+              {c.heaviestDay && c.heaviestDay.share >= 0.2 && <div className="note"><Icon name="info" size={20} /><span>{$t("Une seule journée pèse beaucoup dans les 28 derniers jours : le {0} ({1}, soit {2} du total). Si cette charge est surévaluée, le rapport est écrasé. Vérifie-la dans le bilan de la séance (ressenti ou FC).", { 0: dayTitle(c.heaviestDay.day), 1: num(c.heaviestDay.load, 0), 2: pct(c.heaviestDay.share) })}</span></div>}
               <p className="t-caption c-neutral">{acwrZone === 'ok' ? $t("La charge des 7 derniers jours est dans la ligne des 4 dernières semaines.") : acwrZone === 'low' ? $t("Semaine nettement plus légère que d’habitude : récupération ou baisse de régime.") : acwrZone === 'warning' ? $t("Hausse marquée de la charge récente. À surveiller.") : $t("Hausse brutale de la charge récente (au-delà de 1,5) : le risque de blessure augmente.")}</p>
             </>
           )}
@@ -71,7 +77,7 @@ export function LoadScreen() {
         <section className="card g12 dspan-12" aria-label={$t("Évolution")}>
           <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
             <Segmented label={$t("Courbe")} value={view} onChange={setView} options={[['charge', $t("Charge")], ['forme', $t("Forme du jour")]]} />
-            <ChipGroup label={$t("Période")} value={period} onChange={setPeriod} options={[['1', $t("1 mois")], ['3', $t("3 mois")], ['6', $t("6 mois")], ['12', $t("1 an")]]} />
+            <ChipGroup label={$t("Période")} value={period} onChange={setPeriod} options={[['7', $t("1 sem.")], ['14', $t("2 sem.")], ['30', $t("1 mois")], ['90', $t("3 mois")], ['180', $t("6 mois")], ['365', $t("1 an")]]} />
           </div>
           {view === 'charge' ? (<><LoadChart days={days} height={190} /><LoadLegend /></>) : (
             <>
@@ -104,8 +110,9 @@ export function LoadScreen() {
 
         <section className="card g12 dspan-6" aria-label={$t("Volume par semaine")}>
           <div className="between baseline"><h2>{$t("Volume — 12 semaines")}</h2><span className="t-caption c-moderate">{$t("heures")}</span></div>
-          <StackedWeeks weeks={weeks} order={['SWIM', 'BIKE', 'RUN', 'STRENGTH', 'OTHER']} />
-          <div className="legend">{['SWIM', 'BIKE', 'RUN', 'STRENGTH', 'OTHER'].map((k) => <span key={k}><span className="dot s10" style={{ background: dvar(k as never) }} />{DISCIPLINE_LABEL[k as never]}</span>)}</div>
+          <OtherToggle />
+          <StackedWeeks weeks={withOther ? weeks : weeks.map((w) => ({ ...w, total: w.total - (w.byDiscipline.OTHER ?? 0) }))} order={withOther ? ['SWIM', 'BIKE', 'RUN', 'STRENGTH', 'OTHER'] : ['SWIM', 'BIKE', 'RUN', 'STRENGTH']} />
+          <div className="legend">{(withOther ? ['SWIM', 'BIKE', 'RUN', 'STRENGTH', 'OTHER'] : ['SWIM', 'BIKE', 'RUN', 'STRENGTH']).map((k) => <span key={k}><span className="dot s10" style={{ background: dvar(k as never) }} />{DISCIPLINE_LABEL[k as never]}</span>)}</div>
         </section>
 
         <section className="card g8 dspan-12" aria-label={$t("Méthode")}>

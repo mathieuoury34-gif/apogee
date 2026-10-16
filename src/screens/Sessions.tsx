@@ -3,7 +3,8 @@
 // Modifier / Supprimer (avec « Annuler »), filtres en pastilles.
 import { $t } from '../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppHeader, ChipGroup, DatePicker, DiscIcon, Empty, ErrorBanner, Fab, Hero, Sheet, SubHeader, SubNav, showToast, useWidth } from '../ui/kit';
+import { AppHeader, ChipGroup, DatePicker, DiscIcon, Empty, ErrorBanner, Fab, Hero, Sheet, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther } from '../ui/kit';
+import { SUB_SPORTS } from '../domain/subsports';
 import { Donut, StepChart, WeekBars } from '../ui/charts';
 import { Icon } from '../ui/icons';
 import { back, navigate, openSheet, useRoute } from '../ui/router';
@@ -18,7 +19,7 @@ import { DRIFT_REASON_TEXT, reviewSession, VERDICT_TEXT } from '../domain/review
 import { disciplineStats, overview, paceOf, weeklyVolume } from '../domain/stats';
 import type { ActualDiscipline, ActualSession, PlannedDiscipline } from '../domain/types';
 import { ACTUAL_DISCIPLINES } from '../domain/types';
-import { DISCIPLINE_SHORT, bpm, dateFr, dateTimeFr, dayMonth, dayTitle, DISCIPLINE_LABEL, distanceFor, duration, dvar, hours, km, mmss, monthLong, num, paceFor, parseNum, pct, pctSigned, signed, speedKmh, timeOf, toInput, NBSP } from '../ui/format';
+import { DISCIPLINE_SHORT, bpm, dateFr, dateTimeFr, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, hours, km, mmss, monthLong, num, paceFor, parseNum, pct, pctSigned, signed, speedKmh, timeOf, toInput, NBSP } from '../ui/format';
 import { cleanHr } from '../domain/hr';
 
 const NAV = [{ to: '/seances', label: $t("Journal") }, { to: '/seances/stats', label: $t("Statistiques") }];
@@ -94,13 +95,13 @@ function SessionItem({ s, load, swiped, confirming, onSwipe, onOpen, onEdit, onD
           <button type="button" className="del" onClick={onDelete}><Icon name={confirming ? 'check' : 'trash'} size={20} />{confirming ? $t("Confirmer") : $t("Supprimer")}</button>
         </span>
       )}
-      <button type="button" className="op-row" aria-label={`${DISCIPLINE_LABEL[s.discipline]} du ${dateFr(sessionDay(s))}, ${duration(s.durationSec)}`}
+      <button type="button" className="op-row" aria-label={`${sessionLabel(s)} du ${dateFr(sessionDay(s))}, ${duration(s.durationSec)}`}
         onPointerDown={(e) => { start.current = { x: e.clientX, y: e.clientY }; moved.current = false; }}
         onPointerMove={(e) => { if (!start.current) return; const dx = e.clientX - start.current.x, dy = e.clientY - start.current.y; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) { moved.current = true; onSwipe(dx < 0); start.current = null; } }}
         onClick={() => { if (moved.current) { moved.current = false; return; } if (swiped) onSwipe(false); else onOpen(); }}>
-        <DiscIcon d={s.discipline} />
+        <DiscIcon d={s.discipline} sub={s.subSport} />
         <span className="stack" style={{ minWidth: 0 }}>
-          <span className="t-strong ellipsis">{DISCIPLINE_LABEL[s.discipline]} · {dayTitle(sessionDay(s))}</span>
+          <span className="t-strong ellipsis">{sessionLabel(s)} · {dayTitle(sessionDay(s))}</span>
           <span className="t-caption c-moderate ellipsis">{[s.distanceM && s.discipline !== 'STRENGTH' ? distanceFor(s.distanceM, s.discipline) : null, pace ? paceFor(pace, s.discipline) : null, s.avgHrBpm ? num(s.avgHrBpm, 0) + NBSP + 'bpm' : null, s.source === 'manual' ? 'saisie' : null].filter(Boolean).join(' · ') || exerciseLabel(s.rawExerciseType)}</span>
           {!s.rpe && <span className="t-legal" style={{ color: 'var(--warning-text)' }}>{$t("Ressenti à noter")}</span>}
         </span>
@@ -140,9 +141,9 @@ export function ReviewScreen({ id }: { id: string }) {
       <main className="content dgrid">
         <section className="card g16 dspan-7" aria-label={$t("Mesures")}>
           <div className="row" style={{ gap: 'var(--space-12)' }}>
-            <DiscIcon d={s.discipline} size={48} />
+            <DiscIcon d={s.discipline} sub={s.subSport} size={48} />
             <span className="stack grow" style={{ minWidth: 0 }}>
-              <span className="t-h3">{DISCIPLINE_LABEL[s.discipline]}</span>
+              <span className="t-h3">{sessionLabel(s)}</span>
               <span className="t-caption c-moderate">{dayTitle(day)} {day.slice(0, 4)}{s.source === 'health' ? ' · ' + timeOf(s.startAt, s.zoneOffsetMinutes) : ''} · {s.source === 'manual' ? $t("saisie à la main") : $t("montre · ") + exerciseLabel(s.rawExerciseType)}</span>
             </span>
           </div>
@@ -281,6 +282,7 @@ function Comment({ value, onSave }: { value: string; onSave: (v: string) => void
 function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
   const [date, setDate] = useState(sessionDay(s));
   const [disc, setDisc] = useState<ActualDiscipline>(s.discipline);
+  const [sub, setSub] = useState<string | null>(s.subSport ?? null);
   const [dur, setDur] = useState(toInput(s.durationSec / 60, 1).replace(/,0$/, ''));
   const [dist, setDist] = useState(s.distanceM ? toInput(s.distanceM / 1000, 2) : '');
   const [hr, setHr] = useState(s.avgHrBpm ? String(Math.round(s.avgHrBpm)) : '');
@@ -288,7 +290,7 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
   const r = parseManualFields({ date, discipline: disc, durationMin: dur, distanceKm: dist, avgHrBpm: hr });
   const save = () => {
     if ('error' in r) return;
-    const snap = editActual(s.id, { ...r.input, rpe: s.rpe, comment: s.comment });
+    const snap = editActual(s.id, { ...r.input, rpe: s.rpe, comment: s.comment, subSport: sub });
     onClose();
     showToast($t("Séance modifiée"), { undo: () => restore(snap) });
   };
@@ -303,6 +305,14 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
         <div className="field"><span className="lbl">{$t("Discipline")}</span>
           <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>{ACTUAL_DISCIPLINES.map((x) => <button key={x} type="button" className="chip" aria-pressed={disc === x} onClick={() => setDisc(x)}>{DISCIPLINE_LABEL[x]}</button>)}</div>
         </div>
+        {disc === 'OTHER' && (
+          <div className="field"><span className="lbl">{$t("Quelle activité ?")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(visuel seulement)")}</span></span>
+            <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>
+              <button type="button" className="chip" aria-pressed={!sub} onClick={() => setSub(null)}>{$t("Non précisée")}</button>
+              {SUB_SPORTS.map((x) => <button key={x.id} type="button" className="chip" aria-pressed={sub === x.id} onClick={() => setSub(x.id)}><Icon name={x.icon} size={16} />{x.label}</button>)}
+            </div>
+          </div>
+        )}
         <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
           <label className="field"><span className="lbl">{$t("Durée (min)")}</span><input className="input num" inputMode="decimal" value={dur} onChange={(e) => setDur(e.target.value)} /></label>
           <label className="field"><span className="lbl">{$t("Distance (km)")}</span><input className="input num" inputMode="decimal" value={dist} onChange={(e) => setDist(e.target.value)} /></label>
@@ -354,6 +364,7 @@ export function ManualEntryScreen() {
   const [date, setDate] = useState(route.query.get('date') || d.today);
   const [cal, setCal] = useState(false);
   const [disc, setDisc] = useState<ActualDiscipline>('RUN');
+  const [sub, setSub] = useState<string | null>(null);
   const [dur, setDur] = useState('');
   const [dist, setDist] = useState('');
   const [hr, setHr] = useState('');
@@ -365,7 +376,7 @@ export function ManualEntryScreen() {
   const durMin = parseNum(dur), distKm = parseNum(dist);
   const submitSingle = () => {
     if ('error' in r) return;
-    const input: ManualInput = { ...r.input, rpe, comment: comment.trim() || null };
+    const input: ManualInput = { ...r.input, rpe, comment: comment.trim() || null, subSport: disc === 'OTHER' ? sub : null };
     const res = addManualSessions([input]);
     if (!res.inserted.length) { showToast($t("Cette séance existe déjà (même date, discipline, durée, distance et FC)."), { error: true }); return; }
     const created = res.inserted[0];
@@ -405,6 +416,14 @@ export function ManualEntryScreen() {
                   {ACTUAL_DISCIPLINES.map((x) => <button key={x} type="button" role="radio" aria-checked={disc === x} className={'disc-pick' + (disc === x ? ' on' : '')} style={{ ['--c' as string]: dvar(x) }} onClick={() => setDisc(x)}><DiscIcon d={x} size={36} /><span className="t-caption-strong">{DISCIPLINE_SHORT[x]}</span></button>)}
                 </div>
               </div>
+              {disc === 'OTHER' && (
+          <div className="field"><span className="lbl">{$t("Quelle activité ?")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(visuel seulement)")}</span></span>
+            <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>
+              <button type="button" className="chip" aria-pressed={!sub} onClick={() => setSub(null)}>{$t("Non précisée")}</button>
+              {SUB_SPORTS.map((x) => <button key={x.id} type="button" className="chip" aria-pressed={sub === x.id} onClick={() => setSub(x.id)}><Icon name={x.icon} size={16} />{x.label}</button>)}
+            </div>
+          </div>
+        )}
               <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
                 <label className="field"><span className="lbl">{$t("Durée (min)")}</span><input className="input num" inputMode="decimal" value={dur} placeholder="45" onChange={(e) => setDur(e.target.value)} /></label>
                 <label className="field"><span className="lbl">{$t("Distance (km)")}</span><input className="input num" inputMode="decimal" value={dist} placeholder="—" onChange={(e) => setDist(e.target.value)} /></label>
@@ -455,8 +474,9 @@ export function StatsScreen() {
   const share = weeklyVolume(data, d.today, Math.min(weeks, Math.max(1, ov.weeks)));
   const totals: Record<string, number> = {};
   share.forEach((w) => Object.entries(w.byDiscipline).forEach(([k, v]) => (totals[k] = (totals[k] ?? 0) + v)));
-  const sum = Object.values(totals).reduce((a, b) => a + b, 0);
-  const order = ['RUN', 'BIKE', 'SWIM', 'STRENGTH', 'OTHER'].filter((k) => totals[k]);
+  const [withOther] = useWithOther();
+  const sum = Object.entries(totals).reduce((a, [k, v]) => a + (k === 'OTHER' && !withOther ? 0 : v), 0);
+  const order = ['RUN', 'BIKE', 'SWIM', 'STRENGTH', ...(withOther ? ['OTHER'] : [])].filter((k) => totals[k]);
   const ref = st.reference;
   const refText = (v: number) => (disc === 'RUN' ? num(v * 3.6, 1) + NBSP + $t("km/h") : disc === 'SWIM' ? mmss(100 / v) + NBSP + '/100' + NBSP + 'm' : num(v, 0) + NBSP + 'W');
   return (
@@ -475,6 +495,7 @@ export function StatsScreen() {
         <section className="card g12 dspan-7" aria-labelledby="h-share">
           <h2 id="h-share">{$t("Répartition du temps")}</h2>
           <ChipGroup label={$t("Période")} value={period} onChange={setPeriod} options={[['4', $t("4 sem.")], ['12', $t("12 sem.")], ['all', $t("Tout")]]} />
+          <OtherToggle />
           <div className="row" style={{ gap: 'var(--space-16)', alignItems: 'center' }}>
             <Donut size={136} ring={20} label={$t("Répartition du temps par discipline")} slices={order.map((k) => ({ value: totals[k], color: dvar(k as ActualDiscipline) }))}>
               <span className="t-caption c-moderate">{$t("Total")}</span><span className="t-amount-s">{duration(sum)}</span>
@@ -535,7 +556,7 @@ export function StatsScreen() {
                 {st.sessions.slice(0, 8).map((s) => (
                   <li key={s.id} className="op-item">
                     <button type="button" className="op-row" onClick={() => navigate('/seances/' + s.id)}>
-                      <DiscIcon d={s.discipline} />
+                      <DiscIcon d={s.discipline} sub={s.subSport} />
                       <span className="stack" style={{ minWidth: 0 }}><span className="t-strong">{dayTitle(sessionDay(s))}</span><span className="t-caption c-moderate">{[s.distanceM && s.discipline !== 'STRENGTH' ? distanceFor(s.distanceM, s.discipline) : null, paceOf(s) ? paceFor(paceOf(s), s.discipline) : null, s.avgHrBpm ? bpm(s.avgHrBpm) : null].filter(Boolean).join(' · ')}</span></span>
                       <span className="t-amount-s nowrap">{duration(s.durationSec)}</span>
                     </button>

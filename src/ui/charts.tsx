@@ -22,50 +22,68 @@ function hoverIndex(ev: React.PointerEvent<HTMLDivElement>, n: number): number {
   return Math.round(Math.min(Math.max((ev.clientX - r.left) / r.width, 0), 1) * (n - 1));
 }
 
-// ------------------------------------------------------------------ Charge : deux panneaux, échelles indépendantes
+// ------------------------------------------------------------------ Charge : trois panneaux, chacun sur sa propre échelle
+// 1. forme de fond et fatigue (axe resserré autour de leurs valeurs, pas écrasé par les pics de charge) ;
+// 2. charge du jour en barres (un jour exceptionnel est écrêté et marqué d'un chevron, la vraie valeur reste dans l'infobulle) ;
+// 3. fraîcheur (positive / négative).
 export function LoadChart({ days, height = 150, compact = false }: { days: DayLoad[]; height?: number; compact?: boolean }) {
   const [ref, cw] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const n = days.length;
   if (n < 2) return <div ref={ref} className="t-caption c-moderate" style={{ padding: 'var(--space-16) 0' }}>{$t("Pas encore assez de jours collectés pour tracer la charge.")}</div>;
-  const W = cw - AXIS, T = 8, H1 = height, gap = compact ? 10 : 14, H2 = compact ? 44 : 64;
-  const B1 = T + H1, T2 = B1 + gap, B2 = T2 + H2, total = B2 + 22;
-  const top = Math.max(...days.map((d) => Math.max(d.load, d.fitness, d.fatigue)), 1);
-  const step = niceStep(top / 3), max = Math.ceil(top / step) * step;
+  const W = cw - AXIS, T = 8, gap = compact ? 8 : 12;
+  const H1 = compact ? Math.round(height * 0.62) : height, H2 = compact ? 34 : 70, H3 = compact ? 30 : 52;
+  const B1 = T + H1, T2 = B1 + gap, B2 = T2 + H2, T3 = B2 + gap, B3 = T3 + H3, total = B3 + 22;
+  // panneau 1 : axe resserré sur forme de fond et fatigue
+  const vals = days.flatMap((d) => [d.fitness, d.fatigue]);
+  const vmin = Math.min(...vals), vmax = Math.max(...vals, 1);
+  const step = niceStep(Math.max(vmax - vmin, vmax * 0.15) / 3);
+  const lo = Math.max(0, Math.floor((vmin - (vmax - vmin) * 0.1) / step) * step), hi = Math.max(lo + step, Math.ceil((vmax + (vmax - vmin) * 0.1) / step) * step);
+  const Y = (v: number) => T + H1 - ((v - lo) / (hi - lo)) * H1;
+  // panneau 2 : charge du jour, écrêtée si un jour domine
+  const sorted = days.map((d) => d.load).sort((x, y) => y - x);
+  const maxLoad = Math.max(sorted[0], 1);
+  const ref3 = sorted[Math.min(2, sorted.length - 1)];
+  const capRaw = maxLoad > ref3 * 2 && ref3 > 0 ? ref3 * 1.35 : maxLoad;
+  const lstep = niceStep(capRaw / 2), cap = Math.max(lstep, Math.ceil(capRaw / lstep) * lstep);
+  const YL = (v: number) => B2 - (Math.min(v, cap) / cap) * H2;
+  // panneau 3 : fraîcheur
   const fr = Math.max(...days.map((d) => Math.abs(d.freshness)), 5);
-  const X = (i: number) => (n === 1 ? W / 2 : ((i + 0.5) / n) * W);
-  const Y = (v: number) => T + H1 - (v / max) * H1;
-  const mid = T2 + H2 / 2;
-  const YF = (v: number) => mid - (v / fr) * (H2 / 2);
+  const mid = T3 + H3 / 2;
+  const YF = (v: number) => mid - (v / fr) * (H3 / 2);
+  const X = (i: number) => ((i + 0.5) / n) * W;
   const bw = Math.max(1.5, (W / n) * 0.62);
   const line = (k: 'fitness' | 'fatigue') => days.map((d, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ',' + Y(d[k]).toFixed(1)).join(' ');
   let grid = '';
   const ticks: ReactNode[] = [];
-  for (let v = step; v <= max + 1e-6; v += step) {
+  for (let v = lo; v <= hi + 1e-6; v += step) {
     grid += 'M0,' + Y(v).toFixed(1) + ' H' + W + ' ';
-    ticks.push(<span key={v} className="tick" style={{ left: W + 6, top: Y(v) - 9 }}>{num(v, 0)}</span>);
+    ticks.push(<span key={'a' + v} className="tick" style={{ left: W + 6, top: Y(v) - 9 }}>{num(v, 0)}</span>);
   }
   const h = hover ?? n - 1;
   const hd = days[h];
-  const picks = compact ? [0, n - 1] : [0, Math.round((n - 1) / 2), n - 1];
+  const picks = compact ? [0, n - 1] : n <= 10 ? [0, Math.round((n - 1) / 2), n - 1] : [0, Math.round((n - 1) / 2), n - 1];
   return (
     <div ref={ref} className="chart" data-component="LoadChart" style={{ height: total }}>
       <svg viewBox={`0 0 ${cw} ${total}`} width={cw} height={total} role="img" aria-label={$t("Charge, forme de fond et fatigue sur {0} jours ; fraîcheur du jour {1}", { 0: n, 1: signed(days[n - 1].freshness, 0) })}>
         <path d={grid} fill="none" strokeWidth="1" style={{ stroke: 'var(--chart-grid)' }} />
-        {days.map((d, i) => d.load > 0 && <rect key={i} x={X(i) - bw / 2} y={Y(d.load)} width={bw} height={B1 - Y(d.load)} rx={Math.min(2, bw / 2)} style={{ fill: d.estimated ? 'var(--bg-brand-moderate)' : 'var(--chart-load)' }} />)}
-        <path d={line('fatigue')} fill="none" strokeWidth="1.75" strokeDasharray="6 4" style={{ stroke: 'var(--chart-fatigue)' }} />
-        <path d={line('fitness')} fill="none" strokeWidth="2.5" strokeLinejoin="round" style={{ stroke: 'var(--chart-fitness)' }} />
-        <line x1="0" x2={W} y1={B1} y2={B1} strokeWidth="1" style={{ stroke: 'var(--border-moderate)' }} />
+        <path d={line('fatigue')} fill="none" strokeWidth="2" strokeDasharray="6 4" strokeLinecap="round" style={{ stroke: 'var(--chart-fatigue)' }} />
+        <path d={line('fitness')} fill="none" strokeWidth="2.75" strokeLinejoin="round" strokeLinecap="round" style={{ stroke: 'var(--chart-fitness)' }} />
+        <line x1="0" x2={W} y1={B2} y2={B2} strokeWidth="1" style={{ stroke: 'var(--border-moderate)' }} />
+        {days.map((d, i) => d.load > 0 && <rect key={i} x={X(i) - bw / 2} y={YL(d.load)} width={bw} height={B2 - YL(d.load)} rx={Math.min(2, bw / 2)} style={{ fill: d.estimated ? 'var(--bg-brand-moderate)' : 'var(--chart-load)' }} />)}
+        {days.map((d, i) => d.load > cap && <path key={'c' + i} d={`M${X(i) - bw / 2},${T2 + 5} l${bw / 2},-5 l${bw / 2},5`} fill="none" strokeWidth="1.5" style={{ stroke: 'var(--bg-surface)' }} />)}
         <line x1="0" x2={W} y1={mid} y2={mid} strokeWidth="1" style={{ stroke: 'var(--border-minimal)' }} />
         {days.map((d, i) => <rect key={'f' + i} x={X(i) - bw / 2} y={Math.min(mid, YF(d.freshness))} width={bw} height={Math.max(0.5, Math.abs(YF(d.freshness) - mid))} style={{ fill: d.freshness >= 0 ? 'var(--chart-fresh-pos)' : 'var(--chart-fresh-neg)' }} />)}
       </svg>
       {ticks}
-      <span className="tick" style={{ left: W + 6, top: T2 - 4 }}>{'+' + num(fr, 0)}</span>
-      <span className="tick" style={{ left: W + 6, top: B2 - 14 }}>{'−' + num(fr, 0)}</span>
-      {picks.map((i, k) => <span key={k} className="tick" style={{ top: B2 + 4, ...(k === 0 ? { left: 0 } : k === picks.length - 1 ? { right: AXIS } : { left: X(i) - 30, width: 60, textAlign: 'center' as const }) }}>{dateShort(days[i].day)}</span>)}
-      <div className="cross" style={{ top: T, height: B2 - T, left: X(h) }} />
+      <span className="tick" style={{ left: W + 6, top: T2 - 4 }}>{num(cap, 0)}{maxLoad > cap ? '+' : ''}</span>
+      <span className="tick" style={{ left: W + 6, top: B2 - 14 }}>0</span>
+      <span className="tick" style={{ left: W + 6, top: T3 - 4 }}>{'+' + num(fr, 0)}</span>
+      <span className="tick" style={{ left: W + 6, top: B3 - 14 }}>{'−' + num(fr, 0)}</span>
+      {picks.map((i, k) => <span key={k} className="tick" style={{ top: B3 + 4, ...(k === 0 ? { left: 0 } : k === picks.length - 1 ? { right: AXIS } : { left: X(i) - 30, width: 60, textAlign: 'center' as const }) }}>{dateShort(days[i].day)}</span>)}
+      <div className="cross" style={{ top: T, height: B3 - T, left: X(h) }} />
       <span aria-hidden="true" className="marker-dot" style={{ background: 'var(--chart-fitness)', border: '2px solid var(--bg-surface)', left: X(h) - 5, top: Y(hd.fitness) - 5 }} />
-      <div className="hit" style={{ width: W, height: B2 }} onPointerMove={(e) => setHover(hoverIndex(e, n))} onPointerDown={(e) => setHover(hoverIndex(e, n))} onPointerLeave={() => setHover(null)} />
+      <div className="hit" style={{ width: W, height: B3 }} onPointerMove={(e) => setHover(hoverIndex(e, n))} onPointerDown={(e) => setHover(hoverIndex(e, n))} onPointerLeave={() => setHover(null)} />
       <div role="status" className="tip" style={{ minWidth: 150, left: Math.min(Math.max(X(h) - 75, 0), W - 150), top: Y(hd.fitness) > 70 ? 6 : Math.min(B1 - 80, Y(hd.fitness) + 14) }}>
         <span className="t-caption-strong" style={{ color: 'var(--text-reverse)' }}>{dayMonth(hd.day)}{hd.interruptionFill ? $t(" · forfait") : ''}</span>
         <span className="t-caption c-reverse-muted">{$t("Charge")} {num(hd.load, 0)}{hd.estimated && hd.load ? $t(" (estimée)") : ''}</span>

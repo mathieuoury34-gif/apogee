@@ -2,6 +2,7 @@
 // avant l'unité, signe moins typographique, virgule décimale).
 import { $t, lang } from '../i18n';
 import type { Block, Discipline, PlannedDiscipline } from '../domain/types';
+import { subSportOf } from '../domain/subsports';
 
 export const NBSP = ' ';
 export const MINUS = '−';
@@ -25,6 +26,8 @@ export function pct(ratio: number, d = 0): string { return num(ratio * 100, d) +
 export function pctSigned(ratio: number, d = 0): string { const r = Math.round(ratio * 100 * Math.pow(10, d)); return (r > 0 ? '+' : '') + pct(ratio, d); }
 
 // ------------------------------------------------------------------ disciplines
+/** Nom affiché d'une séance réalisée : l'activité précise pour « Autre » (randonnée, kayak…), sinon la discipline. */
+export const sessionLabel = (s: { discipline: Discipline; subSport?: string | null }): string => (s.discipline === 'OTHER' ? subSportOf(s.subSport)?.label : null) ?? DISCIPLINE_LABEL[s.discipline];
 export const DISCIPLINE_LABEL: Record<Discipline, string> = { RUN: $t("Course"), BIKE: $t("Vélo"), SWIM: $t("Natation"), STRENGTH: $t("Renforcement"), BRICK: $t("Enchaînement"), OTHER: $t("Autre") };
 export const DISCIPLINE_SHORT: Record<Discipline, string> = { RUN: $t("Course"), BIKE: $t("Vélo"), SWIM: $t("Natation"), STRENGTH: $t("Renfo"), BRICK: $t("Enchaîn."), OTHER: $t("Autre") };
 export const DISCIPLINE_ICON: Record<Discipline, string> = { RUN: 'run', BIKE: 'bike', SWIM: 'swim', STRENGTH: 'strength', BRICK: 'brick', OTHER: 'other' };

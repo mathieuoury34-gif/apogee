@@ -4,7 +4,7 @@
 // séance se fait depuis sa fiche avec le calendrier, l'interruption en cours est marquée sur les jours.
 import { $t } from '../i18n';
 import { useEffect, useMemo, useState } from 'react';
-import { AppHeader, DatePicker, DiscIcon, ErrorBanner, Fab, Sheet, SubHeader, SubNav, showToast } from '../ui/kit';
+import { AppHeader, DatePicker, DiscIcon, ErrorBanner, Fab, Sheet, SubHeader, SubNav, showToast, useSwipe } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { back, closeSheet, navigate, openSheet, useRoute } from '../ui/router';
 import { useCalc } from '../data/store';
@@ -13,7 +13,7 @@ import { estimateDistance, estimateDuration } from '../domain/blocks';
 import { addDays, daysBetween, mondayOf, weeksOfMonth } from '../domain/dates';
 import { liveRecords, sessionDay } from '../domain/load';
 import type { ActualSession, PlannedSession } from '../domain/types';
-import { DISCIPLINE_ICON, blockDetail, blockHead, dateFr, dayLong, dayMonth, dayTitle, DISCIPLINE_LABEL, distanceFor, duration, dvar, MONTHS_TITLE, num, WD_LETTER, KIND_LABEL, phaseLabel } from '../ui/format';
+import { DISCIPLINE_ICON, blockDetail, blockHead, dateFr, dayLong, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, MONTHS_TITLE, num, WD_LETTER, KIND_LABEL, phaseLabel } from '../ui/format';
 import { refKeyOfSession } from '../domain/coach';
 
 const NAV = [{ to: '/calendrier', label: $t("Semaine") }, { to: '/calendrier/mois', label: $t("Mois") }];
@@ -72,21 +72,24 @@ export function CalendarWeekScreen() {
   }
   const ints = liveRecords(data.interruptions);
   const isThisWeek = monday === mondayOf(d.today);
+  const [dir, setDir] = useState<'l' | 'r' | ''>('');
+  const go = (k: number) => { setDir(k > 0 ? 'l' : 'r'); setMonday(addDays(monday, 7 * k)); };
+  const swipe = useSwipe(() => go(1), () => go(-1));
   return (
     <div className="screen" data-screen="calendrier-semaine">
       <AppHeader title={$t("Calendrier")} />
       <ErrorBanner />
       <SubNav items={NAV} label={$t("Vue du calendrier")}>
         <div className="period-nav">
-          <button type="button" className="icon-btn" aria-label={$t("Semaine précédente")} onClick={() => setMonday(addDays(monday, -7))}><Icon name="back" /></button>
+          <button type="button" className="icon-btn" aria-label={$t("Semaine précédente")} onClick={() => go(-1)}><Icon name="back" /></button>
           <span className="stack center grow">
             <span className="t-amount-m">{dayMonth(monday)} – {dayMonth(addDays(monday, 6))}</span>
             <span className="t-caption c-moderate">{isThisWeek ? $t("cette semaine") : daysBetween(mondayOf(d.today), monday) > 0 ? $t("dans {0} sem.", { 0: daysBetween(mondayOf(d.today), monday) / 7 }) : $t("il y a {0} sem.", { 0: -daysBetween(mondayOf(d.today), monday) / 7 })}</span>
           </span>
-          <button type="button" className="icon-btn" aria-label={$t("Semaine suivante")} onClick={() => setMonday(addDays(monday, 7))}><Icon name="next" /></button>
+          <button type="button" className="icon-btn" aria-label={$t("Semaine suivante")} onClick={() => go(1)}><Icon name="next" /></button>
         </div>
       </SubNav>
-      <main className="content with-fab gap-12">
+      <main key={monday} className={'content with-fab gap-12' + (dir ? ' slide-' + dir : '')} {...swipe}>
         <div className="cal-top dgrid" style={{ gap: 'var(--space-12)' }}>
           <div className="dspan-6"><PhaseRibbon day={isThisWeek ? d.today : monday} /></div>
           <div className="grid-3 dspan-6">
@@ -134,9 +137,9 @@ function ActualRow({ s }: { s: ActualSession }) {
   return (
     <li className="op-item">
       <button type="button" className="op-row" onClick={() => navigate('/seances/' + s.id)}>
-        <DiscIcon d={s.discipline} />
+        <DiscIcon d={s.discipline} sub={s.subSport} />
         <span className="stack" style={{ minWidth: 0 }}>
-          <span className="t-strong ellipsis">{p?.title ?? DISCIPLINE_LABEL[s.discipline]}</span>
+          <span className="t-strong ellipsis">{p?.title ?? sessionLabel(s)}</span>
           <span className="t-caption" style={{ color: 'var(--success-text)' }}><Icon name="check" size={14} style={{ verticalAlign: '-2px' }} /> {$t("Réalisée")}{p ? $t(" · prévue") : ''}{s.rpe ? $t(" · RPE ") + s.rpe : ''}</span>
         </span>
         <span className="stack" style={{ alignItems: 'flex-end' }}>
@@ -176,7 +179,9 @@ export function CalendarMonthScreen() {
   const [sel, setSel] = useState(d.today);
   const { map, links } = useDayIndex();
   const weeks = weeksOfMonth(month);
-  const shift = (k: number) => { let [y, m] = month.split('-').map(Number); m += k; if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } setMonth(y + '-' + String(m).padStart(2, '0')); };
+  const [dir, setDir] = useState<'l' | 'r' | ''>('');
+  const shift = (k: number) => { setDir(k > 0 ? 'l' : 'r'); let [y, m] = month.split('-').map(Number); m += k; if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } setMonth(y + '-' + String(m).padStart(2, '0')); };
+  const swipe = useSwipe(() => shift(1), () => shift(-1));
   const ints = liveRecords(data.interruptions);
   let done = 0, total = 0, vol = 0;
   for (const [day, it] of map) {
@@ -197,7 +202,7 @@ export function CalendarMonthScreen() {
           <button type="button" className="icon-btn" aria-label={$t("Mois suivant")} onClick={() => shift(1)}><Icon name="next" /></button>
         </div>
       </SubNav>
-      <main className="content with-fab dgrid">
+      <main key={month} className={'content with-fab dgrid' + (dir ? ' slide-' + dir : '')} {...swipe}>
         <section className="card g8 dspan-7" aria-label={$t("Mois")}>
           <div className="month-grid">
             {WD_LETTER.map((l, i) => <span key={i} className="mg-head">{l}</span>)}
@@ -279,7 +284,7 @@ export function PlannedDetailScreen({ id }: { id: string }) {
           <h2>{$t("Réalisation")}</h2>
           {done.length ? done.map((s) => (
             <button key={s.id} type="button" className="row-btn" onClick={() => navigate('/seances/' + s.id)}>
-              <DiscIcon d={s.discipline} size={36} />
+              <DiscIcon d={s.discipline} sub={s.subSport} size={36} />
               <span className="stack grow"><span className="t-strong">{$t("Réalisée le")} {dateFr(sessionDay(s))}</span><span className="t-caption c-moderate">{duration(s.durationSec)}{s.distanceM ? ' · ' + distanceFor(s.distanceM, s.discipline) : ''} {$t("· voir le bilan")}</span></span>
               <Icon name="next" size={20} style={{ color: 'var(--text-moderate)' }} />
             </button>

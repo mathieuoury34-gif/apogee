@@ -164,7 +164,11 @@
   --tab-indicator-height: 3px;
   --input-height: 48px;
   --input-radius: 4px;
-  --input-border: 1px solid #656970;
+  --input-border: 1px solid #8D8878;
+  --input-bg: #F5F2EA;
+  --chip-on-bg: #D5E6E9;
+  --chip-on-border: #1D6E80;
+  --chip-on-fg: #0F4A58;
   --input-border-focus: 2px solid #1F84A0;
   --input-border-error: 2px solid #8E2B20;
   --toast-bg: #16181B;
@@ -275,7 +279,11 @@
   --shadow-l: 0 20px 80px 0 #00000099;
   --shadow-sticky: 0 -2px 12px 0 #00000066;
   --shadow-fab: 0 6px 20px 0 #00000080;
-  --input-border: 1px solid #7C858D;
+  --input-border: 1px solid #6B747B;
+  --input-bg: #1B2227;
+  --chip-on-bg: #1B3940;
+  --chip-on-border: #5CB6C9;
+  --chip-on-fg: #BFE6EE;
   --input-border-focus: 2px solid #3FA3BE;
   --input-border-error: 2px solid #E0705E;
   --toast-bg: #ECE8E0;

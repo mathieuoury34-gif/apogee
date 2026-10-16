@@ -76,6 +76,15 @@ const P: Record<string, string[]> = {
   strength: ['m6.5 6.5 11 11', 'm21 21-1-1', 'm3 3 1 1', 'm18 22 4-4', 'm2 6 4-4', 'm3 10 7-7', 'm14 21 7-7'],
   brick: ['M5.7 18C9 18 9 12 12 12s3-6 6.3-6', 'circle:4,18,1.6', 'circle:20,6,1.6'],
   other: ['m8 3 4 8 5-5 5 15H2L8 3z'],
+  hike: ['m8 3 4 8 5-5 5 15H2L8 3z', 'M4.14 15.08c2.62-1.57 5.24-1.43 7.86.42 2.74 1.94 5.49 2 8.23.19'],
+  walk: ['circle:12,5,1', 'm9 20 3-6 3 6', 'm6 8 6 2 6-2', 'M12 10v4'],
+  kayak: ['M2 14c5 3 15 3 20 0', 'm5 6 14 7', 'M3 4l3 3', 'M18 17l3 3'],
+  climb: ['M7 4h7a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V8', 'm5 8 2-4', 'M9 12h6'],
+  ski: ['m3 20 18-6', 'm9 10 6-4', 'circle:16,3.5,1.5', 'm12 11-3 6'],
+  row: ['M20 4 9 15', 'm9 15-5 5', 'M4 15h5v5', 'M16 4h4v4'],
+  yoga: ['M12 5a3 3 0 1 1 3 3m-3-3a3 3 0 1 0-3 3m3-3v1', 'M9 8a3 3 0 1 0 3 3m-3-3h1m5 0a3 3 0 1 1-3 3m3-3h-1m-2 3v-1', 'circle:12,8,2', 'M12 10v12', 'M12 22c4.2 0 7-1.667 7-5-4.2 0-7 1.667-7 5Z', 'M12 22c-4.2 0-7-1.667-7-5 4.2 0 7 1.667 7 5Z'],
+  racket: ['circle:9.5,9.5,6.5', 'm14.2 14.2 7 7', 'M6 7l7 5'],
+  ball: ['circle:12,12,10', 'M2 12h20', 'M12 2a15 15 0 0 1 0 20', 'M12 2a15 15 0 0 0 0 20'],
 };
 
 export function Icon({ name, size = 24, style, strokeWidth = 2 }: { name: keyof typeof P | string; size?: number; style?: CSSProperties; strokeWidth?: number }) {
@@ -118,13 +127,15 @@ export function Logo({ size = 18 }: { size?: number }) {
   );
 }
 
-/** Pictogramme de l'icône d'Iron App (deux traits : plein et tireté), sur le fond papier. */
+/** Pictogramme de l'icône : un anneau en quatre arcs, aux couleurs des quatre sports (natation, vélo, course, renforcement), sur le fond papier. */
 export function LogoMark({ size = 26 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 108 108" aria-hidden="true" style={{ flexShrink: 0, borderRadius: size * 0.24 }}>
       <rect width="108" height="108" rx="0" style={{ fill: 'var(--bg-brand-minimal)' }} />
-      <path d="M31 44h46" strokeWidth="8" strokeLinecap="round" style={{ stroke: 'var(--text)' }} />
-      <path d="M31 66h46" strokeWidth="8" strokeLinecap="round" strokeDasharray="9 10" style={{ stroke: 'var(--text)' }} />
+      <path d="M61.8 28.4A26.8 26.8 0 0 1 79.6 46.2" fill="none" strokeWidth="13.4" strokeLinecap="round" style={{ stroke: '#1E9DB8' }} />
+      <path d="M79.6 61.8A26.8 26.8 0 0 1 61.8 79.6" fill="none" strokeWidth="13.4" strokeLinecap="round" style={{ stroke: '#F0A61E' }} />
+      <path d="M46.2 79.6A26.8 26.8 0 0 1 28.4 61.8" fill="none" strokeWidth="13.4" strokeLinecap="round" style={{ stroke: '#E2552E' }} />
+      <path d="M28.4 46.2A26.8 26.8 0 0 1 46.2 28.4" fill="none" strokeWidth="13.4" strokeLinecap="round" style={{ stroke: '#6A5BD6' }} />
     </svg>
   );
 }

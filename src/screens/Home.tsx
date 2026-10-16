@@ -14,7 +14,7 @@ import { ALERT_TEXT, reviewSession, VERDICT_TEXT } from '../domain/review';
 import { lastPlanValidity } from '../domain/coach';
 import { paceOf } from '../domain/stats';
 import type { ActualSession, PlannedSession } from '../domain/types';
-import { dateFr, dayLong, dayTitle, DISCIPLINE_LABEL, distanceFor, duration, dvar, num, paceFor, relDays, signed, WD_LETTER, NBSP } from '../ui/format';
+import { dateFr, dayLong, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, num, paceFor, relDays, signed, WD_LETTER, NBSP } from '../ui/format';
 import { WelcomeCard } from './Welcome';
 import { HealthCard } from './Health';
 
@@ -41,16 +41,8 @@ export function HomeScreen() {
         <HealthCard compact />
 
         {race && <div className="dspan-12"><RaceCard name={race.name} date={race.raceDate} today={today} phase={phase ? { label: phase.label, start: phase.startDate, end: phase.endDate } : null} /></div>}
-        <FormHero form={form} isToday={!!d.form} constat={d.constat} priming={d.series.isPriming} firstDay={d.series.firstDay} />
-        <section className="stack-12 dspan-7" style={{ gridRow: 'span 2' }}>
-          {interruption && (
-            <div role="note" className="note"><Icon name="pause" size={20} /><span><strong>{$t("En interruption :")} {interruption.label}</strong> {$t("— jusqu’au")} {dateFr(interruption.endDate)}.{interruption.dailyLoadOverride !== null ? $t(" Charge forfaitaire de {0} par jour.", { 0: num(interruption.dailyLoadOverride, 0) }) : ''}</span></div>
-          )}
-          <TodayCard planned={todayPlanned} done={todayDone} today={today} />
-        </section>
-
         {d.alerts.length > 0 && (
-          <section aria-label={$t("À signaler")} className="stack-8 dspan-5">
+          <section aria-label={$t("À signaler")} className="stack-8 dspan-12">
             {d.alerts.map((a) => (
               <button key={a.code} type="button" className={'note' + (a.code === 'LOAD_RAMP' || a.code === 'RPE_HIGH_STREAK' ? ' note-warning' : '')} onClick={() => navigate(a.code === 'PENDING_RPE' ? '/seances?filtre=ressenti' : a.code === 'MISSED_SESSIONS' ? '/calendrier' : '/progression')}
                 style={{ border: 0, textAlign: 'left', cursor: 'pointer', width: '100%' }}>
@@ -61,9 +53,18 @@ export function HomeScreen() {
           </section>
         )}
 
+        <FormHero form={form} isToday={!!d.form} constat={d.constat} priming={d.series.isPriming} firstDay={d.series.firstDay} />
+        <section className="stack-12 dspan-7">
+          {interruption && (
+            <div role="note" className="note"><Icon name="pause" size={20} /><span><strong>{$t("En interruption :")} {interruption.label}</strong> {$t("— jusqu’au")} {dateFr(interruption.endDate)}.{interruption.dailyLoadOverride !== null ? $t(" Charge forfaitaire de {0} par jour.", { 0: num(interruption.dailyLoadOverride, 0) }) : ''}</span></div>
+          )}
+          <TodayCard planned={todayPlanned} done={todayDone} today={today} />
+        </section>
+
+
         <WeekCard />
 
-        <section aria-labelledby="h-load" className="card dspan-6" onClick={() => navigate('/progression')} style={{ cursor: 'pointer' }}>
+        <section aria-labelledby="h-load" className="card dspan-7" onClick={() => navigate('/progression')} style={{ cursor: 'pointer' }}>
           <div className="between"><h2 id="h-load">{$t("Charge — 4 semaines")}</h2><Icon name="next" size={20} style={{ color: 'var(--text-moderate)' }} /></div>
           <LoadChart days={d.series.days.slice(-28)} height={110} compact />
           <LoadLegend />
@@ -71,7 +72,6 @@ export function HomeScreen() {
 
         {last && <LastSessionCard s={last} />}
 
-        <CoachShortcut valid={lastPlanValidity(data)} today={today} />
       </main>
       <Fab onClick={() => openSheet('ajouter')} />
     </div>
@@ -82,7 +82,7 @@ export function HomeScreen() {
 function FormHero({ form, isToday, constat, priming, firstDay }: { form: ReturnType<typeof useCalc>['d']['form']; isToday: boolean; constat: ReturnType<typeof useCalc>['d']['constat']; priming: boolean; firstDay: string | null }) {
   const step = form ? formStep(form.score) : null;
   return (
-    <section aria-label={$t("Forme du jour")} className="hero dspan-5" data-component="Card.hero" onClick={() => navigate('/progression?vue=forme')} style={{ cursor: 'pointer' }}>
+    <section aria-label={$t("Forme du jour")} className="hero dspan-5 dgrid-rows2" data-component="Card.hero" onClick={() => navigate('/progression?vue=forme')} style={{ cursor: 'pointer' }}>
       <div className="between" style={{ alignItems: 'flex-start' }}>
         <span className="overline">{$t("Forme du jour")}</span>
         {step && <span className="chip-reverse">{FORM_STEP_LABEL[step]}</span>}
@@ -168,9 +168,9 @@ function TodayCard({ planned, done, today }: { planned: PlannedSession[]; done: 
         {done.map((s) => (
           <li key={s.id}>
             <button type="button" className="row-btn" onClick={() => navigate('/seances/' + s.id)}>
-              <DiscIcon d={s.discipline} />
+              <DiscIcon d={s.discipline} sub={s.subSport} />
               <span className="stack grow" style={{ minWidth: 0 }}>
-                <span className="t-strong ellipsis">{DISCIPLINE_LABEL[s.discipline]}</span>
+                <span className="t-strong ellipsis">{sessionLabel(s)}</span>
                 <span className="t-caption" style={{ color: 'var(--success-text)' }}><Icon name="check" size={14} style={{ verticalAlign: '-2px' }} /> {$t("Réalisée")}{s.rpe ? $t(" · RPE {0}", { 0: s.rpe }) : ''}</span>
               </span>
               <span className="stack" style={{ alignItems: 'flex-end' }}>
@@ -201,7 +201,7 @@ function WeekCard() {
     return { day, open: p.filter((x) => !d.links.byPlanned.has(x.id)), done: a };
   });
   return (
-    <section aria-labelledby="h-week" className="card dspan-6" data-component="WeekStrip">
+    <section aria-labelledby="h-week" className="card dspan-7" data-component="WeekStrip">
       <div className="between baseline">
         <h2 id="h-week">{$t("Cette semaine")}</h2>
         <span className="t-caption c-moderate right">{doneSec ? duration(doneSec) + $t(" faites") : $t("rien encore")}{plannedSec ? $t(" · {0} prévues", { 0: duration(plannedSec) }) : ''}</span>
@@ -235,12 +235,12 @@ function LastSessionCard({ s }: { s: ActualSession }) {
   const ago = daysBetween(sessionDay(s), d.today);
   const good = r.verdict === 'onPlan' || r.verdict === 'typical';
   return (
-    <section aria-labelledby="h-last" className="card dspan-6" data-component="LastSession">
+    <section aria-labelledby="h-last" className="card dspan-5" data-component="LastSession">
       <div className="between baseline"><h2 id="h-last">{$t("Dernière séance")}</h2><span className="t-caption c-moderate">{relDays(-ago)}</span></div>
       <button type="button" className="row-btn" onClick={() => navigate('/seances/' + s.id)}>
-        <DiscIcon d={s.discipline} />
+        <DiscIcon d={s.discipline} sub={s.subSport} />
         <span className="stack grow" style={{ minWidth: 0 }}>
-          <span className="t-strong">{DISCIPLINE_LABEL[s.discipline]} · {duration(s.durationSec)}{s.distanceM ? ' · ' + distanceFor(s.distanceM, s.discipline) : ''}</span>
+          <span className="t-strong">{sessionLabel(s)} · {duration(s.durationSec)}{s.distanceM ? ' · ' + distanceFor(s.distanceM, s.discipline) : ''}</span>
           <span className="t-caption c-moderate">{[pace ? paceFor(pace, s.discipline) : null, s.avgHrBpm ? num(s.avgHrBpm, 0) + NBSP + 'bpm' : null, d.loads.get(s.id)?.load != null ? $t("charge ") + num(d.loads.get(s.id)!.load!, 0) : null].filter(Boolean).join(' · ')}</span>
         </span>
         <Icon name="next" size={20} style={{ color: 'var(--text-moderate)' }} />
@@ -250,21 +250,5 @@ function LastSessionCard({ s }: { s: ActualSession }) {
         {!s.rpe && <button type="button" className="btn btn-secondary" style={{ height: 32 }} onClick={() => navigate('/seances/' + s.id + '?ressenti=1')}><Icon name="edit" size={16} />{$t("Noter mon ressenti")}</button>}
       </div>
     </section>
-  );
-}
-
-// ------------------------------------------------------------------ raccourci Coach (comme « Assistant du mois »)
-function CoachShortcut({ valid, today }: { valid: string | null; today: string }) {
-  const left = valid ? daysBetween(today, valid) : null;
-  const sub = valid === null ? $t("Aucun plan importé : exporte ton dossier pour démarrer l’échange.") : left! >= 0 ? $t("Plan valable jusqu’au {0} ({1} j)", { 0: dateFr(valid), 1: left }) : $t("Plan échu depuis le {0} — un nouvel échange quand tu es prêt.", { 0: dateFr(valid) });
-  return (
-    <a href="#/coach" className="assistant dspan-6" onClick={(e) => { e.preventDefault(); navigate('/coach'); }} data-component="CoachShortcut">
-      <span className="assistant-icon"><Icon name="coach" size={20} /></span>
-      <span className="stack">
-        <span className="t-amount-s">{$t("Coach")}</span>
-        <span className="t-caption c-neutral">{sub}</span>
-      </span>
-      <Icon name="next" size={20} style={{ color: 'var(--primary-fg)' }} />
-    </a>
   );
 }

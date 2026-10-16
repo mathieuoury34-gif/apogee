@@ -250,22 +250,28 @@ export interface CoachConstat {
   fatigue: number | null; fatigueDelta: number | null;
   freshness: number | null; freshnessDelta: number | null;
   acuteChronicRatio: number | null;
+  /** Charge cumulée des 7 derniers jours, et charge hebdomadaire moyenne des 28 derniers (numérateur et dénominateur du rapport). */
+  acuteLoad: number | null; chronicWeeklyLoad: number | null;
+  /** Le jour le plus chargé des 28 derniers jours et sa part du total (pour repérer une journée exceptionnelle qui fausse le rapport). */
+  heaviestDay: { day: string; load: number; share: number } | null;
   /** Variation de la forme de fond sur 7 jours (rampe). */
   rampPerWeek: number | null;
 }
 
 export function coachConstat(series: LoadSeries, todayDay: string): CoachConstat {
   const latest = series.byDay.get(todayDay) ?? series.days[series.days.length - 1];
-  if (!latest) return { asOf: null, fitness: null, fitnessDelta: null, fatigue: null, fatigueDelta: null, freshness: null, freshnessDelta: null, acuteChronicRatio: null, rampPerWeek: null };
+  if (!latest) return { asOf: null, fitness: null, fitnessDelta: null, fatigue: null, fatigueDelta: null, freshness: null, freshnessDelta: null, acuteChronicRatio: null, acuteLoad: null, chronicWeeklyLoad: null, heaviestDay: null, rampPerWeek: null };
   const prev = series.byDay.get(addDays(latest.day, -7));
   const d = (a: number, b?: number) => (b === undefined ? null : a - b);
   let acute = 0, chronic = 0, n = 0;
+  let heavy: { day: string; load: number } | null = null;
   for (let k = 0; k < 28; k++) {
     const p = series.byDay.get(addDays(latest.day, -k));
     if (!p) continue;
     n++;
     chronic += p.load;
     if (k < 7) acute += p.load;
+    if (!heavy || p.load > heavy.load) heavy = { day: p.day, load: p.load };
   }
   const weekly = chronic / 4;
   return {
@@ -274,6 +280,8 @@ export function coachConstat(series: LoadSeries, todayDay: string): CoachConstat
     fatigue: latest.fatigue, fatigueDelta: d(latest.fatigue, prev?.fatigue),
     freshness: latest.freshness, freshnessDelta: d(latest.freshness, prev?.freshness),
     acuteChronicRatio: n >= 28 && weekly > 0 ? acute / weekly : null,
+    acuteLoad: n >= 28 ? acute : null, chronicWeeklyLoad: n >= 28 ? weekly : null,
+    heaviestDay: heavy && chronic > 0 ? { day: heavy.day, load: heavy.load, share: heavy.load / chronic } : null,
     rampPerWeek: d(latest.fitness, prev?.fitness),
   };
 }

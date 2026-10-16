@@ -29,6 +29,7 @@ declare module 'react-dom/client' { export function createRoot(el: Element): { r
 declare module 'jszip' { export default class JSZip { constructor(); [k: string]: any; static [k: string]: any } }
 declare module '*.css';
 declare namespace React {
+  type TouchEvent<T = any> = any;
   type ReactNode = any;
   type CSSProperties = Record<string, any>;
   type PointerEvent<T = any> = any;

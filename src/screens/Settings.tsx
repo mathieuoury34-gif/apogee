@@ -7,7 +7,7 @@ import { Icon, Logo } from '../ui/icons';
 import { navigate, useRoute } from '../ui/router';
 import { getData, getPrefs, setPrefs, useCalc, usePrefs } from '../data/store';
 import { deleteCloud, signIn, signOut, syncNow, useSync } from '../data/sync';
-import { backupBlob, dossierMessage, importDossier, importLegacy, readJsonFile, restoreBackup } from '../data/backup';
+import { backupBlob, dossierMessage, importDossier, readJsonFile, restoreBackup } from '../data/backup';
 import { deleteEverything, deleteInterruption, restore, saveAthlete, saveInterruption } from '../data/actions';
 import { native } from '../native/bridge';
 import { HealthCard } from './Health';
@@ -53,7 +53,6 @@ export function SettingsScreen() {
   const [typed, setTyped] = useState('');
   const [theme, setTheme] = useState<ThemePref>(themePref());
   const jsonInput = useRef<HTMLInputElement>(null);
-  const dbInput = useRef<HTMLInputElement>(null);
   const a = data.athlete.main && !data.athlete.main.deleted ? data.athlete.main : null;
   const interruptions = liveRecords(data.interruptions);
   const total = liveRecords(data.actual).length;
@@ -80,14 +79,6 @@ export function SettingsScreen() {
       if (file.kind === 'dossier') showToast(dossierMessage(importDossier(file.dossier)), { undo: () => restoreBackup(prev) });
       else { restoreBackup(file.data); showToast($t("Sauvegarde restaurée"), { undo: () => restoreBackup(prev) }); }
     } catch (e) { showToast($t("Lecture impossible : ") + (e as Error).message, { error: true }); }
-  };
-  const onDb = async (f: File) => {
-    setBusy('db');
-    try {
-      const prev = getData();
-      const r = importLegacy(new Uint8Array(await f.arrayBuffer()));
-      showToast($t("Reprise : {0} séances réalisées (dernière le {1}), {2} prévues{3}", { 0: r.counts.actual ?? 0, 1: r.lastActual ? dateFr(r.lastActual) : '—', 2: r.counts.planned ?? 0, 3: r.skipped.length ? $t(", {0} élément(s) ignoré(s)", { 0: r.skipped.length }) : '' }), { undo: () => restoreBackup(prev) });
-    } catch (e) { showToast($t("Reprise impossible : ") + (e as Error).message, { error: true }); } finally { setBusy(''); }
   };
   const readNow = async () => {
     setBusy('health');
@@ -151,34 +142,6 @@ export function SettingsScreen() {
           </div>
         </Section>
 
-        <Section id="p-athlete" title={$t("Athlète")}>
-          <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
-            <Row icon="user" title={$t("Profil")} sub={a ? [a.displayName, a.birthDate ? $t("{0} ans", { 0: ageAt(a.birthDate) }) : null, a.availability.length ? $t("{0} jour(s) dispo.", { 0: a.availability.length }) : null].filter(Boolean).join(' · ') || $t("À compléter") : $t("Date de naissance, sexe, disponibilités, blessures")} onClick={() => navigate('/parametres/profil')} />
-            <Row icon="gauge" title={$t("Indicateurs (VMA, FTP, CSS, FC max)")} sub={$t("Historique des tests et estimations")} onClick={() => navigate('/progression/zones')} />
-            <Row icon="flag" title={$t("Course objectif")} sub={data.race.main && !data.race.main.deleted ? `${data.race.main.name} · ${dateFr(data.race.main.raceDate)}` : $t("À renseigner")} onClick={() => navigate('/progression/objectif')} />
-            <Row icon="layers" title={$t("Périodisation")} sub={$t("{0} bloc(s)", { 0: liveRecords(data.phases).length })} onClick={() => navigate('/calendrier/periodisation')} />
-            <Row icon="pause" title={$t("Interruptions")} sub={running ? $t("En cours : {0}", { 0: running.label }) : $t("{0} enregistrée(s) · blessure, voyage, charge externe", { 0: interruptions.length })} onClick={() => navigate('/parametres/interruptions')} />
-          </ul>
-        </Section>
-
-        <Section id="p-calc" title={$t("Calculs")}>
-          <div className="card g12" style={{ borderRadius: 'var(--radius-12)' }}>
-            <div className="between" style={{ gap: 'var(--space-12)' }}>
-              <span className="stack"><span className="t-strong" id="lbl-prov">{$t("Charge provisoire")}</span><span className="t-caption c-moderate">{$t("Une séance sans FC ni ressenti compte d’après tes habitudes (charge par minute × durée), marquée « estimée », au lieu de zéro.")}</span></span>
-              <Switch checked={prefs.provisionalLoad} labelledBy="lbl-prov" onChange={(v) => setPrefs({ provisionalLoad: v })} />
-            </div>
-            {app && (
-              <label className="field">
-                <span className="lbl">{$t("Heure des rappels de séance")}</span>
-                <select className="input" value={prefs.reminderHour} onChange={(e) => setPrefs({ reminderHour: Number(e.target.value) })}>
-                  {[6, 7, 8, 9, 12, 18, 20].map((h) => <option key={h} value={h}>{h} h 00</option>)}
-                </select>
-                <span className="hint">{$t("Rappel le matin d’une séance prévue, et la veille d’un ressenti oublié. Suspendus pendant une interruption.")}</span>
-              </label>
-            )}
-          </div>
-        </Section>
-
         <Section id="p-theme" title={$t("Thème")}>
           <div className="card g8" style={{ borderRadius: 'var(--radius-12)' }}>
             <div className="seg" role="group" aria-label={$t("Thème de l’application")}>
@@ -201,21 +164,47 @@ export function SettingsScreen() {
           </div>
         </Section>
 
+        <Section id="p-athlete" title={$t("Athlète")}>
+          <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
+            <Row icon="user" title={$t("Profil")} sub={a ? [a.displayName, a.birthDate ? $t("{0} ans", { 0: ageAt(a.birthDate) }) : null, a.availability.length ? $t("{0} jour(s) dispo.", { 0: a.availability.length }) : null].filter(Boolean).join(' · ') || $t("À compléter") : $t("Date de naissance, sexe, disponibilités, blessures")} onClick={() => navigate('/parametres/profil')} />
+            <Row icon="gauge" title={$t("Indicateurs (VMA, FTP, CSS, FC max)")} sub={$t("Historique des tests et estimations")} onClick={() => navigate('/progression/zones')} />
+            <Row icon="flag" title={$t("Course objectif")} sub={data.race.main && !data.race.main.deleted ? `${data.race.main.name} · ${dateFr(data.race.main.raceDate)}` : $t("À renseigner")} onClick={() => navigate('/progression/objectif')} />
+            <Row icon="layers" title={$t("Périodisation")} sub={$t("{0} bloc(s)", { 0: liveRecords(data.phases).length })} onClick={() => navigate('/calendrier/periodisation')} />
+            <Row icon="pause" title={$t("Interruptions")} sub={running ? $t("En cours : {0}", { 0: running.label }) : $t("{0} enregistrée(s) · blessure, voyage, charge externe", { 0: interruptions.length })} onClick={() => navigate('/parametres/interruptions')} />
+          </ul>
+        </Section>
+
         <Section id="p-data" title={$t("Données")}>
           <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
             <Row icon="sheet" title={$t("Exporter en Excel (.xlsx)")} sub={busy === 'xlsx' ? $t("Préparation du fichier…") : $t("Tableau de bord, séances, plan, charge, zones, périodisation — formules et graphiques")} onClick={exportXlsx} />
             <Row icon="download" title={$t("Exporter une sauvegarde (.json)")} sub={$t("Toutes les données, relisibles par l’app")} onClick={exportJson} />
             <Row icon="upload" title={$t("Restaurer ou compléter (.json)")} sub={$t("Sauvegarde Iron App (remplace les données) ou dossier coach de l’ancienne app (ajoute les séances qui manquent)")} onClick={() => jsonInput.current?.click()} />
-            <Row icon="database" title={$t("Reprendre l’ancienne base (.db)")} sub={busy === 'db' ? $t("Lecture en cours…") : $t("Fichier exporté par l’ancienne app Android — fusion sans doublon")} onClick={() => dbInput.current?.click()} />
           </ul>
           <input ref={jsonInput} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onJson(f); e.target.value = ''; }} />
-          <input ref={dbInput} type="file" accept=".db,.sqlite,application/octet-stream,application/x-sqlite3,application/vnd.sqlite3" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onDb(f); e.target.value = ''; }} />
         </Section>
 
         <Section id="p-help" title={$t("Aide")}>
           <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
             <Row icon="info" title={$t("Aide et mode d’emploi")} sub={$t("Toutes les fonctionnalités, tous les calculs, et où télécharger l’APK Android")} onClick={() => navigate('/parametres/aide')} />
           </ul>
+        </Section>
+
+        <Section id="p-calc" title={$t("Calculs")}>
+          <div className="card g12" style={{ borderRadius: 'var(--radius-12)' }}>
+            <div className="between" style={{ gap: 'var(--space-12)' }}>
+              <span className="stack"><span className="t-strong" id="lbl-prov">{$t("Charge provisoire")}</span><span className="t-caption c-moderate">{$t("Une séance sans FC ni ressenti compte d’après tes habitudes (charge par minute × durée), marquée « estimée », au lieu de zéro.")}</span></span>
+              <Switch checked={prefs.provisionalLoad} labelledBy="lbl-prov" onChange={(v) => setPrefs({ provisionalLoad: v })} />
+            </div>
+            {app && (
+              <label className="field">
+                <span className="lbl">{$t("Heure des rappels de séance")}</span>
+                <select className="input" value={prefs.reminderHour} onChange={(e) => setPrefs({ reminderHour: Number(e.target.value) })}>
+                  {[6, 7, 8, 9, 12, 18, 20].map((h) => <option key={h} value={h}>{h} h 00</option>)}
+                </select>
+                <span className="hint">{$t("Rappel le matin d’une séance prévue, et la veille d’un ressenti oublié. Suspendus pendant une interruption.")}</span>
+              </label>
+            )}
+          </div>
         </Section>
 
         <Section id="p-about" title={$t("À propos")}>

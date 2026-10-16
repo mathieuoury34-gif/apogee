@@ -46,6 +46,12 @@ function instructions(): string {
     '  et déjà valide : reprends sa STRUCTURE et sa ponctuation exactes,',
     '  jamais son contenu (dates, clés, séances) tel quel.',
     '',
+    'LECTURE DU DOSSIER :',
+    "- `upcomingPlannedSessions` et `recentPlannedSessions` montrent l'état ACTUEL des séances prévues, y compris",
+    "  celles que l'athlète a modifiées ou déplacées après ton dernier plan (`editedByAthleteAt` non nul).",
+    "  Pars de ces versions, pas de ce que tu avais écrit : ne les écrase pas sans raison, et dis laquelle dans `notes`.",
+    "- `recentPlannedSessions` : séances prévues passées de la période, `status` « done » (réalisée) ou « missed » (non réalisée).",
+    '',
     'FORME EXACTE DU FICHIER À RENVOYER :',
     '{',
     `  "schemaVersion": "${SCHEMA}",`,
@@ -158,7 +164,7 @@ function example() {
 }
 
 // ------------------------------------------------------------------ export du dossier-athlète
-export function buildDossier(data: AppData, d: Derived, selected: string[], now: Date = new Date()) {
+export function buildDossier(data: AppData, d: Derived, selected: string[], now: Date = new Date(), periodFrom?: string) {
   const day = today(now);
   const a = data.athlete.main;
   const race = data.race.main && !data.race.main.deleted ? data.race.main : null;
@@ -171,6 +177,8 @@ export function buildDossier(data: AppData, d: Derived, selected: string[], now:
     vol.set(k, (vol.get(k) ?? 0) + s.durationSec);
   }
   const upcoming = liveRecords(data.planned).filter((p) => p.plannedDate >= day && p.plannedDate <= addDays(day, UPCOMING_DAYS)).sort((x, y) => (x.plannedDate < y.plannedDate ? -1 : 1));
+  const plannedOut = (p: PlannedSession) => ({ refKey: refKeyOfSession(p), discipline: p.discipline, plannedDate: p.plannedDate, title: p.title, notes: p.notes, origin: p.origin, editedByAthleteAt: p.editedAt ?? null, blocks: p.blocks.map(blockOut) });
+  const past = periodFrom ? liveRecords(data.planned).filter((p) => p.plannedDate >= periodFrom && p.plannedDate < day).sort((x, y) => (x.plannedDate < y.plannedDate ? -1 : 1)) : [];
   const recent = selected.map((id) => data.actual[id]).filter((s) => s && !s.deleted).sort((x, y) => (x.startAt < y.startAt ? -1 : 1));
   return {
     schemaVersion: SCHEMA,
@@ -189,7 +197,8 @@ export function buildDossier(data: AppData, d: Derived, selected: string[], now:
       srpeFactor: Math.round(d.ctx.srpeFactor * 1000) / 1000,
       weeklyVolumeByDiscipline: [...vol.entries()].map(([k, seconds]) => { const [weekStart, discipline] = k.split('\u0000'); return { weekStart, discipline, seconds }; }).sort((x, y) => (x.weekStart < y.weekStart ? -1 : 1)),
     },
-    upcomingPlannedSessions: upcoming.map((p) => ({ refKey: refKeyOfSession(p), discipline: p.discipline, plannedDate: p.plannedDate, title: p.title, notes: p.notes, blocks: p.blocks.map(blockOut) })),
+    upcomingPlannedSessions: upcoming.map(plannedOut),
+    recentPlannedSessions: past.map((p) => ({ ...plannedOut(p), status: d.links.byPlanned.has(p.id) ? 'done' : 'missed' })),
     recentActualSessions: recent.map((s) => {
       const link = d.links.byActual.get(s.id);
       let matched: { refKey: string; title: string | null; matchConfidence: 'linked' | 'heuristic' } | null = null;
@@ -375,7 +384,7 @@ export function applyPreview(data: AppData, pv: Preview, plan: CoachPlan, hash: 
     if (r.op.entity === 'session') {
       const o = r.op;
       const prev = r.existingId ? data.planned[r.existingId] : undefined;
-      m.puts.push({ coll: 'planned', rec: { id: r.existingId ?? newId(), updatedAt: now, discipline: o.discipline!, plannedDate: o.plannedDate!, title: o.title, notes: o.notes, origin: 'coach', idempotencyKey: prev?.idempotencyKey ?? (o.idempotencyKey.startsWith('session:') ? null : o.idempotencyKey), coachExchangeId: exchangeId, blocks: o.blocks, createdAt: prev?.createdAt ?? now } });
+      m.puts.push({ coll: 'planned', rec: { id: r.existingId ?? newId(), updatedAt: now, discipline: o.discipline!, plannedDate: o.plannedDate!, title: o.title, notes: o.notes, origin: 'coach', idempotencyKey: prev?.idempotencyKey ?? (o.idempotencyKey.startsWith('session:') ? null : o.idempotencyKey), coachExchangeId: exchangeId, blocks: o.blocks, createdAt: prev?.createdAt ?? now, editedAt: null } });
     } else {
       const o = r.op;
       const prev = r.existingId ? data.phases[r.existingId] : undefined;

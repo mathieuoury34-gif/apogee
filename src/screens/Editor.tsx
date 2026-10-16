@@ -3,7 +3,7 @@
 // réordonnancement par flèches, enfants d'une série éditables en place, erreurs listées en clair avant
 // l'enregistrement, saisie des allures en « 4:30 ».
 import { $t } from '../i18n';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DatePicker, DiscIcon, Sheet, SubHeader, showToast } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { back, navigate, useRoute } from '../ui/router';
@@ -50,6 +50,22 @@ export function PlannedEditorScreen({ id }: { id: string }) {
   });
   const [cal, setCal] = useState(false);
   const [edit, setEdit] = useState<Path | null>(null);
+  // La feuille d'un bloc a sa propre entrée d'historique : « retour » d'Android la ferme sans quitter l'édition de la séance.
+  const sheetPushed = useRef(false);
+  const openEdit = (p: Path) => {
+    if (!sheetPushed.current) { history.pushState({ iron: ((history.state as { iron?: number } | null)?.iron ?? 0) + 1 }, '', location.href); sheetPushed.current = true; }
+    setEdit(p);
+  };
+  const closeEdit = () => {
+    setEdit(null);
+    if (sheetPushed.current) { sheetPushed.current = false; history.back(); }
+  };
+  useEffect(() => {
+    const onPop = () => { if (sheetPushed.current) { sheetPushed.current = false; setEdit(null); } };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  const [drag, setDrag] = useState<{ grp: string; from: number; dy: number; to: number } | null>(null);
   const [addMenu, setAddMenu] = useState<number | null>(null); // -1 = racine, i = enfant de la série i
   const [tried, setTried] = useState(false);
   const issues = useMemo(() => validateSession(draft), [draft]);
@@ -71,17 +87,86 @@ export function PlannedEditorScreen({ id }: { id: string }) {
     [arr[i], arr[j]] = [arr[j], arr[i]];
     setBlocks(bl);
   };
+  const moveTo = (p: Path, to: number) => {
+    const bl = structuredClone(draft.blocks);
+    const arr = p.length === 1 ? bl : bl[p[0]].children;
+    const i = p[p.length - 1];
+    if (to === i || to < 0 || to >= arr.length) return;
+    const [x] = arr.splice(i, 1);
+    arr.splice(to, 0, x);
+    setBlocks(bl);
+  };
+  const duplicate = (p: Path) => {
+    const bl = structuredClone(draft.blocks);
+    const arr = p.length === 1 ? bl : bl[p[0]].children;
+    const i = p[p.length - 1];
+    const fresh = (x: Block): Block => ({ ...structuredClone(x), children: x.children.map(fresh) });
+    arr.splice(i + 1, 0, fresh(arr[i]));
+    setBlocks(bl);
+    showToast(arr[i].kind === 'SET' ? $t("Série dupliquée") : $t("Bloc dupliqué"));
+  };
+  /** Appui long sur un bloc puis glissement : le bloc suit le doigt, et se pose à l'endroit où on le relâche. */
+  const startPress = (e: React.PointerEvent, grp: string, p: Path) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const el = (e.currentTarget as HTMLElement).closest('li[data-idx]') as HTMLElement | null;
+    const list = el?.parentElement;
+    if (!el || !list) return;
+    const x0 = e.clientX, y0 = e.clientY;
+    const from = p[p.length - 1];
+    let active = false;
+    let mids: number[] = [];
+    const calc = (y: number) => mids.filter((m, j) => j !== from && m < y).length;
+    const noScroll = (ev: TouchEvent) => { if (active && ev.cancelable) ev.preventDefault(); };
+    const move = (ev: PointerEvent) => {
+      if (!active) { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 10) stop(false); return; }
+      setDrag({ grp, from, dy: ev.clientY - y0, to: calc(ev.clientY) });
+    };
+    const up = (ev: PointerEvent) => {
+      const wasActive = active;
+      const to = calc(ev.clientY);
+      stop(false);
+      if (wasActive) { suppressClick.current = true; setTimeout(() => { suppressClick.current = false; }, 350); moveTo(p, to); }
+    };
+    const timer = setTimeout(() => {
+      active = true;
+      mids = Array.from(list.querySelectorAll(':scope > li[data-idx]')).map((n) => { const r = n.getBoundingClientRect(); return r.top + r.height / 2; });
+      navigator.vibrate?.(15);
+      setDrag({ grp, from, dy: 0, to: from });
+    }, 380);
+    function stop(_final: boolean) {
+      clearTimeout(timer);
+      active = false;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+      document.removeEventListener('touchmove', noScroll);
+      setDrag(null);
+    }
+    function cancel() { stop(false); }
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+    document.addEventListener('touchmove', noScroll, { passive: false });
+  };
+  const suppressClick = useRef(false);
+  const rowProps = (grp: string, i: number) => ({
+    'data-idx': i,
+    style: drag && drag.grp === grp && drag.from === i ? { transform: `translateY(${drag.dy}px) scale(1.02)`, zIndex: 5, boxShadow: 'var(--shadow-m, 0 6px 18px rgba(0,0,0,.25))', position: 'relative' as const, transition: 'none' } : undefined,
+    className: drag && drag.grp === grp ? (drag.from === i ? ' dragging' : drag.to !== drag.from && drag.to === i ? (drag.to < drag.from ? ' drop-before' : ' drop-after') : '') : '',
+  });
   const add = (kind: BlockKind, parent: number) => {
     const bl = structuredClone(draft.blocks);
     const b = newBlock(kind);
-    if (parent < 0) { bl.push(b); setBlocks(bl); setEdit([bl.length - 1]); }
-    else { bl[parent].children.push(b); setBlocks(bl); setEdit([parent, bl[parent].children.length - 1]); }
+    if (parent < 0) { bl.push(b); setBlocks(bl); openEdit([bl.length - 1]); }
+    else { bl[parent].children.push(b); setBlocks(bl); openEdit([parent, bl[parent].children.length - 1]); }
     setAddMenu(null);
   };
   const save = () => {
     setTried(true);
     if (issues.length) return;
-    const snap = savePlanned({ ...draft, title: draft.title?.trim() || null, notes: draft.notes?.trim() || null, discipline: draft.discipline });
+    const next = { ...draft, title: draft.title?.trim() || null, notes: draft.notes?.trim() || null, discipline: draft.discipline };
+    const changed = !existing || JSON.stringify([existing.discipline, existing.plannedDate, existing.title, existing.notes, existing.blocks]) !== JSON.stringify([next.discipline, next.plannedDate, next.title, next.notes, next.blocks]);
+    const snap = savePlanned(existing && changed ? { ...next, editedAt: nowIso() } : next);
     if (existing) back('/calendrier/prevue/' + draft.id);
     else navigate('/calendrier/prevue/' + draft.id, { replace: true });
     showToast(existing ? $t("Séance modifiée") : $t("Séance planifiée le ") + dayTitle(draft.plannedDate).toLowerCase(), { undo: () => restore(snap) });
@@ -128,13 +213,13 @@ export function PlannedEditorScreen({ id }: { id: string }) {
             )}
             <ol className="edit-blocks">
               {draft.blocks.map((b, i) => (
-                <li key={i} className={'edit-block k-' + b.kind + (tried && issues.some((x) => x.path[0] === i) ? ' invalid' : '')}>
-                  <BlockRow b={b} d={draft.discipline} onOpen={() => setEdit([i])} onUp={i > 0 ? () => move([i], -1) : undefined} onDown={i < draft.blocks.length - 1 ? () => move([i], 1) : undefined} />
+                <li key={i} data-idx={rowProps('r', i)['data-idx']} style={rowProps('r', i).style} className={'edit-block k-' + b.kind + (tried && issues.some((x) => x.path[0] === i) ? ' invalid' : '') + rowProps('r', i).className}>
+                  <BlockRow b={b} d={draft.discipline} onOpen={() => { if (!suppressClick.current) openEdit([i]); }} onPress={(e) => startPress(e, 'r', [i])} onDup={() => duplicate([i])} onUp={i > 0 ? () => move([i], -1) : undefined} onDown={i < draft.blocks.length - 1 ? () => move([i], 1) : undefined} />
                   {b.kind === 'SET' && (
                     <ol className="edit-children">
                       {b.children.map((c, k) => (
-                        <li key={k} className={'edit-block child k-' + c.kind + (tried && issues.some((x) => x.path[0] === i && x.path[1] === k) ? ' invalid' : '')}>
-                          <BlockRow b={c} d={draft.discipline} onOpen={() => setEdit([i, k])} onUp={k > 0 ? () => move([i, k], -1) : undefined} onDown={k < b.children.length - 1 ? () => move([i, k], 1) : undefined} />
+                        <li key={k} data-idx={k} style={rowProps('c' + i, k).style} className={'edit-block child k-' + c.kind + (tried && issues.some((x) => x.path[0] === i && x.path[1] === k) ? ' invalid' : '') + rowProps('c' + i, k).className}>
+                          <BlockRow b={c} d={draft.discipline} onOpen={() => { if (!suppressClick.current) openEdit([i, k]); }} onPress={(e) => startPress(e, 'c' + i, [i, k])} onDup={() => duplicate([i, k])} onUp={k > 0 ? () => move([i, k], -1) : undefined} onDown={k < b.children.length - 1 ? () => move([i, k], 1) : undefined} />
                         </li>
                       ))}
                       <li><button type="button" className="btn btn-tertiary" style={{ minHeight: 36 }} onClick={() => setAddMenu(addMenu === i ? null : i)}><Icon name="plus" size={18} />{$t("Ajouter dans la série")}</button>
@@ -176,16 +261,16 @@ export function PlannedEditorScreen({ id }: { id: string }) {
       </div>
       {edit && blockAt(edit) && (
         <BlockSheet block={blockAt(edit)} discipline={draft.discipline} isChild={edit.length === 2} refs={d.refs}
-          onClose={() => setEdit(null)} onApply={(b) => { replaceAt(edit, b); setEdit(null); }} onDelete={() => { replaceAt(edit, null); setEdit(null); }} />
+          onClose={closeEdit} onApply={(b) => { replaceAt(edit, b); closeEdit(); }} onDelete={() => { replaceAt(edit, null); closeEdit(); }} onDuplicate={() => { duplicate(edit); closeEdit(); }} />
       )}
     </div>
   );
 }
 
-function BlockRow({ b, d, onOpen, onUp, onDown }: { b: Block; d: PlannedDiscipline; onOpen: () => void; onUp?: () => void; onDown?: () => void }) {
+function BlockRow({ b, d, onOpen, onPress, onDup, onUp, onDown }: { b: Block; d: PlannedDiscipline; onOpen: () => void; onPress: (e: React.PointerEvent) => void; onDup: () => void; onUp?: () => void; onDown?: () => void }) {
   return (
     <div className="block-row">
-      <button type="button" className="block-main" onClick={onOpen}>
+      <button type="button" className="block-main" onClick={onOpen} onPointerDown={onPress} onContextMenu={(e: React.MouseEvent) => e.preventDefault()}>
         <span className="block-role">{b.kind === 'SET' ? $t("Série") : KIND_LABEL[b.kind]}</span>
         <span className="stack grow" style={{ minWidth: 0 }}>
           <span className="t-strong ellipsis">{b.kind === 'SET' ? blockHead(b) : b.label ?? (blockDetail(b, d) || $t("À compléter"))}</span>
@@ -194,6 +279,7 @@ function BlockRow({ b, d, onOpen, onUp, onDown }: { b: Block; d: PlannedDiscipli
         </span>
       </button>
       <span className="block-moves">
+        <button type="button" className="icon-btn neutral" aria-label={b.kind === 'SET' ? $t("Dupliquer la série") : $t("Dupliquer le bloc")} onClick={onDup}><Icon name="copy" size={18} /></button>
         <button type="button" className="icon-btn neutral" aria-label={$t("Monter")} disabled={!onUp} onClick={onUp}><Icon name="up" size={18} /></button>
         <button type="button" className="icon-btn neutral" aria-label={$t("Descendre")} disabled={!onDown} onClick={onDown}><Icon name="down" size={18} /></button>
       </span>
@@ -202,7 +288,7 @@ function BlockRow({ b, d, onOpen, onUp, onDown }: { b: Block; d: PlannedDiscipli
 }
 
 // ------------------------------------------------------------------ feuille d'un bloc
-function BlockSheet({ block, discipline, isChild, refs, onApply, onClose, onDelete }: { block: Block; discipline: PlannedDiscipline; isChild: boolean; refs: { vma: number | null; css: number | null }; onApply: (b: Block) => void; onClose: () => void; onDelete: () => void }) {
+function BlockSheet({ block, discipline, isChild, refs, onApply, onClose, onDelete, onDuplicate }: { block: Block; discipline: PlannedDiscipline; isChild: boolean; refs: { vma: number | null; css: number | null }; onApply: (b: Block) => void; onClose: () => void; onDelete: () => void; onDuplicate: () => void }) {
   const [b, setB] = useState<Block>(structuredClone(block));
   const eff = b.discipline ?? discipline;
   const isSet = b.kind === 'SET';
@@ -228,8 +314,9 @@ function BlockSheet({ block, discipline, isChild, refs, onApply, onClose, onDele
       next.setWindowS = isFinite(w) ? w : null;
       next.measure = null; next.measureValue = null;
     }
-    next.targetLow = b.targetType === 'NONE' ? null : parseTarget(low);
-    next.targetHigh = b.targetType === 'NONE' ? null : parseTarget(high);
+    if (isSet) { next.targetType = 'NONE'; next.relativeTo = null; }
+    next.targetLow = b.targetType === 'NONE' || isSet ? null : parseTarget(low);
+    next.targetHigh = b.targetType === 'NONE' || isSet ? null : parseTarget(high);
     if (b.targetType === 'NONE') next.relativeTo = null;
     next.label = b.label?.trim() || null;
     next.notes = b.notes?.trim() || null;
@@ -241,7 +328,8 @@ function BlockSheet({ block, discipline, isChild, refs, onApply, onClose, onDele
   return (
     <Sheet title={isSet ? $t("Série") : KIND_LABEL[b.kind]} onClose={onClose} full footer={
       <div className="row" style={{ gap: 'var(--space-12)' }}>
-        <button type="button" className="btn btn-tertiary" style={{ color: 'var(--critical-text)' }} onClick={onDelete}><Icon name="trash" size={18} />{$t("Supprimer")}</button>
+        <button type="button" className="btn btn-tertiary" style={{ color: 'var(--critical-text)' }} onClick={onDelete} aria-label={$t("Supprimer")}><Icon name="trash" size={18} /></button>
+        <button type="button" className="btn btn-tertiary" onClick={onDuplicate} aria-label={isSet ? $t("Dupliquer la série") : $t("Dupliquer le bloc")}><Icon name="copy" size={18} /></button>
         <button type="button" className="btn btn-primary grow" onClick={apply}>{$t("Valider le bloc")}</button>
       </div>
     }>
@@ -250,10 +338,12 @@ function BlockSheet({ block, discipline, isChild, refs, onApply, onClose, onDele
           <div className="field">
             <span className="lbl">{$t("À quoi sert ce bloc")}</span>
             <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>
-              {BLOCK_KINDS.filter((k) => k !== 'SET' && (discipline === 'BRICK' || k !== 'TRANSITION')).map((k) => <button key={k} type="button" className="chip" aria-pressed={b.kind === k} onClick={() => setB({ ...b, kind: k, targetType: k === 'REST' ? 'NONE' : b.targetType })}>{KIND_LABEL[k]}</button>)}
+              {BLOCK_KINDS.filter((k) => k !== 'SET' && (discipline === 'BRICK' || k !== 'TRANSITION')).map((k) => <button key={k} type="button" className={'chip chip-k k-' + k} aria-pressed={b.kind === k} onClick={() => setB({ ...b, kind: k, targetType: k === 'REST' ? 'NONE' : b.targetType })}>{KIND_LABEL[k]}</button>)}
             </div>
           </div>
         )}
+        {!isSet && <label className="field"><span className="lbl">{discipline === 'STRENGTH' ? $t("Mouvement") : $t("Nom")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>
+          <input className="input" value={b.label ?? ''} placeholder={discipline === 'STRENGTH' ? $t("Squat, tractions…") : $t("Corps de séance, éducatif…")} onChange={(e) => setB({ ...b, label: e.target.value })} /></label>}
         {isSet ? (
           <>
             <div className="field">
@@ -284,7 +374,7 @@ function BlockSheet({ block, discipline, isChild, refs, onApply, onClose, onDele
             {measureHint && <span className="hint">{measureHint}</span>}
           </div>
         )}
-        {b.kind !== 'REST' && (
+        {b.kind !== 'REST' && !isSet && (
           <div className="field">
             <span className="lbl">{$t("À quelle intensité")}</span>
             <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>
@@ -317,8 +407,6 @@ function BlockSheet({ block, discipline, isChild, refs, onApply, onClose, onDele
             </div>
           </div>
         )}
-        <label className="field"><span className="lbl">{discipline === 'STRENGTH' ? $t("Mouvement") : $t("Nom")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>
-          <input className="input" value={b.label ?? ''} placeholder={discipline === 'STRENGTH' ? $t("Squat, tractions…") : $t("Corps de séance, éducatif…")} onChange={(e) => setB({ ...b, label: e.target.value })} /></label>
         <label className="field"><span className="lbl">{$t("Consigne")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>
           <textarea className="input textarea" rows={2} value={b.notes ?? ''} placeholder={$t("Éducatif, matériel, sensation recherchée…")} onChange={(e) => setB({ ...b, notes: e.target.value })} /></label>
       </div>

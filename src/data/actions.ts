@@ -46,7 +46,7 @@ export function duplicatePlanned(id: string, date: string): PlannedSession | nul
 export function movePlanned(id: string, date: string): Snapshot {
   const src = getData().planned[id];
   const s = snapshot([['planned', id]]);
-  if (src && !src.deleted) commit((tx) => tx.put('planned', { ...src, plannedDate: date }));
+  if (src && !src.deleted) commit((tx) => tx.put('planned', { ...src, plannedDate: date, editedAt: src.origin === 'coach' ? nowIso() : src.editedAt ?? null }));
   return s;
 }
 export function addPlannedBulk(list: PlannedSession[]): void {
@@ -76,7 +76,7 @@ export function editActual(id: string, input: ManualInput): Snapshot {
   const edited = new Set<EditableField>(cur.edited);
   const durationSec = Math.round(input.durationMin * 60);
   const distanceM = input.distanceKm === null ? null : input.distanceKm * 1000;
-  const next: ActualSession = { ...cur, rpe: input.rpe, comment: input.comment ?? cur.comment };
+  const next: ActualSession = { ...cur, rpe: input.rpe, comment: input.comment ?? cur.comment, subSport: input.discipline === 'OTHER' ? (input.subSport !== undefined ? input.subSport : cur.subSport ?? null) : null };
   const day = sessionDay(cur);
   if (input.date !== day) {
     edited.add('date');

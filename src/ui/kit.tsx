@@ -9,6 +9,7 @@ import { native } from '../native/bridge';
 import { runHealthSync, useHealth } from '../native/healthSync';
 import { dateTimeFr, dayTitle, MONTHS_TITLE, DISCIPLINE_ICON, dvar } from './format';
 import type { Discipline } from '../domain/types';
+import { subSportOf } from '../domain/subsports';
 
 // ------------------------------------------------------------------ mesure
 export function useWidth<T extends HTMLElement>(fallback = 326): [React.RefObject<T | null>, number] {
@@ -259,10 +260,11 @@ export function ToastHost() {
 
 // ------------------------------------------------------------------ petits éléments
 /** Pastille ronde de discipline (icône dans un disque teinté). */
-export function DiscIcon({ d, size = 40, style }: { d: Discipline; size?: number; style?: React.CSSProperties }) {
+export function DiscIcon({ d, size = 40, style, sub }: { d: Discipline; size?: number; style?: React.CSSProperties; sub?: string | null }) {
+  const ss = d === 'OTHER' ? subSportOf(sub) : null;
   return (
     <span className="disc-icon" style={{ width: size, height: size, background: `var(--d-${d}-bg)`, color: dvar(d), ...style }} aria-hidden="true">
-      <Icon name={DISCIPLINE_ICON[d]} size={Math.round(size * 0.5)} />
+      <Icon name={ss ? ss.icon : DISCIPLINE_ICON[d]} size={Math.round(size * 0.5)} />
     </span>
   );
 }
@@ -273,6 +275,25 @@ export function DiscDot({ d, size = 10 }: { d: Discipline; size?: number }) {
 
 export function Switch({ checked, onChange, labelledBy, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; labelledBy?: string; label?: string; disabled?: boolean }) {
   return <button type="button" role="switch" className="switch" aria-checked={checked} aria-labelledby={labelledBy} aria-label={label} disabled={disabled} onClick={() => onChange(!checked)} data-component="Toggle" />;
+}
+
+/** Préférence d'affichage « inclure Autre » dans les volumes (éteinte par défaut), partagée entre Séances › Statistiques et Progression. */
+const OTHER_KEY = 'ironapp:withOther';
+const otherListeners = new Set<() => void>();
+const readOther = () => { try { return localStorage.getItem(OTHER_KEY) === '1'; } catch { return false; } };
+let withOther = readOther();
+export function useWithOther(): [boolean, (v: boolean) => void] {
+  const v = useSyncExternalStore((l) => { otherListeners.add(l); return () => otherListeners.delete(l); }, () => withOther);
+  return [v, (x: boolean) => { withOther = x; try { localStorage.setItem(OTHER_KEY, x ? '1' : '0'); } catch { /* sans stockage : valable pour la session */ } otherListeners.forEach((l) => l()); }];
+}
+export function OtherToggle() {
+  const [on, set] = useWithOther();
+  return (
+    <label className="row other-toggle" style={{ gap: 'var(--space-8)', justifyContent: 'space-between' }}>
+      <span className="t-caption c-neutral" id="other-lbl">{$t("Inclure « Autre » (randonnée, kayak…)")}</span>
+      <Switch checked={on} onChange={set} labelledBy="other-lbl" />
+    </label>
+  );
 }
 
 export function Empty({ icon = 'inbox', title, text, action }: { icon?: string; title: string; text: string; action?: ReactNode }) {
@@ -286,6 +307,22 @@ export function Empty({ icon = 'inbox', title, text, action }: { icon?: string; 
   );
 }
 
+/** Balayage horizontal : à gauche = suivant, à droite = précédent. Ignore les gestes surtout verticaux (défilement). */
+export function useSwipe(onNext: () => void, onPrev: () => void) {
+  const start = useRef<{ x: number; y: number; t: number } | null>(null);
+  return {
+    onTouchStart: (e: React.TouchEvent) => { const t = e.touches[0]; start.current = e.touches.length === 1 ? { x: t.clientX, y: t.clientY, t: Date.now() } : null; },
+    onTouchEnd: (e: React.TouchEvent) => {
+      const s0 = start.current; start.current = null;
+      if (!s0) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - s0.x, dy = t.clientY - s0.y;
+      if (Math.abs(dx) < 55 || Math.abs(dy) > Math.abs(dx) * 0.6 || Date.now() - s0.t > 700) return;
+      if (dx < 0) onNext(); else onPrev();
+    },
+  };
+}
+
 /** Calendrier (DatePicker) : mois navigable, en-tête vert. */
 export function DatePicker({ value, onChange, label = $t('Date') }: { value: string; onChange: (iso: string) => void; label?: string }) {
   const [view, setView] = useState(value.slice(0, 7));
@@ -297,8 +334,9 @@ export function DatePicker({ value, onChange, label = $t('Date') }: { value: str
   const shift = (k: number) => { let mm = m + k, yy = y; if (mm < 1) { mm = 12; yy--; } if (mm > 12) { mm = 1; yy++; } setView(yy + '-' + String(mm).padStart(2, '0')); };
   const today = new Date().toISOString().slice(0, 10);
   const long = dayTitle(value);
+  const swipe = useSwipe(() => shift(1), () => shift(-1));
   return (
-    <div className="datepicker" data-component="DatePicker">
+    <div className="datepicker" data-component="DatePicker" {...swipe}>
       <div className="head">
         <span className="overline">{label}</span>
         <span className="t-h2">{long}</span>

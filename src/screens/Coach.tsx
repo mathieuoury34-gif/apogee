@@ -1,8 +1,7 @@
 // Coach — échange avec un assistant IA au format ironapp/1 (inchangé) :
-//   1. constat factuel de la charge ;
-//   2. export du dossier-athlète (séances jointes au choix) → fichier JSON ou presse-papiers ;
-//   3. import du plan renvoyé, avec aperçu catégorisé avant application ;
-//   4. journal des échanges.
+//   1. export du dossier-athlète (séances jointes au choix) → fichier JSON ou presse-papiers ;
+//   2. import du plan renvoyé, avec aperçu catégorisé avant application ;
+//   3. journal des échanges.
 import { $t } from '../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppHeader, ChipGroup, DiscIcon, Empty, ErrorBanner, Sheet, showToast } from '../ui/kit';
@@ -18,7 +17,7 @@ import { alreadyImported, buildDossier, ISSUE_LABEL, lastPlanValidity, PARSE_ERR
 import { liveRecords, METHOD_LABEL, sessionDay } from '../domain/load';
 import type { ActualSession, PreviewItem } from '../domain/types';
 import { native } from '../native/bridge';
-import { dateFr, dateTimeFr, dayTitle, DISCIPLINE_LABEL, duration, num, signed } from '../ui/format';
+import { dateFr, dateTimeFr, dayTitle, DISCIPLINE_LABEL, sessionLabel, duration, num, signed } from '../ui/format';
 
 export function CoachScreen() {
   const route = useRoute();
@@ -29,11 +28,10 @@ export function CoachScreen() {
   const candidates = useMemo(() => liveRecords(data.actual).filter((s) => sessionDay(s) >= from).sort((a, b) => (a.startAt < b.startAt ? 1 : -1)), [data.actual, from]);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const selected = candidates.filter((s) => !excluded.has(s.id));
-  const c = d.constat;
   const valid = lastPlanValidity(data);
   const exchanges = liveRecords(data.exchanges).sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
   const toggle = (id: string) => setExcluded((x) => { const n = new Set(x); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const dossierText = () => JSON.stringify(buildDossier(data, d, selected.map((s) => s.id)), null, 2);
+  const dossierText = () => JSON.stringify(buildDossier(data, d, selected.map((s) => s.id), new Date(), from), null, 2);
   const exportFile = async () => {
     try {
       await native.saveFile(`ironapp-dossier-${d.today}.json`, new Blob([dossierText()], { type: 'application/json' }));
@@ -50,26 +48,14 @@ export function CoachScreen() {
       <AppHeader title={$t("Coach")} />
       <ErrorBanner />
       <main className="content dgrid">
-        <section className="card g12 dspan-5 hero-soft" aria-label={$t("Constat")}>
-          <div className="row" style={{ gap: 'var(--space-12)' }}>
-            <span className="assistant-icon" aria-hidden="true"><Icon name="coach" size={24} /></span>
-            <span className="stack grow"><h2>{$t("Le constat")}</h2><span className="t-caption c-moderate">{$t("ce que le coach recevra, sans interprétation")}</span></span>
-          </div>
-          <dl className="kv">
-            <dt>{$t("Forme de fond")}</dt><dd>{c.fitness === null ? '—' : num(c.fitness, 0)} <span className="c-moderate">{c.fitnessDelta === null ? '' : $t("({0} / 7 j)", { 0: signed(c.fitnessDelta, 0) })}</span></dd>
-            <dt>{$t("Fatigue")}</dt><dd>{c.fatigue === null ? '—' : num(c.fatigue, 0)} <span className="c-moderate">{c.fatigueDelta === null ? '' : $t("({0} / 7 j)", { 0: signed(c.fatigueDelta, 0) })}</span></dd>
-            <dt>{$t("Fraîcheur")}</dt><dd>{c.freshness === null ? '—' : signed(c.freshness, 0)}</dd>
-            <dt>{$t("Rapport aigu / chronique")}</dt><dd>{c.acuteChronicRatio === null ? $t("après 28 jours") : num(c.acuteChronicRatio, 2)}</dd>
-          </dl>
-          <div className={'note' + (valid && valid < d.today ? ' note-warning' : '')}><Icon name="calendar" size={20} /><span>{valid ? (valid < d.today ? $t("Le dernier plan a expiré le {0}. Il est temps de redemander un plan.", { 0: dateFr(valid) }) : $t("Plan en cours valable jusqu’au {0}.", { 0: dateFr(valid) })) : $t("Aucun plan importé pour l’instant.")}</span></div>
-        </section>
+        {valid !== null && <div className={'note dspan-12' + (valid < d.today ? ' note-warning' : '')}><Icon name="calendar" size={20} /><span>{valid < d.today ? $t("Le dernier plan a expiré le {0}. Il est temps de redemander un plan.", { 0: dateFr(valid) }) : $t("Plan en cours valable jusqu’au {0}.", { 0: dateFr(valid) })}</span></div>}
 
         <section className="card g12 dspan-7" aria-labelledby="h-export">
           <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
             <h2 id="h-export">{$t("1. Envoyer le dossier")}</h2>
             <ChipGroup label={$t("Séances jointes")} value={weeks} onChange={(v) => { setWeeks(v); setExcluded(new Set()); }} options={[['1', $t("1 sem.")], ['2', $t("2 sem.")], ['4', $t("4 sem.")], ['8', $t("8 sem.")]]} />
           </div>
-          <p className="t-caption c-neutral">{$t("Profil, course, indicateurs, périodisation, charge, séances prévues des 8 prochaines semaines et les séances cochées ci-dessous, avec la consigne de réponse au format ironapp/1.")}</p>
+          <p className="t-caption c-neutral">{$t("Profil, course, indicateurs, périodisation, charge, séances prévues passées et à venir (telles que tu les as modifiées) et les séances cochées ci-dessous, avec la consigne de réponse au format ironapp/1.")}</p>
           {candidates.length ? (
             <ul className="check-list" aria-label={$t("Séances jointes")}>
               {candidates.map((s) => <SessionCheck key={s.id} s={s} on={!excluded.has(s.id)} onToggle={() => toggle(s.id)} load={d.loads.get(s.id)} />)}
@@ -87,7 +73,7 @@ export function CoachScreen() {
           <button type="button" className="btn btn-primary" style={{ alignSelf: 'flex-start' }} onClick={() => setImportOpen(true)}><Icon name="upload" size={18} />{$t("Importer un plan")}</button>
         </section>
 
-        <section className="card g8 dspan-5" aria-labelledby="h-journal">
+        <section className="card g8 dspan-5 dgrid-rows2" aria-labelledby="h-journal">
           <h2 id="h-journal">{$t("Journal des échanges")}</h2>
           {!exchanges.length ? <p className="t-caption c-moderate">{$t("Aucun échange pour l’instant.")}</p> : (
             <ul className="tile-list divided">
@@ -113,8 +99,8 @@ function SessionCheck({ s, on, onToggle, load }: { s: ActualSession; on: boolean
     <li>
       <label className="check-row">
         <input type="checkbox" checked={on} onChange={onToggle} />
-        <DiscIcon d={s.discipline} size={28} />
-        <span className="stack grow" style={{ minWidth: 0 }}><span className="t-caption-strong ellipsis">{DISCIPLINE_LABEL[s.discipline]} · {dayTitle(sessionDay(s))}</span><span className="t-legal c-moderate">{duration(s.durationSec)}{s.rpe ? $t(" · RPE ") + s.rpe : $t(" · sans ressenti")}{s.comment ? $t(" · commentaire") : ''}</span></span>
+        <DiscIcon d={s.discipline} sub={s.subSport} size={28} />
+        <span className="stack grow" style={{ minWidth: 0 }}><span className="t-caption-strong ellipsis">{sessionLabel(s)} · {dayTitle(sessionDay(s))}</span><span className="t-legal c-moderate">{duration(s.durationSec)}{s.rpe ? $t(" · RPE ") + s.rpe : $t(" · sans ressenti")}{s.comment ? $t(" · commentaire") : ''}</span></span>
         <span className="t-caption c-moderate nowrap">{load?.load !== null && load?.load !== undefined ? num(load.load, 0) : '—'}</span>
       </label>
     </li>

@@ -11,6 +11,7 @@ import { localDay } from './dates';
 import { newId, nowIso } from './ids';
 import { liveRecords } from './load';
 import { sameActivity } from './dossier';
+import { EXERCISE_TO_SUBSPORT } from './subsports';
 import type { ActualDiscipline, ActualSession, AppData, RestingHr, SessionSeries, SleepNight } from './types';
 
 export const EXERCISE_TO_DISCIPLINE: Record<number, ActualDiscipline> = {
@@ -70,6 +71,7 @@ export function ingest(data: AppData, sessions: NativeSession[], nights: NativeS
       ...(existing ?? { rpe: null, comment: null, edited: [], ingestedAt: now }),
       id, updatedAt: now, sourceId, source: 'health',
       discipline: existing?.discipline ?? EXERCISE_TO_DISCIPLINE[n.exerciseType] ?? 'OTHER',
+      subSport: existing ? existing.subSport ?? (existing.discipline === 'OTHER' ? EXERCISE_TO_SUBSPORT[n.exerciseType] ?? null : null) : (n.exerciseType in EXERCISE_TO_DISCIPLINE ? null : EXERCISE_TO_SUBSPORT[n.exerciseType] ?? null),
       rawExerciseType: String(n.exerciseType),
       startAt: new Date(n.startTime).toISOString(), endAt: new Date(n.endTime).toISOString(),
       zoneOffsetMinutes: n.startZoneOffsetSeconds == null ? null : Math.round(n.startZoneOffsetSeconds / 60),

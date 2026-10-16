@@ -121,6 +121,8 @@ export interface PlannedSession extends Rec {
   coachExchangeId: string | null;
   blocks: Block[];
   createdAt: string;
+  /** Instant de la dernière modification faite par l'athlète (éditeur, déplacement) ; remis à null quand le coach réécrit la séance. */
+  editedAt?: string | null;
 }
 
 /** Champs d'une séance réalisée qu'une édition manuelle peut écraser (leur assise passe à « saisie »). */
@@ -131,6 +133,8 @@ export interface ActualSession extends Rec {
   sourceId: string;
   source: 'health' | 'manual';
   discipline: ActualDiscipline;
+  /** Pour « Autre » : activité précise (randonnée, kayak…), purement visuelle. */
+  subSport?: string | null;
   /** Type d'exercice Health Connect d'origine ('manual' pour une saisie). */
   rawExerciseType: string | null;
   startAt: string;

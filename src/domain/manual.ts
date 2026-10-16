@@ -10,7 +10,7 @@ import { liveRecords } from './load';
 import type { ActualDiscipline, ActualSession, AppData, PlannedDiscipline, PlannedSession } from './types';
 import { ACTUAL_DISCIPLINES, PLANNED_DISCIPLINES } from './types';
 
-export interface ManualInput { date: string; discipline: ActualDiscipline; durationMin: number; distanceKm: number | null; avgHrBpm: number | null; rpe: number | null; comment?: string | null }
+export interface ManualInput { date: string; discipline: ActualDiscipline; durationMin: number; distanceKm: number | null; avgHrBpm: number | null; rpe: number | null; comment?: string | null; subSport?: string | null }
 
 export const ALIASES: Record<string, string> = {
   COURSE: 'RUN', CAP: 'RUN', VELO: 'BIKE', VÉLO: 'BIKE', NATATION: 'SWIM', NAT: 'SWIM', RENFO: 'STRENGTH', RENFORCEMENT: 'STRENGTH', MUSCU: 'STRENGTH', AUTRE: 'OTHER', ENCHAINEMENT: 'BRICK', ENCHAÎNEMENT: 'BRICK',
@@ -71,7 +71,7 @@ export function buildManualSession(i: ManualInput, id = newId()): ActualSession 
   const startAt = i.date + 'T12:00:00.000Z';
   const now = nowIso();
   return {
-    id, updatedAt: now, sourceId: manualSourceId(i), source: 'manual', discipline: i.discipline, rawExerciseType: 'manual',
+    id, updatedAt: now, sourceId: manualSourceId(i), source: 'manual', discipline: i.discipline, subSport: i.discipline === 'OTHER' ? i.subSport ?? null : null, rawExerciseType: 'manual',
     startAt, endAt: new Date(Date.parse(startAt) + durationSec * 1000).toISOString(), zoneOffsetMinutes: 0, durationSec, distanceM,
     activeCaloriesJ: null, totalCaloriesJ: null, elevationGainM: null, avgHrBpm: i.avgHrBpm, maxHrBpm: null, minHrBpm: null,
     hrCoverageRatio: null, hrSampleCount: null, avgSpeedMs: distanceM && durationSec ? distanceM / durationSec : null, maxSpeedMs: null,
