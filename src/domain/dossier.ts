@@ -1,4 +1,4 @@
-// Complément de reprise : le dossier-athlète `ironapp/1` exporté par l'ancienne app (écran Coach).
+// Complément de reprise : le dossier-athlète `quadra/1` exporté par l'ancienne app (écran Coach).
 // Le fichier .db partagé par l'ancienne app peut manquer ses toutes dernières écritures (SQLite les garde
 // d'abord dans un fichier annexe que le partage n'emporte pas). Le dossier coach exporté juste avant,
 // lui, contient les séances jointes et les séances prévues à venir : on s'en sert pour compléter, sans
@@ -19,7 +19,7 @@ export interface Dossier { schemaVersion: string; generatedAt?: string; recentAc
 
 export function isDossier(j: unknown): j is Dossier {
   const d = j as Partial<Dossier> | null;
-  return !!d && typeof d === 'object' && d.schemaVersion === 'ironapp/1' && Array.isArray(d.recentActualSessions);
+  return !!d && typeof d === 'object' && (d.schemaVersion === 'quadra/1' || d.schemaVersion === 'ironapp/1') && Array.isArray(d.recentActualSessions);
 }
 
 export interface DossierReport { added: number; completed: number; known: number; plannedAdded: number; plannedKnown: number; skipped: number }

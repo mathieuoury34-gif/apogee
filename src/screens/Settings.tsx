@@ -69,7 +69,7 @@ export function SettingsScreen() {
     } catch (e) { showToast($t("Export impossible : ") + (e as Error).message, { error: true }); } finally { setBusy(''); }
   };
   const exportJson = async () => {
-    try { await native.saveFile('ironapp-sauvegarde-' + stamp() + $t(".json"), backupBlob(getData())); showToast($t("Sauvegarde exportée")); }
+    try { await native.saveFile('quadra-sauvegarde-' + stamp() + $t(".json"), backupBlob(getData())); showToast($t("Sauvegarde exportée")); }
     catch (e) { showToast($t("Export impossible : ") + (e as Error).message, { error: true }); }
   };
   const onJson = async (f: File) => {
@@ -104,7 +104,7 @@ export function SettingsScreen() {
                 <Icon name="cloud" style={{ color: 'var(--text-moderate)' }} />
                 <span className="stack">
                   <span className="t-strong">{$t("Synchronisation pas encore activée")}</span>
-                  <span className="t-caption c-moderate">{$t("Les données sont enregistrées sur cet appareil. La connexion Google sera disponible dès que le projet Firebase « ironapp » sera relié à l’app (voir le README).")}</span>
+                  <span className="t-caption c-moderate">{$t("Les données sont enregistrées sur cet appareil. La connexion Google sera disponible dès que le projet Firebase sera relié à l’app (voir le README).")}</span>
                 </span>
               </div>
             ) : sync.user ? (

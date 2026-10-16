@@ -23,7 +23,7 @@ export const EXERCISE_LABEL: Record<number, string> = {
 };
 export const exerciseLabel = (t: string | null) => (t === null || t === 'manual' ? $t("Saisie manuelle") : EXERCISE_LABEL[+t] ?? $t("Type ") + t);
 
-/** Ce que rend le module natif `IronHealth.readSessions`. */
+/** Ce que rend le module natif `QuadraHealth.readSessions`. */
 export interface NativeSession {
   id: string;
   clientRecordId: string | null;

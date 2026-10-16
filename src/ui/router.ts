@@ -26,8 +26,8 @@ try {
 
 let current = parse();
 const listeners = new Set<() => void>();
-const depth = () => ((history.state as { iron?: number } | null)?.iron ?? 0);
-if (history.state?.iron === undefined) history.replaceState({ iron: 0 }, '');
+const depth = () => ((history.state as { depth?: number } | null)?.depth ?? 0);
+if (history.state?.depth === undefined) history.replaceState({ depth: 0 }, '');
 
 function emit(scrollTop: boolean) {
   const prevPath = current.path;
@@ -43,8 +43,8 @@ export function useRoute(): Route {
 }
 
 export function navigate(to: string, opts: { replace?: boolean } = {}): void {
-  if (opts.replace) history.replaceState({ iron: depth() }, '', '#' + to);
-  else history.pushState({ iron: depth() + 1 }, '', '#' + to);
+  if (opts.replace) history.replaceState({ depth: depth() }, '', '#' + to);
+  else history.pushState({ depth: depth() + 1 }, '', '#' + to);
   emit(true);
 }
 
@@ -58,7 +58,7 @@ export function openSheet(name: string, params: Record<string, string> = {}): vo
   const r = parse();
   r.query.set('sheet', name);
   for (const [k, v] of Object.entries(params)) r.query.set(k, v);
-  history.pushState({ iron: depth() + 1 }, '', '#' + r.path + '?' + r.query.toString());
+  history.pushState({ depth: depth() + 1 }, '', '#' + r.path + '?' + r.query.toString());
   emit(false);
 }
 
@@ -69,7 +69,7 @@ export function closeSheet(): void {
   r.query.delete('sheet');
   r.query.delete('date');
   const q = r.query.toString();
-  history.replaceState({ iron: 0 }, '', '#' + r.path + (q ? '?' + q : ''));
+  history.replaceState({ depth: 0 }, '', '#' + r.path + (q ? '?' + q : ''));
   emit(false);
 }
 
@@ -85,7 +85,7 @@ let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = Date.now(); return; }
   if (hiddenAt && Date.now() - hiddenAt > 15 * 60 * 1000 && current.path !== HOME && !/\/(editer|saisie)/.test(current.path)) {
-    history.replaceState({ iron: 0 }, '', '#' + HOME);
+    history.replaceState({ depth: 0 }, '', '#' + HOME);
     emit(true);
   }
   hiddenAt = 0;

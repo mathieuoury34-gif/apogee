@@ -1,3 +1,4 @@
+import './data/legacy-keys';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { getDerived, getData, loadStore, onChange } from './data/store';
@@ -38,7 +39,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
       if (!regs.length) return;
       await Promise.all(regs.map((r) => r.unregister()));
       if (!native.isApp()) {
-        try { if (sessionStorage.getItem('ironapp:sw-reload')) return; sessionStorage.setItem('ironapp:sw-reload', '1'); } catch { /* rien */ }
+        try { if (sessionStorage.getItem('quadra:sw-reload')) return; sessionStorage.setItem('quadra:sw-reload', '1'); } catch { /* rien */ }
         location.reload();
       }
     }).catch(() => undefined);

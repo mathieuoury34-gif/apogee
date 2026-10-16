@@ -156,7 +156,7 @@ export function applyCoach(pv: Preview, plan: CoachPlan, hash: string): void {
 }
 export function logExport(sessions: ActualSession[]): void {
   const now = nowIso();
-  commit((tx) => tx.put('exchanges', { id: newId(), updatedAt: '', direction: 'export', schemaVersion: 'ironapp/1', occurredAt: now, status: 'applied', operationCount: sessions.length, payloadHash: null, planValidUntil: null, exportSessions: sessions.map((s) => ({ discipline: s.discipline, day: sessionDay(s) })), error: null }));
+  commit((tx) => tx.put('exchanges', { id: newId(), updatedAt: '', direction: 'export', schemaVersion: 'quadra/1', occurredAt: now, status: 'applied', operationCount: sessions.length, payloadHash: null, planValidUntil: null, exportSessions: sessions.map((s) => ({ discipline: s.discipline, day: sessionDay(s) })), error: null }));
 }
 
 /** Efface tout (pierres tombales : l'effacement se propage aux autres appareils connectés). */

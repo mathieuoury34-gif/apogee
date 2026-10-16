@@ -24,7 +24,7 @@ const authCallbacks = new Set<(idToken: string, accessToken: string) => void>();
 let linkListening = false;
 
 function parseAuthLink(url: string) {
-  if (!url.startsWith('ironapp://auth')) return;
+  if (!url.startsWith('quadra://auth')) return;
   const frag = url.includes('#') ? url.slice(url.indexOf('#') + 1) : url.slice(url.indexOf('?') + 1);
   const p = new URLSearchParams(frag);
   const id = p.get('id_token') || '', acc = p.get('access_token') || '';
@@ -43,14 +43,14 @@ export const native = {
   /** Ce que voit l'app de son environnement, pour l'écran Montre. */
   diagnostic(): string {
     const c = cap();
-    const plugins = c?.Plugins ? Object.keys(c.Plugins).filter((k) => ['IronHealth', 'App', 'Browser', 'LocalNotifications'].includes(k)).join(', ') : '';
+    const plugins = c?.Plugins ? Object.keys(c.Plugins).filter((k) => ['QuadraHealth', 'App', 'Browser', 'LocalNotifications'].includes(k)).join(', ') : '';
     return [native.inWebView() ? 'WebView Android' : native.isAndroid() ? 'navigateur Android' : 'navigateur', c ? 'Capacitor ' + (c.getPlatform?.() ?? '?') : 'sans Capacitor', plugins ? 'modules : ' + plugins : 'aucun module natif', navigator.serviceWorker?.controller ? 'service worker actif' : 'sans service worker'].join(' · ');
   },
   isApp(): boolean {
     return !!cap()?.isNativePlatform?.() && cap()?.getPlatform?.() === 'android';
   },
   hasHealth(): boolean {
-    return native.isApp() && !!plugin('IronHealth');
+    return native.isApp() && !!plugin('QuadraHealth');
   },
   async openBrowser(url: string): Promise<void> {
     const b = plugin('Browser');
@@ -70,9 +70,9 @@ export const native = {
     if (app) app.addListener('appStateChange', (s: { isActive: boolean }) => { if (s.isActive) cb(); });
     else document.addEventListener('visibilitychange', () => { if (!document.hidden) cb(); });
   },
-  // ---------------------------------------------------------------- Health Connect (module IronHealth de l'APK)
+  // ---------------------------------------------------------------- Health Connect (module QuadraHealth de l'APK)
   health(): Any {
-    return plugin('IronHealth');
+    return plugin('QuadraHealth');
   },
   // ---------------------------------------------------------------- fichiers
   /** Enregistre un fichier : téléchargement sur le web, partage Android dans l'APK. */

@@ -278,7 +278,7 @@ export function Switch({ checked, onChange, labelledBy, label, disabled }: { che
 }
 
 /** Préférence d'affichage « inclure Autre » dans les volumes (éteinte par défaut), partagée entre Séances › Statistiques et Progression. */
-const OTHER_KEY = 'ironapp:withOther';
+const OTHER_KEY = 'quadra:withOther';
 const otherListeners = new Set<() => void>();
 const readOther = () => { try { return localStorage.getItem(OTHER_KEY) === '1'; } catch { return false; } };
 let withOther = readOther();

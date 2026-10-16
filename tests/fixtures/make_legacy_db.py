@@ -34,7 +34,7 @@ c.execute("insert into session_link(planned_session_id, actual_session_id, link_
 c.execute("insert into sleep_night(night_date,start_at,end_at,duration_sec) values ('2026-09-02','2026-09-01T22:00:00Z','2026-09-02T06:00:00Z',28800)")
 c.execute("insert into resting_hr(day,bpm) values ('2026-09-02',48)")
 c.execute("insert into interruption(label,start_date,end_date,reason,daily_load_override,suspends_reminders) values ('GR20','2026-09-10','2026-09-12','external_load',45,1)")
-c.execute("insert into coach_exchange(direction, exchange_schema_version, status, operation_count, notes) values ('export','ironapp/1','applied',1,'{\"kind\":\"export\",\"sessions\":[{\"discipline\":\"RUN\",\"day\":\"2026-09-02\"}]}')")
+c.execute("insert into coach_exchange(direction, exchange_schema_version, status, operation_count, notes) values ('export','quadra/1','applied',1,'{\"kind\":\"export\",\"sessions\":[{\"discipline\":\"RUN\",\"day\":\"2026-09-02\"}]}')")
 # beaucoup de lignes pour forcer des pages intérieures
 for i in range(300):
     c.execute("insert into resting_hr(day,bpm) values (?,?)", ('2025-%02d-%02d' % (1 + i // 28, 1 + i % 28), 50 + i % 5))

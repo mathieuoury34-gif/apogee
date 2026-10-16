@@ -19,7 +19,7 @@ export const ACTUAL_DISCIPLINES = [...DISCIPLINES, 'OTHER'] as const;
 export type ActualDiscipline = (typeof ACTUAL_DISCIPLINES)[number];
 export type Discipline = PlannedDiscipline | ActualDiscipline;
 
-// ------------------------------------------------------------------ vocabulaire des blocs (FIGÉ, format ironapp/1)
+// ------------------------------------------------------------------ vocabulaire des blocs (FIGÉ, format quadra/1)
 export const BLOCK_KINDS = ['WARMUP', 'WORK', 'RECOVERY', 'REST', 'COOLDOWN', 'TRANSITION', 'SET'] as const;
 export type BlockKind = (typeof BLOCK_KINDS)[number];
 export const BLOCK_MEASURES = ['TIME', 'DISTANCE', 'REPS', 'OPEN'] as const;

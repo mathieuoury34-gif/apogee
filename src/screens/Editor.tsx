@@ -53,7 +53,7 @@ export function PlannedEditorScreen({ id }: { id: string }) {
   // La feuille d'un bloc a sa propre entrée d'historique : « retour » d'Android la ferme sans quitter l'édition de la séance.
   const sheetPushed = useRef(false);
   const openEdit = (p: Path) => {
-    if (!sheetPushed.current) { history.pushState({ iron: ((history.state as { iron?: number } | null)?.iron ?? 0) + 1 }, '', location.href); sheetPushed.current = true; }
+    if (!sheetPushed.current) { history.pushState({ depth: ((history.state as { depth?: number } | null)?.depth ?? 0) + 1 }, '', location.href); sheetPushed.current = true; }
     setEdit(p);
   };
   const closeEdit = () => {

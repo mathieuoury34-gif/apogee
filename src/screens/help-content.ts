@@ -13,10 +13,10 @@ const ul = (...v: Pair[]): Block => ({ t: 'ul', v });
 const f = (fr: string, en = fr): Block => ({ t: 'f', v: [fr, en] });
 const link = (href: string, fr: string, en: string): Block => ({ t: 'link', href, v: [fr, en] });
 
-export const REPO = 'https://github.com/mathieuoury34-gif/ironapp';
+export const REPO = 'https://github.com/mathieuoury34-gif/quadra';
 export const APK_PAGE = REPO + '/releases/tag/apk';
 export const APK_FILE = REPO + '/releases/download/apk/quadra.apk';
-export const SITE = 'https://mathieuoury34-gif.github.io/ironapp/';
+export const SITE = 'https://mathieuoury34-gif.github.io/quadra/';
 
 export const HELP: HelpSection[] = [
   {
@@ -278,13 +278,13 @@ export const HELP: HelpSection[] = [
   {
     id: 'coach', icon: 'coach', title: ['Coach IA : dossier et plan', 'AI coach: dossier and plan'],
     blocks: [
-      p('L’échange avec ton coach IA se fait par fichiers, dans un format versionné (« ironapp/1 »). L’app ne parle jamais à une IA directement : c’est toi qui transmets.',
-        'The exchange with your AI coach goes through files, in a versioned format (“ironapp/1”). The app never talks to an AI directly: you pass things along.'),
+      p('L’échange avec ton coach IA se fait par fichiers, dans un format versionné (« quadra/1 »). L’app ne parle jamais à une IA directement : c’est toi qui transmets.',
+        'The exchange with your AI coach goes through files, in a versioned format (“quadra/1”). The app never talks to an AI directly: you pass things along.'),
       p('1. Envoyer le dossier (onglet Coach) :', '1. Send the dossier (Coach tab):'),
       ul(
         ['Le dossier reprend l’état réel au moment de l’export : si tu as modifié une séance prévue par le coach, c’est la version modifiée qui part, marquée « modifiée par l’athlète ». Les séances prévues des jours passés y figurent avec leur statut (faite ou manquée).', 'The dossier reflects the real state at export time: if you edited a session the coach planned, the edited version is sent, marked “edited by the athlete”. Planned sessions of past days are included with their status (done or missed).'],
         ['Choisis la période des séances jointes (1, 2, 4 ou 8 semaines) et coche celles à inclure.', 'Choose the period of attached sessions (1, 2, 4 or 8 weeks) and tick those to include.'],
-        ['Le dossier contient ton profil, ta course, tes indicateurs, ta périodisation, ta charge, les séances prévues des 8 prochaines semaines, les séances cochées, et la consigne de réponse au format ironapp/1.', 'The dossier contains your profile, race, metrics, periodisation, load, the planned sessions for the next 8 weeks, the ticked sessions, and the reply instructions in ironapp/1 format.'],
+        ['Le dossier contient ton profil, ta course, tes indicateurs, ta périodisation, ta charge, les séances prévues des 8 prochaines semaines, les séances cochées, et la consigne de réponse au format quadra/1.', 'The dossier contains your profile, race, metrics, periodisation, load, the planned sessions for the next 8 weeks, the ticked sessions, and the reply instructions in quadra/1 format.'],
         ['« Exporter le fichier » crée un fichier JSON ; « Copier » le met dans le presse-papiers. Donne-le à ton coach IA (dans une conversation ou un projet).', '“Export the file” creates a JSON file; “Copy” puts it on the clipboard. Give it to your AI coach (in a conversation or a project).'],
         ['Le texte de consigne et le fichier restent en français quelle que soit la langue de l’app, pour que n’importe quel modèle les suive de la même façon.', 'The instruction text and the file stay in French whatever the app language, so that any model follows them the same way.'],
       ),
@@ -373,7 +373,7 @@ export const HELP: HelpSection[] = [
         ['**Dérive cardiaque** : la hausse de FC pendant un effort continu à intensité égale.', '**Cardiac drift**: the rise in HR during a steady effort at equal intensity.'],
         ['**Charge provisoire / estimée** : une charge qui n’est pas mesurée, soulignée en pointillés et remplacée dès qu’une meilleure information arrive.', '**Provisional / estimated load**: a load that is not measured, underlined with dots and replaced as soon as better information arrives.'],
         ['**Health Connect** : le service d’Android où Garmin Connect dépose tes données de santé.', '**Health Connect**: the Android service where Garmin Connect puts your health data.'],
-        ['**ironapp/1** : le format du fichier d’échange avec le coach IA.', '**ironapp/1**: the format of the exchange file with the AI coach.'],
+        ['**quadra/1** : le format du fichier d’échange avec le coach IA.', '**quadra/1**: the format of the exchange file with the AI coach.'],
       ),
     ],
   },
@@ -381,7 +381,7 @@ export const HELP: HelpSection[] = [
     id: 'faq', icon: 'info', title: ['Questions fréquentes et dépannage', 'FAQ and troubleshooting'],
     blocks: [
       p('Je ne trouve pas où télécharger l’APK.', 'I can’t find where to download the APK.'),
-      ul(['Utilise le lien de la rubrique « Démarrer et installer » (page Releases du dépôt `mathieuoury34-gif/ironapp`, fichier quadra.apk).', 'Use the link in the “Getting started and installing” topic (Releases page of the `mathieuoury34-gif/ironapp` repository, file quadra.apk).']),
+      ul(['Utilise le lien de la rubrique « Démarrer et installer » (page Releases du dépôt `mathieuoury34-gif/quadra`, fichier quadra.apk).', 'Use the link in the “Getting started and installing” topic (Releases page of the `mathieuoury34-gif/quadra` repository, file quadra.apk).']),
       p('Ma charge ou ma forme est à 0 ou « Pas encore calculable ».', 'My load or form is 0 or “Not computable yet”.'),
       ul(
         ['La charge a besoin d’au moins une séance enregistrée, et d’une FC max et d’une FC de repos pour le TRIMP. Renseigne ta date de naissance (ou ta FC max) et laisse la montre remonter ta FC de repos.', 'Load needs at least one recorded session, and a max HR and a resting HR for the TRIMP. Enter your date of birth (or max HR) and let the watch bring in your resting HR.'],
@@ -395,7 +395,7 @@ export const HELP: HelpSection[] = [
       ul(['Ouvre le bilan de la séance faite : « Changer » te permet de la rattacher à la séance prévue (jusqu’à 3 jours d’écart).', 'Open the completed session’s review: “Change” lets you link it to the planned session (up to 3 days apart).']),
       p('L’import d’un plan est refusé.', 'The plan import is refused.'),
       ul(
-        ['Vérifie que la réponse du coach est un seul bloc JSON, de schéma « ironapp/1 ». Le message explique le motif. Les balises ```json que certains modèles ajoutent sont tolérées.', 'Check that the coach’s reply is a single JSON block with schema “ironapp/1”. The message explains the reason. The ```json fences some models add are tolerated.'],
+        ['Vérifie que la réponse du coach est un seul bloc JSON, de schéma « quadra/1 ». Le message explique le motif. Les balises ```json que certains modèles ajoutent sont tolérées.', 'Check that the coach’s reply is a single JSON block with schema “quadra/1”. The message explains the reason. The ```json fences some models add are tolerated.'],
         ['Un fichier qui est en fait un dossier-athlète n’est pas un plan : l’app propose d’en reprendre les séances.', 'A file that is actually an athlete dossier is not a plan: the app offers to take its sessions.'],
       ),
       p('Je veux changer de téléphone ou utiliser un autre appareil.', 'I want to change phone or use another device.'),

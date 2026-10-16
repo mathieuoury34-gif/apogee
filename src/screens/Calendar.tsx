@@ -361,7 +361,7 @@ export function AddSheet() {
           <SheetRow icon="clipboard" title={$t("Coller un lot de séances faites")} sub={$t("Une ligne par séance, depuis tes notes")} onClick={() => go('/seances/saisie?mode=lot')} />
           <SheetRow icon="clipboard" title={$t("Coller un lot de séances prévues")} sub={$t("Date ; discipline ; durée ; titre")} onClick={() => go('/seances/saisie?mode=prevues')} />
           <SheetRow icon="pause" title={$t("Déclarer une interruption")} sub={$t("Blessure, déplacement, bivouac…")} onClick={() => go('/parametres/interruptions?nouvelle=' + date)} />
-          <SheetRow icon="coach" title={$t("Importer un plan du coach")} sub={$t("Fichier JSON ironapp/1")} onClick={() => go('/coach?importer=1')} />
+          <SheetRow icon="coach" title={$t("Importer un plan du coach")} sub={$t("Fichier JSON quadra/1")} onClick={() => go('/coach?importer=1')} />
         </ul>
       </div>
     </Sheet>

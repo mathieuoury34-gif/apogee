@@ -7,7 +7,8 @@ import type { AppData } from '../domain/types';
 import { COLLECTIONS } from '../domain/types';
 import { commit, getData, replaceAll } from './store';
 
-export const BACKUP_FORMAT = 'ironapp-backup/1';
+export const BACKUP_FORMAT = 'quadra-backup/1';
+const OLD_BACKUP_FORMAT = 'ironapp-backup/1'; // sauvegardes faites avant le renommage
 
 export function backupBlob(data: AppData): Blob {
   return new Blob([JSON.stringify({ format: BACKUP_FORMAT, exportedAt: new Date().toISOString(), data })], { type: 'application/json' });
@@ -15,7 +16,7 @@ export function backupBlob(data: AppData): Blob {
 
 export function parseBackup(text: string): AppData {
   const j = JSON.parse(text) as { format?: string; data?: AppData };
-  if (j.format !== BACKUP_FORMAT || !j.data) throw new Error($t("ce fichier n’est pas une sauvegarde Quadra"));
+  if ((j.format !== BACKUP_FORMAT && j.format !== OLD_BACKUP_FORMAT) || !j.data) throw new Error($t("ce fichier n’est pas une sauvegarde Quadra"));
   const d = emptyData();
   for (const c of COLLECTIONS) (d as unknown as Record<string, unknown>)[c] = j.data[c] ?? {};
   return d;
@@ -64,7 +65,7 @@ export function importLegacy(bytes: Uint8Array): LegacyReport {
   return report;
 }
 
-/** Complète les données avec le dossier coach `ironapp/1` exporté par l'ancienne app (voir domain/dossier.ts). */
+/** Complète les données avec le dossier coach `quadra/1` exporté par l'ancienne app (voir domain/dossier.ts). */
 export function importDossier(dossier: Dossier): DossierReport {
   const { actual, planned, report } = importDossierData(getData(), dossier);
   commit((tx) => { actual.forEach((x) => tx.put('actual', x)); planned.forEach((x) => tx.put('planned', x)); });

@@ -6,13 +6,13 @@ PEAnalyze : même typographie, mêmes icônes, mêmes fenêtres et même navigat
 plus **un APK Android** qui lit la montre Garmin via Health Connect.
 
 L'ancienne application (dossier `iron-app`, React Native) n'est pas modifiée : les deux peuvent cohabiter
-sur le téléphone (identifiant Android distinct, `com.mathieu.ironapp.v2`) le temps de valider la nouvelle.
+sur le téléphone (identifiant Android distinct, `com.mathieu.quadra`) le temps de valider la nouvelle.
 
 ## Structure
 
 | Dossier | Contenu |
 |---|---|
-| `src/domain/` | Calculs, sans interface : TRIMP, charge, forme de fond/fatigue/fraîcheur, forme du jour, rattachement prévu ↔ réalisé, bilans, statistiques, objectif, format coach `ironapp/1`, lecture de l'ancienne base SQLite |
+| `src/domain/` | Calculs, sans interface : TRIMP, charge, forme de fond/fatigue/fraîcheur, forme du jour, rattachement prévu ↔ réalisé, bilans, statistiques, objectif, format coach `quadra/1`, lecture de l'ancienne base SQLite |
 | `src/data/` | Stockage sur l'appareil (IndexedDB), synchronisation Firebase, actions (avec « Annuler »), export Excel et sauvegarde JSON |
 | `src/native/` | Pont vers l'APK : Health Connect, fichiers, notifications |
 | `src/ui/` | Composants (repris de PEAnalyze), graphiques SVG, icônes, navigation |
@@ -22,7 +22,7 @@ sur le téléphone (identifiant Android distinct, `com.mathieu.ironapp.v2`) le t
 | `android-shell/` | Coque Android Capacitor : module natif Health Connect (Kotlin), script d'adaptation, icônes, clé de signature |
 | `tests/` | Tests des calculs (`npm test`) |
 | `tools/` | Données de démonstration et captures d'écran (jamais publiées) |
-| `docs/` | Analyse des calculs, contrat coach `ironapp/1` mis à jour |
+| `docs/` | Analyse des calculs, contrat coach `quadra/1` mis à jour |
 
 ## Commandes
 
@@ -34,22 +34,22 @@ sur le téléphone (identifiant Android distinct, `com.mathieu.ironapp.v2`) le t
 
 ### 1. Dépôt GitHub et GitHub Pages
 
-1. Le dépôt **public** est `mathieuoury34-gif/ironapp` (site : https://mathieuoury34-gif.github.io/ironapp/).
+1. Le dépôt **public** est `mathieuoury34-gif/quadra` (site : https://mathieuoury34-gif.github.io/quadra/).
 2. Envoie le contenu de ce dossier sur la branche `main`. Le fichier `.github/workflows/publier.yml` doit être
    présent. Si tu passes par l'interface web, qui ignore les dossiers commençant par un point : crée le fichier
    `.github/workflows/publier.yml` à la main et colles-y le contenu de `github-workflows/publier.yml`.
 3. Dans **Settings › Pages**, choisis **Source : GitHub Actions**.
 4. À chaque envoi, l'onglet **Actions** teste, construit et publie l'app sur
-   `https://mathieuoury34-gif.github.io/ironapp/`, puis construit l'APK.
+   `https://mathieuoury34-gif.github.io/quadra/`, puis construit l'APK.
 
-### 2. Projet Firebase « ironapp » (synchronisation, offre Spark sans carte bancaire)
+### 2. Projet Firebase (synchronisation, offre Spark sans carte bancaire)
 
 **Fait le 12/10/2026** : projet `ironapp-99f99`, connexion Google activée, domaine
 `mathieuoury34-gif.github.io` autorisé, Firestore créé en `eur3 (Europe)`, règles de `firestore.rules` saisies, application
 Web « Quadra » déclarée et `src/data/firebase-config.ts` rempli. Les étapes ci-dessous ne servent qu'à
 refaire la configuration ailleurs.
 
-1. Va sur https://console.firebase.google.com › **Ajouter un projet** › nom `ironapp`. Google Analytics n'est
+1. Va sur https://console.firebase.google.com › **Ajouter un projet** › nom `quadra`. Google Analytics n'est
    pas utile.
 2. **Build › Authentication › Commencer › Google** : active-le et choisis ton adresse comme adresse d'assistance.
 3. **Authentication › Settings › Domaines autorisés** : ajoute `<ton-compte>.github.io`.
@@ -98,6 +98,6 @@ connues du coach restent valables.
 - **Paramètres › Exporter en Excel** : classeur à 6 onglets (Tableau de bord, Séances, Plan, Charge, Zones,
   Périodisation), avec formules et graphiques recalculés à l'ouverture.
 - **Paramètres › Exporter une sauvegarde** : fichier JSON complet, à réimporter avec « Restaurer ou compléter (.json) ».
-- **Coach › Exporter le fichier / Copier** : dossier-athlète au format `ironapp/1` (format inchangé).
+- **Coach › Exporter le fichier / Copier** : dossier-athlète au format `quadra/1` (format inchangé).
 
 Dans l'APK, chaque export ouvre le menu de partage d'Android. Sur PC et iPhone, le fichier est téléchargé.

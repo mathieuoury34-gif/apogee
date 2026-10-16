@@ -112,7 +112,7 @@ const last = Object.values(d.actual).sort((a, b) => (a.startAt < b.startAt ? 1 :
 last.rpe = null;
 session(addDays(TODAY, -9), 'OTHER', 120, { hr: 108, rpe: 3, hour: 14, comment: 'Randonnée' });
 const ex = 'x1';
-d.exchanges[ex] = { id: ex, updatedAt: now, direction: 'import', schemaVersion: 'ironapp/1', occurredAt: addDays(TODAY, -22) + 'T19:12:00.000Z', status: 'applied', operationCount: 18, payloadHash: 'demo', planValidUntil: addDays(TODAY, 13), importSummary: { created: [], updated: [], deleted: [], rejected: [], noop: [], malformedCount: 0 }, error: null };
+d.exchanges[ex] = { id: ex, updatedAt: now, direction: 'import', schemaVersion: 'quadra/1', occurredAt: addDays(TODAY, -22) + 'T19:12:00.000Z', status: 'applied', operationCount: 18, payloadHash: 'demo', planValidUntil: addDays(TODAY, 13), importSummary: { created: [], updated: [], deleted: [], rejected: [], noop: [], malformedCount: 0 }, error: null };
 
 const out: [string, unknown][] = [];
 for (const [c, recs] of Object.entries(d)) { if (c === 'updatedAt') continue; for (const [k, v] of Object.entries(recs as Record<string, unknown>)) out.push([c + '/' + k, v]); }

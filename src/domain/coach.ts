@@ -1,4 +1,4 @@
-// Échange coach, format `ironapp/1` — repris de planning/coachExport.ts et coachImport.ts.
+// Échange coach, format `quadra/1` — repris de planning/coachExport.ts et coachImport.ts.
 // Le CONTRAT est inchangé (mêmes champs, mêmes clés `session:<id>` / `phase:<id>`), avec trois corrections :
 //  - le chevauchement des blocs de périodisation est vérifié sur l'état APRÈS import (avant : contre
 //    l'état d'avant, si bien que décaler deux blocs consécutifs dans le même fichier était refusé, et deux
@@ -16,7 +16,9 @@ import { latestZone, liveRecords, sessionDay } from './load';
 import type { AppData, Block, CoachExchange, PlannedDiscipline, PlannedSession, PreviewItem, TrainingPhase } from './types';
 import { BLOCK_KINDS, BLOCK_MEASURES, PLANNED_DISCIPLINES, RELATIVE_REFS, SET_MODES, TARGET_TYPES, ZONE_KINDS } from './types';
 
-export const SCHEMA = 'ironapp/1';
+export const SCHEMA = 'quadra/1';
+/** Anciens noms du format, toujours acceptés à l'import (plans déjà demandés au coach sous l'ancien nom). */
+export const SCHEMA_ALIASES = ['quadra/1', 'ironapp/1'];
 const UPCOMING_DAYS = 56;
 const VOLUME_WEEKS = 6;
 
@@ -284,7 +286,7 @@ export function parsePlan(raw: string): ParseResult {
   try { j = JSON.parse(cleaned); } catch { return { ok: false, code: 'JSON_INVALID' }; }
   if (typeof j !== 'object' || j === null) return { ok: false, code: 'STRUCTURE_INVALID' };
   const v = j as Record<string, unknown>;
-  if (v.schemaVersion !== SCHEMA) return { ok: false, code: 'SCHEMA_VERSION_UNSUPPORTED', found: v.schemaVersion };
+  if (!SCHEMA_ALIASES.includes(v.schemaVersion as string)) return { ok: false, code: 'SCHEMA_VERSION_UNSUPPORTED', found: v.schemaVersion };
   if (!Array.isArray(v.operations)) return { ok: false, code: 'STRUCTURE_INVALID' };
   const ops: CoachOp[] = [];
   let malformed = 0;
@@ -407,7 +409,7 @@ export function alreadyImported(data: AppData, hash: string): CoachExchange | nu
 
 export const PARSE_ERROR_TEXT = {
   JSON_INVALID: $t("Ce fichier n’est pas un JSON valide."),
-  SCHEMA_VERSION_UNSUPPORTED: $t("Format de fichier non reconnu. Cette version de l’app attend \"ironapp/1\"."),
+  SCHEMA_VERSION_UNSUPPORTED: $t("Format de fichier non reconnu. Cette version de l’app attend \"quadra/1\"."),
   STRUCTURE_INVALID: $t("Le fichier ne correspond pas à la forme attendue d’un plan coach."),
 };
 

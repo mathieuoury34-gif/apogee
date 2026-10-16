@@ -1,4 +1,4 @@
-// Configuration du projet Firebase « ironapp » (offre gratuite Spark, sans carte bancaire).
+// Configuration du projet Firebase (identifiant ironapp-99f99, non modifiable) (offre gratuite Spark, sans carte bancaire).
 // Valeurs du projet ironapp-99f99, relevées le 12/10/2026 dans Console Firebase › Paramètres du projet ›
 // Vos applications › Quadra (Web) › Configuration du SDK.
 // Ces valeurs ne sont pas secrètes : l'accès aux données est protégé par les règles Firestore

@@ -47,5 +47,5 @@ for dens, px in {'mdpi': 108, 'hdpi': 162, 'xhdpi': 216, 'xxhdpi': 324, 'xxxhdpi
     save(ring(px, 0.50), f'android-shell/res/mipmap-{dens}/ic_launcher_foreground.png')  # zone sûre : 66/108
 # icône de notification (monochrome)
 for dens, px in {'mdpi': 24, 'hdpi': 36, 'xhdpi': 48, 'xxhdpi': 72, 'xxxhdpi': 96}.items():
-    save(ring(px, 0.92, colors=[(255, 255, 255)] * 4), f'android-shell/res/drawable-{dens}/ic_stat_iron.png')
+    save(ring(px, 0.92, colors=[(255, 255, 255)] * 4), f'android-shell/res/drawable-{dens}/ic_stat_quadra.png')
 print('ok')

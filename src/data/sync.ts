@@ -6,7 +6,7 @@
 // chaque appareil les refait à l'identique.
 //
 // Dans l'APK Android, Google refuse la connexion depuis une vue web intégrée : la connexion passe par le
-// navigateur du téléphone (page auth.html), qui renvoie le jeton à l'app par le lien ironapp://auth.
+// navigateur du téléphone (page auth.html), qui renvoie le jeton à l'app par le lien quadra://auth.
 import { $t, lang } from '../i18n';
 import { useSyncExternalStore } from 'react';
 import { FIREBASE_CONFIG } from './firebase-config';

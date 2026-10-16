@@ -1,6 +1,6 @@
 // Page de connexion ouverte par l'APK Android dans le navigateur du téléphone (Google refuse la connexion
 // depuis une vue web intégrée). Une fois connecté, la page rend le jeton Google à l'app par le lien
-// ironapp://auth#id_token=…&access_token=… ; l'app s'en sert pour ouvrir la même session Firebase.
+// quadra://auth#id_token=…&access_token=… ; l'app s'en sert pour ouvrir la même session Firebase.
 import { FIREBASE_CONFIG } from './data/firebase-config';
 
 const SDK = 'https://www.gstatic.com/firebasejs/10.14.1/';
@@ -11,7 +11,7 @@ const $ = (id: string) => document.getElementById(id)!;
 // Langue transmise par l'app (?lang=en), gardée le temps d'une éventuelle redirection Google.
 const EN = (() => {
   const q = new URLSearchParams(location.search).get('lang');
-  try { if (q) sessionStorage.setItem('ironapp:auth-lang', q); return (q ?? sessionStorage.getItem('ironapp:auth-lang')) === 'en'; } catch { return q === 'en'; }
+  try { if (q) sessionStorage.setItem('quadra:auth-lang', q); return (q ?? sessionStorage.getItem('quadra:auth-lang')) === 'en'; } catch { return q === 'en'; }
 })();
 const T: Record<string, string> = {
   'Connecté. Retour dans Quadra…': 'Signed in. Back to Quadra…',
@@ -40,7 +40,7 @@ function handOff(cred: Any) {
   const p = new URLSearchParams();
   if (cred?.idToken) p.set('id_token', cred.idToken);
   if (cred?.accessToken) p.set('access_token', cred.accessToken);
-  const url = 'ironapp://auth#' + p.toString();
+  const url = 'quadra://auth#' + p.toString();
   const back = $('back') as HTMLAnchorElement;
   back.href = url;
   back.hidden = false;

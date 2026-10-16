@@ -1,7 +1,7 @@
 // Module natif de l'APK Quadra : lecture Health Connect (séances Garmin, FC, vitesse, distance, calories,
-// dénivelé, sommeil, FC de repos). Exposé à l'app web par Capacitor sous `window.Capacitor.Plugins.IronHealth`.
+// dénivelé, sommeil, FC de repos). Exposé à l'app web par Capacitor sous `window.Capacitor.Plugins.QuadraHealth`.
 // Lecture seule : l'app n'écrit jamais dans Health Connect.
-package com.mathieu.ironapp.v2
+package com.mathieu.quadra
 
 import android.content.Intent
 import androidx.activity.result.ActivityResultLauncher
@@ -33,8 +33,8 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import kotlin.reflect.KClass
 
-@CapacitorPlugin(name = "IronHealth")
-class IronHealthPlugin : Plugin() {
+@CapacitorPlugin(name = "QuadraHealth")
+class QuadraHealthPlugin : Plugin() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var launcher: ActivityResultLauncher<Set<String>>? = null
     private var pendingPermissionCall: PluginCall? = null

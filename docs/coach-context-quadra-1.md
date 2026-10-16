@@ -1,4 +1,4 @@
-# Quadra ↔ Coach — format d'échange `ironapp/1`
+# Quadra ↔ Coach — format d'échange `quadra/1`
 
 > À déposer dans les connaissances du projet Claude consacré au coaching de
 > Mathieu. Ce document explique ce que ce projet reçoit, ce qu'il doit
@@ -23,7 +23,7 @@ L'échange se fait par fichier, dans les deux sens :
 ```
 
 Les deux fichiers partagent la même version de contrat : `"schemaVersion":
-"ironapp/1"`. Le dossier que tu reçois embarque lui-même une copie de ce
+"quadra/1"`. Le dossier que tu reçois embarque lui-même une copie de ce
 document dans son champ `responseContract.instructions` — cette copie-ci est
 juste plus commode à consulter sans avoir un fichier sous les yeux.
 
@@ -169,7 +169,7 @@ Réponds par UN SEUL fichier JSON, de cette forme :
 
 ```json
 {
-  "schemaVersion": "ironapp/1",
+  "schemaVersion": "quadra/1",
   "generatedAt": "<instant ISO>",
   "planValidUntil": "<AAAA-MM-JJ ou null>",
   "operations": [ ]
@@ -259,7 +259,7 @@ séance rejetée est une séance qui n'apparaîtra pas dans son calendrier.
 
 ```json
 {
-  "schemaVersion": "ironapp/1",
+  "schemaVersion": "quadra/1",
   "generatedAt": "2026-08-26T20:00:00.000Z",
   "planValidUntil": "2026-09-07",
   "operations": [

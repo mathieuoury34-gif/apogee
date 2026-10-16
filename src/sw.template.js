@@ -1,14 +1,14 @@
 // Service worker d'Quadra : l'application fonctionne hors ligne.
 const VERSION = '__VERSION__';
-const SHELL = 'iron-shell-' + VERSION;
-const RUNTIME = 'iron-runtime';
+const SHELL = 'quadra-shell-' + VERSION;
+const RUNTIME = 'quadra-runtime';
 const FILES = __FILES__;
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(SHELL).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
-  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith('iron-shell-') && k !== SHELL).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith('iron-') || (k.startsWith('quadra-shell-') && k !== SHELL)).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
 // Dans l'APK (WebView Android), rien ne passe par ici : Capacitor doit voir chaque page pour y injecter son pont.
 const IN_APP = /Android/.test(self.navigator.userAgent) && /; wv\)/.test(self.navigator.userAgent);
