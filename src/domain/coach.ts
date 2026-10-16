@@ -28,7 +28,7 @@ const blockOut = (b: Block): Block => ({ ...b, children: b.children.map((c) => (
 
 function instructions(): string {
   return [
-    `CONTRAT DE RÉPONSE — dossier-athlète Iron App, schemaVersion "${SCHEMA}".`,
+    `CONTRAT DE RÉPONSE — dossier-athlète Quadra, schemaVersion "${SCHEMA}".`,
     "Ce texte s'adresse à N'IMPORTE QUEL modèle de langage lisant ce fichier,",
     'pas seulement à Claude : suis-le au mot près, sans supposer de contexte',
     'extérieur à ce dossier.',

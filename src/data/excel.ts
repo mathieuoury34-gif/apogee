@@ -1,4 +1,4 @@
-// Classeur Excel d'Iron App (même générateur que PEAnalyze, aux couleurs d'Iron App).
+// Classeur Excel d'Quadra (même générateur que PEAnalyze, aux couleurs d'Quadra).
 // Les données (séances, charge, zones…) sont des valeurs ; les synthèses hebdomadaires et mensuelles sont
 // en FORMULES (SOMME.SI.ENS sur l'onglet Séances) : le fichier reste vivant si tu y ajoutes des lignes.
 import { estimateDistance, estimateDuration } from '../domain/blocks';
@@ -46,7 +46,7 @@ export function buildWorkbook(data: AppData, d: Derived): Workbook {
   const actual = liveRecords(data.actual).sort((a, b) => (a.startAt < b.startAt ? -1 : 1));
 
   // ---------------------------------------------------------------- Tableau de bord
-  const db = page(wb, 'Tableau de bord', 'Iron App — tableau de bord', `Export du ${today.split('-').reverse().join('/')} · valeurs du jour, puis synthèses calculées par formules`, 8);
+  const db = page(wb, 'Tableau de bord', 'Quadra — tableau de bord', `Export du ${today.split('-').reverse().join('/')} · valeurs du jour, puis synthèses calculées par formules`, 8);
   const race = data.race.main && !data.race.main.deleted ? data.race.main : null;
   const rows: [string, Value, string?][] = [
     ['Course visée', race ? race.name + ' — ' + race.raceDate.split('-').reverse().join('/') : '—'],

@@ -1,4 +1,4 @@
-// Service worker d'Iron App : l'application fonctionne hors ligne.
+// Service worker d'Quadra : l'application fonctionne hors ligne.
 const VERSION = '__VERSION__';
 const SHELL = 'iron-shell-' + VERSION;
 const RUNTIME = 'iron-runtime';

@@ -1,4 +1,4 @@
-// Transposition des enregistrements Health Connect (lus par le module natif de l'APK) en données Iron App.
+// Transposition des enregistrements Health Connect (lus par le module natif de l'APK) en données Quadra.
 // Repris de health/ingest.ts et exerciseTypes.ts, avec trois corrections :
 //  - une séance déjà connue est MISE À JOUR si Garmin a déposé sa série cardio après coup (avant : jamais
 //    relue, la séance restait sans charge mesurée) — sauf si tu l'as corrigée à la main ;

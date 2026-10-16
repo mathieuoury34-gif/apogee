@@ -38,7 +38,7 @@ const P: Record<string, string[]> = {
   list: ['M3 12h.01', 'M3 18h.01', 'M3 6h.01', 'M8 12h13', 'M8 18h13', 'M8 6h13'],
   grip: ['circle:9,12,1', 'circle:9,5,1', 'circle:9,19,1', 'circle:15,12,1', 'circle:15,5,1', 'circle:15,19,1'],
 
-  // ---- ajouts Iron App (Lucide, trait 2 px) ----
+  // ---- ajouts Quadra (Lucide, trait 2 px) ----
   accueil: ['M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8', 'M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
   calendrier: ['M8 2v4', 'M16 2v4', 'rect:3,4,18,18,2', 'M3 10h18', 'M8 14h.01', 'M12 14h.01', 'M16 14h.01', 'M8 18h.01', 'M12 18h.01', 'M16 18h.01'],
   seances: ['M22 12h-4l-3 9L9 3l-3 9H2'],
@@ -117,12 +117,12 @@ export function CheckFilled({ size = 22 }: { size?: number }) {
   );
 }
 
-/** Logotype Iron App : le pictogramme de l'icône (trait plein = mesuré, trait tireté = estimé) + « Iron App ». */
+/** Logotype Quadra : le pictogramme de l'icône (trait plein = mesuré, trait tireté = estimé) + « Quadra » (le nom vient des quatre disciplines). */
 export function Logo({ size = 18 }: { size?: number }) {
   return (
     <span className="logo" style={{ fontSize: size, lineHeight: 1 }}>
       <LogoMark size={size * 1.45} />
-      <span><span style={{ color: 'var(--text)' }}>Iron</span><span style={{ color: 'var(--text-neutral)' }}> App</span></span>
+      <span style={{ color: 'var(--text)' }}>Quadra</span>
     </span>
   );
 }

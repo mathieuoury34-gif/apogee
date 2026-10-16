@@ -1,4 +1,4 @@
-# Publication d'Iron App à chaque envoi sur la branche main :
+# Publication d'Quadra à chaque envoi sur la branche main :
 #  1. tests des calculs + contrôle des types + construction de l'app web ;
 #  2. mise en ligne sur GitHub Pages (PC, iPhone, Android : https://<compte>.github.io/<dépôt>/) ;
 #  3. construction de l'APK Android (Capacitor + module Health Connect), publiée dans la release « apk ».
@@ -72,19 +72,19 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
-          cp app/build/outputs/apk/debug/app-debug.apk ../../iron-app.apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../../quadra.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: iron-app-apk
-          path: iron-app.apk
+          name: quadra-apk
+          path: quadra.apk
       - name: Release « apk » (lien de téléchargement stable)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk
-          name: Iron App — APK Android
+          name: Quadra — APK Android
           body: |
             APK construit automatiquement depuis ${{ github.sha }}.
-            Installer « iron-app.apk » sur le téléphone (autoriser l'installation depuis le navigateur).
+            Installer « quadra.apk » sur le téléphone (autoriser l'installation depuis le navigateur).
             L'interface se met à jour seule avec le site : réinstaller l'APK n'est utile que si le module natif change.
-          files: iron-app.apk
+          files: quadra.apk
           make_latest: true

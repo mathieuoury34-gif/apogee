@@ -23,7 +23,7 @@ export function emptyData(): AppData {
 export function importLegacyDb(bytes: Uint8Array): { data: AppData; report: LegacyReport } {
   const t = readSqlite(bytes);
   const rows = (name: string) => t.get(name)?.rows ?? [];
-  if (!t.has('actual_session') || !t.has('planned_session')) throw new Error($t("ce fichier ne ressemble pas à une base Iron App"));
+  if (!t.has('actual_session') || !t.has('planned_session')) throw new Error($t("ce fichier ne ressemble pas à une base Quadra"));
   const now = nowIso();
   const d = emptyData();
   const skipped: string[] = [];

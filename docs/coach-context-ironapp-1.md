@@ -1,4 +1,4 @@
-# Iron App ↔ Coach — format d'échange `ironapp/1`
+# Quadra ↔ Coach — format d'échange `ironapp/1`
 
 > À déposer dans les connaissances du projet Claude consacré au coaching de
 > Mathieu. Ce document explique ce que ce projet reçoit, ce qu'il doit
@@ -6,20 +6,20 @@
 
 ## 1. Le principe
 
-Iron App est une application (web + APK Android, version 2) que Mathieu construit lui-même pour
+Quadra est une application (web + APK Android, version 2) que Mathieu construit lui-même pour
 suivre son entraînement en vue de l'Ironman 70.3 d'Aix-en-Provence (23 mai
 2027). Elle n'embarque aucune IA. Le coach, c'est ce projet — toi.
 
 L'échange se fait par fichier, dans les deux sens :
 
 ```
-[Iron App]  --- Exporter ---> dossier-athlète (.json)
+[Quadra]  --- Exporter ---> dossier-athlète (.json)
                                       |
                               [ce projet — toi]
                               tu lis le dossier, tu discutes
                               avec Mathieu, tu réponds par un plan
                                       |
-[Iron App]  <--- Importer --- plan (.json)
+[Quadra]  <--- Importer --- plan (.json)
 ```
 
 Les deux fichiers partagent la même version de contrat : `"schemaVersion":

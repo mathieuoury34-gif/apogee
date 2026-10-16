@@ -1,8 +1,8 @@
 {
-  "name": "iron-app-android",
+  "name": "quadra-android",
   "private": true,
   "version": "2.0.0",
-  "description": "Coque Android (Capacitor) d'Iron App : charge l'app web publiée et ajoute la lecture Health Connect.",
+  "description": "Coque Android (Capacitor) d'Quadra : charge l'app web publiée et ajoute la lecture Health Connect.",
   "scripts": {
     "configure": "node configure.mjs",
     "patch": "node patch-android.mjs"

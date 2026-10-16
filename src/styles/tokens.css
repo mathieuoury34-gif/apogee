@@ -1,7 +1,7 @@
 /* ==========================================================================
-   Design tokens – Iron App v2 (refonte sur le système de PEAnalyze)
+   Design tokens – Quadra v2 (refonte sur le système de PEAnalyze)
    Même structure, mêmes noms de rôles, mêmes typographies, rayons, ombres et espacements que
-   PEAnalyze (01_Design/design-tokens.css v2). Seules les COULEURS sont celles d'Iron App
+   PEAnalyze (01_Design/design-tokens.css v2). Seules les COULEURS sont celles d'Quadra
    (theme/tokens.ts de la version Android) : neutres papier chaud, encre presque noire comme couleur
    d'action, couleurs de discipline et rampe de forme du jour.
    Polices : Montserrat 500/600/700 + Open Sans 400/600/700 (Google Fonts).
@@ -42,7 +42,7 @@
   --type-hero: var(--fw-700) 56px/60px var(--font-heading);
   --overline-tracking: 0.6px;
 
-  /* ---------- Couleur d'action : l'encre d'Iron App ---------- */
+  /* ---------- Couleur d'action : l'encre d'Quadra ---------- */
   --brand-primary: #16181B;
   --brand-primary-hover: #2C3035;
   --brand-primary-pressed: #000000;
@@ -57,7 +57,7 @@
   --bg-page: #FBFAF7;
   --bg-surface: #FBFAF7;
   --bg-surface-minimal: #F2F0EA;
-  --bg-brand-minimal: #E9E3D6;       /* fond de l'icône d'Iron App */
+  --bg-brand-minimal: #E9E3D6;       /* fond de l'icône d'Quadra */
   --bg-brand-moderate: #DCD5C4;
   --bg-brand-neutral: #EDEAE2;
   --bg-blue-minimal: #E1EDEF;

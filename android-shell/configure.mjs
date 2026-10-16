@@ -7,7 +7,7 @@ if (!url) { console.error('SITE_URL manquant'); process.exit(1); }
 const host = new URL(url).host;
 const config = {
   appId: 'com.mathieu.ironapp.v2',
-  appName: 'Iron App',
+  appName: 'Quadra',
   webDir: 'www',
   server: { url, cleartext: false, allowNavigation: [host, 'www.gstatic.com', '*.googleapis.com', '*.firebaseapp.com'] },
   android: { backgroundColor: '#F2F0EA' },

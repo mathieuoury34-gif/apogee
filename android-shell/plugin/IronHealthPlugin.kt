@@ -1,4 +1,4 @@
-// Module natif de l'APK Iron App : lecture Health Connect (séances Garmin, FC, vitesse, distance, calories,
+// Module natif de l'APK Quadra : lecture Health Connect (séances Garmin, FC, vitesse, distance, calories,
 // dénivelé, sommeil, FC de repos). Exposé à l'app web par Capacitor sous `window.Capacitor.Plugins.IronHealth`.
 // Lecture seule : l'app n'écrit jamais dans Health Connect.
 package com.mathieu.ironapp.v2

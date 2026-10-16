@@ -15,15 +15,15 @@ const link = (href: string, fr: string, en: string): Block => ({ t: 'link', href
 
 export const REPO = 'https://github.com/mathieuoury34-gif/ironapp';
 export const APK_PAGE = REPO + '/releases/tag/apk';
-export const APK_FILE = REPO + '/releases/download/apk/iron-app.apk';
+export const APK_FILE = REPO + '/releases/download/apk/quadra.apk';
 export const SITE = 'https://mathieuoury34-gif.github.io/ironapp/';
 
 export const HELP: HelpSection[] = [
   {
     id: 'start', icon: 'sparkle', title: ['Démarrer et installer', 'Getting started and installing'],
     blocks: [
-      p('Iron App est un suivi d’entraînement de triathlon : course, vélo, natation et renforcement. Elle compare ce qui était prévu à ce que tu as fait, calcule ta charge d’entraînement et ta forme, et prépare l’échange avec ton coach IA. Rien n’est jamais envoyé à un tiers : les données restent sur ton appareil et, si tu te connectes, dans ton espace privé Firebase.',
-        'Iron App is a triathlon training log: run, bike, swim and strength. It compares what was planned with what you did, calculates your training load and form, and prepares the exchange with your AI coach. Nothing is ever sent to a third party: your data stays on your device and, if you sign in, in your own private Firebase space.'),
+      p('Quadra est un suivi d’entraînement multisport (triathlon, trail, randonnée…) : course, vélo, natation et renforcement. Elle compare ce qui était prévu à ce que tu as fait, calcule ta charge d’entraînement et ta forme, et prépare l’échange avec ton coach IA. Rien n’est jamais envoyé à un tiers : les données restent sur ton appareil et, si tu te connectes, dans ton espace privé Firebase.',
+        'Quadra is a multisport training log (triathlon, trail, hiking…): run, bike, swim and strength. It compares what was planned with what you did, calculates your training load and form, and prepares the exchange with your AI coach. Nothing is ever sent to a third party: your data stays on your device and, if you sign in, in your own private Firebase space.'),
       p('Où l’installer :', 'Where to install it:'),
       ul(
         ['**Android (téléphone qui lit ta montre)** : installe l’APK. Il est seul à pouvoir lire Health Connect, donc tes séances Garmin, ton sommeil et ta FC de repos.', '**Android (phone that reads your watch)**: install the APK. It is the only version that can read Health Connect, so your Garmin sessions, sleep and resting HR.'],
@@ -31,7 +31,7 @@ export const HELP: HelpSection[] = [
         ['**iPhone** : ouvre le site dans Safari, puis Partager › « Sur l’écran d’accueil ». Il n’y a pas de Health Connect sur iPhone : les séances arrivent par la synchronisation depuis l’Android, et l’iPhone ne reçoit pas de rappels.', '**iPhone**: open the website in Safari, then Share › “Add to Home Screen”. There is no Health Connect on iPhone: sessions arrive through sync from the Android phone, and the iPhone gets no reminders.'],
       ),
       link(APK_PAGE, 'Page de téléchargement de l’APK (GitHub › Releases)', 'APK download page (GitHub › Releases)'),
-      link(APK_FILE, 'Télécharger directement iron-app.apk', 'Download iron-app.apk directly'),
+      link(APK_FILE, 'Télécharger directement quadra.apk', 'Download quadra.apk directly'),
       p('Au téléchargement, Android demande d’autoriser l’installation depuis le navigateur : accepte. L’APK affiche le site publié, donc chaque mise à jour du site met l’application à jour sans réinstaller. Il ne faut réinstaller l’APK que si le module natif change.',
         'When downloading, Android asks you to allow installation from the browser: accept. The APK displays the published website, so every site update updates the app without reinstalling. You only need to reinstall the APK if the native module changes.'),
       p('Premiers pas conseillés :', 'Suggested first steps:'),
@@ -254,8 +254,8 @@ export const HELP: HelpSection[] = [
   {
     id: 'watch', icon: 'phone', title: ['Montre et Health Connect', 'Watch and Health Connect'],
     blocks: [
-      p('Chemin des données : ta montre Garmin → Garmin Connect → Health Connect (Android) → l’APK Iron App → synchronisation → tes autres appareils. Il faut que Garmin Connect soit relié à Health Connect (Garmin Connect › Paramètres › Health Connect), et que l’application Health Connect soit installée sur le téléphone.',
-        'Data path: your Garmin watch → Garmin Connect → Health Connect (Android) → the Iron App APK → sync → your other devices. Garmin Connect must be linked to Health Connect (Garmin Connect › Settings › Health Connect), and the Health Connect app must be installed on the phone.'),
+      p('Chemin des données : ta montre Garmin → Garmin Connect → Health Connect (Android) → l’APK Quadra → synchronisation → tes autres appareils. Il faut que Garmin Connect soit relié à Health Connect (Garmin Connect › Paramètres › Health Connect), et que l’application Health Connect soit installée sur le téléphone.',
+        'Data path: your Garmin watch → Garmin Connect → Health Connect (Android) → the Quadra APK → sync → your other devices. Garmin Connect must be linked to Health Connect (Garmin Connect › Settings › Health Connect), and the Health Connect app must be installed on the phone.'),
       p('Ce que l’app lit, en lecture seule : les séances (type, durée, distance, FC, vitesse, calories, dénivelé), le sommeil et la FC de repos. Elle n’écrit jamais dans Health Connect.',
         'What the app reads, read-only: sessions (type, duration, distance, HR, speed, calories, elevation), sleep and resting HR. It never writes to Health Connect.'),
       p('Paramètres › Montre (Health Connect) affiche l’état de la liaison :', 'Settings › Watch (Health Connect) shows the link status:'),
@@ -332,7 +332,7 @@ export const HELP: HelpSection[] = [
       ul(
         ['**Exporter en Excel** : un classeur de 6 onglets (tableau de bord, séances, plan, charge, zones, périodisation) avec formules et graphiques recalculés à l’ouverture. Il reste en français.', '**Export to Excel**: a 6-sheet workbook (dashboard, sessions, plan, load, zones, periodisation) with formulas and charts recalculated on opening. It stays in French.'],
         ['**Exporter une sauvegarde (.json)** : toutes tes données, relisibles par l’app.', '**Export a backup (.json)**: all your data, readable by the app.'],
-        ['**Restaurer ou compléter (.json)** : une sauvegarde Iron App remplace tes données (avec « Annuler »). Un dossier coach de l’ancienne app ajoute seulement les séances et séances prévues qui manquent, sans doublon, et complète les ressentis absents.', '**Restore or complete (.json)**: an Iron App backup replaces your data (with “Undo”). A coach dossier from the old app only adds missing sessions and planned sessions, without duplicates, and fills in missing RPEs.'],
+        ['**Restaurer ou compléter (.json)** : une sauvegarde Quadra remplace tes données (avec « Annuler »). Un dossier coach de l’ancienne app ajoute seulement les séances et séances prévues qui manquent, sans doublon, et complète les ressentis absents.', '**Restore or complete (.json)**: an Quadra backup replaces your data (with “Undo”). A coach dossier from the old app only adds missing sessions and planned sessions, without duplicates, and fills in missing RPEs.'],
       ),
       p('Dans l’APK, chaque export ouvre le menu de partage d’Android. Sur PC et iPhone, le fichier est téléchargé.',
         'In the APK, each export opens Android’s share menu. On PC and iPhone, the file is downloaded.'),
@@ -381,7 +381,7 @@ export const HELP: HelpSection[] = [
     id: 'faq', icon: 'info', title: ['Questions fréquentes et dépannage', 'FAQ and troubleshooting'],
     blocks: [
       p('Je ne trouve pas où télécharger l’APK.', 'I can’t find where to download the APK.'),
-      ul(['Utilise le lien de la rubrique « Démarrer et installer » (page Releases du dépôt `mathieuoury34-gif/ironapp`, fichier iron-app.apk).', 'Use the link in the “Getting started and installing” topic (Releases page of the `mathieuoury34-gif/ironapp` repository, file iron-app.apk).']),
+      ul(['Utilise le lien de la rubrique « Démarrer et installer » (page Releases du dépôt `mathieuoury34-gif/ironapp`, fichier quadra.apk).', 'Use the link in the “Getting started and installing” topic (Releases page of the `mathieuoury34-gif/ironapp` repository, file quadra.apk).']),
       p('Ma charge ou ma forme est à 0 ou « Pas encore calculable ».', 'My load or form is 0 or “Not computable yet”.'),
       ul(
         ['La charge a besoin d’au moins une séance enregistrée, et d’une FC max et d’une FC de repos pour le TRIMP. Renseigne ta date de naissance (ou ta FC max) et laisse la montre remonter ta FC de repos.', 'Load needs at least one recorded session, and a max HR and a resting HR for the TRIMP. Enter your date of birth (or max HR) and let the watch bring in your resting HR.'],

@@ -4,7 +4,7 @@
 //  - module natif IronHealth (Kotlin) enregistré dans MainActivity ;
 //  - minSdk 26 (Health Connect), Kotlin, keystore de debug versionné (les mises à jour s'installent
 //    par-dessus l'APK précédent au lieu d'exiger une désinstallation) ;
-//  - icônes d'Iron App.
+//  - icônes d'Quadra.
 // Le script est idempotent : le relancer ne duplique rien.
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -138,4 +138,4 @@ mkdirSync(join(APP, 'src/main/res/values'), { recursive: true });
 const bg = join(APP, 'src/main/res/values/ic_launcher_background.xml');
 write(bg, `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#E9E3D6</color>\n</resources>\n`);
 
-console.log('Projet Android adapté pour Iron App.');
+console.log('Projet Android adapté pour Quadra.');

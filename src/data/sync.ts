@@ -176,7 +176,7 @@ export async function syncNow(): Promise<void> {
   await push();
 }
 
-/** Supprime toutes les données Iron App du cloud (compte connecté). */
+/** Supprime toutes les données Quadra du cloud (compte connecté). */
 export async function deleteCloud(): Promise<void> {
   const u = auth?.currentUser;
   if (!u) return;

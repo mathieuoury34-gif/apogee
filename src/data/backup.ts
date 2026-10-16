@@ -15,7 +15,7 @@ export function backupBlob(data: AppData): Blob {
 
 export function parseBackup(text: string): AppData {
   const j = JSON.parse(text) as { format?: string; data?: AppData };
-  if (j.format !== BACKUP_FORMAT || !j.data) throw new Error($t("ce fichier n’est pas une sauvegarde Iron App"));
+  if (j.format !== BACKUP_FORMAT || !j.data) throw new Error($t("ce fichier n’est pas une sauvegarde Quadra"));
   const d = emptyData();
   for (const c of COLLECTIONS) (d as unknown as Record<string, unknown>)[c] = j.data[c] ?? {};
   return d;
@@ -71,7 +71,7 @@ export function importDossier(dossier: Dossier): DossierReport {
   return report;
 }
 
-/** Lit un fichier JSON choisi par l'utilisateur : sauvegarde Iron App ou dossier coach de l'ancienne app. */
+/** Lit un fichier JSON choisi par l'utilisateur : sauvegarde Quadra ou dossier coach de l'ancienne app. */
 export function readJsonFile(text: string): { kind: 'backup'; data: AppData } | { kind: 'dossier'; dossier: Dossier } {
   let j: unknown;
   try { j = JSON.parse(text); } catch { throw new Error($t("ce fichier n’est pas un JSON lisible")); }

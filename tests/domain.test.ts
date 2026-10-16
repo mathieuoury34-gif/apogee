@@ -1,4 +1,4 @@
-// Tests des calculs d'Iron App (node --test). Lancer : npm test
+// Tests des calculs d'Quadra (node --test). Lancer : npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

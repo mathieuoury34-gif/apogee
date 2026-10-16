@@ -1,4 +1,4 @@
-# Iron App 2 — analyse des processus et des calculs
+# Quadra — analyse des processus et des calculs
 
 J'ai relu chaque calcul et chaque processus de l'ancienne application (React Native, `iron-app/src`) avant de
 les transposer. Ce document liste ce qui a été corrigé ou amélioré, avec la raison et l'effet visible. Tout

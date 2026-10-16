@@ -1,7 +1,7 @@
 {
-  "name": "Iron App",
-  "short_name": "Iron App",
-  "description": "Suivi personnel d’entraînement triathlon : natation, vélo, course, renforcement.",
+  "name": "Quadra",
+  "short_name": "Quadra",
+  "description": "Suivi personnel d’entraînement multisport : natation, vélo, course, renforcement.",
   "lang": "fr",
   "start_url": "./#/accueil",
   "scope": "./",

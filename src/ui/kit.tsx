@@ -1,4 +1,4 @@
-// Composants partagés (planche Système de PEAnalyze, adaptés à Iron App)
+// Composants partagés (planche Système de PEAnalyze, adaptés à Quadra)
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { $t } from '../i18n';
 import { Icon, Logo } from './icons';

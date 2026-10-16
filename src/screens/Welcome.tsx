@@ -32,7 +32,7 @@ export function WelcomeCard({ className = '' }: { className?: string }) {
   };
   return (
     <section className={'card g16 ' + className} aria-labelledby="welcome-title" data-component="WelcomeCard">
-      <h2 id="welcome-title">{$t("Bienvenue sur Iron App")}</h2>
+      <h2 id="welcome-title">{$t("Bienvenue sur Quadra")}</h2>
       <p className="c-neutral">
         {$t("Aucune séance sur cet appareil pour l’instant.")}{' '}
         {sync.configured && !sync.user ? $t("Connecte-toi avec Google pour retrouver tes données, ou reprends la base de l’ancienne application Android.") : $t("Reprends la base de l’ancienne application Android (Paramètres › Export › Partager le fichier) pour retrouver tout ton historique.")}

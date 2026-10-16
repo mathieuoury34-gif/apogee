@@ -74,11 +74,11 @@ export function HealthCard({ compact = false }: { compact?: boolean }) {
           <span className="stack grow">
             <span className="t-strong" style={android ? { color: 'var(--warning-text)' } : undefined}>{android ? $t("Health Connect non relié : tu n’es pas dans l’APK") : $t("Health Connect : lu par le téléphone Android")}</span>
             <span className="t-caption c-neutral">{android
-              ? $t("Cette page tourne dans le navigateur (ou l’app installée depuis Chrome), qui n’a pas accès à Health Connect. Installe et ouvre l’APK Iron App (lien ci-dessous).")
-              : $t("Health Connect n’existe que sur Android : l’APK Iron App y lit les séances, le sommeil et la FC de repos envoyés par Garmin Connect, puis la synchronisation les amène ici.")}</span>
+              ? $t("Cette page tourne dans le navigateur (ou l’app installée depuis Chrome), qui n’a pas accès à Health Connect. Installe et ouvre l’APK Quadra (lien ci-dessous).")
+              : $t("Health Connect n’existe que sur Android : l’APK Quadra y lit les séances, le sommeil et la FC de repos envoyés par Garmin Connect, puis la synchronisation les amène ici.")}</span>
           </span>
         </div>
-        {android && <ExtLink href={APK_PAGE} className="help-link"><Icon name="download" size={20} /><span>{$t("Télécharger l’APK Iron App (GitHub › Releases)")}</span></ExtLink>}
+        {android && <ExtLink href={APK_PAGE} className="help-link"><Icon name="download" size={20} /><span>{$t("Télécharger l’APK Quadra (GitHub › Releases)")}</span></ExtLink>}
         {!compact && <WatchKv st={st} />}
         {compact && <div className="row wrap"><button type="button" className="btn btn-tertiary" onClick={() => navigate('/parametres')}>{$t("Détails")}</button></div>}
         {!compact && <span className="t-legal c-moderate">{$t("Diagnostic :")} {native.diagnostic()}</span>}
@@ -93,7 +93,7 @@ export function HealthCard({ compact = false }: { compact?: boolean }) {
     update: { tone: 'warn', title: $t("Health Connect doit être mis à jour"), text: $t("Mets à jour « Health Connect » depuis le Play Store, puis reviens dans l’app.") },
     unavailable: { tone: 'crit', title: $t("Health Connect indisponible"), text: $t("Health Connect n’est pas installé sur ce téléphone. Installe-le depuis le Play Store, puis relie Garmin Connect à Health Connect.") },
     error: { tone: 'crit', title: $t("La dernière lecture a échoué"), text: prefs.healthLastError || h.error || $t("Erreur inconnue.") },
-    permissions: { tone: 'warn', title: $t("Montre pas encore reliée"), text: $t("Autorise Iron App à lire tes séances, ta FC, ton sommeil et ta FC de repos dans Health Connect. Coche aussi « Historique » pour reprendre tes séances passées.") },
+    permissions: { tone: 'warn', title: $t("Montre pas encore reliée"), text: $t("Autorise Quadra à lire tes séances, ta FC, ton sommeil et ta FC de repos dans Health Connect. Coche aussi « Historique » pour reprendre tes séances passées.") },
     never: { tone: 'warn', title: $t("Autorisations accordées, montre jamais lue"), text: $t("Lance une première lecture : elle remonte jusqu’à 400 jours si l’historique est autorisé.") },
     ok: { tone: 'ok', title: $t("Montre reliée"), text: $t("Dernière lecture le {0}{1}.", { 0: dateTimeFr(prefs.healthLastRun!), 1: report ? $t(" : {0} séance(s) vue(s), {1} nouvelle(s), {2} complétée(s), {3} nuit(s), {4} FC de repos", { 0: report.found, 1: report.inserted, 2: report.updated, 3: report.nights, 4: report.restingDays }) : '' }) },
   };

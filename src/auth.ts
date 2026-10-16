@@ -14,7 +14,7 @@ const EN = (() => {
   try { if (q) sessionStorage.setItem('ironapp:auth-lang', q); return (q ?? sessionStorage.getItem('ironapp:auth-lang')) === 'en'; } catch { return q === 'en'; }
 })();
 const T: Record<string, string> = {
-  'Connecté. Retour dans Iron App…': 'Signed in. Back to Iron App…',
+  'Connecté. Retour dans Quadra…': 'Signed in. Back to Quadra…',
   'La synchronisation n’est pas encore configurée (firebase-config.ts).': 'Sync is not configured yet (firebase-config.ts).',
   'Connexion impossible : ': 'Sign-in failed: ',
   'Ouverture de Google…': 'Opening Google…',
@@ -24,10 +24,10 @@ const T: Record<string, string> = {
 const t = (fr: string) => (EN ? T[fr] ?? fr : fr);
 if (EN) {
   document.documentElement.lang = 'en';
-  document.title = 'Sign in · Iron App';
+  document.title = 'Sign in · Quadra';
   $('lead').textContent = 'Sign in with your Google account: the Android app will get your synced data back.';
   $('go-label').textContent = 'Continue with Google';
-  $('back').textContent = 'Back to Iron App';
+  $('back').textContent = 'Back to Quadra';
 }
 
 function status(text: string, error = false) {
@@ -45,7 +45,7 @@ function handOff(cred: Any) {
   back.href = url;
   back.hidden = false;
   ($('go') as HTMLButtonElement).hidden = true;
-  status(t('Connecté. Retour dans Iron App…'));
+  status(t('Connecté. Retour dans Quadra…'));
   location.href = url;
 }
 

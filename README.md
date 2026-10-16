@@ -1,7 +1,7 @@
-# Iron App 2 — web, Android, iPhone, PC
+# Quadra — web, Android, iPhone, PC
 
-Suivi personnel d'entraînement triathlon (natation, vélo, course, renforcement), reconstruit sur le modèle de
-PEAnalyze : même typographie, mêmes icônes, mêmes fenêtres et même navigation, aux couleurs d'Iron App.
+Suivi personnel d'entraînement multisport (natation, vélo, course, renforcement), reconstruit sur le modèle de
+PEAnalyze : même typographie, mêmes icônes, mêmes fenêtres et même navigation, aux couleurs d'Quadra.
 **Une seule application web**, installable sur PC, iPhone et Android, synchronisée par un compte Google,
 plus **un APK Android** qui lit la montre Garmin via Health Connect.
 
@@ -17,7 +17,7 @@ sur le téléphone (identifiant Android distinct, `com.mathieu.ironapp.v2`) le t
 | `src/native/` | Pont vers l'APK : Health Connect, fichiers, notifications |
 | `src/ui/` | Composants (repris de PEAnalyze), graphiques SVG, icônes, navigation |
 | `src/screens/` | Accueil, Calendrier (semaine, mois, séance prévue, éditeur, périodisation), Séances (journal, bilan, saisie, statistiques), Progression (charge, objectif, zones), Coach, Paramètres |
-| `src/styles/` | `tokens.css` (mêmes noms de jetons que PEAnalyze, couleurs Iron App) et `app.css` |
+| `src/styles/` | `tokens.css` (mêmes noms de jetons que PEAnalyze, couleurs Quadra) et `app.css` |
 | `public/` | Icônes, manifeste, `auth.html` (connexion Google depuis l'APK) |
 | `android-shell/` | Coque Android Capacitor : module natif Health Connect (Kotlin), script d'adaptation, icônes, clé de signature |
 | `tests/` | Tests des calculs (`npm test`) |
@@ -46,7 +46,7 @@ sur le téléphone (identifiant Android distinct, `com.mathieu.ironapp.v2`) le t
 
 **Fait le 12/10/2026** : projet `ironapp-99f99`, connexion Google activée, domaine
 `mathieuoury34-gif.github.io` autorisé, Firestore créé en `eur3 (Europe)`, règles de `firestore.rules` saisies, application
-Web « Iron App » déclarée et `src/data/firebase-config.ts` rempli. Les étapes ci-dessous ne servent qu'à
+Web « Quadra » déclarée et `src/data/firebase-config.ts` rempli. Les étapes ci-dessous ne servent qu'à
 refaire la configuration ailleurs.
 
 1. Va sur https://console.firebase.google.com › **Ajouter un projet** › nom `ironapp`. Google Analytics n'est
@@ -55,7 +55,7 @@ refaire la configuration ailleurs.
 3. **Authentication › Settings › Domaines autorisés** : ajoute `<ton-compte>.github.io`.
 4. **Build › Firestore Database › Créer une base de données** : emplacement `eur3 (Europe)`, mode production.
 5. Dans l'onglet **Règles**, colle le contenu de `firestore.rules`, puis clique **Publier**.
-6. **Paramètres du projet (roue dentée) › Vos applications › Web (`</>`)** : nom `Iron App`, sans Hosting.
+6. **Paramètres du projet (roue dentée) › Vos applications › Web (`</>`)** : nom `Quadra`, sans Hosting.
    Copie les six valeurs de `firebaseConfig` dans `src/data/firebase-config.ts`.
 7. Envoie la modification sur GitHub. Le site republié propose alors « Continuer avec Google ».
 
@@ -67,15 +67,15 @@ configuration.
 - **PC** (Chrome ou Edge) : ouvre l'adresse du site, puis clique sur l'icône « Installer » dans la barre d'adresse.
 - **iPhone** : dans Safari, Partager › **Sur l'écran d'accueil**. Health Connect n'existe pas sur iPhone : les
   séances y arrivent par la synchronisation depuis le téléphone Android.
-- **Android** : installe l'**APK**, qui lit la montre. Sur GitHub, ouvre **Releases › Iron App — APK Android ›
-  iron-app.apk**, puis autorise l'installation depuis le navigateur. L'APK affiche le site publié : chaque
+- **Android** : installe l'**APK**, qui lit la montre. Sur GitHub, ouvre **Releases › Quadra — APK Android ›
+  quadra.apk**, puis autorise l'installation depuis le navigateur. L'APK affiche le site publié : chaque
   mise à jour du site met donc l'app à jour sans réinstallation. Il ne faut réinstaller l'APK que si le module
   natif change. Toutes les versions de l'APK sont signées avec la même clé (`android-shell/keystore`), si bien
   qu'une nouvelle version s'installe par-dessus l'ancienne.
 
 ## Reprendre les données de l'ancienne application
 
-1. Dans l'ancienne Iron App : **Paramètres › Export › Partager le fichier**. Enregistre le fichier `.db` (dans
+1. Dans l'ancienne Quadra : **Paramètres › Export › Partager le fichier**. Enregistre le fichier `.db` (dans
    Drive, par exemple).
 2. Dans la nouvelle app, ouvre **Paramètres › Données › Reprendre l'ancienne base (.db)** et choisis ce
    fichier. Au premier lancement, la carte de bienvenue propose aussi ce bouton.
