@@ -1,4 +1,28 @@
-# Brief à donner à Claude Design — nom et logo de l'application
+# Nom et logo d'Apogée — résultat retenu et brief d'origine
+
+## Résultat retenu (décision de Mathieu, 16 octobre 2026)
+
+- **Nom : Apogée.** Chronologie : Iron App → Quadra (provisoire, le matin du 16/10) → Apogée (le soir du 16/10).
+  Le nom ne cite ni le triathlon ni l'Ironman : l'app se décrit comme **multisport**.
+- **Logo : trois lunes qui montent en diagonale** — un croissant, une demi-lune, une pleine lune ambrée (le sommet,
+  l'« apogée »). Issu de Claude Design (projet « design logo »).
+- **Couleurs du logo** : fond encre `#16181B` ; lunes `#ECE8E0` ; pleine lune `#F0A61E` (sur fond clair : `#9A6B12`) ;
+  fond d'icône sur papier `#E9E3D6`.
+- **Logotype** : serif, Cormorant Garamond 600 (menu latéral). Le reste de l'interface reste en Montserrat (titres,
+  chiffres) et Open Sans (texte), inchangé.
+- **Icônes** : générées par `tools/icons.py` (rendu Chromium/Playwright) → `public/icons/` (favicon 32, apple-touch 180,
+  192/512, maskable 192/512) et `android-shell/res/` (lanceur, rond, premier plan adaptatif à 52 %, icône de
+  notification monochrome `ic_stat_apogee`). Le trait des contours s'épaissit quand l'icône rapetisse (1,8 → 5,5).
+- **Écran de démarrage** : mêmes trois lunes en SVG séparés, qui apparaissent l'une après l'autre (délais 0,1 / 0,35 /
+  0,6 s, 0,7 s chacune), lueur ambrée autour de la pleine lune ; 1,7 s minimum ; fond encre. Code : `index.html`.
+- **Ancien logo** (anneau de quatre arcs, une couleur par discipline) : abandonné.
+- Les couleurs de discipline de l'interface sont celles du tableau ci-dessous (colonne « Clair » / « Sombre »).
+
+Le brief d'origine, conservé tel quel ci-dessous, parle encore de « Quadra » et de l'anneau de quatre arcs.
+
+---
+
+# Brief d'origine (archive)
 
 > Archive : ce brief a servi à choisir le nom et le logo (résultat : Apogée, trois lunes qui montent). Il parle encore de « Quadra », le nom provisoire d’alors.
 

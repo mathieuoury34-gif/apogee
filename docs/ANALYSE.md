@@ -4,7 +4,7 @@ J'ai relu chaque calcul et chaque processus de l'ancienne application (React Nat
 les transposer. Ce document liste ce qui a été corrigé ou amélioré, avec la raison et l'effet visible. Tout
 ce qui n'y figure pas a été repris à l'identique, en particulier le format coach `apogee/1`, le vocabulaire
 des blocs et les seuils validés dans ETAT.md. Les principales corrections sont couvertes par les tests de
-`tests/domain.test.ts` (14 tests, lancés à chaque publication).
+`tests/domain.test.ts` (18 tests, lancés à chaque publication).
 
 ## A. Charge d'entraînement
 

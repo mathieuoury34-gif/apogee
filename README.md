@@ -22,7 +22,23 @@ sur le téléphone (identifiant Android distinct, `com.mathieu.apogee`) le temps
 | `android-shell/` | Coque Android Capacitor : module natif Health Connect (Kotlin), script d'adaptation, icônes, clé de signature |
 | `tests/` | Tests des calculs (`npm test`) |
 | `tools/` | Données de démonstration et captures d'écran (jamais publiées) |
-| `docs/` | Analyse des calculs, contrat coach `apogee/1` mis à jour |
+| `docs/` | Dossier de documentation complet (voir ci-dessous) : PRD, specs techniques, état, guide de reprise, historique, analyse des calculs, contrat coach `apogee/1`, brief nom et logo |
+
+## Documentation (`docs/`)
+
+| Fichier | Contenu |
+|---|---|
+| `PRD.md` | Produit : contexte, contraintes, périmètre, décisions, risques |
+| `SPECS-TECH.md` | Architecture, modèle de données, constantes de calcul exactes, Android, déploiement, pièges |
+| `ETAT.md` | Où en est le projet, points ouverts, à-faire |
+| `GUIDE-REPRISE.md` | Tout reconstruire de zéro : comptes, Firebase, GitHub, APK, ordre de réécriture |
+| `HISTORIQUE-RN.md` | Archive de l'ancienne version React Native (ETAT, PRD, SPECS) |
+| `ANALYSE.md` | Les 18 corrections de calcul et de processus |
+| `coach-context-apogee-1.md` | Contrat d'échange avec le coach (`apogee/1`) |
+| `brief-design-nom-logo.md` | Nom et logo : résultat retenu + brief d'origine |
+| `migration-firebase-apogee.md` | Migrer vers un nouveau projet Firebase |
+
+Les mêmes documents (sauf ANALYSE, contrat coach, migration Firebase) sont dans le projet Claude « Apogée ».
 
 ## Commandes
 
@@ -81,8 +97,8 @@ configuration.
 
 1. Dans l'ancienne Apogée : **Paramètres › Export › Partager le fichier**. Enregistre le fichier `.db` (dans
    Drive, par exemple).
-2. Dans la nouvelle app, ouvre **Paramètres › Données › Reprendre l'ancienne base (.db)** et choisis ce
-   fichier. Au premier lancement, la carte de bienvenue propose aussi ce bouton.
+2. Dans la nouvelle app, sur l'**Accueil** (tant qu'aucune séance n'existe), la carte de bienvenue propose
+   **Reprendre l'ancienne base (.db)** : choisis ce fichier.
 3. Le message affiche le nombre de séances reprises et la date de la dernière. L'ancienne app enregistre
    d'abord les dernières modifications dans un fichier annexe que le partage n'emporte pas. Si une saisie très
    récente (un ressenti, un commentaire) manque, refais-la dans la nouvelle app.
