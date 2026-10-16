@@ -299,3 +299,32 @@ test('sauvegarde : les fichiers faits sous les anciens noms (quadra, ironapp) re
   }
   assert.throws(() => parseBackup(text.replace('apogee-backup/1', 'autre/1')));
 });
+
+test('doublons : la même séance Garmin enregistrée deux fois se fusionne en gardant le ressenti, le rattachement et le titre', async () => {
+  const { planDedupe } = await import('../src/domain/dedupe');
+  const d = emptyData();
+  const base = {
+    updatedAt: '2026-10-12T00:00:00.000Z', sourceId: 'g-1', source: 'health', discipline: 'RUN', rawExerciseType: '56', startAt: '2026-10-10T08:00:00.000Z', endAt: '2026-10-10T08:30:00.000Z',
+    zoneOffsetMinutes: 120, durationSec: 1800, distanceM: 5000, activeCaloriesJ: null, totalCaloriesJ: null, elevationGainM: null, avgHrBpm: 140, maxHrBpm: 160, minHrBpm: 100,
+    hrCoverageRatio: 1, hrSampleCount: 300, avgSpeedMs: 2.7, maxSpeedMs: 3.5, hasSeries: true, edited: [], rpe: null, comment: null,
+  };
+  const orig = { ...base, id: '7', ingestedAt: '2026-08-22T10:00:00.000Z', rpe: 6, manualPlannedId: 'p-9' } as unknown as ActualSession;
+  const copy = { ...base, id: '1792165407248147', ingestedAt: '2026-10-16T15:43:00.000Z', comment: 'jambes lourdes', title: 'Sortie avec Paul' } as unknown as ActualSession;
+  const other = { ...base, id: '8', sourceId: 'g-2', ingestedAt: '2026-08-23T10:00:00.000Z' } as unknown as ActualSession;
+  for (const a of [orig, copy, other]) d.actual[a.id] = a;
+  const plan = planDedupe(d);
+  assert.deepEqual(plan.drop, ['1792165407248147'], 'seule la copie est supprimée');
+  assert.equal(plan.put.length, 1);
+  assert.equal(plan.put[0].id, '7');
+  assert.equal(plan.put[0].rpe, 6);
+  assert.equal(plan.put[0].manualPlannedId, 'p-9');
+  assert.equal(plan.put[0].comment, 'jambes lourdes', 'le commentaire de la copie est recopié');
+  assert.equal(plan.put[0].title, 'Sortie avec Paul');
+  // le résultat ne dépend pas de l'ordre : deux appareils font le même choix
+  const d2 = emptyData();
+  for (const a of [other, copy, orig]) d2.actual[a.id] = a;
+  assert.deepEqual(planDedupe(d2).drop, plan.drop);
+  // plus aucun doublon : rien à faire
+  delete d.actual[copy.id];
+  assert.equal(planDedupe(d).drop.length, 0);
+});

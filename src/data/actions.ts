@@ -3,6 +3,7 @@
 import { newId, nowIso } from '../domain/ids';
 import { buildManualSession, existingSourceIds, manualSourceId, type ManualInput } from '../domain/manual';
 import { liveRecords, sessionDay } from '../domain/load';
+import { planDedupe } from '../domain/dedupe';
 import type { ActualSession, AppData, Athlete, CollectionName, Collections, EditableField, Interruption, PlannedSession, Race, TrainingPhase, ZoneReading } from '../domain/types';
 import { COLLECTIONS } from '../domain/types';
 import { applyPreview, type CoachPlan, type Preview } from '../domain/coach';
@@ -180,3 +181,22 @@ export function blank<K extends CollectionName>(_c: K, rec: Omit<Collections[K],
 }
 
 export type { AppData };
+
+/**
+ * Fusionne les séances réalisées en double (même identifiant Garmin) : voir domain/dedupe.ts.
+ * Rend le nombre de doublons supprimés. Sans doublon, ne touche à rien.
+ */
+export function mergeDuplicateActuals(): number {
+  const d = getData();
+  const plan = planDedupe(d);
+  if (!plan.drop.length) return 0;
+  commit((tx) => {
+    plan.put.forEach((a) => tx.put('actual', a));
+    for (const id of plan.drop) { tx.remove('actual', id); tx.remove('series', id); }
+    for (const b of liveRecords(d.bricks)) {
+      const first = plan.remap.get(b.firstId) ?? b.firstId, second = plan.remap.get(b.secondId) ?? b.secondId;
+      if (first !== b.firstId || second !== b.secondId) tx.put('bricks', { ...b, firstId: first, secondId: second });
+    }
+  });
+  return plan.drop.length;
+}
