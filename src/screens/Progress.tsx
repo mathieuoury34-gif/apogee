@@ -4,7 +4,7 @@
 import { $t } from '../i18n';
 import { useState } from 'react';
 import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast, OtherToggle, useWithOther } from '../ui/kit';
-import { FormChart, LoadChart, LoadLegend, StackedWeeks, StepChart } from '../ui/charts';
+import { FormChart, LoadPanels, StackedWeeks, StepChart } from '../ui/charts';
 import { Icon } from '../ui/icons';
 import { navigate, useRoute } from '../ui/router';
 import { useCalc } from '../data/store';
@@ -81,7 +81,7 @@ export function LoadScreen() {
             <Segmented label={$t("Courbe")} value={view} onChange={setView} options={[['charge', $t("Charge")], ['forme', $t("Forme du jour")]]} />
             <ChipGroup label={$t("Période")} value={period} onChange={setPeriod} options={[['7', $t("1 sem.")], ['14', $t("2 sem.")], ['30', $t("1 mois")], ['90', $t("3 mois")], ['180', $t("6 mois")], ['365', $t("1 an")]]} />
           </div>
-          {view === 'charge' ? (<><LoadChart days={days} height={190} /><LoadLegend /></>) : (
+          {view === 'charge' ? <LoadPanels days={days} /> : (
             <>
               <FormChart days={formDays} forms={d.formByDay} />
               <p className="t-caption c-moderate">{$t("Score sur 100, calculé chaque matin à partir de ta nuit, de ta FC de repos, de ta fraîcheur au réveil et du ressenti de la veille, comparés à tes 14 jours précédents.")}</p>

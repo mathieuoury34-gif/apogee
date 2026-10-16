@@ -1,6 +1,6 @@
 // Identifiants. Les séances et blocs de périodisation créés dans l'app ont un identifiant NUMÉRIQUE :
 // leur clé d'échange coach reste donc `session:<chiffres>` / `phase:<chiffres>`, exactement comme dans
-// la version Android (règle du document coach-context-quadra-1.md, inchangée). Les identifiants
+// la version Android (règle du document coach-context-apogee-1.md, inchangée). Les identifiants
 // repris de l'ancienne base (1, 2, 482…) sont conservés tels quels : les clés déjà connues du coach
 // restent valides après la migration.
 let last = 0;

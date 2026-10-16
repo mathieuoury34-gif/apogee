@@ -1,7 +1,7 @@
 // Thème de l'interface : clair, sombre ou celui du système. Préférence propre à l'appareil,
 // appliquée sans recharger (attribut data-theme sur <html>, couleurs dans styles/tokens.css).
 export type ThemePref = 'light' | 'dark' | 'system';
-const KEY = 'quadra:theme';
+const KEY = 'apogee:theme';
 
 function read(): ThemePref {
   try {

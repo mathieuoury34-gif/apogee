@@ -15,6 +15,7 @@ import { liveRecords, sessionDay } from '../domain/load';
 import type { ActualSession, PlannedSession } from '../domain/types';
 import { DISCIPLINE_ICON, blockDetail, blockHead, dateFr, dayLong, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, MONTHS_TITLE, num, WD_LETTER, KIND_LABEL, phaseLabel } from '../ui/format';
 import { refKeyOfSession } from '../domain/coach';
+import { useActualMenu, usePlannedMenu } from '../ui/menu';
 
 const NAV = [{ to: '/calendrier', label: $t("Semaine") }, { to: '/calendrier/mois', label: $t("Mois") }];
 
@@ -135,12 +136,13 @@ function ActualRow({ s }: { s: ActualSession }) {
   const link = d.links.byActual.get(s.id);
   const p = link?.plannedId ? data.planned[link.plannedId] : undefined;
   const l = d.loads.get(s.id);
+  const { lp, sheet } = useActualMenu(s);
   return (
     <li className="op-item">
-      <button type="button" className="op-row" onClick={() => navigate('/seances/' + s.id)}>
+      <button type="button" className="op-row" {...lp} onClick={() => navigate('/seances/' + s.id)}>
         <DiscIcon d={s.discipline} sub={s.subSport} />
         <span className="stack" style={{ minWidth: 0 }}>
-          <span className="t-strong ellipsis">{p?.title ?? sessionLabel(s)}</span>
+          <span className="t-strong ellipsis">{s.title?.trim() || p?.title || sessionLabel(s)}</span>
           <span className="t-caption" style={{ color: 'var(--success-text)' }}><Icon name="check" size={14} style={{ verticalAlign: '-2px' }} /> {$t("Réalisée")}{p ? $t(" · prévue") : ''}{s.rpe ? $t(" · RPE ") + s.rpe : ''}</span>
         </span>
         <span className="stack" style={{ alignItems: 'flex-end' }}>
@@ -148,6 +150,7 @@ function ActualRow({ s }: { s: ActualSession }) {
           <span className="t-caption c-moderate nowrap">{s.distanceM && s.discipline !== 'STRENGTH' ? distanceFor(s.distanceM, s.discipline) : l?.load != null ? $t("charge ") + num(l.load, 0) : ''}</span>
         </span>
       </button>
+      {sheet}
     </li>
   );
 }
@@ -155,9 +158,10 @@ function ActualRow({ s }: { s: ActualSession }) {
 function PlannedRow({ p, missed }: { p: PlannedSession; missed: boolean }) {
   const { d } = useCalc();
   const dur = estimateDuration(p.blocks, p.discipline, d.refs);
+  const { lp, sheet } = usePlannedMenu(p);
   return (
     <li className="op-item">
-      <button type="button" className="op-row" onClick={() => navigate('/calendrier/prevue/' + p.id)}>
+      <button type="button" className="op-row" {...lp} onClick={() => navigate('/calendrier/prevue/' + p.id)}>
         <span className="disc-icon outline" style={{ borderColor: dvar(p.discipline), color: dvar(p.discipline) }}><DiscGlyph d={p.discipline} /></span>
         <span className="stack" style={{ minWidth: 0 }}>
           <span className="t-strong ellipsis">{p.title ?? DISCIPLINE_LABEL[p.discipline]}</span>
@@ -165,6 +169,7 @@ function PlannedRow({ p, missed }: { p: PlannedSession; missed: boolean }) {
         </span>
         <span className={'t-amount-s nowrap' + (dur.certainty !== 'exact' ? ' est' : '')}>{dur.certainty === 'unknown' ? '—' : duration(dur.value)}</span>
       </button>
+      {sheet}
     </li>
   );
 }
@@ -365,7 +370,7 @@ export function AddSheet() {
           <SheetRow icon="clipboard" title={$t("Coller un lot de séances faites")} sub={$t("Une ligne par séance, depuis tes notes")} onClick={() => go('/seances/saisie?mode=lot')} />
           <SheetRow icon="clipboard" title={$t("Coller un lot de séances prévues")} sub={$t("Date ; discipline ; durée ; titre")} onClick={() => go('/seances/saisie?mode=prevues')} />
           <SheetRow icon="pause" title={$t("Déclarer une interruption")} sub={$t("Blessure, déplacement, bivouac…")} onClick={() => go('/parametres/interruptions?nouvelle=' + date)} />
-          <SheetRow icon="coach" title={$t("Importer un plan du coach")} sub={$t("Fichier JSON quadra/1")} onClick={() => go('/coach?importer=1')} />
+          <SheetRow icon="coach" title={$t("Importer un plan du coach")} sub={$t("Fichier JSON apogee/1")} onClick={() => go('/coach?importer=1')} />
         </ul>
       </div>
     </Sheet>

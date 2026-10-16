@@ -27,7 +27,7 @@ export function pctSigned(ratio: number, d = 0): string { const r = Math.round(r
 
 // ------------------------------------------------------------------ disciplines
 /** Nom affiché d'une séance réalisée : l'activité précise pour « Autre » (randonnée, kayak…), sinon la discipline. */
-export const sessionLabel = (s: { discipline: Discipline; subSport?: string | null }): string => (s.discipline === 'OTHER' ? subSportOf(s.subSport)?.label : null) ?? DISCIPLINE_LABEL[s.discipline];
+export const sessionLabel = (s: { discipline: Discipline; subSport?: string | null; title?: string | null }): string => s.title?.trim() || (s.discipline === 'OTHER' ? subSportOf(s.subSport)?.label : null) || DISCIPLINE_LABEL[s.discipline];
 export const DISCIPLINE_LABEL: Record<Discipline, string> = { RUN: $t("Course"), BIKE: $t("Vélo"), SWIM: $t("Natation"), STRENGTH: $t("Renforcement"), BRICK: $t("Enchaînement"), OTHER: $t("Autre") };
 export const DISCIPLINE_SHORT: Record<Discipline, string> = { RUN: $t("Course"), BIKE: $t("Vélo"), SWIM: $t("Natation"), STRENGTH: $t("Renfo"), BRICK: $t("Enchaîn."), OTHER: $t("Autre") };
 export const DISCIPLINE_ICON: Record<Discipline, string> = { RUN: 'run', BIKE: 'bike', SWIM: 'swim', STRENGTH: 'strength', BRICK: 'brick', OTHER: 'other' };

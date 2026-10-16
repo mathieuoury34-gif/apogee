@@ -15,6 +15,7 @@ import { lastPlanValidity } from '../domain/coach';
 import { paceOf } from '../domain/stats';
 import type { ActualSession, PlannedSession } from '../domain/types';
 import { dateFr, dayLong, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, num, paceFor, relDays, signed, WD_LETTER, NBSP } from '../ui/format';
+import { useActualMenu, usePlannedMenu } from '../ui/menu';
 import { WelcomeCard } from './Welcome';
 import { HealthCard } from './Health';
 
@@ -148,40 +149,8 @@ function TodayCard({ planned, done, today }: { planned: PlannedSession[]; done: 
         <p className="c-neutral t-caption">{$t("Rien de prévu aujourd’hui. Le plan vient du coach — ou ajoute une séance avec le bouton +.")}</p>
       )}
       <ul className="divided">
-        {planned.map((p) => {
-          const dur = estimateDuration(p.blocks, p.discipline, d.refs);
-          const dist = estimateDistance(p.blocks, p.discipline, d.refs);
-          return (
-            <li key={p.id}>
-              <button type="button" className="row-btn" onClick={() => navigate('/calendrier/prevue/' + p.id)}>
-                <DiscIcon d={p.discipline} />
-                <span className="stack grow" style={{ minWidth: 0 }}>
-                  <span className="t-strong ellipsis">{p.title ?? DISCIPLINE_LABEL[p.discipline]}</span>
-                  <span className="t-caption c-moderate">{$t("Prévue ·")} {DISCIPLINE_LABEL[p.discipline]}</span>
-                </span>
-                <span className="stack right" style={{ alignItems: 'flex-end' }}>
-                  <span className={'t-amount-s' + (dur.certainty !== 'exact' ? ' est' : '')}>{dur.certainty === 'unknown' ? '—' : duration(dur.value)}</span>
-                  {dist.certainty !== 'unknown' && <span className="t-caption c-moderate">{distanceFor(dist.value, p.discipline)}</span>}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-        {done.map((s) => (
-          <li key={s.id}>
-            <button type="button" className="row-btn" onClick={() => navigate('/seances/' + s.id)}>
-              <DiscIcon d={s.discipline} sub={s.subSport} />
-              <span className="stack grow" style={{ minWidth: 0 }}>
-                <span className="t-strong ellipsis">{sessionLabel(s)}</span>
-                <span className="t-caption" style={{ color: 'var(--success-text)' }}><Icon name="check" size={14} style={{ verticalAlign: '-2px' }} /> {$t("Réalisée")}{s.rpe ? $t(" · RPE {0}", { 0: s.rpe }) : ''}</span>
-              </span>
-              <span className="stack" style={{ alignItems: 'flex-end' }}>
-                <span className="t-amount-s">{duration(s.durationSec)}</span>
-                {s.distanceM ? <span className="t-caption c-moderate">{distanceFor(s.distanceM, s.discipline)}</span> : null}
-              </span>
-            </button>
-          </li>
-        ))}
+        {planned.map((p) => <TodayPlannedRow key={p.id} p={p} />)}
+        {done.map((s) => <TodayDoneRow key={s.id} s={s} />)}
       </ul>
     </section>
   );
@@ -229,6 +198,49 @@ function WeekCard() {
   );
 }
 
+function TodayPlannedRow({ p }: { p: PlannedSession }) {
+  const { d } = useCalc();
+  const dur = estimateDuration(p.blocks, p.discipline, d.refs);
+  const dist = estimateDistance(p.blocks, p.discipline, d.refs);
+  const { lp, sheet } = usePlannedMenu(p);
+  return (
+    <li>
+      <button type="button" className="row-btn" {...lp} onClick={() => navigate('/calendrier/prevue/' + p.id)}>
+        <DiscIcon d={p.discipline} />
+        <span className="stack grow" style={{ minWidth: 0 }}>
+          <span className="t-strong ellipsis">{p.title ?? DISCIPLINE_LABEL[p.discipline]}</span>
+          <span className="t-caption c-moderate">{$t("Prévue ·")} {DISCIPLINE_LABEL[p.discipline]}</span>
+        </span>
+        <span className="stack right" style={{ alignItems: 'flex-end' }}>
+          <span className={'t-amount-s' + (dur.certainty !== 'exact' ? ' est' : '')}>{dur.certainty === 'unknown' ? '—' : duration(dur.value)}</span>
+          {dist.certainty !== 'unknown' && <span className="t-caption c-moderate">{distanceFor(dist.value, p.discipline)}</span>}
+        </span>
+      </button>
+      {sheet}
+    </li>
+  );
+}
+
+function TodayDoneRow({ s }: { s: ActualSession }) {
+  const { lp, sheet } = useActualMenu(s);
+  return (
+    <li>
+      <button type="button" className="row-btn" {...lp} onClick={() => navigate('/seances/' + s.id)}>
+        <DiscIcon d={s.discipline} sub={s.subSport} />
+        <span className="stack grow" style={{ minWidth: 0 }}>
+          <span className="t-strong ellipsis">{sessionLabel(s)}</span>
+          <span className="t-caption" style={{ color: 'var(--success-text)' }}><Icon name="check" size={14} style={{ verticalAlign: '-2px' }} /> {$t("Réalisée")}{s.rpe ? $t(" · RPE {0}", { 0: s.rpe }) : ''}</span>
+        </span>
+        <span className="stack" style={{ alignItems: 'flex-end' }}>
+          <span className="t-amount-s">{duration(s.durationSec)}</span>
+          {s.distanceM ? <span className="t-caption c-moderate">{distanceFor(s.distanceM, s.discipline)}</span> : null}
+        </span>
+      </button>
+      {sheet}
+    </li>
+  );
+}
+
 // ------------------------------------------------------------------ dernière séance
 function LastSessionCard({ s }: { s: ActualSession }) {
   const { data, d } = useCalc();
@@ -236,10 +248,11 @@ function LastSessionCard({ s }: { s: ActualSession }) {
   const pace = paceOf(s);
   const ago = daysBetween(sessionDay(s), d.today);
   const good = r.verdict === 'onPlan' || r.verdict === 'typical';
+  const { lp, sheet } = useActualMenu(s);
   return (
     <section aria-labelledby="h-last" className="card dspan-5" data-component="LastSession">
       <div className="between baseline"><h2 id="h-last">{$t("Dernière séance")}</h2><span className="t-caption c-moderate">{relDays(-ago)}</span></div>
-      <button type="button" className="row-btn" onClick={() => navigate('/seances/' + s.id)}>
+      <button type="button" className="row-btn" {...lp} onClick={() => navigate('/seances/' + s.id)}>
         <DiscIcon d={s.discipline} sub={s.subSport} />
         <span className="stack grow" style={{ minWidth: 0 }}>
           <span className="t-strong">{sessionLabel(s)} · {duration(s.durationSec)}{s.distanceM ? ' · ' + distanceFor(s.distanceM, s.discipline) : ''}</span>
@@ -247,6 +260,7 @@ function LastSessionCard({ s }: { s: ActualSession }) {
         </span>
         <Icon name="next" size={20} style={{ color: 'var(--text-moderate)' }} />
       </button>
+      {sheet}
       <div className="row wrap" style={{ gap: 'var(--space-8)' }}>
         <span className={'var-chip' + (good ? '' : r.verdict === 'pending' ? ' flat' : ' warn')}>{VERDICT_TEXT[r.verdict]}</span>
         {!s.rpe && <button type="button" className="btn btn-secondary" style={{ height: 32 }} onClick={() => navigate('/seances/' + s.id + '?ressenti=1')}><Icon name="edit" size={16} />{$t("Noter mon ressenti")}</button>}

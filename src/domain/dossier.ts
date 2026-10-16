@@ -1,4 +1,4 @@
-// Complément de reprise : le dossier-athlète `quadra/1` exporté par l'ancienne app (écran Coach).
+// Complément de reprise : le dossier-athlète `apogee/1` exporté par l'ancienne app (écran Coach).
 // Le fichier .db partagé par l'ancienne app peut manquer ses toutes dernières écritures (SQLite les garde
 // d'abord dans un fichier annexe que le partage n'emporte pas). Le dossier coach exporté juste avant,
 // lui, contient les séances jointes et les séances prévues à venir : on s'en sert pour compléter, sans
@@ -13,13 +13,13 @@ import { newId, nowIso } from './ids';
 import type { ActualDiscipline, ActualSession, AppData, Block, PlannedDiscipline, PlannedSession } from './types';
 import { ACTUAL_DISCIPLINES, PLANNED_DISCIPLINES } from './types';
 
-interface DossierActual { internalId: number | string; discipline: string; startAt: string; durationSec: number; distanceM: number | null; avgHrBpm: number | null; rpe: number | null; comment: string | null }
+interface DossierActual { internalId: number | string; discipline: string; title?: string | null; startAt: string; durationSec: number; distanceM: number | null; avgHrBpm: number | null; rpe: number | null; comment: string | null }
 interface DossierPlanned { refKey: string; discipline: string; plannedDate: string; title: string | null; notes: string | null; blocks: Block[] }
 export interface Dossier { schemaVersion: string; generatedAt?: string; recentActualSessions: DossierActual[]; upcomingPlannedSessions?: DossierPlanned[] }
 
 export function isDossier(j: unknown): j is Dossier {
   const d = j as Partial<Dossier> | null;
-  return !!d && typeof d === 'object' && (d.schemaVersion === 'quadra/1' || d.schemaVersion === 'ironapp/1') && Array.isArray(d.recentActualSessions);
+  return !!d && typeof d === 'object' && ['apogee/1', 'quadra/1', 'ironapp/1'].includes(d.schemaVersion as string) && Array.isArray(d.recentActualSessions);
 }
 
 export interface DossierReport { added: number; completed: number; known: number; plannedAdded: number; plannedKnown: number; skipped: number }
@@ -57,7 +57,7 @@ export function importDossierData(data: AppData, dossier: Dossier): { actual: Ac
       activeCaloriesJ: null, totalCaloriesJ: null, elevationGainM: null,
       avgHrBpm: r.avgHrBpm ?? null, maxHrBpm: null, minHrBpm: null, hrCoverageRatio: null, hrSampleCount: null,
       avgSpeedMs: r.distanceM && r.durationSec ? r.distanceM / r.durationSec : null, maxSpeedMs: null,
-      hasSeries: false, edited: [], rpe: r.rpe ?? null, comment: r.comment ?? null, ingestedAt: now,
+      hasSeries: false, edited: [], title: r.title?.trim() || null, rpe: r.rpe ?? null, comment: r.comment ?? null, ingestedAt: now,
     });
     report.added++;
   }

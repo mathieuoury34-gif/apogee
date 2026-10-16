@@ -132,7 +132,7 @@ export function useReady(): boolean {
 }
 
 // ------------------------------------------------------------------ préférences propres à l'appareil
-const PREF_KEY = 'quadra:prefs';
+const PREF_KEY = 'apogee:prefs';
 export interface Prefs {
   skipLogin: boolean;
   syncedUid?: string;

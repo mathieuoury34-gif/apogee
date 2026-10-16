@@ -1,4 +1,4 @@
-/* Quadra – styles des composants : transposition fidèle de PEAnalyze (app.css), uniquement via les tokens. Ajouts propres à Quadra en fin de fichier. */
+/* Apogée – styles des composants : transposition fidèle de PEAnalyze (app.css), uniquement via les tokens. Ajouts propres à Apogée en fin de fichier. */
 
 :root {
   /* zones sûres réelles de l'appareil (les maquettes utilisaient celles d'un iPhone) */
@@ -299,7 +299,8 @@ select.input { appearance: auto; }
 .empty .empty-icon { width: 88px; height: 88px; border-radius: var(--radius-full); background: var(--bg-brand-minimal); color: var(--primary-fg); display: flex; align-items: center; justify-content: center; }
 
 /* logotype */
-.logo { display: inline-flex; align-items: center; gap: 0.45em; font-family: var(--font-heading); font-weight: var(--fw-700); }
+.logo { display: inline-flex; align-items: center; gap: 0.3em; font-family: var(--font-heading); font-weight: var(--fw-700); }
+.logo-word { font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif; font-weight: 600; font-size: 1.5em; letter-spacing: 0; line-height: 1; color: var(--text); padding-bottom: 0.08em; }
 .logo-mark { display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--brand-primary); }
 
 /* tableau */
@@ -365,7 +366,7 @@ select.input { appearance: auto; }
   .app-main { box-shadow: 0 0 0 1px var(--divider-minimal); }
 }
 
-/* ================================================================== AJOUTS IRON APP */
+/* ================================================================== AJOUTS APOGÉE */
 /* Mêmes principes que le reste : uniquement des tokens, mêmes rayons, mêmes ombres. */
 .t-hero { font: var(--type-hero); letter-spacing: -0.02em; }
 .hide-desktop { }
@@ -571,8 +572,7 @@ select.input { appearance: auto; }
 
 /* glisser-déposer d'un bloc (appui long) */
 .edit-block.dragging { opacity: .96; outline: 2px solid var(--kc, var(--brand-primary)); }
-.edit-block.drop-before { box-shadow: 0 -3px 0 0 var(--brand-primary); }
-.edit-block.drop-after { box-shadow: 0 3px 0 0 var(--brand-primary); }
+.drop-line { position: fixed; height: 3px; border-radius: 2px; background: var(--info); box-shadow: 0 0 0 2px color-mix(in srgb, var(--info) 28%, transparent); pointer-events: none; z-index: 60; }
 .block-main { touch-action: pan-y; }
 
 /* balayage entre semaines / mois */
@@ -586,3 +586,19 @@ select.input { appearance: auto; }
 /* éditeur : l'étiquette du bloc ne se coupe plus */
 .edit-block .block-main { grid-template-columns: minmax(104px, auto) minmax(0, 1fr); }
 .edit-block .block-role { white-space: nowrap; font-size: 11px; letter-spacing: .3px; overflow-wrap: normal; }
+
+/* Charge : trois graphiques lisibles + bandeau de valeurs */
+.load-panels { display: flex; flex-direction: column; gap: var(--space-20); width: 100%; }
+.load-readout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-8) var(--space-16); padding: var(--space-12) var(--space-16); border-radius: var(--radius-12); background: var(--bg-surface-minimal); font: var(--type-caption); }
+.load-readout .when { grid-column: 1 / -1; }
+.load-readout > span:not(.when) { display: flex; align-items: baseline; gap: var(--space-6); flex-wrap: wrap; }
+.load-readout strong { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 16px; }
+.load-readout em { font-style: normal; font-size: 11px; color: var(--text-moderate); }
+.load-readout .sw { flex: none; width: 12px; height: 8px; border-radius: 3px; align-self: center; display: inline-block; }
+.lp { display: flex; flex-direction: column; gap: var(--space-6); }
+.lp h3 { margin: 0; }
+.lp p { margin: 0 0 var(--space-4); }
+@media (min-width: 640px) { .load-readout { grid-template-columns: auto repeat(4, minmax(0, 1fr)); align-items: baseline; } .load-readout .when { grid-column: auto; } }
+
+/* Appui long : pas de menu système ni de sélection de texte sur les lignes de séance */
+.op-row, .row-btn { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }

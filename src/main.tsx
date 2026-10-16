@@ -39,7 +39,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
       if (!regs.length) return;
       await Promise.all(regs.map((r) => r.unregister()));
       if (!native.isApp()) {
-        try { if (sessionStorage.getItem('quadra:sw-reload')) return; sessionStorage.setItem('quadra:sw-reload', '1'); } catch { /* rien */ }
+        try { if (sessionStorage.getItem('apogee:sw-reload')) return; sessionStorage.setItem('apogee:sw-reload', '1'); } catch { /* rien */ }
         location.reload();
       }
     }).catch(() => undefined);

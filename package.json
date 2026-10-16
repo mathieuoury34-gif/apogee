@@ -1,8 +1,8 @@
 {
-  "name": "quadra",
+  "name": "apogee",
   "version": "2.0.0",
   "private": true,
-  "description": "Quadra – suivi d'entraînement multisport (web, Android, iPhone, PC)",
+  "description": "Apogée – suivi d'entraînement multisport (web, Android, iPhone, PC)",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",

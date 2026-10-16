@@ -1,7 +1,7 @@
-// Module natif de l'APK Quadra : lecture Health Connect (séances Garmin, FC, vitesse, distance, calories,
-// dénivelé, sommeil, FC de repos). Exposé à l'app web par Capacitor sous `window.Capacitor.Plugins.QuadraHealth`.
+// Module natif de l'APK Apogée : lecture Health Connect (séances Garmin, FC, vitesse, distance, calories,
+// dénivelé, sommeil, FC de repos). Exposé à l'app web par Capacitor sous `window.Capacitor.Plugins.ApogeeHealth`.
 // Lecture seule : l'app n'écrit jamais dans Health Connect.
-package com.mathieu.quadra
+package com.mathieu.apogee
 
 import android.content.Intent
 import androidx.activity.result.ActivityResultLauncher
@@ -33,8 +33,8 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import kotlin.reflect.KClass
 
-@CapacitorPlugin(name = "QuadraHealth")
-class QuadraHealthPlugin : Plugin() {
+@CapacitorPlugin(name = "ApogeeHealth")
+class ApogeeHealthPlugin : Plugin() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var launcher: ActivityResultLauncher<Set<String>>? = null
     private var pendingPermissionCall: PluginCall? = null

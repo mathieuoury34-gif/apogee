@@ -1,17 +1,17 @@
 // Adapte le projet Android généré par `npx cap add android` (dossier android/, jamais versionné) :
 //  - autorisations Health Connect (lecture seule) + historique, écran de justification exigé par Android 14 ;
-//  - lien quadra://auth (retour de la connexion Google ouverte dans le navigateur) ;
-//  - module natif QuadraHealth (Kotlin) enregistré dans MainActivity ;
+//  - lien apogee://auth (retour de la connexion Google ouverte dans le navigateur) ;
+//  - module natif ApogeeHealth (Kotlin) enregistré dans MainActivity ;
 //  - minSdk 26 (Health Connect), Kotlin, keystore de debug versionné (les mises à jour s'installent
 //    par-dessus l'APK précédent au lieu d'exiger une désinstallation) ;
-//  - icônes de Quadra.
+//  - icônes d’Apogée.
 // Le script est idempotent : le relancer ne duplique rien.
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const A = 'android';
 const APP = join(A, 'app');
-const PKG = 'com/mathieu/quadra';
+const PKG = 'com/mathieu/apogee';
 const read = (p) => readFileSync(p, 'utf8');
 const write = (p, s) => writeFileSync(p, s);
 const must = (cond, msg) => { if (!cond) { console.error('patch-android : ' + msg); process.exit(1); } };
@@ -47,7 +47,7 @@ if (!m.includes('ACTION_SHOW_PERMISSIONS_RATIONALE')) {
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="quadra" android:host="auth" />
+                <data android:scheme="apogee" android:host="auth" />
             </intent-filter>
 `;
   const i = m.indexOf('</activity>');
@@ -90,11 +90,11 @@ write(rootGradle, rg);
 const appGradle = join(APP, 'build.gradle');
 let g = read(appGradle);
 if (!g.includes("apply plugin: 'kotlin-android'")) g = g.replace("apply plugin: 'com.android.application'", "apply plugin: 'com.android.application'\napply plugin: 'kotlin-android'");
-if (!g.includes('quadra-debug.keystore')) {
+if (!g.includes('apogee-debug.keystore')) {
   g = g.replace(/android\s*\{/, `android {
     signingConfigs {
         debug {
-            storeFile file('../../keystore/quadra-debug.keystore')
+            storeFile file('../../keystore/apogee-debug.keystore')
             storePassword 'android'
             keyAlias 'androiddebugkey'
             keyPassword 'android'
@@ -117,8 +117,8 @@ write(appGradle, g);
 // ---------------------------------------------------------------- module natif + MainActivity
 const javaDir = join(APP, 'src/main/java', PKG);
 mkdirSync(javaDir, { recursive: true });
-cpSync('plugin/QuadraHealthPlugin.kt', join(javaDir, 'QuadraHealthPlugin.kt'));
-write(join(javaDir, 'MainActivity.java'), `package com.mathieu.quadra;
+cpSync('plugin/ApogeeHealthPlugin.kt', join(javaDir, 'ApogeeHealthPlugin.kt'));
+write(join(javaDir, 'MainActivity.java'), `package com.mathieu.apogee;
 
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
@@ -126,7 +126,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        registerPlugin(QuadraHealthPlugin.class);
+        registerPlugin(ApogeeHealthPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
@@ -136,6 +136,6 @@ public class MainActivity extends BridgeActivity {
 cpSync('res', join(APP, 'src/main/res'), { recursive: true });
 mkdirSync(join(APP, 'src/main/res/values'), { recursive: true });
 const bg = join(APP, 'src/main/res/values/ic_launcher_background.xml');
-write(bg, `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#E9E3D6</color>\n</resources>\n`);
+write(bg, `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#16181B</color>\n</resources>\n`);
 
-console.log('Projet Android adapté pour Quadra.');
+console.log('Projet Android adapté pour Apogée.');

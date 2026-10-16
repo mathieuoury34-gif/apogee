@@ -39,6 +39,16 @@ const TEMPLATES: Record<PlannedDiscipline, { label: string; blocks: () => Block[
 };
 
 type Path = [number] | [number, number];
+type Target = { parent: number; index: number };
+type Line = Target & { y: number; left: number; width: number; level: 0 | 1 };
+/** Premier ancêtre qui défile (sinon la page). */
+function scrollParent(el: HTMLElement | null): HTMLElement | null {
+  for (let n = el; n; n = n.parentElement) {
+    const o = getComputedStyle(n).overflowY;
+    if ((o === 'auto' || o === 'scroll') && n.scrollHeight > n.clientHeight) return n;
+  }
+  return document.scrollingElement as HTMLElement | null;
+}
 
 export function PlannedEditorScreen({ id }: { id: string }) {
   const route = useRoute();
@@ -65,7 +75,8 @@ export function PlannedEditorScreen({ id }: { id: string }) {
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
-  const [drag, setDrag] = useState<{ grp: string; from: number; dy: number; to: number } | null>(null);
+  const [drag, setDrag] = useState<{ from: Path; dy: number; line: { y: number; left: number; width: number } | null } | null>(null);
+  const listRef = useRef<HTMLOListElement>(null);
   const [addMenu, setAddMenu] = useState<number | null>(null); // -1 = racine, i = enfant de la série i
   const [tried, setTried] = useState(false);
   const issues = useMemo(() => validateSession(draft), [draft]);
@@ -87,14 +98,17 @@ export function PlannedEditorScreen({ id }: { id: string }) {
     [arr[i], arr[j]] = [arr[j], arr[i]];
     setBlocks(bl);
   };
-  const moveTo = (p: Path, to: number) => {
+  /** Déplace un bloc (ou une série) n'importe où : dans sa liste, dans une autre série, ou hors d'une série.
+   *  `t.parent` = index de la série d'arrivée dans la liste d'origine (-1 : racine) ; `t.index` = position d'arrivée une fois le bloc retiré. */
+  const moveBlock = (p: Path, t: Target) => {
     const bl = structuredClone(draft.blocks);
-    const arr = p.length === 1 ? bl : bl[p[0]].children;
-    const i = p[p.length - 1];
-    if (to === i || to < 0 || to >= arr.length) return;
-    const [x] = arr.splice(i, 1);
-    arr.splice(to, 0, x);
-    setBlocks(bl);
+    const src = p.length === 1 ? bl : bl[p[0]].children;
+    const dest = t.parent < 0 ? null : bl[t.parent];
+    const [x] = src.splice(p[p.length - 1], 1);
+    if (!x || (dest && x.kind === 'SET')) return;
+    const dst = dest ? dest.children : bl;
+    dst.splice(Math.min(Math.max(t.index, 0), dst.length), 0, x);
+    if (JSON.stringify(bl) !== JSON.stringify(draft.blocks)) setBlocks(bl);
   };
   const duplicate = (p: Path) => {
     const bl = structuredClone(draft.blocks);
@@ -105,55 +119,102 @@ export function PlannedEditorScreen({ id }: { id: string }) {
     setBlocks(bl);
     showToast(arr[i].kind === 'SET' ? $t("Série dupliquée") : $t("Bloc dupliqué"));
   };
-  /** Appui long sur un bloc puis glissement : le bloc suit le doigt, et se pose à l'endroit où on le relâche. */
-  const startPress = (e: React.PointerEvent, grp: string, p: Path) => {
+  /** Points d'insertion possibles pendant un glissement, lus dans le document (donc justes même après un défilement). */
+  const collectLines = (p: Path, isSet: boolean): Line[] => {
+    const ol = listRef.current;
+    if (!ol) return [];
+    const out: Line[] = [];
+    const isSelf = (parent: number, idx: number) => (p.length === 1 ? parent < 0 && idx === p[0] : parent === p[0] && idx === p[1]);
+    const rows = (Array.from(ol.querySelectorAll(':scope > li[data-idx]')) as HTMLElement[]).filter((r) => !isSelf(-1, +r.dataset.idx!));
+    rows.forEach((r, k) => { const b = r.getBoundingClientRect(); out.push({ parent: -1, index: k, y: b.top - 4, left: b.left, width: b.width, level: 0 }); });
+    if (rows.length) { const b = rows[rows.length - 1].getBoundingClientRect(); out.push({ parent: -1, index: rows.length, y: b.bottom + 4, left: b.left, width: b.width, level: 0 }); }
+    else { const b = ol.getBoundingClientRect(); out.push({ parent: -1, index: 0, y: b.top, left: b.left, width: b.width, level: 0 }); }
+    if (!isSet) {
+      rows.forEach((r) => {
+        const pi = +r.dataset.idx!;
+        const cl = r.querySelector(':scope > ol.edit-children');
+        if (!cl) return;
+        const kids = (Array.from(cl.querySelectorAll(':scope > li[data-idx]')) as HTMLElement[]).filter((c) => !isSelf(pi, +c.dataset.idx!));
+        kids.forEach((c, k) => { const b = c.getBoundingClientRect(); out.push({ parent: pi, index: k, y: b.top - 3, left: b.left, width: b.width, level: 1 }); });
+        if (kids.length) { const b = kids[kids.length - 1].getBoundingClientRect(); out.push({ parent: pi, index: kids.length, y: b.bottom + 3, left: b.left, width: b.width, level: 1 }); }
+        else if (cl.lastElementChild) { const b = (cl.lastElementChild as HTMLElement).getBoundingClientRect(); out.push({ parent: pi, index: 0, y: b.top, left: b.left, width: b.width, level: 1 }); }
+      });
+    }
+    return out;
+  };
+  /** Appui long sur un bloc puis glissement : le bloc suit le doigt et se pose à l'endroit du trait bleu, y compris dans une autre série. */
+  const startPress = (e: React.PointerEvent, p: Path) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const el = (e.currentTarget as HTMLElement).closest('li[data-idx]') as HTMLElement | null;
-    const list = el?.parentElement;
-    if (!el || !list) return;
+    if (!el || !listRef.current) return;
+    const isSet = blockAt(p).kind === 'SET';
     const x0 = e.clientX, y0 = e.clientY;
-    const from = p[p.length - 1];
     let active = false;
-    let mids: number[] = [];
-    const calc = (y: number) => mids.filter((m, j) => j !== from && m < y).length;
+    let last = { x: x0, y: y0 };
+    let target: Line | null = null;
+    let scroller: HTMLElement | null = null, scroll0 = 0, raf = 0;
+    const pick = (x: number, y: number): Line | null => {
+      const ls = collectLines(p, isSet);
+      if (!ls.length) return null;
+      const nest = x > ls[0].left + ls[0].width * 0.33; // doigt vers la droite : on préfère l'intérieur d'une série
+      let best: Line | null = null, bestC = Infinity;
+      for (const l of ls) { const c = Math.abs(y - l.y) + ((l.level === 1) === nest ? 0 : 14); if (c < bestC) { bestC = c; best = l; } }
+      return best;
+    };
+    const paint = () => {
+      target = pick(last.x, last.y);
+      setDrag({ from: p, dy: last.y - y0 + ((scroller?.scrollTop ?? 0) - scroll0), line: target ? { y: target.y, left: target.left, width: target.width } : null });
+    };
+    const tick = () => {
+      if (!active) return;
+      const edge = 90;
+      const dv = last.y < edge ? -Math.ceil((edge - last.y) / 6) : last.y > window.innerHeight - edge ? Math.ceil((last.y - (window.innerHeight - edge)) / 6) : 0;
+      if (dv && scroller) { const before = scroller.scrollTop; scroller.scrollTop += dv; if (scroller.scrollTop !== before) paint(); }
+      raf = requestAnimationFrame(tick);
+    };
     const noScroll = (ev: TouchEvent) => { if (active && ev.cancelable) ev.preventDefault(); };
     const move = (ev: PointerEvent) => {
-      if (!active) { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 10) stop(false); return; }
-      setDrag({ grp, from, dy: ev.clientY - y0, to: calc(ev.clientY) });
+      last = { x: ev.clientX, y: ev.clientY };
+      if (!active) { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 10) stop(); return; }
+      paint();
     };
-    const up = (ev: PointerEvent) => {
-      const wasActive = active;
-      const to = calc(ev.clientY);
-      stop(false);
-      if (wasActive) { suppressClick.current = true; setTimeout(() => { suppressClick.current = false; }, 350); moveTo(p, to); }
+    const up = () => {
+      const was = active, t = target;
+      stop();
+      if (was) { suppressClick.current = true; setTimeout(() => { suppressClick.current = false; }, 350); if (t) moveBlock(p, { parent: t.parent, index: t.index }); }
     };
     const timer = setTimeout(() => {
       active = true;
-      mids = Array.from(list.querySelectorAll(':scope > li[data-idx]')).map((n) => { const r = n.getBoundingClientRect(); return r.top + r.height / 2; });
+      scroller = scrollParent(listRef.current);
+      scroll0 = scroller?.scrollTop ?? 0;
       navigator.vibrate?.(15);
-      setDrag({ grp, from, dy: 0, to: from });
+      paint();
+      raf = requestAnimationFrame(tick);
     }, 380);
-    function stop(_final: boolean) {
+    function stop() {
       clearTimeout(timer);
+      cancelAnimationFrame(raf);
       active = false;
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('pointercancel', stop);
       document.removeEventListener('touchmove', noScroll);
       setDrag(null);
     }
-    function cancel() { stop(false); }
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('pointercancel', stop);
     document.addEventListener('touchmove', noScroll, { passive: false });
   };
   const suppressClick = useRef(false);
-  const rowProps = (grp: string, i: number) => ({
-    'data-idx': i,
-    style: drag && drag.grp === grp && drag.from === i ? { transform: `translateY(${drag.dy}px) scale(1.02)`, zIndex: 5, boxShadow: 'var(--shadow-m, 0 6px 18px rgba(0,0,0,.25))', position: 'relative' as const, transition: 'none' } : undefined,
-    className: drag && drag.grp === grp ? (drag.from === i ? ' dragging' : drag.to !== drag.from && drag.to === i ? (drag.to < drag.from ? ' drop-before' : ' drop-after') : '') : '',
-  });
+  const rowProps = (p: Path) => {
+    const mine = !!drag && drag.from.length === p.length && drag.from.every((v, j) => v === p[j]);
+    return {
+      'data-idx': p[p.length - 1],
+      style: mine && drag ? { transform: `translateY(${drag.dy}px) scale(1.02)`, zIndex: 5, boxShadow: 'var(--shadow-m, 0 6px 18px rgba(0,0,0,.25))', position: 'relative' as const, transition: 'none' } : undefined,
+      className: mine ? ' dragging' : '',
+    };
+  };
   const add = (kind: BlockKind, parent: number) => {
     const bl = structuredClone(draft.blocks);
     const b = newBlock(kind);
@@ -211,15 +272,15 @@ export function PlannedEditorScreen({ id }: { id: string }) {
                 </div>
               </div>
             )}
-            <ol className="edit-blocks">
+            <ol className="edit-blocks" ref={listRef}>
               {draft.blocks.map((b, i) => (
-                <li key={i} data-idx={rowProps('r', i)['data-idx']} style={rowProps('r', i).style} className={'edit-block k-' + b.kind + (tried && issues.some((x) => x.path[0] === i) ? ' invalid' : '') + rowProps('r', i).className}>
-                  <BlockRow b={b} d={draft.discipline} onOpen={() => { if (!suppressClick.current) openEdit([i]); }} onPress={(e) => startPress(e, 'r', [i])} onDup={() => duplicate([i])} onUp={i > 0 ? () => move([i], -1) : undefined} onDown={i < draft.blocks.length - 1 ? () => move([i], 1) : undefined} />
+                <li key={i} data-idx={i} style={rowProps([i]).style} className={'edit-block k-' + b.kind + (tried && issues.some((x) => x.path[0] === i) ? ' invalid' : '') + rowProps([i]).className}>
+                  <BlockRow b={b} d={draft.discipline} onOpen={() => { if (!suppressClick.current) openEdit([i]); }} onPress={(e) => startPress(e, [i])} onDup={() => duplicate([i])} onUp={i > 0 ? () => move([i], -1) : undefined} onDown={i < draft.blocks.length - 1 ? () => move([i], 1) : undefined} />
                   {b.kind === 'SET' && (
                     <ol className="edit-children">
                       {b.children.map((c, k) => (
-                        <li key={k} data-idx={k} style={rowProps('c' + i, k).style} className={'edit-block child k-' + c.kind + (tried && issues.some((x) => x.path[0] === i && x.path[1] === k) ? ' invalid' : '') + rowProps('c' + i, k).className}>
-                          <BlockRow b={c} d={draft.discipline} onOpen={() => { if (!suppressClick.current) openEdit([i, k]); }} onPress={(e) => startPress(e, 'c' + i, [i, k])} onDup={() => duplicate([i, k])} onUp={k > 0 ? () => move([i, k], -1) : undefined} onDown={k < b.children.length - 1 ? () => move([i, k], 1) : undefined} />
+                        <li key={k} data-idx={k} style={rowProps([i, k]).style} className={'edit-block child k-' + c.kind + (tried && issues.some((x) => x.path[0] === i && x.path[1] === k) ? ' invalid' : '') + rowProps([i, k]).className}>
+                          <BlockRow b={c} d={draft.discipline} onOpen={() => { if (!suppressClick.current) openEdit([i, k]); }} onPress={(e) => startPress(e, [i, k])} onDup={() => duplicate([i, k])} onUp={k > 0 ? () => move([i, k], -1) : undefined} onDown={k < b.children.length - 1 ? () => move([i, k], 1) : undefined} />
                         </li>
                       ))}
                       <li><button type="button" className="btn btn-tertiary" style={{ minHeight: 36 }} onClick={() => setAddMenu(addMenu === i ? null : i)}><Icon name="plus" size={18} />{$t("Ajouter dans la série")}</button>
@@ -259,6 +320,7 @@ export function PlannedEditorScreen({ id }: { id: string }) {
           <div className="form-narrow"><button type="button" className="btn btn-primary block" onClick={save}>{existing ? $t("Enregistrer les modifications") : $t("Planifier la séance")}</button></div>
         </div>
       </div>
+      {drag?.line && <div className="drop-line" aria-hidden="true" style={{ top: drag.line.y - 1.5, left: drag.line.left, width: drag.line.width }} />}
       {edit && blockAt(edit) && (
         <BlockSheet block={blockAt(edit)} discipline={draft.discipline} isChild={edit.length === 2} refs={d.refs}
           onClose={closeEdit} onApply={(b) => { replaceAt(edit, b); closeEdit(); }} onDelete={() => { replaceAt(edit, null); closeEdit(); }} onDuplicate={() => { duplicate(edit); closeEdit(); }} />

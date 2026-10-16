@@ -1,4 +1,4 @@
-// Modèle de données de Quadra (version web + APK).
+// Modèle de données d’Apogée (version web + APK).
 //
 // Une seule source de vérité : `AppData`, gardée en mémoire, persistée sur l'appareil (IndexedDB)
 // et synchronisée enregistrement par enregistrement avec Firestore quand le compte Google est relié.
@@ -19,7 +19,7 @@ export const ACTUAL_DISCIPLINES = [...DISCIPLINES, 'OTHER'] as const;
 export type ActualDiscipline = (typeof ACTUAL_DISCIPLINES)[number];
 export type Discipline = PlannedDiscipline | ActualDiscipline;
 
-// ------------------------------------------------------------------ vocabulaire des blocs (FIGÉ, format quadra/1)
+// ------------------------------------------------------------------ vocabulaire des blocs (FIGÉ, format apogee/1)
 export const BLOCK_KINDS = ['WARMUP', 'WORK', 'RECOVERY', 'REST', 'COOLDOWN', 'TRANSITION', 'SET'] as const;
 export type BlockKind = (typeof BLOCK_KINDS)[number];
 export const BLOCK_MEASURES = ['TIME', 'DISTANCE', 'REPS', 'OPEN'] as const;
@@ -135,6 +135,8 @@ export interface ActualSession extends Rec {
   discipline: ActualDiscipline;
   /** Pour « Autre » : activité précise (randonnée, kayak…), purement visuelle. */
   subSport?: string | null;
+  /** Titre donné à la main (« GR20 · étape 3 », « Sortie avec Paul »). Remplace le nom de l'activité à l'affichage. */
+  title?: string | null;
   /** Type d'exercice Health Connect d'origine ('manual' pour une saisie). */
   rawExerciseType: string | null;
   startAt: string;

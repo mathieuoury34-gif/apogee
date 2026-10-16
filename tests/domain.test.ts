@@ -1,4 +1,4 @@
-// Tests des calculs de Quadra (node --test). Lancer : npm test
+// Tests des calculs d’Apogée (node --test). Lancer : npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -18,8 +18,8 @@ import type { ActualSession, AppData, Block } from '../src/domain/types';
 const SETTINGS = { provisionalLoad: true };
 
 function legacy(): AppData {
-  execFileSync('python3', ['tests/fixtures/make_legacy_db.py', '/tmp/quadra-legacy-test.db']);
-  return importLegacyDb(new Uint8Array(readFileSync('/tmp/quadra-legacy-test.db'))).data;
+  execFileSync('python3', ['tests/fixtures/make_legacy_db.py', '/tmp/apogee-legacy-test.db']);
+  return importLegacyDb(new Uint8Array(readFileSync('/tmp/apogee-legacy-test.db'))).data;
 }
 
 test('dates : jour civil selon le décalage de la montre, semaines du mois', () => {
@@ -166,12 +166,12 @@ test('coach : export, import, chevauchement vérifié après import', () => {
   const d = legacy();
   const r = derive(d, SETTINGS, new Date('2026-08-30T10:00:00Z'));
   const dossier = buildDossier(d, r, Object.keys(d.actual), new Date('2026-08-30T10:00:00Z'));
-  assert.equal(dossier.schemaVersion, 'quadra/1');
+  assert.equal(dossier.schemaVersion, 'apogee/1');
   assert.equal(dossier.upcomingPlannedSessions[0].refKey, 'k-1');
   assert.equal(dossier.phases[0].refKey, 'phase:' + Object.keys(d.phases)[0]);
   const phaseId = Object.keys(d.phases)[0];
   const plan = JSON.stringify({
-    schemaVersion: 'quadra/1', planValidUntil: '2026-10-05', operations: [
+    schemaVersion: 'apogee/1', planValidUntil: '2026-10-05', operations: [
       { entity: 'phase', action: 'update', idempotencyKey: 'phase:' + phaseId, label: 'Reprise', startDate: '2026-08-25', endDate: '2026-09-14' },
       { entity: 'phase', action: 'create', idempotencyKey: 'bloc-2', label: 'Volume', startDate: '2026-09-15', endDate: '2026-10-05' },
       { entity: 'phase', action: 'create', idempotencyKey: 'bloc-3', label: 'Chevauche', startDate: '2026-10-01', endDate: '2026-10-10' },
@@ -182,7 +182,8 @@ test('coach : export, import, chevauchement vérifié après import', () => {
   });
   const parsed = parsePlan('```json\n' + plan + '\n```');
   assert.ok(parsed.ok);
-  assert.ok(parsePlan(plan.replace('quadra/1', 'ironapp/1')).ok, 'l\'ancien nom du format reste accepté');
+  assert.ok(parsePlan(plan.replace('apogee/1', 'ironapp/1')).ok, 'l\'ancien nom du format reste accepté');
+  assert.ok(parsePlan(plan.replace('apogee/1', 'quadra/1')).ok, 'le nom Quadra du format reste accepté');
   if (!parsed.ok) return;
   assert.equal(parsed.malformed, 1);
   const pv = preview(d, parsed.plan, parsed.malformed);
@@ -241,7 +242,7 @@ test('dossier coach de l’ancienne app : complète sans doublon, puis la montre
   const { importDossierData, isDossier } = await import('../src/domain/dossier');
   const d = emptyData();
   const dossier = {
-    schemaVersion: 'quadra/1',
+    schemaVersion: 'apogee/1',
     recentActualSessions: [
       { internalId: 53, discipline: 'BIKE', startAt: '2026-10-11T14:26:36.000Z', durationSec: 9522, distanceM: 61306, avgHrBpm: 144, rpe: 7, comment: null },
       { internalId: 52, discipline: 'RUN', startAt: '2026-10-09T04:32:37.000Z', durationSec: 1802, distanceM: 9755, avgHrBpm: 167, rpe: 7, comment: 'ok' },
@@ -286,4 +287,15 @@ test('sauvegarde : un export puis une restauration redonne exactement les mêmes
   assert.deepEqual(Object.keys(back).sort(), Object.keys(data).sort(), 'toutes les collections du modèle sont dans la sauvegarde');
   for (const c of COLLECTIONS) assert.deepEqual(back[c], data[c], 'collection ' + c);
   assert.ok(Object.values(data).flatMap((x) => Object.keys(x)).length > 20, 'jeu de données réaliste');
+});
+
+test('sauvegarde : les fichiers faits sous les anciens noms (quadra, ironapp) restent lisibles', async () => {
+  const { backupBlob, parseBackup } = await import('../src/data/backup');
+  const data = JSON.parse(JSON.stringify(legacy())) as unknown as AppData;
+  const text = await backupBlob(data).text();
+  for (const old of ['quadra-backup/1', 'ironapp-backup/1']) {
+    const back = parseBackup(text.replace('apogee-backup/1', old));
+    assert.deepEqual(Object.keys(back).sort(), Object.keys(data).sort(), old);
+  }
+  assert.throws(() => parseBackup(text.replace('apogee-backup/1', 'autre/1')));
 });

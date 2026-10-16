@@ -1,5 +1,5 @@
 rules_version = '2';
-// Quadra : chaque compte Google ne voit et ne modifie que ses propres données.
+// Apogée : chaque compte Google ne voit et ne modifie que ses propres données.
 // À coller dans Console Firebase › Firestore Database › Règles, puis « Publier ».
 service cloud.firestore {
   match /databases/{database}/documents {

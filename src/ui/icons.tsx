@@ -38,7 +38,7 @@ const P: Record<string, string[]> = {
   list: ['M3 12h.01', 'M3 18h.01', 'M3 6h.01', 'M8 12h13', 'M8 18h13', 'M8 6h13'],
   grip: ['circle:9,12,1', 'circle:9,5,1', 'circle:9,19,1', 'circle:15,12,1', 'circle:15,5,1', 'circle:15,19,1'],
 
-  // ---- ajouts Quadra (Lucide, trait 2 px) ----
+  // ---- ajouts Apogée (Lucide, trait 2 px) ----
   accueil: ['M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8', 'M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
   calendrier: ['M8 2v4', 'M16 2v4', 'rect:3,4,18,18,2', 'M3 10h18', 'M8 14h.01', 'M12 14h.01', 'M16 14h.01', 'M8 18h.01', 'M12 18h.01', 'M16 18h.01'],
   seances: ['M22 12h-4l-3 9L9 3l-3 9H2'],
@@ -117,25 +117,29 @@ export function CheckFilled({ size = 22 }: { size?: number }) {
   );
 }
 
-/** Logotype Quadra : le pictogramme de l'icône (trait plein = mesuré, trait tireté = estimé) + « Quadra » (le nom vient des quatre disciplines). */
+/** Logotype Apogée : trois lunes qui montent en diagonale (du croissant à la pleine lune) + « apogée » en Cormorant Garamond. */
 export function Logo({ size = 18 }: { size?: number }) {
   return (
     <span className="logo" style={{ fontSize: size, lineHeight: 1 }}>
-      <LogoMark size={size * 1.45} />
-      <span style={{ color: 'var(--text)' }}>Quadra</span>
+      <LogoMark size={size * 1.6} />
+      <span className="logo-word">apogée</span>
     </span>
   );
 }
 
-/** Pictogramme de l'icône : un anneau en quatre arcs, aux couleurs des quatre sports (natation, vélo, course, renforcement), sur le fond papier. */
-export function LogoMark({ size = 26 }: { size?: number }) {
+/** Pictogramme : croissant, demi-lune, pleine lune. Encre (ou clair de lune en sombre) + pleine lune ambrée. `mono` : une seule couleur. */
+export function LogoMark({ size = 26, mono = false }: { size?: number; mono?: boolean }) {
+  const sw = size < 40 ? 4.5 : size < 80 ? 3 : 2.5;
+  const full = mono ? 'var(--text)' : 'var(--moon-full)';
   return (
-    <svg width={size} height={size} viewBox="0 0 108 108" aria-hidden="true" style={{ flexShrink: 0, borderRadius: size * 0.24 }}>
-      <rect width="108" height="108" rx="0" style={{ fill: 'var(--bg-brand-minimal)' }} />
-      <path d="M61.8 28.4A26.8 26.8 0 0 1 79.6 46.2" fill="none" strokeWidth="13.4" strokeLinecap="round" style={{ stroke: '#1E9DB8' }} />
-      <path d="M79.6 61.8A26.8 26.8 0 0 1 61.8 79.6" fill="none" strokeWidth="13.4" strokeLinecap="round" style={{ stroke: '#F0A61E' }} />
-      <path d="M46.2 79.6A26.8 26.8 0 0 1 28.4 61.8" fill="none" strokeWidth="13.4" strokeLinecap="round" style={{ stroke: '#E2552E' }} />
-      <path d="M28.4 46.2A26.8 26.8 0 0 1 46.2 28.4" fill="none" strokeWidth="13.4" strokeLinecap="round" style={{ stroke: '#6A5BD6' }} />
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <g transform="translate(-2 3)">
+        <circle cx="22" cy="76" r="10" fill="none" strokeWidth={sw} style={{ stroke: 'var(--text)' }} />
+        <path d="M22 66A10 10 0 0 1 22 86A5.5 10 0 0 0 22 66Z" style={{ fill: 'var(--text)' }} />
+        <circle cx="45" cy="53" r="14" fill="none" strokeWidth={sw} style={{ stroke: 'var(--text)' }} />
+        <path d="M45 39A14 14 0 0 1 45 67Z" style={{ fill: 'var(--text)' }} />
+        <circle cx="73" cy="27" r="19" style={{ fill: full }} />
+      </g>
     </svg>
   );
 }

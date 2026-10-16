@@ -1,4 +1,4 @@
-// Transposition des enregistrements Health Connect (lus par le module natif de l'APK) en données Quadra.
+// Transposition des enregistrements Health Connect (lus par le module natif de l'APK) en données Apogée.
 // Repris de health/ingest.ts et exerciseTypes.ts, avec trois corrections :
 //  - une séance déjà connue est MISE À JOUR si Garmin a déposé sa série cardio après coup (avant : jamais
 //    relue, la séance restait sans charge mesurée) — sauf si tu l'as corrigée à la main ;
@@ -23,7 +23,7 @@ export const EXERCISE_LABEL: Record<number, string> = {
 };
 export const exerciseLabel = (t: string | null) => (t === null || t === 'manual' ? $t("Saisie manuelle") : EXERCISE_LABEL[+t] ?? $t("Type ") + t);
 
-/** Ce que rend le module natif `QuadraHealth.readSessions`. */
+/** Ce que rend le module natif `ApogeeHealth.readSessions`. */
 export interface NativeSession {
   id: string;
   clientRecordId: string | null;

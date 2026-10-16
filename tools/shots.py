@@ -1,4 +1,4 @@
-# Captures d'écran de Quadra avec le jeu de démonstration (tools/demo.json).
+# Captures d'écran d’Apogée avec le jeu de démonstration (tools/demo.json).
 # usage : shots.py base_url out_prefix route1,route2 [largeur hauteur] [light|dark] [vide]
 import asyncio, sys, base64, os, json
 from playwright.async_api import async_playwright
@@ -19,7 +19,7 @@ for wgt, name in [(400, 'NotoSans-Regular.ttf'), (600, 'NotoSans-SemiBold.ttf'),
     if name in noto: css += "@font-face{font-family:'Open Sans';font-weight:%d;src:url(data:font/ttf;base64,%s)}" % (wgt, b64(N + name))
 demo = open(os.path.join(here, 'demo.json')).read()
 SEED = """async (rows) => {
-  const db = await new Promise((res, rej) => { const r = indexedDB.open('quadra', 1); r.onupgradeneeded = () => { r.result.createObjectStore('records'); r.result.createObjectStore('meta'); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  const db = await new Promise((res, rej) => { const r = indexedDB.open('apogee', 1); r.onupgradeneeded = () => { r.result.createObjectStore('records'); r.result.createObjectStore('meta'); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
   await new Promise((res, rej) => { const tx = db.transaction('records', 'readwrite'); const s = tx.objectStore('records'); s.clear(); for (const [k, v] of rows) s.put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
   db.close();
 }"""
@@ -28,7 +28,7 @@ async def main():
         b = await p.chromium.launch()
         opts = {'user_agent': os.environ['UA']} if os.environ.get('UA') else {}
         ctx = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=2 if w < 800 else 1, color_scheme=theme, **opts)
-        await ctx.add_init_script("try{localStorage.setItem('quadra:theme','%s');localStorage.setItem('quadra:lang','%s')}catch(e){}" % (theme, os.environ.get('APP_LANG', 'fr')))
+        await ctx.add_init_script("try{localStorage.setItem('apogee:theme','%s');localStorage.setItem('apogee:lang','%s')}catch(e){}" % (theme, os.environ.get('APP_LANG', 'fr')))
         pg = await ctx.new_page()
         msgs = []
         pg.on('console', lambda m: msgs.append(m.type + ': ' + m.text) if m.type in ('error', 'warning') else None)

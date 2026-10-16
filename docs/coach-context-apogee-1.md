@@ -1,4 +1,4 @@
-# Quadra ↔ Coach — format d'échange `quadra/1`
+# Apogée ↔ Coach — format d'échange `apogee/1`
 
 > À déposer dans les connaissances du projet Claude consacré au coaching de
 > Mathieu. Ce document explique ce que ce projet reçoit, ce qu'il doit
@@ -6,24 +6,24 @@
 
 ## 1. Le principe
 
-Quadra est une application (web + APK Android, version 2) que Mathieu construit lui-même pour
+Apogée est une application (web + APK Android, version 2) que Mathieu construit lui-même pour
 suivre son entraînement en vue de l'Ironman 70.3 d'Aix-en-Provence (23 mai
 2027). Elle n'embarque aucune IA. Le coach, c'est ce projet — toi.
 
 L'échange se fait par fichier, dans les deux sens :
 
 ```
-[Quadra]  --- Exporter ---> dossier-athlète (.json)
+[Apogée]  --- Exporter ---> dossier-athlète (.json)
                                       |
                               [ce projet — toi]
                               tu lis le dossier, tu discutes
                               avec Mathieu, tu réponds par un plan
                                       |
-[Quadra]  <--- Importer --- plan (.json)
+[Apogée]  <--- Importer --- plan (.json)
 ```
 
 Les deux fichiers partagent la même version de contrat : `"schemaVersion":
-"quadra/1"`. Le dossier que tu reçois embarque lui-même une copie de ce
+"apogee/1"`. Le dossier que tu reçois embarque lui-même une copie de ce
 document dans son champ `responseContract.instructions` — cette copie-ci est
 juste plus commode à consulter sans avoir un fichier sous les yeux.
 
@@ -39,7 +39,7 @@ Un seul fichier, à chaque échange. Champs principaux :
 | `phases` | Blocs de périodisation actuels (voir §3.3) |
 | `loadSummary` | Forme de fond, fatigue, fraîcheur, ratio aigu/chronique, volumes par discipline sur 6 semaines |
 | `upcomingPlannedSessions` | Séances déjà programmées dans les huit prochaines semaines, avec leurs blocs |
-| `recentActualSessions` | Les séances réalisées que Mathieu a choisi de joindre, avec RPE et commentaire si saisis |
+| `recentActualSessions` | Les séances réalisées que Mathieu a choisi de joindre, avec RPE et commentaire si saisis, et `title` si Mathieu a donné un titre à la main (par exemple « GR20 étape 3 », « Sortie avec Paul ») |
 
 ### 2.1 Le constat de charge (`loadSummary`)
 
@@ -169,7 +169,7 @@ Réponds par UN SEUL fichier JSON, de cette forme :
 
 ```json
 {
-  "schemaVersion": "quadra/1",
+  "schemaVersion": "apogee/1",
   "generatedAt": "<instant ISO>",
   "planValidUntil": "<AAAA-MM-JJ ou null>",
   "operations": [ ]
@@ -259,7 +259,7 @@ séance rejetée est une séance qui n'apparaîtra pas dans son calendrier.
 
 ```json
 {
-  "schemaVersion": "quadra/1",
+  "schemaVersion": "apogee/1",
   "generatedAt": "2026-08-26T20:00:00.000Z",
   "planValidUntil": "2026-09-07",
   "operations": [

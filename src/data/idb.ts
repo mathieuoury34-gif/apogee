@@ -1,7 +1,7 @@
 // Accès minimal à IndexedDB : une table d'enregistrements (`collection/id` → valeur) et une table de métadonnées.
 // IndexedDB plutôt que localStorage : les séries cardio d'une saison dépassent vite les ~5 Mo de localStorage.
-const DB = 'quadra';
-const OLD_DB = 'ironapp'; // ancien nom de la base : reprise unique, la base d'origine n'est jamais supprimée
+const DB = 'apogee';
+const OLD_DBS = ['quadra', 'ironapp']; // anciens noms de la base, du plus récent au plus ancien : reprise unique, les bases d'origine ne sont jamais supprimées
 const VERSION = 1;
 let dbp: Promise<IDBDatabase> | null = null;
 
@@ -26,26 +26,31 @@ function open(): Promise<IDBDatabase> {
   return dbp;
 }
 
-/** Première ouverture de la base « quadra » : recopie les données de l'ancienne base « ironapp » si elle existe. */
+/** Première ouverture de la base « apogee » : recopie les données de l'ancienne base (« quadra », sinon « ironapp ») si elle existe. */
 async function importOld(db: IDBDatabase): Promise<void> {
+  for (const name of OLD_DBS) if (await importFrom(db, name)) return;
+}
+
+/** Recopie une ancienne base ; rend vrai si elle existait et contenait des données. */
+async function importFrom(db: IDBDatabase, name: string): Promise<boolean> {
   const idb = indexedDB as IDBFactory & { databases?: () => Promise<{ name?: string }[]> };
   if (idb.databases) {
     const list = await idb.databases();
-    if (!list.some((d) => d.name === OLD_DB)) return;
+    if (!list.some((d) => d.name === name)) return false;
   }
   const old = await new Promise<IDBDatabase | null>((resolve) => {
-    const r = indexedDB.open(OLD_DB);
+    const r = indexedDB.open(name);
     // Si la base n'existait pas, on annule la création : elle ne doit pas apparaître.
     r.onupgradeneeded = () => { r.transaction?.abort(); };
     r.onsuccess = () => resolve(r.result);
     r.onerror = () => resolve(null);
     r.onblocked = () => resolve(null);
   });
-  if (!old) return;
+  if (!old) return false;
   try {
-    if (!old.objectStoreNames.contains('records') || !old.objectStoreNames.contains('meta')) return;
-    const grab = (name: string) => new Promise<[IDBValidKey[], unknown[]]>((resolve, reject) => {
-      const st = old.transaction(name, 'readonly').objectStore(name);
+    if (!old.objectStoreNames.contains('records') || !old.objectStoreNames.contains('meta')) return false;
+    const grab = (store: string) => new Promise<[IDBValidKey[], unknown[]]>((resolve, reject) => {
+      const st = old.transaction(store, 'readonly').objectStore(store);
       const k = st.getAllKeys();
       const v = st.getAll();
       v.onsuccess = () => resolve([k.result, v.result]);
@@ -53,6 +58,7 @@ async function importOld(db: IDBDatabase): Promise<void> {
     });
     const [rk, rv] = await grab('records');
     const [mk, mv] = await grab('meta');
+    if (!rk.length && !mk.length) return false;
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(['records', 'meta'], 'readwrite');
       rk.forEach((k, i) => tx.objectStore('records').put(rv[i], k));
@@ -60,6 +66,7 @@ async function importOld(db: IDBDatabase): Promise<void> {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
+    return true;
   } finally {
     old.close();
   }

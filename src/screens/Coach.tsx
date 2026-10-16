@@ -1,4 +1,4 @@
-// Coach — échange avec un assistant IA au format quadra/1 (inchangé) :
+// Coach — échange avec un assistant IA au format apogee/1 (inchangé) :
 //   1. export du dossier-athlète (séances jointes au choix) → fichier JSON ou presse-papiers ;
 //   2. import du plan renvoyé, avec aperçu catégorisé avant application ;
 //   3. journal des échanges.
@@ -34,7 +34,7 @@ export function CoachScreen() {
   const dossierText = () => JSON.stringify(buildDossier(data, d, selected.map((s) => s.id), new Date(), from), null, 2);
   const exportFile = async () => {
     try {
-      await native.saveFile(`quadra-dossier-${d.today}.json`, new Blob([dossierText()], { type: 'application/json' }));
+      await native.saveFile(`apogee-dossier-${d.today}.json`, new Blob([dossierText()], { type: 'application/json' }));
       logExport(selected);
       showToast($t("Dossier exporté — transmets-le à ton coach IA"));
     } catch (e) { showToast($t("Export impossible : ") + (e as Error).message, { error: true }); }
@@ -56,7 +56,7 @@ export function CoachScreen() {
             <h2 id="h-export">{$t("1. Envoyer le dossier")}</h2>
             <ChipGroup label={$t("Séances jointes")} value={weeks} onChange={(v) => { setWeeks(v); setExcluded(new Set()); }} options={[['1', $t("1 sem.")], ['2', $t("2 sem.")], ['4', $t("4 sem.")], ['8', $t("8 sem.")]]} />
           </div>
-          <p className="t-caption c-neutral">{$t("Profil, course, indicateurs, périodisation, charge, séances prévues passées et à venir (telles que tu les as modifiées) et les séances cochées ci-dessous, avec la consigne de réponse au format quadra/1.")}</p>
+          <p className="t-caption c-neutral">{$t("Profil, course, indicateurs, périodisation, charge, séances prévues passées et à venir (telles que tu les as modifiées) et les séances cochées ci-dessous, avec la consigne de réponse au format apogee/1.")}</p>
           {candidates.length ? (
             <ul className="check-list" aria-label={$t("Séances jointes")}>
               {candidates.map((s) => <SessionCheck key={s.id} s={s} on={!excluded.has(s.id)} onToggle={() => toggle(s.id)} load={d.loads.get(s.id)} />)}
@@ -151,7 +151,7 @@ function ImportSheet({ onClose }: { onClose: () => void }) {
       <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
         {!pv ? (
           <>
-            <label className="field"><span className="lbl">{$t("Réponse du coach (JSON)")}</span><textarea className="input textarea mono" rows={10} value={text} placeholder={$t("{ \"schemaVersion\": \"quadra/1\", \"operations\": [ … ] }")} onChange={(e) => setText(e.target.value)} /></label>
+            <label className="field"><span className="lbl">{$t("Réponse du coach (JSON)")}</span><textarea className="input textarea mono" rows={10} value={text} placeholder={$t("{ \"schemaVersion\": \"apogee/1\", \"operations\": [ … ] }")} onChange={(e) => setText(e.target.value)} /></label>
             <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start' }} onClick={() => file.current?.click()}><Icon name="folder" size={18} />{$t("Ouvrir un fichier")}</button>
             <input ref={file} type="file" accept=".json,application/json,text/plain" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; const t = await f.text(); setText(t); setTimeout(() => analyse(t), 0); }} />
             {error && <div className="note note-critical" role="alert"><Icon name="alert" size={20} /><span>{error}</span></div>}

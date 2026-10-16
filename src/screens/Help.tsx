@@ -92,7 +92,7 @@ export function HelpScreen() {
             );
           })}
         </div>
-        <ExtLink href={APK_FILE} className="help-inline t-caption">{$t("Lien direct vers quadra.apk")}</ExtLink>
+        <ExtLink href={APK_FILE} className="help-inline t-caption">{$t("Lien direct vers apogee.apk")}</ExtLink>
       </main>
     </div>
   );

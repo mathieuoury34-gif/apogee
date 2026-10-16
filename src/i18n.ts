@@ -1,11 +1,11 @@
 // Langue de l'interface : français (texte source) ou anglais (dictionnaire EN, clé = texte français),
 // sur le modèle de PEAnalyze. Préférence propre à l'appareil ; changer de langue recharge l'application.
-// Les données (titres de séances, notes, plan du coach) ne sont jamais traduites, ni le contrat quadra/1,
+// Les données (titres de séances, notes, plan du coach) ne sont jamais traduites, ni le contrat apogee/1,
 // ni le classeur Excel exporté.
 import { EN } from './i18n-en';
 
 export type Lang = 'fr' | 'en';
-const KEY = 'quadra:lang';
+const KEY = 'apogee:lang';
 
 function detect(): Lang {
   try {

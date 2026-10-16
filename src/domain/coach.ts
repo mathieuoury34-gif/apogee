@@ -1,4 +1,4 @@
-// Échange coach, format `quadra/1` — repris de planning/coachExport.ts et coachImport.ts.
+// Échange coach, format `apogee/1` — repris de planning/coachExport.ts et coachImport.ts.
 // Le CONTRAT est inchangé (mêmes champs, mêmes clés `session:<id>` / `phase:<id>`), avec trois corrections :
 //  - le chevauchement des blocs de périodisation est vérifié sur l'état APRÈS import (avant : contre
 //    l'état d'avant, si bien que décaler deux blocs consécutifs dans le même fichier était refusé, et deux
@@ -16,9 +16,9 @@ import { latestZone, liveRecords, sessionDay } from './load';
 import type { AppData, Block, CoachExchange, PlannedDiscipline, PlannedSession, PreviewItem, TrainingPhase } from './types';
 import { BLOCK_KINDS, BLOCK_MEASURES, PLANNED_DISCIPLINES, RELATIVE_REFS, SET_MODES, TARGET_TYPES, ZONE_KINDS } from './types';
 
-export const SCHEMA = 'quadra/1';
+export const SCHEMA = 'apogee/1';
 /** Anciens noms du format, toujours acceptés à l'import (plans déjà demandés au coach sous l'ancien nom). */
-export const SCHEMA_ALIASES = ['quadra/1', 'ironapp/1'];
+export const SCHEMA_ALIASES = ['apogee/1', 'quadra/1', 'ironapp/1'];
 const UPCOMING_DAYS = 56;
 const VOLUME_WEEKS = 6;
 
@@ -30,7 +30,7 @@ const blockOut = (b: Block): Block => ({ ...b, children: b.children.map((c) => (
 
 function instructions(): string {
   return [
-    `CONTRAT DE RÉPONSE — dossier-athlète Quadra, schemaVersion "${SCHEMA}".`,
+    `CONTRAT DE RÉPONSE — dossier-athlète Apogée, schemaVersion "${SCHEMA}".`,
     "Ce texte s'adresse à N'IMPORTE QUEL modèle de langage lisant ce fichier,",
     'pas seulement à Claude : suis-le au mot près, sans supposer de contexte',
     'extérieur à ce dossier.',
@@ -214,7 +214,7 @@ export function buildDossier(data: AppData, d: Derived, selected: string[], now:
       const l = d.loads.get(s.id);
       return {
         internalId: /^\d+$/.test(s.id) && s.id.length < 15 ? Number(s.id) : s.id,
-        discipline: s.discipline, startAt: s.startAt, durationSec: s.durationSec, distanceM: s.distanceM, avgHrBpm: s.avgHrBpm,
+        discipline: s.discipline, title: s.title?.trim() || null, startAt: s.startAt, durationSec: s.durationSec, distanceM: s.distanceM, avgHrBpm: s.avgHrBpm,
         load: l?.load ?? null, loadMethod: l && l.method !== 'pending' ? l.method : null, hrDrift: l?.drift ?? null,
         rpe: s.rpe, comment: s.comment, matchedPlanned: matched,
       };
@@ -409,7 +409,7 @@ export function alreadyImported(data: AppData, hash: string): CoachExchange | nu
 
 export const PARSE_ERROR_TEXT = {
   JSON_INVALID: $t("Ce fichier n’est pas un JSON valide."),
-  SCHEMA_VERSION_UNSUPPORTED: $t("Format de fichier non reconnu. Cette version de l’app attend \"quadra/1\"."),
+  SCHEMA_VERSION_UNSUPPORTED: $t("Format de fichier non reconnu. Cette version de l’app attend \"apogee/1\"."),
   STRUCTURE_INVALID: $t("Le fichier ne correspond pas à la forme attendue d’un plan coach."),
 };
 

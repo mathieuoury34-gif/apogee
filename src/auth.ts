@@ -1,6 +1,6 @@
 // Page de connexion ouverte par l'APK Android dans le navigateur du téléphone (Google refuse la connexion
 // depuis une vue web intégrée). Une fois connecté, la page rend le jeton Google à l'app par le lien
-// quadra://auth#id_token=…&access_token=… ; l'app s'en sert pour ouvrir la même session Firebase.
+// apogee://auth#id_token=…&access_token=… ; l'app s'en sert pour ouvrir la même session Firebase.
 import { FIREBASE_CONFIG } from './data/firebase-config';
 
 const SDK = 'https://www.gstatic.com/firebasejs/10.14.1/';
@@ -11,10 +11,10 @@ const $ = (id: string) => document.getElementById(id)!;
 // Langue transmise par l'app (?lang=en), gardée le temps d'une éventuelle redirection Google.
 const EN = (() => {
   const q = new URLSearchParams(location.search).get('lang');
-  try { if (q) sessionStorage.setItem('quadra:auth-lang', q); return (q ?? sessionStorage.getItem('quadra:auth-lang')) === 'en'; } catch { return q === 'en'; }
+  try { if (q) sessionStorage.setItem('apogee:auth-lang', q); return (q ?? sessionStorage.getItem('apogee:auth-lang')) === 'en'; } catch { return q === 'en'; }
 })();
 const T: Record<string, string> = {
-  'Connecté. Retour dans Quadra…': 'Signed in. Back to Quadra…',
+  'Connecté. Retour dans Apogée…': 'Signed in. Back to Apogée…',
   'La synchronisation n’est pas encore configurée (firebase-config.ts).': 'Sync is not configured yet (firebase-config.ts).',
   'Connexion impossible : ': 'Sign-in failed: ',
   'Ouverture de Google…': 'Opening Google…',
@@ -24,10 +24,10 @@ const T: Record<string, string> = {
 const t = (fr: string) => (EN ? T[fr] ?? fr : fr);
 if (EN) {
   document.documentElement.lang = 'en';
-  document.title = 'Sign in · Quadra';
+  document.title = 'Sign in · Apogée';
   $('lead').textContent = 'Sign in with your Google account: the Android app will get your synced data back.';
   $('go-label').textContent = 'Continue with Google';
-  $('back').textContent = 'Back to Quadra';
+  $('back').textContent = 'Back to Apogée';
 }
 
 function status(text: string, error = false) {
@@ -40,12 +40,12 @@ function handOff(cred: Any) {
   const p = new URLSearchParams();
   if (cred?.idToken) p.set('id_token', cred.idToken);
   if (cred?.accessToken) p.set('access_token', cred.accessToken);
-  const url = 'quadra://auth#' + p.toString();
+  const url = 'apogee://auth#' + p.toString();
   const back = $('back') as HTMLAnchorElement;
   back.href = url;
   back.hidden = false;
   ($('go') as HTMLButtonElement).hidden = true;
-  status(t('Connecté. Retour dans Quadra…'));
+  status(t('Connecté. Retour dans Apogée…'));
   location.href = url;
 }
 

@@ -13,17 +13,17 @@ const ul = (...v: Pair[]): Block => ({ t: 'ul', v });
 const f = (fr: string, en = fr): Block => ({ t: 'f', v: [fr, en] });
 const link = (href: string, fr: string, en: string): Block => ({ t: 'link', href, v: [fr, en] });
 
-export const REPO = 'https://github.com/mathieuoury34-gif/quadra';
+export const REPO = 'https://github.com/mathieuoury34-gif/apogee';
 export const APK_PAGE = REPO + '/releases/tag/apk';
-export const APK_FILE = REPO + '/releases/download/apk/quadra.apk';
-export const SITE = 'https://mathieuoury34-gif.github.io/quadra/';
+export const APK_FILE = REPO + '/releases/download/apk/apogee.apk';
+export const SITE = 'https://mathieuoury34-gif.github.io/apogee/';
 
 export const HELP: HelpSection[] = [
   {
     id: 'start', icon: 'sparkle', title: ['Démarrer et installer', 'Getting started and installing'],
     blocks: [
-      p('Quadra est un suivi d’entraînement multisport (triathlon, trail, randonnée…) : course, vélo, natation et renforcement. Elle compare ce qui était prévu à ce que tu as fait, calcule ta charge d’entraînement et ta forme, et prépare l’échange avec ton coach IA. Rien n’est jamais envoyé à un tiers : les données restent sur ton appareil et, si tu te connectes, dans ton espace privé Firebase.',
-        'Quadra is a multisport training log (triathlon, trail, hiking…): run, bike, swim and strength. It compares what was planned with what you did, calculates your training load and form, and prepares the exchange with your AI coach. Nothing is ever sent to a third party: your data stays on your device and, if you sign in, in your own private Firebase space.'),
+      p('Apogée est un suivi d’entraînement multisport (triathlon, trail, randonnée…) : course, vélo, natation et renforcement. Elle compare ce qui était prévu à ce que tu as fait, calcule ta charge d’entraînement et ta forme, et prépare l’échange avec ton coach IA. Rien n’est jamais envoyé à un tiers : les données restent sur ton appareil et, si tu te connectes, dans ton espace privé Firebase.',
+        'Apogée is a multisport training log (triathlon, trail, hiking…): run, bike, swim and strength. It compares what was planned with what you did, calculates your training load and form, and prepares the exchange with your AI coach. Nothing is ever sent to a third party: your data stays on your device and, if you sign in, in your own private Firebase space.'),
       p('Où l’installer :', 'Where to install it:'),
       ul(
         ['**Android (téléphone qui lit ta montre)** : installe l’APK. Il est seul à pouvoir lire Health Connect, donc tes séances Garmin, ton sommeil et ta FC de repos.', '**Android (phone that reads your watch)**: install the APK. It is the only version that can read Health Connect, so your Garmin sessions, sleep and resting HR.'],
@@ -31,7 +31,7 @@ export const HELP: HelpSection[] = [
         ['**iPhone** : ouvre le site dans Safari, puis Partager › « Sur l’écran d’accueil ». Il n’y a pas de Health Connect sur iPhone : les séances arrivent par la synchronisation depuis l’Android, et l’iPhone ne reçoit pas de rappels.', '**iPhone**: open the website in Safari, then Share › “Add to Home Screen”. There is no Health Connect on iPhone: sessions arrive through sync from the Android phone, and the iPhone gets no reminders.'],
       ),
       link(APK_PAGE, 'Page de téléchargement de l’APK (GitHub › Releases)', 'APK download page (GitHub › Releases)'),
-      link(APK_FILE, 'Télécharger directement quadra.apk', 'Download quadra.apk directly'),
+      link(APK_FILE, 'Télécharger directement apogee.apk', 'Download apogee.apk directly'),
       p('Au téléchargement, Android demande d’autoriser l’installation depuis le navigateur : accepte. L’APK affiche le site publié, donc chaque mise à jour du site met l’application à jour sans réinstaller. Il ne faut réinstaller l’APK que si le module natif change.',
         'When downloading, Android asks you to allow installation from the browser: accept. The APK displays the published website, so every site update updates the app without reinstalling. You only need to reinstall the APK if the native module changes.'),
       p('Premiers pas conseillés :', 'Suggested first steps:'),
@@ -83,6 +83,7 @@ export const HELP: HelpSection[] = [
       ul(
         ['**Semaine / Mois** : bascule en haut. Les flèches changent de période, « Revenir à cette semaine » te ramène à aujourd’hui.', '**Week / Month**: toggle at the top. Arrows change the period, “Back to this week” takes you back to today.'],
         ['**Balayage** : glisse vers la gauche ou la droite pour passer à la semaine ou au mois suivant ou précédent. Même geste dans le sélecteur de date.', '**Swiping**: slide left or right to go to the next or previous week or month. Same gesture in the date picker.'],
+        ['**Appui long sur une séance** (calendrier, accueil, liste des séances) : une feuille propose de la dupliquer vers un autre jour, de la déplacer, de la modifier ou de la supprimer (séance prévue), ou de lui donner un titre (séance réalisée).', '**Long press on a session** (calendar, home, session list): a sheet offers to duplicate it to another day, move it, edit it or delete it (planned session), or to give it a title (completed session).'],
         ['**Statut d’une séance prévue** : Réalisée (une séance faite lui est rattachée), Non réalisée (le jour est passé sans séance rattachée), À venir.', '**Status of a planned session**: Done (a completed session is linked), Missed (the day passed with no linked session), Upcoming.'],
         ['**Détail d’une séance prévue** : ses blocs, sa durée et sa distance estimées, ses totaux et, si elle est faite, un lien vers le bilan. Tu peux la modifier, la déplacer, la dupliquer ou la supprimer.', '**Planned session detail**: its blocks, estimated duration and distance, totals and, if done, a link to the review. You can edit, move, duplicate or delete it.'],
         ['**Planifier une séance** : choisis la discipline et la date, pars d’un modèle ou ajoute les blocs un par un. Un message liste ce qui reste à corriger avant d’enregistrer.', '**Planning a session**: choose the discipline and date, start from a template or add blocks one by one. A message lists what still needs fixing before saving.'],
@@ -95,7 +96,7 @@ export const HELP: HelpSection[] = [
         ['**Série** : 8 × (50 m + repos) répète ses blocs enfants. Trois modes : répétitions, AMRAP (un maximum de tours dans une fenêtre de temps) et « départ toutes les X » (EMOM : la récupération est le reliquat).', '**Set**: 8 × (50 m + rest) repeats its child blocks. Three modes: repetitions, AMRAP (as many rounds as possible within a time window) and “start every X” (EMOM: recovery is whatever is left).'],
         ['**Cible** : zone (1 à 5), allure, vitesse, puissance, FC, charge (kg) ou RPE. Une cible peut être absolue (« 4:30 /km ») ou relative (« 90 % de la VMA », de la FTP, de la CSS, de la FC max ou du 1RM), avec une valeur ou une fourchette.', '**Target**: zone (1 to 5), pace, speed, power, HR, load (kg) or RPE. A target can be absolute (“4:30 /km”) or relative (“90 % of MAS”, of FTP, CSS, max HR or 1RM), with a value or a range.'],
         ['**Enchaînement (BRICK)** : une séance qui mélange deux disciplines. Chaque bloc porte alors sa discipline (par exemple 1 h de vélo puis 20 min de course).', '**Brick**: a session mixing two disciplines. Each block then carries its discipline (for example 1 h bike then 20 min run).'],
-        ['**Modifier les blocs** : le nom se saisit juste après le type ; en quittant le détail d’un bloc, tu reviens à la séance, toujours en édition. Chaque bloc a un bouton pour le dupliquer (un exercice ou une série entière). Un bloc se déplace avec les flèches, ou en appui long puis glissé vers le haut ou le bas : il se place où tu relâches le doigt.', '**Editing blocks**: the name is entered right after the type; leaving a block’s detail brings you back to the session, still in edit mode. Each block has a button to duplicate it (an exercise or a whole set). A block moves with the arrows, or with a long press then a drag up or down: it lands where you release your finger.'],
+        ['**Modifier les blocs** : le nom se saisit juste après le type ; en quittant le détail d’un bloc, tu reviens à la séance, toujours en édition. Chaque bloc a un bouton pour le dupliquer (un exercice ou une série entière). Un bloc se déplace avec les flèches, ou en appui long puis glissé : un trait bleu montre où il va tomber, dans la même série, dans une autre série ou hors série (glisse vers la droite pour entrer dans une série). Une série entière se déplace et se duplique de la même façon.', '**Editing blocks**: the name is entered right after the type; leaving a block’s detail brings you back to the session, still in edit mode. Each block has a button to duplicate it (an exercise or a whole set). A block moves with the arrows, or with a long press then a drag: a blue line shows where it will land, in the same set, in another set or outside any set (drag to the right to enter a set). A whole set moves and duplicates the same way.'],
         ['**Couleurs** : chaque type de bloc a sa couleur (échauffement et retour au calme en vert, effort en rouille, récupération en bleu, repos en gris, transition en prune, série en violet).', '**Colours**: each block type has its own colour (warm-up and cool-down green, work rust, recovery blue, rest grey, transition plum, set violet).'],
         ['**Série** : une série n’a pas d’intensité propre ; l’intensité se règle sur les blocs qu’elle contient.', '**Set**: a set has no intensity of its own; intensity is set on the blocks it contains.'],
       ),
@@ -198,6 +199,7 @@ export const HELP: HelpSection[] = [
       p('Les courbes sont amorcées sur ta charge moyenne des 14 premiers jours, pour ne pas partir de zéro. Pendant les 42 premiers jours de l’historique, elles se stabilisent encore : la date à laquelle elles deviennent fiables est indiquée dans Progression. Un jour sans séance compte pour 0, sauf si une interruption à charge forfaitaire le couvre.',
         'The curves are seeded with your average load of the first 14 days, so as not to start from zero. During the first 42 days of history, they are still settling: the date from which they become reliable is shown in Progress. A day without a session counts as 0, unless an interruption with a flat load covers it.'),
       p('La rampe est la variation de la forme de fond sur 7 jours.', 'The ramp is the change in fitness over 7 days.'),
+      p('Dans Progression › Charge, la courbe est découpée en trois graphiques, chacun avec sa phrase d’explication : forme de fond et fatigue, charge du jour, fraîcheur. Touche un jour : le bandeau du dessus donne ses valeurs exactes (il sert aussi de légende).', 'In Progress › Load, the curve is split into three charts, each with its own explanatory sentence: fitness and fatigue, daily load, freshness. Touch a day: the strip above gives its exact values (it also serves as the legend).'),
       p('Le rapport charge aiguë / chronique compare ta semaine à ton rythme des quatre dernières semaines :',
         'The acute/chronic load ratio compares your week with your pace over the last four weeks:'),
       f('rapport = charge des 7 derniers jours ÷ (charge des 28 derniers jours ÷ 4)',
@@ -254,8 +256,8 @@ export const HELP: HelpSection[] = [
   {
     id: 'watch', icon: 'phone', title: ['Montre et Health Connect', 'Watch and Health Connect'],
     blocks: [
-      p('Chemin des données : ta montre Garmin → Garmin Connect → Health Connect (Android) → l’APK Quadra → synchronisation → tes autres appareils. Il faut que Garmin Connect soit relié à Health Connect (Garmin Connect › Paramètres › Health Connect), et que l’application Health Connect soit installée sur le téléphone.',
-        'Data path: your Garmin watch → Garmin Connect → Health Connect (Android) → the Quadra APK → sync → your other devices. Garmin Connect must be linked to Health Connect (Garmin Connect › Settings › Health Connect), and the Health Connect app must be installed on the phone.'),
+      p('Chemin des données : ta montre Garmin → Garmin Connect → Health Connect (Android) → l’APK Apogée → synchronisation → tes autres appareils. Il faut que Garmin Connect soit relié à Health Connect (Garmin Connect › Paramètres › Health Connect), et que l’application Health Connect soit installée sur le téléphone.',
+        'Data path: your Garmin watch → Garmin Connect → Health Connect (Android) → the Apogée APK → sync → your other devices. Garmin Connect must be linked to Health Connect (Garmin Connect › Settings › Health Connect), and the Health Connect app must be installed on the phone.'),
       p('Ce que l’app lit, en lecture seule : les séances (type, durée, distance, FC, vitesse, calories, dénivelé), le sommeil et la FC de repos. Elle n’écrit jamais dans Health Connect.',
         'What the app reads, read-only: sessions (type, duration, distance, HR, speed, calories, elevation), sleep and resting HR. It never writes to Health Connect.'),
       p('Paramètres › Montre (Health Connect) affiche l’état de la liaison :', 'Settings › Watch (Health Connect) shows the link status:'),
@@ -278,13 +280,13 @@ export const HELP: HelpSection[] = [
   {
     id: 'coach', icon: 'coach', title: ['Coach IA : dossier et plan', 'AI coach: dossier and plan'],
     blocks: [
-      p('L’échange avec ton coach IA se fait par fichiers, dans un format versionné (« quadra/1 »). L’app ne parle jamais à une IA directement : c’est toi qui transmets.',
-        'The exchange with your AI coach goes through files, in a versioned format (“quadra/1”). The app never talks to an AI directly: you pass things along.'),
+      p('L’échange avec ton coach IA se fait par fichiers, dans un format versionné (« apogee/1 »). L’app ne parle jamais à une IA directement : c’est toi qui transmets.',
+        'The exchange with your AI coach goes through files, in a versioned format (“apogee/1”). The app never talks to an AI directly: you pass things along.'),
       p('1. Envoyer le dossier (onglet Coach) :', '1. Send the dossier (Coach tab):'),
       ul(
         ['Le dossier reprend l’état réel au moment de l’export : si tu as modifié une séance prévue par le coach, c’est la version modifiée qui part, marquée « modifiée par l’athlète ». Les séances prévues des jours passés y figurent avec leur statut (faite ou manquée).', 'The dossier reflects the real state at export time: if you edited a session the coach planned, the edited version is sent, marked “edited by the athlete”. Planned sessions of past days are included with their status (done or missed).'],
         ['Choisis la période des séances jointes (1, 2, 4 ou 8 semaines) et coche celles à inclure.', 'Choose the period of attached sessions (1, 2, 4 or 8 weeks) and tick those to include.'],
-        ['Le dossier contient ton profil, ta course, tes indicateurs, ta périodisation, ta charge, les séances prévues des 8 prochaines semaines, les séances cochées, et la consigne de réponse au format quadra/1.', 'The dossier contains your profile, race, metrics, periodisation, load, the planned sessions for the next 8 weeks, the ticked sessions, and the reply instructions in quadra/1 format.'],
+        ['Le dossier contient ton profil, ta course, tes indicateurs, ta périodisation, ta charge, les séances prévues des 8 prochaines semaines, les séances cochées, et la consigne de réponse au format apogee/1.', 'The dossier contains your profile, race, metrics, periodisation, load, the planned sessions for the next 8 weeks, the ticked sessions, and the reply instructions in apogee/1 format.'],
         ['« Exporter le fichier » crée un fichier JSON ; « Copier » le met dans le presse-papiers. Donne-le à ton coach IA (dans une conversation ou un projet).', '“Export the file” creates a JSON file; “Copy” puts it on the clipboard. Give it to your AI coach (in a conversation or a project).'],
         ['Le texte de consigne et le fichier restent en français quelle que soit la langue de l’app, pour que n’importe quel modèle les suive de la même façon.', 'The instruction text and the file stay in French whatever the app language, so that any model follows them the same way.'],
       ),
@@ -332,7 +334,7 @@ export const HELP: HelpSection[] = [
       ul(
         ['**Exporter en Excel** : un classeur de 6 onglets (tableau de bord, séances, plan, charge, zones, périodisation) avec formules et graphiques recalculés à l’ouverture. Il reste en français.', '**Export to Excel**: a 6-sheet workbook (dashboard, sessions, plan, load, zones, periodisation) with formulas and charts recalculated on opening. It stays in French.'],
         ['**Exporter une sauvegarde (.json)** : toutes tes données, relisibles par l’app.', '**Export a backup (.json)**: all your data, readable by the app.'],
-        ['**Restaurer ou compléter (.json)** : une sauvegarde Quadra remplace tes données (avec « Annuler »). Un dossier coach de l’ancienne app ajoute seulement les séances et séances prévues qui manquent, sans doublon, et complète les ressentis absents.', '**Restore or complete (.json)**: an Quadra backup replaces your data (with “Undo”). A coach dossier from the old app only adds missing sessions and planned sessions, without duplicates, and fills in missing RPEs.'],
+        ['**Restaurer ou compléter (.json)** : une sauvegarde Apogée remplace tes données (avec « Annuler »). Un dossier coach de l’ancienne app ajoute seulement les séances et séances prévues qui manquent, sans doublon, et complète les ressentis absents.', '**Restore or complete (.json)**: an Apogée backup replaces your data (with “Undo”). A coach dossier from the old app only adds missing sessions and planned sessions, without duplicates, and fills in missing RPEs.'],
       ),
       p('Dans l’APK, chaque export ouvre le menu de partage d’Android. Sur PC et iPhone, le fichier est téléchargé.',
         'In the APK, each export opens Android’s share menu. On PC and iPhone, the file is downloaded.'),
@@ -373,7 +375,7 @@ export const HELP: HelpSection[] = [
         ['**Dérive cardiaque** : la hausse de FC pendant un effort continu à intensité égale.', '**Cardiac drift**: the rise in HR during a steady effort at equal intensity.'],
         ['**Charge provisoire / estimée** : une charge qui n’est pas mesurée, soulignée en pointillés et remplacée dès qu’une meilleure information arrive.', '**Provisional / estimated load**: a load that is not measured, underlined with dots and replaced as soon as better information arrives.'],
         ['**Health Connect** : le service d’Android où Garmin Connect dépose tes données de santé.', '**Health Connect**: the Android service where Garmin Connect puts your health data.'],
-        ['**quadra/1** : le format du fichier d’échange avec le coach IA.', '**quadra/1**: the format of the exchange file with the AI coach.'],
+        ['**apogee/1** : le format du fichier d’échange avec le coach IA.', '**apogee/1**: the format of the exchange file with the AI coach.'],
       ),
     ],
   },
@@ -381,7 +383,7 @@ export const HELP: HelpSection[] = [
     id: 'faq', icon: 'info', title: ['Questions fréquentes et dépannage', 'FAQ and troubleshooting'],
     blocks: [
       p('Je ne trouve pas où télécharger l’APK.', 'I can’t find where to download the APK.'),
-      ul(['Utilise le lien de la rubrique « Démarrer et installer » (page Releases du dépôt `mathieuoury34-gif/quadra`, fichier quadra.apk).', 'Use the link in the “Getting started and installing” topic (Releases page of the `mathieuoury34-gif/quadra` repository, file quadra.apk).']),
+      ul(['Utilise le lien de la rubrique « Démarrer et installer » (page Releases du dépôt `mathieuoury34-gif/apogee`, fichier apogee.apk).', 'Use the link in the “Getting started and installing” topic (Releases page of the `mathieuoury34-gif/apogee` repository, file apogee.apk).']),
       p('Ma charge ou ma forme est à 0 ou « Pas encore calculable ».', 'My load or form is 0 or “Not computable yet”.'),
       ul(
         ['La charge a besoin d’au moins une séance enregistrée, et d’une FC max et d’une FC de repos pour le TRIMP. Renseigne ta date de naissance (ou ta FC max) et laisse la montre remonter ta FC de repos.', 'Load needs at least one recorded session, and a max HR and a resting HR for the TRIMP. Enter your date of birth (or max HR) and let the watch bring in your resting HR.'],
@@ -395,7 +397,7 @@ export const HELP: HelpSection[] = [
       ul(['Ouvre le bilan de la séance faite : « Changer » te permet de la rattacher à la séance prévue (jusqu’à 3 jours d’écart).', 'Open the completed session’s review: “Change” lets you link it to the planned session (up to 3 days apart).']),
       p('L’import d’un plan est refusé.', 'The plan import is refused.'),
       ul(
-        ['Vérifie que la réponse du coach est un seul bloc JSON, de schéma « quadra/1 ». Le message explique le motif. Les balises ```json que certains modèles ajoutent sont tolérées.', 'Check that the coach’s reply is a single JSON block with schema “quadra/1”. The message explains the reason. The ```json fences some models add are tolerated.'],
+        ['Vérifie que la réponse du coach est un seul bloc JSON, de schéma « apogee/1 ». Le message explique le motif. Les balises ```json que certains modèles ajoutent sont tolérées.', 'Check that the coach’s reply is a single JSON block with schema “apogee/1”. The message explains the reason. The ```json fences some models add are tolerated.'],
         ['Un fichier qui est en fait un dossier-athlète n’est pas un plan : l’app propose d’en reprendre les séances.', 'A file that is actually an athlete dossier is not a plan: the app offers to take its sessions.'],
       ),
       p('Je veux changer de téléphone ou utiliser un autre appareil.', 'I want to change phone or use another device.'),

@@ -1,6 +1,6 @@
 // Configuration du projet Firebase (identifiant ironapp-99f99, non modifiable) (offre gratuite Spark, sans carte bancaire).
 // Valeurs du projet ironapp-99f99, relevées le 12/10/2026 dans Console Firebase › Paramètres du projet ›
-// Vos applications › Quadra (Web) › Configuration du SDK.
+// Vos applications › Apogée (Web) › Configuration du SDK.
 // Ces valeurs ne sont pas secrètes : l'accès aux données est protégé par les règles Firestore
 // (firestore.rules), qui réservent les données de chaque compte Google à ce seul compte.
 // Tant que `apiKey` est vide, l'application reste 100 % locale (comme PEAnalyze avant sa configuration).

@@ -94,6 +94,110 @@ export function LoadChart({ days, height = 150, compact = false }: { days: DayLo
   );
 }
 
+/** Version « lecture facile » de la charge : trois graphiques séparés, chacun avec son titre et une phrase qui dit ce qu'il montre,
+ *  et un bandeau qui donne les valeurs exactes du jour touché (il sert aussi de légende). */
+export function LoadPanels({ days }: { days: DayLoad[] }) {
+  const [ref, cw] = useWidth<HTMLDivElement>();
+  const [hover, setHover] = useState<number | null>(null);
+  const n = days.length;
+  if (n < 2) return <div ref={ref} className="t-caption c-moderate" style={{ padding: 'var(--space-16) 0' }}>{$t("Pas encore assez de jours collectés pour tracer la charge.")}</div>;
+  const W = cw - AXIS, T = 8;
+  const X = (i: number) => ((i + 0.5) / n) * W;
+  const bw = Math.max(1.5, (W / n) * 0.62);
+  const h = hover ?? n - 1;
+  const hd = days[h];
+  // A. forme de fond et fatigue
+  const H1 = 130;
+  const vals = days.flatMap((d) => [d.fitness, d.fatigue]);
+  const vmin = Math.min(...vals), vmax = Math.max(...vals, 1);
+  const step = niceStep(Math.max(vmax - vmin, vmax * 0.15) / 3);
+  const lo = Math.max(0, Math.floor((vmin - (vmax - vmin) * 0.1) / step) * step), hi = Math.max(lo + step, Math.ceil((vmax + (vmax - vmin) * 0.1) / step) * step);
+  const Y = (v: number) => T + H1 - ((v - lo) / (hi - lo)) * H1;
+  const line = (k: 'fitness' | 'fatigue') => days.map((d, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ',' + Y(d[k]).toFixed(1)).join(' ');
+  let grid = '';
+  const ticksA: ReactNode[] = [];
+  for (let v = lo; v <= hi + 1e-6; v += step) {
+    grid += 'M0,' + Y(v).toFixed(1) + ' H' + W + ' ';
+    ticksA.push(<span key={'a' + v} className="tick" style={{ left: W + 6, top: Y(v) - 9 }}>{num(v, 0)}</span>);
+  }
+  // B. charge du jour (un jour hors norme est écrêté, marqué d'un chevron ; la vraie valeur est dans le bandeau)
+  const H2 = 80;
+  const sorted = days.map((d) => d.load).sort((x, y) => y - x);
+  const maxLoad = Math.max(sorted[0], 1);
+  const ref3 = sorted[Math.min(2, sorted.length - 1)];
+  const capRaw = maxLoad > ref3 * 2 && ref3 > 0 ? ref3 * 1.35 : maxLoad;
+  const lstep = niceStep(capRaw / 2), cap = Math.max(lstep, Math.ceil(capRaw / lstep) * lstep);
+  const YL = (v: number) => T + H2 - (Math.min(v, cap) / cap) * H2;
+  // C. fraîcheur
+  const H3 = 64;
+  const fr = Math.max(...days.map((d) => Math.abs(d.freshness)), 5);
+  const mid = T + H3 / 2;
+  const YF = (v: number) => mid - (v / fr) * (H3 / 2);
+  const picks = [0, Math.round((n - 1) / 2), n - 1];
+  const hit = (H: number) => <div className="hit" style={{ width: W, height: H }} onPointerMove={(e) => setHover(hoverIndex(e, n))} onPointerDown={(e) => setHover(hoverIndex(e, n))} onPointerLeave={() => setHover(null)} />;
+  const sw = (c: string, dashed = false) => <span className="sw" style={dashed ? { borderTop: `2px dashed ${c}`, height: 0 } : { background: c }} />;
+  return (
+    <div ref={ref} className="load-panels" data-component="LoadPanels">
+      <div role="status" aria-live="polite" className="load-readout">
+        <span className="when t-caption-strong">{hover === null && h === n - 1 ? $t("Aujourd’hui") : dayMonth(hd.day)}{hd.interruptionFill ? $t(" · forfait") : ''}</span>
+        <span>{sw('var(--chart-load)')}<span className="c-neutral">{$t("Charge du jour")}</span><strong>{num(hd.load, 0)}</strong>{hd.estimated && hd.load ? <em>{$t("estimée")}</em> : null}</span>
+        <span>{sw('var(--chart-fitness)')}<span className="c-neutral">{$t("Forme de fond")}</span><strong>{num(hd.fitness, 0)}</strong></span>
+        <span>{sw('var(--chart-fatigue)', true)}<span className="c-neutral">{$t("Fatigue")}</span><strong>{num(hd.fatigue, 0)}</strong></span>
+        <span>{sw(hd.freshness >= 0 ? 'var(--chart-fresh-pos)' : 'var(--chart-fresh-neg)')}<span className="c-neutral">{$t("Fraîcheur")}</span><strong>{signed(hd.freshness, 0)}</strong></span>
+      </div>
+
+      <section className="lp" aria-label={$t("Forme de fond et fatigue")}>
+        <h3 className="t-strong">{$t("Forme de fond et fatigue")}</h3>
+        <p className="t-caption c-neutral">{$t("La forme de fond (trait plein) est ce que tu as construit depuis 6 semaines ; elle monte doucement. La fatigue (pointillés) est ce que tu as encaissé cette semaine ; elle bouge vite.")}</p>
+        <div className="chart" style={{ height: T + H1 + 4 }}>
+          <svg viewBox={`0 0 ${cw} ${T + H1 + 4}`} width={cw} height={T + H1 + 4} role="img" aria-label={$t("Forme de fond {0}, fatigue {1}", { 0: num(days[n - 1].fitness, 0), 1: num(days[n - 1].fatigue, 0) })}>
+            <path d={grid} fill="none" strokeWidth="1" style={{ stroke: 'var(--chart-grid)' }} />
+            <path d={line('fatigue')} fill="none" strokeWidth="2" strokeDasharray="6 4" strokeLinecap="round" style={{ stroke: 'var(--chart-fatigue)' }} />
+            <path d={line('fitness')} fill="none" strokeWidth="2.75" strokeLinejoin="round" strokeLinecap="round" style={{ stroke: 'var(--chart-fitness)' }} />
+          </svg>
+          {ticksA}
+          <div className="cross" style={{ top: T, height: H1, left: X(h) }} />
+          <span aria-hidden="true" className="marker-dot" style={{ background: 'var(--chart-fitness)', border: '2px solid var(--bg-surface)', left: X(h) - 5, top: Y(hd.fitness) - 5 }} />
+          {hit(T + H1)}
+        </div>
+      </section>
+
+      <section className="lp" aria-label={$t("Charge du jour")}>
+        <h3 className="t-strong">{$t("Charge du jour")}</h3>
+        <p className="t-caption c-neutral">{$t("L’effort de chaque journée : plus la barre est haute, plus elle a été dure. Une barre pâle est une charge estimée, sans mesure précise.")}{maxLoad > cap ? $t(" Une journée hors norme est coupée (chevron) ; sa vraie valeur apparaît en haut.") : ''}</p>
+        <div className="chart" style={{ height: T + H2 + 4 }}>
+          <svg viewBox={`0 0 ${cw} ${T + H2 + 4}`} width={cw} height={T + H2 + 4} aria-hidden="true">
+            <line x1="0" x2={W} y1={T + H2} y2={T + H2} strokeWidth="1" style={{ stroke: 'var(--border-moderate)' }} />
+            {days.map((d, i) => d.load > 0 && <rect key={i} x={X(i) - bw / 2} y={YL(d.load)} width={bw} height={T + H2 - YL(d.load)} rx={Math.min(2, bw / 2)} style={{ fill: d.estimated ? 'var(--bg-brand-moderate)' : 'var(--chart-load)' }} />)}
+            {days.map((d, i) => d.load > cap && <path key={'c' + i} d={`M${X(i) - bw / 2},${T + 5} l${bw / 2},-5 l${bw / 2},5`} fill="none" strokeWidth="1.5" style={{ stroke: 'var(--bg-surface)' }} />)}
+          </svg>
+          <span className="tick" style={{ left: W + 6, top: T - 4 }}>{num(cap, 0)}{maxLoad > cap ? '+' : ''}</span>
+          <span className="tick" style={{ left: W + 6, top: T + H2 - 14 }}>0</span>
+          <div className="cross" style={{ top: T, height: H2, left: X(h) }} />
+          {hit(T + H2)}
+        </div>
+      </section>
+
+      <section className="lp" aria-label={$t("Fraîcheur")}>
+        <h3 className="t-strong">{$t("Fraîcheur")}</h3>
+        <p className="t-caption c-neutral">{$t("Forme de fond moins fatigue. Au-dessus de zéro : tu es reposé, c’est le bon moment pour une séance clé ou une course. En dessous : tu es dans le dur.")}</p>
+        <div className="chart" style={{ height: T + H3 + 26 }}>
+          <svg viewBox={`0 0 ${cw} ${T + H3 + 26}`} width={cw} height={T + H3 + 26} aria-hidden="true">
+            <line x1="0" x2={W} y1={mid} y2={mid} strokeWidth="1" style={{ stroke: 'var(--border-moderate)' }} />
+            {days.map((d, i) => <rect key={i} x={X(i) - bw / 2} y={Math.min(mid, YF(d.freshness))} width={bw} height={Math.max(0.5, Math.abs(YF(d.freshness) - mid))} style={{ fill: d.freshness >= 0 ? 'var(--chart-fresh-pos)' : 'var(--chart-fresh-neg)' }} />)}
+          </svg>
+          <span className="tick" style={{ left: W + 6, top: T - 4 }}>{'+' + num(fr, 0)}</span>
+          <span className="tick" style={{ left: W + 6, top: mid - 9 }}>0</span>
+          <span className="tick" style={{ left: W + 6, top: T + H3 - 14 }}>{'−' + num(fr, 0)}</span>
+          {picks.map((i, k) => <span key={k} className="tick" style={{ top: T + H3 + 6, ...(k === 0 ? { left: 0 } : k === picks.length - 1 ? { right: AXIS } : { left: X(i) - 30, width: 60, textAlign: 'center' as const }) }}>{dateShort(days[i].day)}</span>)}
+          <div className="cross" style={{ top: T, height: H3, left: X(h) }} />
+          {hit(T + H3)}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export function LoadLegend() {
   return (
     <div className="legend">

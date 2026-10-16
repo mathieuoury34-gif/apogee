@@ -4,9 +4,9 @@
 import { $t } from '../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppHeader, ChipGroup, DatePicker, DiscIcon, Empty, ErrorBanner, Fab, Hero, Sheet, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther } from '../ui/kit';
-import { SUB_SPORTS } from '../domain/subsports';
 import { Donut, StepChart, WeekBars } from '../ui/charts';
 import { Icon } from '../ui/icons';
+import { useActualMenu } from '../ui/menu';
 import { back, navigate, openSheet, useRoute } from '../ui/router';
 import { useCalc } from '../data/store';
 import { addManualSessions, addPlannedBulk, brickDecision, deleteActual, editActual, restore, setFeedback, setManualLink } from '../data/actions';
@@ -87,6 +87,7 @@ function SessionItem({ s, load, swiped, confirming, onSwipe, onOpen, onEdit, onD
   const start = useRef<{ x: number; y: number } | null>(null);
   const moved = useRef(false);
   const pace = paceOf(s);
+  const { lp, sheet } = useActualMenu(s);
   return (
     <li className={'op-item' + (swiped ? ' swiped' : '')}>
       {swiped && (
@@ -96,8 +97,9 @@ function SessionItem({ s, load, swiped, confirming, onSwipe, onOpen, onEdit, onD
         </span>
       )}
       <button type="button" className="op-row" aria-label={`${sessionLabel(s)} du ${dateFr(sessionDay(s))}, ${duration(s.durationSec)}`}
-        onPointerDown={(e) => { start.current = { x: e.clientX, y: e.clientY }; moved.current = false; }}
-        onPointerMove={(e) => { if (!start.current) return; const dx = e.clientX - start.current.x, dy = e.clientY - start.current.y; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) { moved.current = true; onSwipe(dx < 0); start.current = null; } }}
+        onPointerDown={(e) => { start.current = { x: e.clientX, y: e.clientY }; moved.current = false; lp.onPointerDown(e); }}
+        onPointerUp={lp.onPointerUp} onPointerCancel={lp.onPointerCancel} onPointerLeave={lp.onPointerLeave} onContextMenu={lp.onContextMenu} onClickCapture={lp.onClickCapture}
+        onPointerMove={(e) => { lp.onPointerMove(e); if (!start.current) return; const dx = e.clientX - start.current.x, dy = e.clientY - start.current.y; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) { moved.current = true; onSwipe(dx < 0); start.current = null; } }}
         onClick={() => { if (moved.current) { moved.current = false; return; } if (swiped) onSwipe(false); else onOpen(); }}>
         <DiscIcon d={s.discipline} sub={s.subSport} />
         <span className="stack" style={{ minWidth: 0 }}>
@@ -110,6 +112,7 @@ function SessionItem({ s, load, swiped, confirming, onSwipe, onOpen, onEdit, onD
           <span className="t-caption c-moderate nowrap">{load !== null ? $t("charge ") + num(load, 0) : ''}</span>
         </span>
       </button>
+      {sheet}
     </li>
   );
 }
@@ -284,7 +287,7 @@ function Comment({ value, onSave }: { value: string; onSave: (v: string) => void
 function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
   const [date, setDate] = useState(sessionDay(s));
   const [disc, setDisc] = useState<ActualDiscipline>(s.discipline);
-  const [sub, setSub] = useState<string | null>(s.subSport ?? null);
+  const [title, setTitle] = useState(s.title ?? '');
   const [dur, setDur] = useState(toInput(s.durationSec / 60, 1).replace(/,0$/, ''));
   const [dist, setDist] = useState(s.distanceM ? toInput(s.distanceM / 1000, 2) : '');
   const [hr, setHr] = useState(s.avgHrBpm ? String(Math.round(s.avgHrBpm)) : '');
@@ -292,7 +295,7 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
   const r = parseManualFields({ date, discipline: disc, durationMin: dur, distanceKm: dist, avgHrBpm: hr });
   const save = () => {
     if ('error' in r) return;
-    const snap = editActual(s.id, { ...r.input, rpe: s.rpe, comment: s.comment, subSport: sub });
+    const snap = editActual(s.id, { ...r.input, rpe: s.rpe, comment: s.comment, subSport: s.subSport ?? null, title });
     onClose();
     showToast($t("Séance modifiée"), { undo: () => restore(snap) });
   };
@@ -307,14 +310,9 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
         <div className="field"><span className="lbl">{$t("Discipline")}</span>
           <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>{ACTUAL_DISCIPLINES.map((x) => <button key={x} type="button" className="chip" aria-pressed={disc === x} onClick={() => setDisc(x)}>{DISCIPLINE_LABEL[x]}</button>)}</div>
         </div>
-        {disc === 'OTHER' && (
-          <div className="field"><span className="lbl">{$t("Quelle activité ?")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(visuel seulement)")}</span></span>
-            <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>
-              <button type="button" className="chip" aria-pressed={!sub} onClick={() => setSub(null)}>{$t("Non précisée")}</button>
-              {SUB_SPORTS.map((x) => <button key={x.id} type="button" className="chip" aria-pressed={sub === x.id} onClick={() => setSub(x.id)}><Icon name={x.icon} size={16} />{x.label}</button>)}
-            </div>
-          </div>
-        )}
+        <label className="field"><span className="lbl">{$t("Titre")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>
+          <input className="input" value={title} maxLength={80} placeholder={disc === 'OTHER' ? $t("Nom de l’activité : GR20 étape 3, kayak, balade…") : $t("Sortie avec Paul, vélo de nuit…")} onChange={(e) => setTitle(e.target.value)} />
+          <span className="hint">{$t("Remplace le nom de la discipline dans les listes. Ne change aucun calcul.")}</span></label>
         <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
           <label className="field"><span className="lbl">{$t("Durée (min)")}</span><input className="input num" inputMode="decimal" value={dur} onChange={(e) => setDur(e.target.value)} /></label>
           <label className="field"><span className="lbl">{$t("Distance (km)")}</span><input className="input num" inputMode="decimal" value={dist} onChange={(e) => setDist(e.target.value)} /></label>
@@ -366,7 +364,7 @@ export function ManualEntryScreen() {
   const [date, setDate] = useState(route.query.get('date') || d.today);
   const [cal, setCal] = useState(false);
   const [disc, setDisc] = useState<ActualDiscipline>('RUN');
-  const [sub, setSub] = useState<string | null>(null);
+  const [title, setTitle] = useState('');
   const [dur, setDur] = useState('');
   const [dist, setDist] = useState('');
   const [hr, setHr] = useState('');
@@ -378,7 +376,7 @@ export function ManualEntryScreen() {
   const durMin = parseNum(dur), distKm = parseNum(dist);
   const submitSingle = () => {
     if ('error' in r) return;
-    const input: ManualInput = { ...r.input, rpe, comment: comment.trim() || null, subSport: disc === 'OTHER' ? sub : null };
+    const input: ManualInput = { ...r.input, rpe, comment: comment.trim() || null, title: title.trim() || null };
     const res = addManualSessions([input]);
     if (!res.inserted.length) { showToast($t("Cette séance existe déjà (même date, discipline, durée, distance et FC)."), { error: true }); return; }
     const created = res.inserted[0];
@@ -418,14 +416,9 @@ export function ManualEntryScreen() {
                   {ACTUAL_DISCIPLINES.map((x) => <button key={x} type="button" role="radio" aria-checked={disc === x} className={'disc-pick' + (disc === x ? ' on' : '')} style={{ ['--c' as string]: dvar(x) }} onClick={() => setDisc(x)}><DiscIcon d={x} size={36} /><span className="t-caption-strong">{DISCIPLINE_SHORT[x]}</span></button>)}
                 </div>
               </div>
-              {disc === 'OTHER' && (
-          <div className="field"><span className="lbl">{$t("Quelle activité ?")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(visuel seulement)")}</span></span>
-            <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>
-              <button type="button" className="chip" aria-pressed={!sub} onClick={() => setSub(null)}>{$t("Non précisée")}</button>
-              {SUB_SPORTS.map((x) => <button key={x.id} type="button" className="chip" aria-pressed={sub === x.id} onClick={() => setSub(x.id)}><Icon name={x.icon} size={16} />{x.label}</button>)}
-            </div>
-          </div>
-        )}
+        <label className="field"><span className="lbl">{$t("Titre")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>
+          <input className="input" value={title} maxLength={80} placeholder={disc === 'OTHER' ? $t("Nom de l’activité : GR20 étape 3, kayak, balade…") : $t("Sortie avec Paul, vélo de nuit…")} onChange={(e) => setTitle(e.target.value)} />
+          <span className="hint">{$t("Remplace le nom de la discipline dans les listes. Ne change aucun calcul.")}</span></label>
               <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
                 <label className="field"><span className="lbl">{$t("Durée (min)")}</span><input className="input num" inputMode="decimal" value={dur} placeholder="45" onChange={(e) => setDur(e.target.value)} /></label>
                 <label className="field"><span className="lbl">{$t("Distance (km)")}</span><input className="input num" inputMode="decimal" value={dist} placeholder="—" onChange={(e) => setDist(e.target.value)} /></label>

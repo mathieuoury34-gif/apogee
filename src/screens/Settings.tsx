@@ -64,12 +64,12 @@ export function SettingsScreen() {
     setBusy('xlsx');
     try {
       const { exportExcel } = await import('../data/excel');
-      await native.saveFile($t("Quadra ") + stamp() + $t(".xlsx"), await exportExcel(getData(), d));
+      await native.saveFile($t("Apogée ") + stamp() + $t(".xlsx"), await exportExcel(getData(), d));
       showToast($t("Classeur Excel exporté"));
     } catch (e) { showToast($t("Export impossible : ") + (e as Error).message, { error: true }); } finally { setBusy(''); }
   };
   const exportJson = async () => {
-    try { await native.saveFile('quadra-sauvegarde-' + stamp() + $t(".json"), backupBlob(getData())); showToast($t("Sauvegarde exportée")); }
+    try { await native.saveFile('apogee-sauvegarde-' + stamp() + $t(".json"), backupBlob(getData())); showToast($t("Sauvegarde exportée")); }
     catch (e) { showToast($t("Export impossible : ") + (e as Error).message, { error: true }); }
   };
   const onJson = async (f: File) => {
@@ -178,7 +178,7 @@ export function SettingsScreen() {
           <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
             <Row icon="sheet" title={$t("Exporter en Excel (.xlsx)")} sub={busy === 'xlsx' ? $t("Préparation du fichier…") : $t("Tableau de bord, séances, plan, charge, zones, périodisation — formules et graphiques")} onClick={exportXlsx} />
             <Row icon="download" title={$t("Exporter une sauvegarde (.json)")} sub={$t("Toutes les données, relisibles par l’app")} onClick={exportJson} />
-            <Row icon="upload" title={$t("Restaurer ou compléter (.json)")} sub={$t("Sauvegarde Quadra (remplace les données) ou dossier coach de l’ancienne app (ajoute les séances qui manquent)")} onClick={() => jsonInput.current?.click()} />
+            <Row icon="upload" title={$t("Restaurer ou compléter (.json)")} sub={$t("Sauvegarde Apogée (remplace les données) ou dossier coach de l’ancienne app (ajoute les séances qui manquent)")} onClick={() => jsonInput.current?.click()} />
           </ul>
           <input ref={jsonInput} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onJson(f); e.target.value = ''; }} />
         </Section>

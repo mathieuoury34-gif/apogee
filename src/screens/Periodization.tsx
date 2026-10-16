@@ -1,5 +1,5 @@
 // Périodisation — blocs de préparation sur une frise chronologique, jusqu'à la course.
-// Les blocs viennent du coach (quadra/1) ou d'une saisie ; un chevauchement est refusé avec le nom du
+// Les blocs viennent du coach (apogee/1) ou d'une saisie ; un chevauchement est refusé avec le nom du
 // bloc en conflit.
 import { $t } from '../i18n';
 import { useState } from 'react';

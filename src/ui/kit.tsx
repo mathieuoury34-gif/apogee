@@ -1,4 +1,4 @@
-// Composants partagés (planche Système de PEAnalyze, adaptés à Quadra)
+// Composants partagés (planche Système de PEAnalyze, adaptés à Apogée)
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { $t } from '../i18n';
 import { Icon, Logo } from './icons';
@@ -278,7 +278,7 @@ export function Switch({ checked, onChange, labelledBy, label, disabled }: { che
 }
 
 /** Préférence d'affichage « inclure Autre » dans les volumes (éteinte par défaut), partagée entre Séances › Statistiques et Progression. */
-const OTHER_KEY = 'quadra:withOther';
+const OTHER_KEY = 'apogee:withOther';
 const otherListeners = new Set<() => void>();
 const readOther = () => { try { return localStorage.getItem(OTHER_KEY) === '1'; } catch { return false; } };
 let withOther = readOther();

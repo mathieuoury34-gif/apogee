@@ -76,7 +76,7 @@ export function editActual(id: string, input: ManualInput): Snapshot {
   const edited = new Set<EditableField>(cur.edited);
   const durationSec = Math.round(input.durationMin * 60);
   const distanceM = input.distanceKm === null ? null : input.distanceKm * 1000;
-  const next: ActualSession = { ...cur, rpe: input.rpe, comment: input.comment ?? cur.comment, subSport: input.discipline === 'OTHER' ? (input.subSport !== undefined ? input.subSport : cur.subSport ?? null) : null };
+  const next: ActualSession = { ...cur, rpe: input.rpe, comment: input.comment ?? cur.comment, subSport: input.discipline === 'OTHER' ? (input.subSport !== undefined ? input.subSport : cur.subSport ?? null) : null, title: input.title !== undefined ? input.title?.trim() || null : cur.title ?? null };
   const day = sessionDay(cur);
   if (input.date !== day) {
     edited.add('date');
@@ -91,6 +91,14 @@ export function editActual(id: string, input: ManualInput): Snapshot {
   next.avgSpeedMs = next.distanceM && next.durationSec ? next.distanceM / next.durationSec : null;
   next.edited = cur.source === 'manual' ? [] : [...edited];
   commit((tx) => tx.put('actual', next));
+  return s;
+}
+
+/** Donne (ou retire, avec une chaîne vide) un titre à une séance réalisée. N'altère aucune mesure. */
+export function renameActual(id: string, title: string): Snapshot {
+  const cur = getData().actual[id];
+  const s = snapshot([['actual', id]]);
+  if (cur && !cur.deleted) commit((tx) => tx.put('actual', { ...cur, title: title.trim() || null }));
   return s;
 }
 
@@ -156,7 +164,7 @@ export function applyCoach(pv: Preview, plan: CoachPlan, hash: string): void {
 }
 export function logExport(sessions: ActualSession[]): void {
   const now = nowIso();
-  commit((tx) => tx.put('exchanges', { id: newId(), updatedAt: '', direction: 'export', schemaVersion: 'quadra/1', occurredAt: now, status: 'applied', operationCount: sessions.length, payloadHash: null, planValidUntil: null, exportSessions: sessions.map((s) => ({ discipline: s.discipline, day: sessionDay(s) })), error: null }));
+  commit((tx) => tx.put('exchanges', { id: newId(), updatedAt: '', direction: 'export', schemaVersion: 'apogee/1', occurredAt: now, status: 'applied', operationCount: sessions.length, payloadHash: null, planValidUntil: null, exportSessions: sessions.map((s) => ({ discipline: s.discipline, day: sessionDay(s) })), error: null }));
 }
 
 /** Efface tout (pierres tombales : l'effacement se propage aux autres appareils connectés). */

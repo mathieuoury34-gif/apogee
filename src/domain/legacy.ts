@@ -23,7 +23,7 @@ export function emptyData(): AppData {
 export function importLegacyDb(bytes: Uint8Array): { data: AppData; report: LegacyReport } {
   const t = readSqlite(bytes);
   const rows = (name: string) => t.get(name)?.rows ?? [];
-  if (!t.has('actual_session') || !t.has('planned_session')) throw new Error($t("ce fichier ne ressemble pas à une base Quadra"));
+  if (!t.has('actual_session') || !t.has('planned_session')) throw new Error($t("ce fichier ne ressemble pas à une base Apogée"));
   const now = nowIso();
   const d = emptyData();
   const skipped: string[] = [];
@@ -134,7 +134,7 @@ export function importLegacyDb(bytes: Uint8Array): { data: AppData; report: Lega
     const id = String(e.id);
     const notes = json<{ kind?: string; sessions?: { discipline: string; day: string }[]; created?: []; updated?: []; deleted?: []; rejected?: []; noop?: []; malformedCount?: number } | null>(e.notes, null);
     const ex: CoachExchange = {
-      id, updatedAt: now, direction: s(e.direction) === 'export' ? 'export' : 'import', schemaVersion: s(e.exchange_schema_version) ?? 'quadra/1', occurredAt: s(e.occurred_at) ?? now,
+      id, updatedAt: now, direction: s(e.direction) === 'export' ? 'export' : 'import', schemaVersion: s(e.exchange_schema_version) ?? 'apogee/1', occurredAt: s(e.occurred_at) ?? now,
       status: s(e.status) === 'rejected' ? 'rejected' : s(e.status) === 'cancelled' ? 'cancelled' : 'applied', operationCount: n(e.operation_count) ?? 0, payloadHash: s(e.payload_hash), planValidUntil: s(e.plan_valid_until), error: s(e.error),
     };
     if (notes?.kind === 'export') ex.exportSessions = notes.sessions ?? [];
