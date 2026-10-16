@@ -5,7 +5,9 @@ const RUNTIME = 'apogee-runtime';
 const FILES = __FILES__;
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(SHELL).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // cache: 'reload' : on va chercher les fichiers sur le serveur, jamais dans le cache HTTP du navigateur (GitHub Pages les garde ~10 min :
+  // sans cela, un ancien app.js pouvait se retrouver rangé avec les nouveaux modules, d'où un écran noir après une mise en ligne rapprochée).
+  e.waitUntil(caches.open(SHELL).then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith('iron-') || k.startsWith('quadra-') || (k.startsWith('apogee-shell-') && k !== SHELL)).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
