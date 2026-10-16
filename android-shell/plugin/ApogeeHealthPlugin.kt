@@ -61,6 +61,13 @@ class ApogeeHealthPlugin : Plugin() {
         }
     }
 
+    /** Appelé par la page dès que son propre écran de démarrage est dessiné : l'écran de lancement d'Android peut alors s'effacer. */
+    @PluginMethod
+    fun hideSplash(call: PluginCall) {
+        SplashGate.ready = true
+        call.resolve()
+    }
+
     private fun client(): HealthConnectClient? =
         if (HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE) HealthConnectClient.getOrCreate(context) else null
 
@@ -200,4 +207,11 @@ class ApogeeHealthPlugin : Plugin() {
     private fun JSObject.putN(k: String, v: Any?): JSObject { put(k, v ?: org.json.JSONObject.NULL); return this }
 
     private inline fun <T> safe(block: () -> T): T? = try { block() } catch (e: Exception) { null }
+}
+
+/** Garde l'écran de lancement natif affiché tant que la page web n'a pas dessiné le sien (lu par MainActivity). */
+object SplashGate {
+    @JvmField
+    @Volatile
+    var ready: Boolean = false
 }

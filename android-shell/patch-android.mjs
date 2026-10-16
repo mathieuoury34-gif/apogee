@@ -121,11 +121,18 @@ cpSync('plugin/ApogeeHealthPlugin.kt', join(javaDir, 'ApogeeHealthPlugin.kt'));
 write(join(javaDir, 'MainActivity.java'), `package com.mathieu.apogee;
 
 import android.os.Bundle;
+import android.os.SystemClock;
+import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // L'écran de lancement (logo sur fond sombre) reste affiché jusqu'à ce que la page web ait dessiné son propre écran de démarrage
+        // (ApogeeHealth.hideSplash), au plus 4 s : plus de trou vide pendant que la page se charge.
+        final long t0 = SystemClock.uptimeMillis();
+        SplashScreen splash = SplashScreen.installSplashScreen(this);
+        splash.setKeepOnScreenCondition(() -> !SplashGate.ready && SystemClock.uptimeMillis() - t0 < 4000);
         registerPlugin(ApogeeHealthPlugin.class);
         super.onCreate(savedInstanceState);
     }
@@ -150,6 +157,10 @@ const launch = `<style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScr
     </style>`;
 must(/<style name="AppTheme.NoActionBarLaunch"/.test(st), 'style AppTheme.NoActionBarLaunch introuvable dans styles.xml');
 st = st.replace(/<style name="AppTheme\.NoActionBarLaunch"[\s\S]*?<\/style>/, launch);
+// fenêtre de l'app sombre dès le départ (sinon un gris système apparaît entre l'écran de lancement et la page)
+if (!/AppTheme\.NoActionBar"[^>]*>\s*<item name="android:windowBackground">/.test(st)) {
+  st = st.replace(/(<style name="AppTheme\.NoActionBar"[^>]*>)/, '$1\n        <item name="android:windowBackground">#16181B</item>');
+}
 write(stylesPath, st);
 
 console.log('Projet Android adapté pour Apogée.');

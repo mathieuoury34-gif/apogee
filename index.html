@@ -68,6 +68,20 @@
         document.documentElement.classList.add('app-ready');
         if (s) { s.classList.add('out'); setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 400); }
       }
+      // Dans l'APK : dès que le logo est dessiné, l'écran de lancement natif peut s'effacer (nouvelle tentative tant que le pont n'est pas prêt).
+      function hideNative() {
+        var tries = 0;
+        (function t() {
+          try {
+            var c = window.Capacitor;
+            if (!c) return; // navigateur : pas d'écran natif à retirer
+            var p = c.Plugins && c.Plugins.ApogeeHealth;
+            if (p && p.hideSplash) { p.hideSplash(); return; }
+          } catch (e) { /* page web seule : rien à faire */ }
+          if (++tries < 30) setTimeout(t, 100);
+        })();
+      }
+      requestAnimationFrame(function () { requestAnimationFrame(hideNative); });
       window.__css = function () { css = true; go(); };
       window.apogeeReady = function () { ready = true; go(); };
       // filet de sécurité : jamais d'écran de démarrage bloqué
