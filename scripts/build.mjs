@@ -45,7 +45,9 @@ function preloadChunks() {
   visit('app.js');
   const tags = [...seen].map((f) => `  <link rel="modulepreload" href="${f}">`).join('\n');
   const html = readFileSync('dist/index.html', 'utf8');
-  writeFileSync('dist/index.html', html.replace('  <script type="module" src="app.js"></script>', tags + '\n  <script type="module" src="app.js"></script>'));
+  const all = '  <link rel="modulepreload" href="app.js">\n' + tags;
+  if (!html.includes('  <!-- modulepreload -->')) throw new Error('marqueur modulepreload absent de index.html');
+  writeFileSync('dist/index.html', html.replace('  <!-- modulepreload -->', all));
   console.log('modulepreload', seen.size, 'modules');
 }
 
