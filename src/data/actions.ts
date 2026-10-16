@@ -95,11 +95,15 @@ export function editActual(id: string, input: ManualInput): Snapshot {
   return s;
 }
 
-/** Donne (ou retire, avec une chaîne vide) un titre à une séance réalisée. N'altère aucune mesure. */
-export function renameActual(id: string, title: string): Snapshot {
+/** Donne (ou retire, avec une chaîne vide) un titre à une séance réalisée, et — pour « Autre » — choisit son pictogramme. N'altère aucune mesure. */
+export function setActualLook(id: string, look: { title: string; subSport?: string | null }): Snapshot {
   const cur = getData().actual[id];
   const s = snapshot([['actual', id]]);
-  if (cur && !cur.deleted) commit((tx) => tx.put('actual', { ...cur, title: title.trim() || null }));
+  if (cur && !cur.deleted) {
+    const next: ActualSession = { ...cur, title: look.title.trim() || null };
+    if (look.subSport !== undefined && cur.discipline === 'OTHER') next.subSport = look.subSport;
+    commit((tx) => tx.put('actual', next));
+  }
   return s;
 }
 

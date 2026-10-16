@@ -602,3 +602,16 @@ select.input { appearance: auto; }
 
 /* Appui long : pas de menu système ni de sélection de texte sur les lignes de séance */
 .op-row, .row-btn { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+
+/* Pas de sélection de texte parasite à l'appui long : l'app est un instrument, pas une page à copier.
+   On garde la sélection là où elle sert : champs de saisie, blocs de code de l'aide, et tout élément marqué .selectable. */
+html, body { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+input, textarea, select, [contenteditable="true"], pre, code, .help-f, .help-code, .selectable, .selectable * { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+
+/* Banque de pictogrammes (séances « Autre ») */
+.sport-picker { display: flex; flex-direction: column; gap: var(--space-12); }
+.sport-picker > .sport-btn { align-self: flex-start; flex-direction: row; gap: var(--space-8); padding: 8px 14px; }
+.sport-group { display: flex; flex-direction: column; gap: var(--space-8); }
+.sport-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: var(--space-8); }
+.sport-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 4px; min-height: 64px; border-radius: var(--radius-12); border: 1.5px solid var(--divider); background: var(--bg-surface-minimal); color: var(--text-neutral); font: inherit; font-size: 11px; line-height: 1.15; text-align: center; cursor: pointer; }
+.sport-btn[aria-pressed="true"] { border-color: var(--d-OTHER); background: var(--d-OTHER-bg); color: var(--text-strong, var(--text-neutral)); font-weight: 600; box-shadow: inset 0 0 0 1px var(--d-OTHER); }

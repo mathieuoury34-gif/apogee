@@ -9,7 +9,7 @@ import { native } from '../native/bridge';
 import { runHealthSync, useHealth } from '../native/healthSync';
 import { dateTimeFr, dayTitle, MONTHS_TITLE, DISCIPLINE_ICON, dvar } from './format';
 import type { Discipline } from '../domain/types';
-import { subSportOf } from '../domain/subsports';
+import { SPORT_GROUPS, SUB_SPORTS, subSportOf } from '../domain/subsports';
 
 // ------------------------------------------------------------------ mesure
 export function useWidth<T extends HTMLElement>(fallback = 326): [React.RefObject<T | null>, number] {
@@ -202,6 +202,9 @@ export function Fab({ onClick, label = $t('Ajouter une séance') }: { onClick: (
 }
 
 // ------------------------------------------------------------------ feuilles
+/** Les gestes dans une feuille ne doivent pas remonter à l'écran dessous (un balayage dans le calendrier de la feuille changeait la semaine de l'écran). */
+const stopTouch = (e: { stopPropagation(): void }) => e.stopPropagation();
+
 export function Sheet({ title, children, footer, full, onClose = closeSheet, head }: { title: string; children: ReactNode; footer?: ReactNode; full?: boolean; onClose?: () => void; head?: ReactNode }) {
   const ref = useRef<HTMLElement>(null);
   const close = useRef(onClose);
@@ -216,8 +219,8 @@ export function Sheet({ title, children, footer, full, onClose = closeSheet, hea
   }, []);
   return (
     <>
-      <div className="overlay" onClick={onClose} aria-hidden="true" />
-      <section ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className={'sheet' + (full ? ' full' : '')} data-component={full ? 'BottomSheet.full' : 'BottomSheet'} style={{ outline: 'none' }}>
+      <div className="overlay" onClick={onClose} onTouchStart={stopTouch} onTouchEnd={stopTouch} aria-hidden="true" />
+      <section ref={ref} onTouchStart={stopTouch} onTouchEnd={stopTouch} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className={'sheet' + (full ? ' full' : '')} data-component={full ? 'BottomSheet.full' : 'BottomSheet'} style={{ outline: 'none' }}>
         <span className="handle" aria-hidden="true" />
         <div className="sheet-head" style={full ? { borderBottom: '1px solid var(--divider-minimal)' } : undefined}>
           <div className="between">
@@ -266,6 +269,27 @@ export function DiscIcon({ d, size = 40, style, sub }: { d: Discipline; size?: n
     <span className="disc-icon" style={{ width: size, height: size, background: `var(--d-${d}-bg)`, color: dvar(d), ...style }} aria-hidden="true">
       <Icon name={ss ? ss.icon : DISCIPLINE_ICON[d]} size={Math.round(size * 0.5)} />
     </span>
+  );
+}
+
+/** Banque de pictogrammes pour les séances « Autre » : touche un pictogramme pour le choisir, touche-le encore (ou « Générique ») pour revenir au pictogramme par défaut. */
+export function SportPicker({ value, onChange }: { value: string | null; onChange: (id: string | null) => void }) {
+  return (
+    <div className="sport-picker" role="group" aria-label={$t("Pictogramme de l’activité")}>
+      <button type="button" className="sport-btn" aria-pressed={!value} onClick={() => onChange(null)}><Icon name="other" size={26} /><span>{$t("Générique")}</span></button>
+      {SPORT_GROUPS.map((g) => (
+        <div key={g.id} className="sport-group">
+          <span className="overline">{g.label}</span>
+          <div className="sport-grid">
+            {SUB_SPORTS.filter((x) => x.group === g.id).map((x) => (
+              <button key={x.id} type="button" className="sport-btn" aria-pressed={value === x.id} onClick={() => onChange(value === x.id ? null : x.id)}>
+                <Icon name={x.icon} size={26} /><span>{x.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

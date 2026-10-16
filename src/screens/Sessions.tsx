@@ -3,7 +3,7 @@
 // Modifier / Supprimer (avec « Annuler »), filtres en pastilles.
 import { $t } from '../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppHeader, ChipGroup, DatePicker, DiscIcon, Empty, ErrorBanner, Fab, Hero, Sheet, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther } from '../ui/kit';
+import { AppHeader, ChipGroup, DatePicker, DiscIcon, Empty, ErrorBanner, Fab, Hero, Sheet, SportPicker, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther } from '../ui/kit';
 import { Donut, StepChart, WeekBars } from '../ui/charts';
 import { Icon } from '../ui/icons';
 import { useActualMenu } from '../ui/menu';
@@ -288,6 +288,7 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
   const [date, setDate] = useState(sessionDay(s));
   const [disc, setDisc] = useState<ActualDiscipline>(s.discipline);
   const [title, setTitle] = useState(s.title ?? '');
+  const [sub, setSub] = useState<string | null>(s.subSport ?? null);
   const [dur, setDur] = useState(toInput(s.durationSec / 60, 1).replace(/,0$/, ''));
   const [dist, setDist] = useState(s.distanceM ? toInput(s.distanceM / 1000, 2) : '');
   const [hr, setHr] = useState(s.avgHrBpm ? String(Math.round(s.avgHrBpm)) : '');
@@ -295,7 +296,7 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
   const r = parseManualFields({ date, discipline: disc, durationMin: dur, distanceKm: dist, avgHrBpm: hr });
   const save = () => {
     if ('error' in r) return;
-    const snap = editActual(s.id, { ...r.input, rpe: s.rpe, comment: s.comment, subSport: s.subSport ?? null, title });
+    const snap = editActual(s.id, { ...r.input, rpe: s.rpe, comment: s.comment, subSport: disc === 'OTHER' ? sub : null, title });
     onClose();
     showToast($t("Séance modifiée"), { undo: () => restore(snap) });
   };
@@ -310,6 +311,7 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
         <div className="field"><span className="lbl">{$t("Discipline")}</span>
           <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>{ACTUAL_DISCIPLINES.map((x) => <button key={x} type="button" className="chip" aria-pressed={disc === x} onClick={() => setDisc(x)}>{DISCIPLINE_LABEL[x]}</button>)}</div>
         </div>
+        {disc === 'OTHER' && <div className="field"><span className="lbl">{$t("Pictogramme de l’activité")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><SportPicker value={sub} onChange={setSub} /></div>}
         <label className="field"><span className="lbl">{$t("Titre")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>
           <input className="input" value={title} maxLength={80} placeholder={disc === 'OTHER' ? $t("Nom de l’activité : GR20 étape 3, kayak, balade…") : $t("Sortie avec Paul, vélo de nuit…")} onChange={(e) => setTitle(e.target.value)} />
           <span className="hint">{$t("Remplace le nom de la discipline dans les listes. Ne change aucun calcul.")}</span></label>
@@ -365,6 +367,7 @@ export function ManualEntryScreen() {
   const [cal, setCal] = useState(false);
   const [disc, setDisc] = useState<ActualDiscipline>('RUN');
   const [title, setTitle] = useState('');
+  const [sub, setSub] = useState<string | null>(null);
   const [dur, setDur] = useState('');
   const [dist, setDist] = useState('');
   const [hr, setHr] = useState('');
@@ -376,7 +379,7 @@ export function ManualEntryScreen() {
   const durMin = parseNum(dur), distKm = parseNum(dist);
   const submitSingle = () => {
     if ('error' in r) return;
-    const input: ManualInput = { ...r.input, rpe, comment: comment.trim() || null, title: title.trim() || null };
+    const input: ManualInput = { ...r.input, rpe, comment: comment.trim() || null, title: title.trim() || null, subSport: disc === 'OTHER' ? sub : null };
     const res = addManualSessions([input]);
     if (!res.inserted.length) { showToast($t("Cette séance existe déjà (même date, discipline, durée, distance et FC)."), { error: true }); return; }
     const created = res.inserted[0];
@@ -416,6 +419,7 @@ export function ManualEntryScreen() {
                   {ACTUAL_DISCIPLINES.map((x) => <button key={x} type="button" role="radio" aria-checked={disc === x} className={'disc-pick' + (disc === x ? ' on' : '')} style={{ ['--c' as string]: dvar(x) }} onClick={() => setDisc(x)}><DiscIcon d={x} size={36} /><span className="t-caption-strong">{DISCIPLINE_SHORT[x]}</span></button>)}
                 </div>
               </div>
+        {disc === 'OTHER' && <div className="field"><span className="lbl">{$t("Pictogramme de l’activité")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><SportPicker value={sub} onChange={setSub} /></div>}
         <label className="field"><span className="lbl">{$t("Titre")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>
           <input className="input" value={title} maxLength={80} placeholder={disc === 'OTHER' ? $t("Nom de l’activité : GR20 étape 3, kayak, balade…") : $t("Sortie avec Paul, vélo de nuit…")} onChange={(e) => setTitle(e.target.value)} />
           <span className="hint">{$t("Remplace le nom de la discipline dans les listes. Ne change aucun calcul.")}</span></label>

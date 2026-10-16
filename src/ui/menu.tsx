@@ -2,10 +2,10 @@
 // L'appui long ouvre une feuille ; « retour » d'Android la ferme sans quitter l'écran.
 import { $t } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
-import { DatePicker, Sheet, showToast } from './kit';
+import { DatePicker, Sheet, SportPicker, showToast } from './kit';
 import { Icon } from './icons';
 import { navigate } from './router';
-import { deletePlanned, duplicatePlanned, movePlanned, renameActual, restore } from '../data/actions';
+import { deletePlanned, duplicatePlanned, movePlanned, restore, setActualLook } from '../data/actions';
 import { useCalc } from '../data/store';
 import { dateFr, dayTitle, DISCIPLINE_LABEL, sessionLabel } from './format';
 import { sessionDay } from '../domain/load';
@@ -107,21 +107,25 @@ function PlannedSheet({ p, sh }: { p: PlannedSession; sh: SheetCtl }) {
 function ActualSheet({ s, sh }: { s: ActualSession; sh: SheetCtl }) {
   const { data, d } = useCalc();
   const [title, setTitle] = useState(s.title ?? '');
+  const [sub, setSub] = useState<string | null>(s.subSport ?? null);
   const [copy, setCopy] = useState(false);
+  const isOther = s.discipline === 'OTHER';
+  const changed = title.trim() !== (s.title ?? '').trim() || (isOther && sub !== (s.subSport ?? null));
   const link = d.links.byActual.get(s.id);
   const plan = link?.plannedId ? data.planned[link.plannedId] : undefined;
   const save = () => {
-    const snap = renameActual(s.id, title);
+    const snap = setActualLook(s.id, { title, subSport: isOther ? sub : undefined });
     sh.hide();
-    showToast(title.trim() ? $t("Titre enregistré") : $t("Titre retiré"), { undo: () => restore(snap) });
+    showToast(title.trim() || (isOther && sub !== (s.subSport ?? null)) ? $t("Titre enregistré") : $t("Titre retiré"), { undo: () => restore(snap) });
   };
   return (
     <Sheet title={sessionLabel(s)} onClose={sh.hide} head={<span className="t-caption c-moderate">{dayTitle(sessionDay(s))} · {DISCIPLINE_LABEL[s.discipline]}</span>}
-      footer={<button type="button" className="btn btn-primary block" disabled={title.trim() === (s.title ?? '').trim()} onClick={save}>{$t("Enregistrer le titre")}</button>}>
+      footer={<button type="button" className="btn btn-primary block" disabled={!changed} onClick={save}>{$t("Enregistrer le titre")}</button>}>
       <div className="stack" style={{ gap: 'var(--space-4)', paddingBottom: 'var(--space-16)' }}>
         <label className="field"><span className="lbl">{$t("Titre")}</span>
-          <input className="input" value={title} maxLength={80} autoFocus placeholder={s.discipline === 'OTHER' ? $t("Nom de l’activité : GR20 étape 3, kayak, balade…") : $t("Sortie avec Paul, vélo de nuit…")} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && title.trim() !== (s.title ?? '').trim()) save(); }} />
+          <input className="input" value={title} maxLength={80} autoFocus placeholder={s.discipline === 'OTHER' ? $t("Nom de l’activité : GR20 étape 3, kayak, balade…") : $t("Sortie avec Paul, vélo de nuit…")} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && changed) save(); }} />
           <span className="hint">{$t("Remplace le nom de la discipline dans les listes. Ne change aucun calcul.")}</span></label>
+        {isOther && <div className="field"><span className="lbl">{$t("Pictogramme de l’activité")}</span><SportPicker value={sub} onChange={setSub} /></div>}
         <Action icon="seances" title={$t("Ouvrir le bilan")} onClick={() => sh.leave('/seances/' + s.id)} />
         {plan && !plan.deleted && <>
           <Action icon="copy" title={$t("Dupliquer la séance prévue")} sub={plan.title ?? DISCIPLINE_LABEL[plan.discipline]} open={copy} onClick={() => setCopy(!copy)} />
