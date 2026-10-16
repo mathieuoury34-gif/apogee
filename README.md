@@ -46,7 +46,9 @@ sur le téléphone (identifiant Android distinct, `com.mathieu.apogee`) le temps
 
 **Migration vers un projet « Apogée »** : voir `docs/migration-firebase-apogee.md` (l'identifiant d'un projet ne se renomme pas).
 
-**Fait le 12/10/2026** : projet `ironapp-99f99`, connexion Google activée, domaine
+**Fait le 16/10/2026** : projet `apogee-d171c` (remplace `ironapp-99f99`, abandonné), config dans `src/data/firebase-config.ts`.
+
+**Ancien projet, fait le 12/10/2026** : projet `ironapp-99f99`, connexion Google activée, domaine
 `mathieuoury34-gif.github.io` autorisé, Firestore créé en `eur3 (Europe)`, règles de `firestore.rules` saisies, application
 Web « Apogée » déclarée et `src/data/firebase-config.ts` rempli. Les étapes ci-dessous ne servent qu'à
 refaire la configuration ailleurs.
