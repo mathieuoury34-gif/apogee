@@ -10,7 +10,7 @@ const config = {
   appName: 'Apogée',
   webDir: 'www',
   server: { url, cleartext: false, allowNavigation: [host, 'www.gstatic.com', '*.googleapis.com', '*.firebaseapp.com'] },
-  android: { backgroundColor: '#F2F0EA' },
+  android: { backgroundColor: '#16181B' },
   plugins: { LocalNotifications: { smallIcon: 'ic_stat_apogee', iconColor: '#16181B' } },
 };
 writeFileSync('capacitor.config.json', JSON.stringify(config, null, 2));

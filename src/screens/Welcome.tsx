@@ -30,6 +30,8 @@ export function WelcomeCard({ className = '' }: { className?: string }) {
       else { restoreBackup(file.data); showToast($t("Sauvegarde restaurée"), { undo: () => restoreBackup(prev) }); }
     } catch (e) { showToast($t("Lecture impossible : ") + (e as Error).message, { error: true }); }
   };
+  // La connexion Google n'est pas encore résolue : on n'affiche pas « connecte-toi » une demi-seconde à tort.
+  if (sync.configured && !sync.ready) return null;
   return (
     <section className={'card g16 ' + className} aria-labelledby="welcome-title" data-component="WelcomeCard">
       <h2 id="welcome-title">{$t("Bienvenue sur Apogée")}</h2>

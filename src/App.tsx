@@ -10,7 +10,6 @@ import { CoachScreen } from './screens/Coach';
 import { PeriodizationScreen } from './screens/Periodization';
 import { InterruptionsScreen, LoadingScreen, ProfileScreen, SettingsScreen } from './screens/Settings';
 import { HelpScreen } from './screens/Help';
-import { useSync } from './data/sync';
 import { useReady } from './data/store';
 
 const SECTIONS = ['accueil', 'calendrier', 'seances', 'progression', 'coach', 'parametres'];
@@ -49,7 +48,6 @@ function Screen() {
 
 export function App() {
   const route = useRoute();
-  const sync = useSync();
   const ready = useReady();
   const sheet = route.query.get('sheet');
   // écrans de saisie plein écran : pas de barre d'onglets (comme les écrans Achat / Virement de PEAnalyze)
@@ -59,7 +57,9 @@ export function App() {
     if (!SECTIONS.includes(route.parts[0])) navigate(HOME, { replace: true });
   }, [route.parts]);
 
-  if (!ready || (sync.configured && !sync.ready)) return <LoadingScreen />;
+  // L'app s'affiche dès que les données locales sont lues : elle n'attend pas le réseau (Firebase se connecte ensuite, en arrière-plan).
+  useEffect(() => { if (ready) (window as unknown as { apogeeReady?: () => void }).apogeeReady?.(); }, [ready]);
+  if (!ready) return <LoadingScreen />;
 
   return (
     <>

@@ -30,7 +30,9 @@ self.addEventListener('fetch', (e) => {
   }
   if (url.origin !== self.location.origin) return; // Firebase : toujours en direct
   if (req.mode === 'navigate' && !url.pathname.endsWith('auth.html')) {
-    e.respondWith(fetch(req).then((r) => { if (r.ok) { const copy = r.clone(); caches.open(SHELL).then((c) => c.put('./', copy)); } return r; }).catch(() => caches.match('./')));
+    // La page vient du cache de l'app : démarrage immédiat, même hors ligne ou en réseau lent, et toujours la MÊME version que app.js et les
+    // modules (ils sont rangés ensemble à l'installation). Une nouvelle version s'installe en arrière-plan et prend la main au lancement suivant.
+    e.respondWith(caches.match('./').then((hit) => hit || fetch(req)));
     return;
   }
   e.respondWith(caches.match(req).then((hit) => hit || fetch(req)));

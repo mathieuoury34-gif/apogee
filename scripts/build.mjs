@@ -34,6 +34,21 @@ function walk(dir, base = dir) {
   });
 }
 
+// Les modules de démarrage sont annoncés dans index.html : le navigateur les télécharge en parallèle d'app.js
+// (sans cela : HTML, puis app.js, puis les modules, une attente réseau de plus à chaque niveau).
+function preloadChunks() {
+  const seen = new Set();
+  const visit = (file) => {
+    const src = readFileSync(join('dist', file), 'utf8');
+    for (const m of src.matchAll(/(?:from|import)\s*"\.\/(chunks\/[^"]+\.js)"/g)) if (!seen.has(m[1])) { seen.add(m[1]); visit(m[1]); }
+  };
+  visit('app.js');
+  const tags = [...seen].map((f) => `  <link rel="modulepreload" href="${f}">`).join('\n');
+  const html = readFileSync('dist/index.html', 'utf8');
+  writeFileSync('dist/index.html', html.replace('  <script type="module" src="app.js"></script>', tags + '\n  <script type="module" src="app.js"></script>'));
+  console.log('modulepreload', seen.size, 'modules');
+}
+
 function writeServiceWorker() {
   const files = walk('dist').filter((f) => !f.endsWith('.map') && f !== 'sw.js' && f !== 'auth.html' && f !== 'auth.js');
   const hash = createHash('sha256');
@@ -53,5 +68,6 @@ if (serve) {
   console.log('http://127.0.0.1:' + port);
 } else {
   await esbuild.build(options);
+  preloadChunks();
   writeServiceWorker();
 }

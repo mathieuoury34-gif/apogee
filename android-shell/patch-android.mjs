@@ -138,4 +138,18 @@ mkdirSync(join(APP, 'src/main/res/values'), { recursive: true });
 const bg = join(APP, 'src/main/res/values/ic_launcher_background.xml');
 write(bg, `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#16181B</color>\n</resources>\n`);
 
+// ---------------------------------------------------------------- écran de lancement natif
+// Fond sombre d'Apogée + logo, au lieu de l'écran blanc du modèle : l'écran de lancement d'Android s'affiche dès le toucher de
+// l'icône, puis la page web (qui a le même fond sombre et son animation) prend le relais sans flash blanc.
+const stylesPath = join(APP, 'src/main/res/values/styles.xml');
+let st = read(stylesPath);
+const launch = `<style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#16181B</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+    </style>`;
+must(/<style name="AppTheme.NoActionBarLaunch"/.test(st), 'style AppTheme.NoActionBarLaunch introuvable dans styles.xml');
+st = st.replace(/<style name="AppTheme\.NoActionBarLaunch"[\s\S]*?<\/style>/, launch);
+write(stylesPath, st);
+
 console.log('Projet Android adapté pour Apogée.');
