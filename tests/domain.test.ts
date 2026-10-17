@@ -608,5 +608,11 @@ test('fichier .FIT : structure valide, cibles converties, répétitions, BRICK e
   assert.deepEqual(files.map((f) => f.discipline), ['BIKE', 'RUN']);
   assert.ok(files[1].name.includes('course'));
   assert.equal(readFit(encodeFit(files[0]))[1].f[4], 2);
+  // renforcement : sport « entraînement », répétitions, nom de l'exercice
+  const str = { ...run, discipline: 'STRENGTH', title: 'Renfo', blocks: [{ ...newBlock('WORK'), measure: 'REPS' as const, measureValue: 12, label: 'Squat' }, { ...newBlock('REST'), measure: 'TIME' as const, measureValue: 60 }] } as never;
+  const sw = toFitWorkouts(str, refs)[0];
+  const sm = readFit(encodeFit(sw));
+  assert.equal(sm[1].f[4], 10); assert.equal(sm[1].f[11], 20);
+  assert.equal(sm[2].f[0], 'Squat'); assert.equal(sm[2].f[1], 29); assert.equal(sm[2].f[2], 12);
   assert.equal(fitFileName('Fractionné 6×3 — vélo', '2026-10-20'), '2026-10-20-Fractionne-6-3-velo.fit');
 });

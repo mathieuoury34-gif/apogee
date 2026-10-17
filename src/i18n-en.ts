@@ -1073,4 +1073,5 @@ export const EN: Record<string, string> = {
   "Export impossible": "Export failed",
   "Exporter pour la montre (.FIT)": "Export for the watch (.FIT)",
   "Une montre ne lit qu’un sport par entraînement : un enchaînement donne un fichier par discipline.": "A watch only reads one sport per workout: a brick gives one file per discipline.",
+  "Lecture du tracé impossible : l’APK installé est trop ancien, réinstalle la dernière version": "Cannot read the route: the installed APK is too old, reinstall the latest version",
 };

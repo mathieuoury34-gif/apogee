@@ -295,7 +295,7 @@ function RouteCard({ s }: { s: ActualSession }) {
     setBusy(true);
     try {
       const r = await loadRoute(s);
-      showToast(r === 'ok' ? $t("Tracé chargé") : r === 'denied' ? $t("Accès au tracé refusé : rien n’a été lu") : r === 'none' ? $t("Aucun tracé GPS pour cette séance") : $t("Lecture du tracé impossible sur cet appareil"), { error: r !== 'ok' });
+      showToast(r === 'ok' ? $t("Tracé chargé") : r === 'denied' ? $t("Accès au tracé refusé : rien n’a été lu") : r === 'none' ? $t("Aucun tracé GPS pour cette séance") : $t("Lecture du tracé impossible : l’APK installé est trop ancien, réinstalle la dernière version"), { error: r !== 'ok' });
     } catch (e) { showToast((e as Error).message || $t("Lecture du tracé impossible"), { error: true }); }
     finally { setBusy(false); }
   };

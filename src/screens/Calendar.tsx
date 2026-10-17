@@ -295,7 +295,7 @@ export function PlannedDetailScreen({ id }: { id: string }) {
           <h2>{$t("Blocs")}</h2>
           <BlockList p={p} />
         </section>
-        {p.blocks.length > 0 && p.discipline !== 'STRENGTH' && (
+        {p.blocks.length > 0 && (
           <section className="card g8 dspan-12" aria-label={$t("Montre")}>
             <h2>{$t("Sur la montre")}</h2>
             <p className="t-caption c-neutral">{$t("Exporte la séance en entraînement structuré (.FIT) : étapes, durées ou distances, cibles d’allure, de puissance ou de FC, répétitions. Copie le fichier dans le dossier GARMIN/Workouts de la montre branchée en USB ; elle le propose ensuite dans Entraînement › Séances.")}</p>
