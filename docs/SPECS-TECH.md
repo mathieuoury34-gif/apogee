@@ -2,7 +2,7 @@
 
 **Version** 2.0 (réécriture complète)
 **Date** 17 octobre 2026
-**Dernier commit décrit** `3eb962d` (dépôt `mathieuoury34-gif/apogee`)
+**Dernier commit décrit** `8538c5f` (dépôt `mathieuoury34-gif/apogee`)
 
 Ce document décrit **comment l'application est construite, telle qu'elle est dans le code**. Toutes les constantes
 citées ont été relues dans le code le 16/10/2026. Pour le *quoi* et le *pourquoi* : `PRD.md`. Pour refaire
@@ -22,7 +22,7 @@ Drizzle) est archivée dans `HISTORIQUE-RN.md` et **ne s'applique plus**.
 | Stockage local | IndexedDB base `apogee` (stores `records` et `meta`) ; préférences d'appareil dans `localStorage` (`apogee:*`) |
 | Synchronisation | Firebase (offre Spark) : Authentication Google + Firestore ; SDK chargé à l'exécution depuis `www.gstatic.com/firebasejs/10.14.1/` (pas dans le bundle) |
 | Calcul | Fonctions pures dans `src/domain/`, sans interface ; **rien de calculé n'est stocké** |
-| Tests | `node --import tsx --test tests/*.test.ts` : **34 tests** verts ; `tsc --noEmit -p .` limité à `src/` |
+| Tests | `node --import tsx --test tests/*.test.ts` : **29 tests** verts ; `tsc --noEmit -p .` limité à `src/` |
 | Coût | 0 € (Pages, Actions, Spark). Aucun secret dans le dépôt |
 | Identifiants | Android `com.mathieu.apogee` ; schéma de lien `apogee://auth` ; plugin Capacitor `ApogeeHealth` ; formats `apogee/1` et `apogee-backup/1` ; base `apogee` ; clés `apogee:*` ; caches `apogee-shell-<hash>` et `apogee-runtime` |
 
@@ -49,7 +49,7 @@ src/data/                   store, idb, sync, actions, backup, excel/xlsx, legac
 src/native/                 bridge (Capacitor), healthSync, notify
 src/screens/                Home, Calendar, Editor, Periodization, Sessions, Progress, Analysis, Templates, Coach, Settings, Health, Help, Welcome
 src/ui/                     kit (composants), charts (SVG), icons, sport-icons (50 pictogrammes), menu, format, router
-tests/domain.test.ts        34 tests ; tests/fixtures/ (migrations SQL de l'ancienne base + make_legacy_db.py)
+tests/domain.test.ts        29 tests ; tests/fixtures/ (migrations SQL de l'ancienne base + make_legacy_db.py)
 tools/                      demo.ts (jeu fictif), icons.py (icônes), shots.py (captures) — jamais publiés
 android-shell/              configure.mjs, patch-android.mjs, plugin/ApogeeHealthPlugin.kt, res/, keystore/, www/
 .github/workflows/publier.yml   (copie de github-workflows/publier.yml)
@@ -74,13 +74,12 @@ par enregistrement avec Firestore. Tout enregistrement : `{ id: string, updatedA
 | `zones` | relevé historisé : `kind ('vma'|'ftp'|'css'|'hr_max'), value (SI), measuredAt, source ('test'|'estimation'|'manual'), notes` | id numérique |
 | `phases` | bloc de périodisation : `label, phase, startDate, endDate, intent, objective, notes, idempotencyKey, coachExchangeId` | id numérique |
 | `planned` | séance prévue : `discipline (RUN/BIKE/SWIM/STRENGTH/BRICK), plannedDate, title, notes, origin ('manual'|'coach'), idempotencyKey, coachExchangeId, blocks (Block[]), createdAt, editedAt` | id numérique |
-| `actual` | séance réalisée : `sourceId, source ('health'|'manual'), discipline (+OTHER), subSport, title, rawExerciseType, startAt, endAt, zoneOffsetMinutes, durationSec, distanceM, calories (J), elevationGainM, avg/max/minHrBpm, hrCoverageRatio, hrSampleCount, avg/maxSpeedMs, avgPowerW, maxPowerW, hasSeries, edited (EditableField[]), rpe, comment, manualPlannedId, ingestedAt` | id numérique |
-| `series` | courbes brutes d'une séance (même id que `actual`) : `hr: [epoch s, bpm][]`, `speed: [epoch s, m/s][]`, `power?: [epoch s, W][]` (vélo avec capteur), `route?: [epoch s, lat, lon, altitude|null][]` (tracé lu à la demande, ≤ 1 200 points espacés d'au moins 5 s) (≈ 5 Ko par séance, davantage avec puissance) | = id séance |
+| `actual` | séance réalisée : `sourceId, source ('health'|'manual'), discipline (+OTHER), subSport, title, rawExerciseType, startAt, endAt, zoneOffsetMinutes, durationSec, distanceM, calories (J), elevationGainM, avg/max/minHrBpm, hrCoverageRatio, hrSampleCount, avg/maxSpeedMs, hasSeries, edited (EditableField[]), rpe, comment, manualPlannedId, ingestedAt` | id numérique |
+| `series` | courbes brutes d'une séance (même id que `actual`) : `hr: [epoch s, bpm][]`, `speed: [epoch s, m/s][]` (≈ 5 Ko par séance) | = id séance |
 | `bricks` | paire d'enchaînement spontané : `firstId, secondId, day, status ('confirmed'|'declined')` | id |
 | `interruptions` | `label, startDate, endDate, reason (injury|travel|external_load|other), dailyLoadOverride, suspendsReminders, notes` | id |
 | `sleep` | nuit : `nightDate (jour du réveil), startAt, endAt, zoneOffsetMinutes, durationSec, sourceId` | = nightDate |
 | `resting` | FC de repos du jour : `day, bpm` | = day |
-| `hrv` | variabilité cardiaque (RMSSD) du jour : `day, ms` (médiane des mesures du jour de réveil) | = day |
 | `weight` | pesée du jour : `day, kg, source ('health'|'manual')` ; une saisie manuelle n'est jamais écrasée, une pesée supprimée n'est pas ré-importée | = day |
 | `templates` | séance favorite ou semaine type : `name, kind ('session'|'week'), items ({offset, discipline, title, notes, blocks}[]), createdAt` | id |
 | `exchanges` | journal coach : `direction ('export'|'import'), schemaVersion, occurredAt, status (applied|rejected|cancelled), operationCount, payloadHash, planValidUntil, exportSessions, importSummary, error` | id |
@@ -221,10 +220,10 @@ Assise : `measured | estimated | entered | none`. La dérive est calculée avec 
   calculé **seulement si 28 jours** de données et chronique > 0 ; jour le plus chargé et sa part ; rampe hebdomadaire.
 
 ### 5.5 Forme du jour (`form.ts`)
-Cinq composantes (poids) : **sommeil 0,24** (durée de la nuit), **FC de repos 0,20** (direction inverse), **variabilité
-cardiaque 0,20** (RMSSD du jour, plancher d'écart-type 4 ms ; ignorée tant qu'aucune mesure n'existe, sans compter comme
-« manquante »), **fraîcheur 0,24** (celle de la **fin de la veille**), **RPE de la veille 0,12** (max du jour précédent,
-inverse). Sans variabilité, les poids renormalisés redonnent exactement l'ancien calcul (0,30 / 0,25 / 0,30 / 0,15).
+Quatre composantes (poids) : **sommeil 0,30** (durée de la nuit), **FC de repos 0,25** (direction inverse),
+**fraîcheur 0,30** (celle de la **fin de la veille**), **RPE de la veille 0,15** (max du jour précédent, inverse).
+(Une cinquième composante, la variabilité cardiaque, a existé quelques heures le 17/10 puis a été retirée : Garmin ne
+l'envoie pas à Health Connect.)
 Pour chaque composante : référence = médiane des **14 jours précédents** (jour évalué exclu) ; centre 0 pour la
 fraîcheur ; écart-type avec plancher (sommeil 1 800 s, FC repos 1,5 bpm, fraîcheur 5, RPE 0,8) ; `z` borné ±2 ;
 `score = clamp(50 + 25·z, 0, 100)`. Il faut ≥ **3** observations par composante et un poids cumulé ≥ **0,5** ; les
@@ -275,10 +274,9 @@ poids sont renormalisés sur les composantes présentes. Paliers : `<25 Épuisé
   n'est pas corrigée à la main ; séance reprise du dossier coach → complétée. Plusieurs sommeils pour la même nuit :
   le plus long. Lecture : depuis `healthSyncedUntil − 48 h` ; première lecture **400 jours** (avec autorisation
   « historique », sinon 30).
-- Puissance : série `power` nettoyée (0–2 500 W), `avgPowerW` / `maxPowerW` stockés avec la séance ; une séance déjà connue
-  est complétée si elle n'avait pas de puissance. VFC : médiane des mesures du jour (0–400 ms). Poids : dernière pesée du
-  jour (25–300 kg), arrondie au dixième. Le tracé n'est **pas** lu avec le reste : `loadRoute` (`healthSync.ts`) l'appelle séance
-  par séance ; il est conservé quand la séance est relue.
+- Poids : dernière pesée du jour (25–300 kg), arrondie au dixième ; une saisie manuelle ou une pesée supprimée n'est
+  jamais écrasée / ré-importée. Garmin Connect n'envoie pas le poids (constaté sur l'écran « Data and access » de
+  Health Connect) : il vient surtout de la saisie manuelle.
 
 ### 5.11 Analyses (17/10/2026) — toutes recalculées, rien de stocké
 - `hr.ts › analyzeHr(raw)` : cache `WeakMap` par tableau brut (`clean, peak, drift`) ; les enregistrements sont immuables.
@@ -295,16 +293,11 @@ poids sont renormalisés sur les composantes présentes. Paliers : `<25 Épuisé
   plan » ; l'intensité n'est pas modélisée.
 - `records.ts` : meilleur segment (fenêtre glissante sur la vitesse, trou plafonné à 30 s, vitesse plausible maximale
   par distance) ; efficacité = vitesse × 60 ÷ FC moyenne sur séances ≥ 20 min, FC 65–85 % de la FC max, dénivelé < 2 %,
-  4 dernières semaines contre 4 précédentes ; **vélo : watts ÷ FC moyenne** dès 3 sorties avec puissance ; enchaînements
+  4 dernières semaines contre 4 précédentes ; enchaînements
   (paire confirmée ou BRICK prévu, transition ≤ 45 min, allure contre médiane 90 jours) ; `suggestZones` : VMA = meilleur
-  6 min des 90 jours (si ≥ 1 % au-dessus de la valeur actuelle), CSS = 200 ÷ (t400 − t200), **FTP = 95 % du meilleur 20 min**
-  des 90 jours (si ≥ 1 % au-dessus).
-- `power.ts` : meilleure puissance moyenne (5 s, 1, 5, 20, 60 min, plausibles ≤ 2 500 / 1 500 / 800 / 600 / 500 W) ; puissance
-  normalisée (moyenne glissante 30 s, puissance 4) ; IF = PN ÷ FTP ; TSS = h × IF² × 100 (indicatif) ; `weightAt` pour les W/kg.
+  6 min des 90 jours (si ≥ 1 % au-dessus de la valeur actuelle), CSS = 200 ÷ (t400 − t200).
 - `body.ts` : poids (moyenne 7 j, écart avec les 7 jours précédant le 28ᵉ jour) ; sommeil (moyenne 7 nuits contre 21,
   coucher médian et écart-type sur 14 nuits, 5 minimum).
-- `route.ts` : distance par haversine ; altitude lissée (5 points) ; cumul de dénivelé avec seuil de **3 m** ; projection
-  équirectangulaire du tracé.
 - `summary.ts` : bilan de semaine ; `review.ts` : alerte `INJURY_LOAD` (blessure déclarée non résolue + ACWR ≥ **1,3** ou
   semaine ≥ **25 %** au-dessus de la précédente).
 
@@ -405,7 +398,7 @@ depleted `#4A3A6B`, strained `#4C5C8E`, steady `#3E7A86`, ready `#4E9C86`, fresh
   *.firebaseapp.com]`, `backgroundColor #16181B`, LocalNotifications (icône/couleur).
 - `npx cap add android` puis `patch-android.mjs` (**idempotent**) : permissions Health Connect (lecture seule :
   EXERCISE, HEART_RATE, SPEED, DISTANCE, ACTIVE_CALORIES_BURNED, TOTAL_CALORIES_BURNED, ELEVATION_GAINED, SLEEP,
-  RESTING_HEART_RATE, POWER, HEART_RATE_VARIABILITY, WEIGHT, **READ_HEALTH_DATA_HISTORY**) + `POST_NOTIFICATIONS` ; `queries` vers
+  RESTING_HEART_RATE, WEIGHT, **READ_HEALTH_DATA_HISTORY**) + `POST_NOTIFICATIONS` ; `queries` vers
   `com.google.android.apps.healthdata` ; filtre `ACTION_SHOW_PERMISSIONS_RATIONALE` ; lien `apogee://auth` ;
   `activity-alias ViewPermissionUsageActivity` (Android 14) ; `minSdk 26` ; Kotlin 2.0.21 ; Java 21 ; dépendances
   `androidx.health.connect:connect-client:1.1.0-alpha10`, coroutines 1.8.1, activity-ktx 1.9.3 ; **keystore de debug
@@ -414,11 +407,10 @@ depleted `#4A3A6B`, strained `#4C5C8E`, steady `#3E7A86`, ready `#4E9C86`, fresh
   icônes `res/` ; thème de lancement ; fond de fenêtre sombre.
 - Plugins Capacitor : app, browser, filesystem, local-notifications, share (7.x).
 - **Module `ApogeeHealth`** (`plugin/ApogeeHealthPlugin.kt`) : `hideSplash`, `availability`, `permissions`,
-  `requestAccess`, `openSettings`, `readSessions(range)`, `readSleep(range)`, `readResting(range)`, `readHrv(range)`,
-  `readWeight(range)`, `readRoute({startTime, endTime, clientRecordId})` (retrouve la séance, puis `ExerciseRouteRequestContract` si
-  Health Connect exige l'accord de l'utilisateur → `{status: ok|none|denied, points}`). Lecture seule.
+  `requestAccess`, `openSettings`, `readSessions(range)`, `readSleep(range)`, `readResting(range)`,
+  `readWeight(range)`. Lecture seule.
   `readSessions` rend, par séance : `id, clientRecordId, startTime, endTime, startZoneOffsetSeconds, exerciseType,
-  distanceM, activeKcal, totalKcal, elevationM, hr[], speed[], power[]`.
+  distanceM, activeKcal, totalKcal, elevationM, hr[], speed[]`.
 - L'APK affiche le **site publié** : une mise à jour du site met l'app à jour sans réinstaller. Réinstaller l'APK
   seulement si le module natif ou l'écran de lancement change (le « Release apk » est reconstruit à chaque envoi).
 
@@ -436,15 +428,14 @@ depleted `#4A3A6B`, strained `#4C5C8E`, steady `#3E7A86`, ready `#4E9C86`, fresh
   configure-pages v5, upload-pages-artifact v3, deploy-pages v4, action-gh-release v2.
 - Pas de `@types/node` : `tsc` est limité à `src/` ; les tests tournent avec `tsx`.
 
-## 12. Tests (`tests/domain.test.ts`, 34 tests)
+## 12. Tests (`tests/domain.test.ts`, 29 tests)
 Dates et semaines ; lecteur SQLite + reprise ; TRIMP/dérive ; FC max (valeur saisie jamais écrasée) ; sRPE recalé et
 charge provisoire ; Banister (série continue, amorçage, forfait) ; forme du jour (fraîcheur du réveil, référence sans
 le jour même) ; estimation durée/distance (fourchette, % VMA) ; rattachement (J±1) ; import manuel en lot ; coach
 (export, import, chevauchement après import) ; Health Connect (mise à jour d'une série tardive, nuit la plus longue) ;
 bloc sans cible ; BRICK ; dossier coach de l'ancienne app ; sauvegarde (aller-retour exact) ; anciens noms de
 formats ; doublons Garmin ; cache cardiaque ; respect du plan ; zones de FC ; records ; forme par discipline (somme) ;
-prévisionnel ; alerte blessure ; estimation de VMA ; puissance (meilleure moyenne, normalisée, FTP, W/kg) ; efficacité vélo ;
-forme du jour avec variabilité ; poids et sommeil ; tracé GPS ; ingestion puissance / VFC / poids / tracé conservé ; fichier
+prévisionnel ; alerte blessure ; estimation de VMA ; poids et sommeil ; ingestion du poids (la saisie manuelle n'est pas écrasée) ; fichier
 .FIT (lecteur indépendant : CRC, étapes, cibles, répétitions, BRICK). Les fixtures SQL reproduisent les migrations Drizzle de l'ancienne base.
 
 ## 13. Pièges rencontrés (à ne pas refaire)

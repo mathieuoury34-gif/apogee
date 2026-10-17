@@ -119,13 +119,11 @@ signalé, grâce à son empreinte.
 
 - **Recalcul plus rapide.** L'analyse cardiaque d'une séance (nettoyage, pic soutenu, dérive) est mise en cache par
   série : un recalcul complet passe d'environ 80 ms à environ 16 ms. Les résultats sont identiques (testé).
-- **Forme du jour avec variabilité cardiaque.** Si la montre envoie la variabilité (RMSSD), elle compte pour 0,20. Sans
-  elle, les autres poids se renormalisent exactement comme avant : aucune forme du jour déjà calculée ne change tant
-  que la variabilité est absente.
 - **Textes corrigés** dans l'aide et les paramètres (rappels, description « multisport »).
-- **Rien d'ajouté à la charge.** La puissance, le poids, le sommeil et le tracé GPS sont des lectures à côté : ils ne
-  modifient aucune charge, forme de fond ni ACWR. Le TSS affiché est indicatif et distinct de la charge d'Apogée.
-- **Estimations proposées, jamais imposées.** VMA (meilleur 6 min), CSS (200/400 m), FTP (95 % du meilleur 20 min) sont
+- **Rien d'ajouté à la charge.** Le poids et le sommeil sont des lectures à côté : ils ne modifient aucune charge, forme
+  de fond ni ACWR. (La puissance vélo, la variabilité cardiaque et le tracé GPS, livrés puis retirés le 17/10 parce que
+  Garmin ne les envoie pas à Health Connect, n'apparaissent plus nulle part.)
+- **Estimations proposées, jamais imposées.** VMA (meilleur 6 min) et CSS (200/400 m) sont
   enregistrées avec la source « estimation » seulement quand tu les adoptes.
 
 ## Limites connues

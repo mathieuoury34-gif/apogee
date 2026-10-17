@@ -20,7 +20,7 @@
 | Données | IndexedDB sur l'appareil + Firestore (projet `apogee-d171c`, Europe `eur3`), connexion Google |
 | Montre | Garmin Fenix 7S Pro → Health Connect → APK (Android seulement) |
 | Stack | React 19 + esbuild (PWA), Capacitor 7 + Kotlin pour l'APK, Firebase Spark. 0 €/mois |
-| Qualité | `npm test` : 34 tests verts ; `npm run typecheck` propre |
+| Qualité | `npm test` : 29 tests verts ; `npm run typecheck` propre |
 | Appareils de Mathieu | PC (Chrome) et téléphone Android (APK) connectés au même compte Google ; synchronisation en service depuis le 16/10 |
 
 ## 2. Ce qui est fait (fonctionnel)
@@ -47,14 +47,17 @@ Détail des écrans et fonctions : `PRD.md` §7 ; construction : `SPECS-TECH.md`
 | 1 | Recalcul ≈ 5× plus rapide (cache cardiaque), textes corrigés, recherche et période dans le journal, respect du plan | `0d3164a` | non |
 | 2 | Onglet Analyse : bilan de semaine, zones de FC et 80/20, forme par discipline, records, efficacité, enchaînements ; prévisionnel de charge ; estimations VMA / CSS ; alerte blessure | `5645825` | non |
 | 3 | Copier une semaine, semaines types, séances favorites (collection `templates`) | `822bc22` | non |
-| 4 | Puissance vélo (records, FTP suggérée, W/kg, efficacité en W/bpm, PN / IF / TSS), variabilité cardiaque dans la forme du jour, poids, sommeil, tracé GPS et profil d'altitude ; nouvelles collections `hrv`, `weight` | `eb01b8d` | **oui** (réinstaller + autorisations) |
+| 4 | Poids (saisie à la main) et sommeil ; la puissance vélo, la variabilité cardiaque et le tracé GPS livrés avec ce lot ont été **retirés** (voir ci-dessous) ; nouvelle collection `weight` | `eb01b8d`, retrait `8538c5f` | non |
 | 5 | Export `.FIT` d'une séance prévue pour la montre | `3eb962d` | non |
 
-À valider par Mathieu sur appareil : (1) réinstaller l'APK, rouvrir Paramètres › Montre › *Autoriser Health Connect*,
-cocher les trois nouvelles autorisations (puissance, variabilité cardiaque, poids), lire la montre, vérifier que ces
-données arrivent (Garmin Connect doit les transmettre à Health Connect) ; (2) ouvrir une randonnée ou une course et
-appuyer sur *Lire le tracé GPS* ; (3) exporter une séance simple en `.FIT`, la copier dans `GARMIN/Workouts` de la
-Fenix 7S Pro et vérifier qu'elle apparaît.
+**Retrait du 17/10 (soir, décision de Mathieu).** Testé sur son téléphone avec l'APK à jour : l'écran « Data and access »
+de Garmin Connect dans Health Connect ne liste ni puissance, ni variabilité cardiaque, ni poids, et la lecture du tracé
+GPS d'une séance répond « aucun tracé ». Ces trois fonctions n'avaient rien à lire : elles ont été supprimées (code,
+écrans, plugin Android, aide, tests). Un import de fichier `.FIT` / `.GPX` les aurait rendues possibles ; Mathieu l'a refusé.
+La collection `hrv` n'existe plus ; une sauvegarde qui en contient une est lue sans erreur (clé ignorée).
+
+À valider par Mathieu sur appareil : exporter une séance simple en `.FIT` (course, vélo, natation ou renforcement), la
+copier dans `GARMIN/Workouts` de la Fenix 7S Pro et vérifier qu'elle apparaît.
 
 ## 3. Journal condensé (Iron App 2 et suites)
 
@@ -77,7 +80,7 @@ Fenix 7S Pro et vérifier qu'elle apparaît.
 2. **Rappels (APK)** — les quatre comportements n'ont jamais été observés en conditions réelles. (Le texte de
    Paramètres › Calculs qui annonçait un rappel inexistant a été corrigé le 17/10.)
 3. **Interruptions** — jamais confirmées formellement sur appareil par Mathieu (technique complète, testée côté web).
-4. **Puissance, variabilité, poids, tracé GPS, `.FIT`** — livrés le 17/10 mais jamais lus / ouverts sur les appareils de Mathieu (voir §2 bis).
+4. **Export `.FIT`** — livré le 17/10, jamais ouvert sur la montre de Mathieu (voir §2 bis). (Puissance, variabilité et tracé GPS : retirés.)
 5. **APK sans mode hors ligne** — il charge le site à distance. Option : embarquer l'app dans l'APK (non faite ;
    imposerait de réinstaller l'APK à chaque mise à jour).
 6. **Aide** (`help-content.ts`) — mise à jour le 17/10 pour les lots 1 à 5 ; à relire si un calcul change ; non revérifiée ligne à ligne contre le code.
@@ -97,10 +100,8 @@ Fenix 7S Pro et vérifier qu'elle apparaît.
 - [ ] Déposer `docs/coach-context-apogee-1.md` dans les connaissances du projet Claude de coaching s'il ne l'est pas.
 - [ ] Faire une sauvegarde `.json` (Paramètres › Données) après chaque grosse saisie ; garder une copie de l'archive du
       code livrée avec ce dossier.
-- [ ] **Lots du 17/10** : réinstaller l'APK (`apogee.apk`, release `apk`), rouvrir Paramètres › Montre › *Autoriser Health Connect* et
-      cocher les nouvelles autorisations, lire la montre, vérifier puissance / variabilité / poids ; tester *Lire le tracé GPS*
-      sur une sortie ; tester un export `.FIT` sur la montre (copie dans `GARMIN/Workouts`).
-- [ ] Observer les rappels pendant quelques jours (§4.2) et re-sonder la puissance vélo en octobre.
+- [ ] **Lots du 17/10** : tester un export `.FIT` sur la montre (copie dans `GARMIN/Workouts`).
+- [ ] Observer les rappels pendant quelques jours (§4.2).
 
 ## 6. À faire par Claude (si demandé)
 

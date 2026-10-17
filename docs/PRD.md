@@ -96,7 +96,7 @@ Aucun nombre sans sa méthode : les valeurs estimées sont **soulignées en poin
 | Charge par séance | TRIMP de Banister sur la courbe cardio ; à défaut TRIMP sur FC moyenne ; à défaut ressenti × durée recalé sur l'échelle du TRIMP ; à défaut charge provisoire | mesurée / estimée / saisie |
 | Forme de fond, fatigue, fraîcheur | Modèle impulsion-réponse de Banister (constantes de temps 42 j et 7 j) | solide |
 | Rapport aigu/chronique (ACWR) | charge des 7 derniers jours ÷ moyenne hebdomadaire des 28 jours ; calculé seulement après 28 jours d'historique ; alerte au-delà de 1,5 | repère, jamais un verdict |
-| Forme du jour | composite sommeil / FC de repos / variabilité cardiaque (si la montre l'envoie) / fraîcheur au réveil / RPE de la veille, 5 paliers (Épuisé, Entamé, Correct, Disponible, Frais) | approximatif mais transparent (chaque composante, son poids, sa valeur habituelle) |
+| Forme du jour | composite sommeil / FC de repos / fraîcheur au réveil / RPE de la veille, 5 paliers (Épuisé, Entamé, Correct, Disponible, Frais) | approximatif mais transparent (chaque composante, son poids, sa valeur habituelle) |
 | Dérive cardiaque | écart de FC moyenne entre 2ᵉ et 1ʳᵉ moitié ; interprétée seulement si l'effort est continu | conditionnelle |
 | Verdict de séance | écart au plan (±10 %) sinon rapport aux habitudes (médiane 8 semaines, même discipline) | factuel |
 
@@ -167,9 +167,7 @@ Thèmes clair et sombre. Annuler proposé après toute suppression, modification
    proposition BRICK) ; **saisie** unique ou en lot (fait / prévu) ; **édition** d'une séance réalisée ; suppression ;
    **statistiques par discipline** (volumes, allures, tendance de la référence VMA/CSS/FTP, bilan global en carte
    héro, bouton « Inclure Autre » éteint par défaut) ; **recherche** (titre, commentaire, discipline) et **période**
-   (4 semaines, 3 mois, 1 an, tout) dans le journal ; pour une sortie à vélo avec capteur : puissance moyenne,
-   normalisée, maximale, W/kg, indice d'intensité et TSS indicatifs ; **tracé GPS et profil d'altitude** (APK, lecture à
-   la demande, accord Health Connect séance par séance, tracé dessiné sans fond de carte).
+   (4 semaines, 3 mois, 1 an, tout) dans le journal.
 4. **Progression** — charge (trois graphiques légendés : forme de fond + fatigue / charge du jour / fraîcheur ;
    lecture du jour touché ; 1 sem. / 2 sem. …) ; ACWR détaillé (aiguë, chronique, jour dominant) ; forme du jour
    détaillée ; **objectif** (décomposition manuelle du chrono cible par discipline, confrontée à VMA/CSS/FTP,
@@ -202,16 +200,17 @@ Thèmes clair et sombre. Annuler proposé après toute suppression, modification
 13. **Analyse** (Progression › Analyse, ajout du 17/10/2026 sur sélection de Mathieu) — bilan de semaine (copiable pour
     le coach) ; respect du plan (semaines, mois, temps réalisé / prévu) ; temps par zone de FC et répartition
     facile / soutenue / intense (repère 80/20) ; forme de fond par discipline ; tendance d'efficacité (course :
-    mètres par battement ; vélo : watts par battement dès trois sorties avec capteur) ; records de course, vélo,
-    natation et **meilleures puissances** (5 s à 60 min, W/kg) ; **poids** (moyenne 7 jours, saisie manuelle) ;
+    mètres par battement) ; records de course, vélo, natation ; **poids** (moyenne 7 jours, saisie manuelle ;
+    Health Connect seulement si une balance connectée l'y dépose) ;
     **sommeil** (durée récente, heure de coucher, régularité) ; enchaînements vélo → course.
-14. **Capteurs de l'APK** (ajout du 17/10/2026) — Health Connect lit en plus la **puissance** du vélo, la
-    **variabilité cardiaque** (RMSSD) et le **poids**. La variabilité entre dans la forme du jour (poids 0,20 ; absente,
-    les autres poids se répartissent comme avant). Nécessite une réinstallation de l'APK puis de nouvelles
-    autorisations.
+14. **Retiré le 17/10/2026 (décision de Mathieu)** — puissance vélo (records, FTP suggérée, W/kg, efficacité en W/bpm),
+    variabilité cardiaque dans la forme du jour et tracé GPS / altitude : la liste « Data and access » de Garmin Connect
+    dans Health Connect ne contient ni puissance, ni variabilité, ni poids, et l'app a constaté qu'aucun tracé n'y était
+    déposé pour la séance testée. Ces fonctions n'avaient donc rien à lire et ont été supprimées. Restent : le poids
+    (saisie à la main) et le sommeil (lecture).
 
 ### Écartés (définitivement, ne pas reproposer)
-Écran de connexion au premier lancement (retiré : la connexion Google se fait depuis Paramètres › Compte ou la
+Import de fichiers `.FIT` / `.GPX` d'une sortie (puissance, tracé GPS) — refusé le 17/10/2026 ; Écran de connexion au premier lancement (retiré : la connexion Google se fait depuis Paramètres › Compte ou la
 carte de bienvenue) ; écran de premier lancement ; détail d'un bloc pour une séance réalisée (elle n'a pas de
 structure de blocs) ; bloc « ajustement proposé » du Coach ; verdict de faisabilité de l'objectif ;
 pourcentage type pour répartir le chrono cible ; vue MOIS du calendrier **croisé** de l'ancienne app (le mois
@@ -266,9 +265,9 @@ résolution de `ONE_RM` en kilos (aucun 1RM stocké) ; lecture de la montre sur 
 **17/10/2026 — sélection de Mathieu (19 améliorations, livrées en cinq lots)**
 - Cache de l'analyse cardiaque par série (recalcul ≈ 5× plus rapide) ; textes corrigés ; recherche et période dans le journal.
 - Analyse : respect du plan, zones de FC (80/20), forme par discipline, records, efficacité, bilan de semaine,
-  enchaînements vélo → course, prévisionnel de charge, estimations VMA / CSS / FTP, alerte blessure.
+  enchaînements vélo → course, prévisionnel de charge, estimations VMA / CSS, alerte blessure.
 - Réutilisation : copier une semaine, semaines types, séances favorites.
-- APK : puissance vélo, variabilité cardiaque dans la forme du jour, poids, sommeil (lecture), tracé GPS et altitude.
+- APK : poids (saisie à la main) et sommeil (lecture). Puissance vélo, variabilité cardiaque et tracé GPS livrés puis **retirés** le jour même (Garmin ne les envoie pas à Health Connect).
 - Export `.FIT` des séances prévues (entraînement structuré, copie manuelle par USB).
 - Écarté pour l'instant : fond de carte (aucun service externe), envoi automatique vers la montre.
 
@@ -282,7 +281,7 @@ résolution de `ONE_RM` en kilos (aucun 1RM stocké) ; lecture de la montre sur 
 | Atténuation du rapport aigu/chronique pour les très longues séances (GR20 : charge jusqu'à ~1 200/jour) | **Non décidée.** Cause probable de l'écart avec Garmin (0,26 vs 2,1) : très longues sorties qui gonflent la chronique + échelle de charge différente de l'EPOC. Piste : rendements décroissants du ressenti sur les très longues séances |
 | Quatre rappels (APK) jamais vus se déclencher | À observer en usage réel |
 | Interruptions (ancienne T6.3) jamais formellement confirmées sur appareil | Technique complète, testée côté web |
-| Puissance vélo, variabilité cardiaque, poids, tracé GPS (17/10) | Écrits contre l'API Health Connect 1.1.0-alpha10 et compilés en CI ; **jamais lus sur le téléphone de Mathieu** (réinstaller l'APK, accorder les nouvelles autorisations, vérifier que Garmin Connect envoie bien ces données) |
+| Puissance vélo, variabilité cardiaque, tracé GPS | **Retirés le 17/10** : Garmin Connect ne les transmet pas à Health Connect. Un import de fichier `.FIT` / `.GPX` les rendrait possibles ; Mathieu a refusé de l'ajouter (17/10) : ne pas reproposer |
 | Fichiers `.FIT` | Structure vérifiée par un lecteur indépendant (CRC, en-têtes, étapes) ; **jamais ouverts sur la Fenix 7S Pro** : à tester avec une séance simple |
 | APK sans mode hors ligne (il charge le site à distance) | Limite connue. Option : embarquer l'app dans l'APK (non faite ; imposerait de réinstaller à chaque mise à jour) |
 | Ancien projet Firebase `ironapp-99f99` | À supprimer vers le 23/10/2026 après vérification |
