@@ -201,7 +201,7 @@ export function SettingsScreen() {
                 <select className="input" value={prefs.reminderHour} onChange={(e) => setPrefs({ reminderHour: Number(e.target.value) })}>
                   {[6, 7, 8, 9, 12, 18, 20].map((h) => <option key={h} value={h}>{h} h 00</option>)}
                 </select>
-                <span className="hint">{$t("Rappel le matin d’une séance prévue, et la veille d’un ressenti oublié. Suspendus pendant une interruption.")}</span>
+                <span className="hint">{$t("Rappel le matin d’une séance prévue, et rappels de renouvellement du plan. Suspendus pendant une interruption.")}</span>
               </label>
             )}
           </div>
@@ -210,7 +210,7 @@ export function SettingsScreen() {
         <Section id="p-about" title={$t("À propos")}>
           <div className="card g8" style={{ borderRadius: 'var(--radius-12)' }}>
             <span data-component="AppLogo"><Logo size={18} /></span>
-            <span className="t-caption c-neutral">{$t("Application personnelle de suivi d’entraînement triathlon. Les données restent les tiennes : sur cet appareil et, si tu te connectes, dans ton espace Firebase privé. Version 2.0.")}</span>
+            <span className="t-caption c-neutral">{$t("Application personnelle de suivi d’entraînement multisport. Les données restent les tiennes : sur cet appareil et, si tu te connectes, dans ton espace Firebase privé. Version 2.0.")}</span>
             {!reset
               ? <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start', color: 'var(--critical-text)', whiteSpace: 'normal', textAlign: 'left' }} onClick={() => { setReset(true); setTyped(''); }}>{$t("Effacer toutes mes données")}</button>
               : (

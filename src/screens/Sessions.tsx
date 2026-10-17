@@ -30,10 +30,20 @@ export function JournalScreen() {
   const { data, d } = useCalc();
   const [filter, setFilter] = useState<'all' | ActualDiscipline | 'rpe'>(route.query.get('filtre') === 'ressenti' ? 'rpe' : 'all');
   const [months, setMonths] = useState(3);
+  const [query, setQuery] = useState('');
+  const [period, setPeriod] = useState<'all' | '30' | '90' | '365'>('all');
   const [swiped, setSwiped] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const all = liveRecords(data.actual).sort((a, b) => (a.startAt < b.startAt ? 1 : -1));
-  const list = all.filter((s) => filter === 'all' || (filter === 'rpe' ? !s.rpe : s.discipline === filter));
+  const q = query.trim().toLowerCase();
+  const since = period === 'all' ? null : addDays(d.today, -Number(period));
+  const list = all.filter((s) => {
+    if (!(filter === 'all' || (filter === 'rpe' ? !s.rpe : s.discipline === filter))) return false;
+    if (since && sessionDay(s) < since) return false;
+    if (!q) return true;
+    const hay = [s.title, s.comment, s.subSport, DISCIPLINE_LABEL[s.discipline], sessionDay(s), dateFr(sessionDay(s))].filter(Boolean).join(' ').toLowerCase();
+    return q.split(/\s+/).every((w) => hay.includes(w));
+  });
   const groups: { key: string; items: ActualSession[] }[] = [];
   for (const s of list) {
     const k = monthOf(sessionDay(s));
@@ -58,9 +68,13 @@ export function JournalScreen() {
           {present.map((x) => <button key={x} type="button" className="chip" aria-pressed={filter === x} onClick={() => setFilter(x)}>{DISCIPLINE_LABEL[x]}</button>)}
           <button type="button" className="chip" aria-pressed={filter === 'rpe'} onClick={() => setFilter('rpe')}>{$t("Ressenti à noter")}</button>
         </div>
+        <div className="chips g6" role="group" aria-label={$t("Période")}>
+          {([['all', $t("Tout")], ['30', $t("30 jours")], ['90', $t("90 jours")], ['365', $t("1 an")]] as const).map(([k, l]) => <button key={k} type="button" className="chip" aria-pressed={period === k} onClick={() => setPeriod(k)}>{l}</button>)}
+        </div>
+        <input className="input" type="search" value={query} placeholder={$t("Rechercher : titre, sport, commentaire, date…")} aria-label={$t("Rechercher une séance")} onChange={(e) => setQuery(e.target.value)} />
       </SubNav>
       <main className="content with-fab journal">
-        {!list.length && <Empty icon="seances" title={filter === 'rpe' ? $t("Tout est noté") : $t("Aucune séance pour l’instant")} text={filter === 'rpe' ? $t("Chaque séance a son ressenti.") : $t("Les séances de ta montre arrivent ici. Utilise le bouton + pour en saisir une.")} />}
+        {!list.length && <Empty icon="seances" title={filter === 'rpe' ? $t("Tout est noté") : (q || period !== 'all') && all.length ? $t("Aucun résultat") : $t("Aucune séance pour l’instant")} text={filter === 'rpe' ? $t("Chaque séance a son ressenti.") : (q || period !== 'all') && all.length ? $t("Aucune séance ne correspond à cette recherche.") : $t("Les séances de ta montre arrivent ici. Utilise le bouton + pour en saisir une.")} />}
         {shown.map((g) => {
           const vol = g.items.reduce((t, s) => t + s.durationSec, 0);
           return (

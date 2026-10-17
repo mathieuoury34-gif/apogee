@@ -17,7 +17,7 @@ import { weeklyVolume } from '../domain/stats';
 import type { ZoneKind, ZoneReading, ZoneSource } from '../domain/types';
 import { dateFr, dayTitle, DISCIPLINE_LABEL, duration, dvar, hhmm, km, mmss, num, parseMmss, parseNum, pct, signed, toInput, NBSP } from '../ui/format';
 
-const NAV = [{ to: '/progression', label: $t("Charge") }, { to: '/progression/objectif', label: $t("Objectif") }, { to: '/progression/zones', label: $t("Zones") }];
+export const NAV = [{ to: '/progression', label: $t("Charge") }, { to: '/progression/analyse', label: $t("Analyse") }, { to: '/progression/objectif', label: $t("Objectif") }, { to: '/progression/zones', label: $t("Zones") }];
 
 // ------------------------------------------------------------------ Charge
 export function LoadScreen() {

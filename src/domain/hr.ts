@@ -134,11 +134,33 @@ export function sustainedPeak(series: Series, windowSec = 60): number | null {
   if (series.length < 30) return null;
   let best: number | null = null;
   let j = 0;
+  const buf = new Float64Array(series.length);
   for (let i = 0; i < series.length; i++) {
     while (series[i][0] - series[j][0] > windowSec) j++;
     if (series[i][0] - series[j][0] < windowSec * 0.75) continue;
-    const m = median(series.slice(j, i + 1).map((p) => p[1]));
-    if (m !== null && (best === null || m > best)) best = m;
+    const n = i - j + 1;
+    for (let k = 0; k < n; k++) buf[k] = series[j + k][1];
+    const w = buf.subarray(0, n).sort();
+    const m = n % 2 ? w[(n - 1) / 2] : (w[n / 2 - 1] + w[n / 2]) / 2;
+    if (best === null || m > best) best = m;
   }
   return best;
+}
+
+// ------------------------------------------------------------------ cache par série
+// Le nettoyage, le pic soutenu et la dérive d'une série ne dépendent que de ses points : on les calcule une
+// seule fois par tableau (les enregistrements ne sont jamais modifiés en place, une modification crée un
+// nouveau tableau). Avant, chaque enregistrement relançait ces calculs pour toutes les séances (≈ 100 ms
+// pour 117 séances, bien davantage sur un téléphone).
+export interface HrAnalysis { clean: Series; peak: number | null; drift: number | null }
+const hrCache = new WeakMap<object, HrAnalysis>();
+
+export function analyzeHr(raw: Series | null | undefined): HrAnalysis {
+  if (!raw) return { clean: [], peak: null, drift: null };
+  const hit = hrCache.get(raw);
+  if (hit) return hit;
+  const clean = cleanHr(raw);
+  const res: HrAnalysis = { clean, peak: sustainedPeak(clean), drift: clean.length ? hrDrift(clean) : null };
+  hrCache.set(raw, res);
+  return res;
 }

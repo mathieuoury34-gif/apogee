@@ -41,7 +41,7 @@ async def main():
         await pg.wait_for_timeout(600)
         for i, r in enumerate(routes):
             await pg.evaluate("(r) => { location.hash = r }", r)
-            await pg.wait_for_timeout(500)
+            await pg.wait_for_timeout(2500)
             await pg.add_style_tag(content=css)
             await pg.wait_for_timeout(250)
             await pg.screenshot(path=f'{prefix}-{i}.png', full_page=os.environ.get('FULL', '1') == '1')

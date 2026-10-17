@@ -5,10 +5,11 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { estimateDistance, estimateDuration, newBlock, validateSession } from '../src/domain/blocks';
 import { addDays, localDay, mondayOf, weeksOfMonth } from '../src/domain/dates';
-import { derive } from '../src/domain/engine';
+import { derive, refsOf } from '../src/domain/engine';
+import { planCompliance } from '../src/domain/compliance';
 import { computeDailyForm } from '../src/domain/form';
 import { ingest } from '../src/domain/health';
-import { hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
+import { analyzeHr, cleanHr, hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
 import { importLegacyDb, emptyData } from '../src/domain/legacy';
 import { buildLoadSeries, computeSessionLoads, resolveHrMax } from '../src/domain/load';
 import { buildManualSession, parseBulkActual, parseBulkPlanned } from '../src/domain/manual';
@@ -327,4 +328,22 @@ test('doublons : la même séance Garmin enregistrée deux fois se fusionne en g
   // plus aucun doublon : rien à faire
   delete d.actual[copy.id];
   assert.equal(planDedupe(d).drop.length, 0);
+});
+
+test('cache HR : le résultat en cache est identique au calcul direct et réutilisé', () => {
+  const raw: [number, number][] = Array.from({ length: 400 }, (_, i) => [i * 5, 120 + Math.round(30 * Math.sin(i / 20)) + (i === 200 ? 999 : 0)]);
+  const a = analyzeHr(raw);
+  assert.deepEqual(a.clean, cleanHr(raw));
+  assert.equal(a.peak, sustainedPeak(cleanHr(raw)));
+  assert.equal(a.drift, hrDrift(cleanHr(raw)));
+  assert.equal(analyzeHr(raw), a, 'même tableau → même objet en cache');
+});
+
+test('respect du plan : séances échues rattachées, interruptions neutres, durée connue seulement', () => {
+  const data = legacy();
+  const d = derive(data, SETTINGS, new Date('2026-10-01T12:00:00Z'));
+  const rep = planCompliance(data, d.links, refsOf(data, d.ctx.hrMax.bpm), d.today);
+  const all = [...rep.weeks, ...rep.months];
+  for (const c of all) { assert.ok(c.done <= c.planned); assert.ok(c.doneSec >= 0); }
+  assert.ok(rep.last4.planned >= rep.last4.done);
 });

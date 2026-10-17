@@ -13,7 +13,7 @@
 import { $t } from '../i18n';
 import type { ActualSession, AppData, CalcSettings, ZoneKind, ZoneReading, ZoneSource } from './types';
 import { addDays, ageAt, daysBetween, localDay } from './dates';
-import { cleanHr, hrDrift, median, srpe, sustainedPeak, trimpFromAverage, trimpFromSeries, type Sex, type TrimpContext } from './hr';
+import { analyzeHr, median, srpe, trimpFromAverage, trimpFromSeries, type Sex, type TrimpContext } from './hr';
 
 export type LoadMethod = 'trimp' | 'trimp_avg' | 'srpe' | 'provisional' | 'pending';
 export type Assise = 'measured' | 'estimated' | 'entered' | 'none';
@@ -61,7 +61,7 @@ export function resolveHrMax(data: AppData, now: Date = new Date()): HrMaxInfo {
     if (s.discipline !== 'RUN' && s.discipline !== 'BIKE') continue;
     const ser = data.series[s.id];
     if (!ser || ser.deleted) continue;
-    const p = sustainedPeak(cleanHr(ser.hr));
+    const p = analyzeHr(ser.hr).peak;
     if (p !== null && p <= HR_MAX_CEILING && (observed === null || p > observed)) observed = p;
   }
   const declared = latestZone(data, 'hr_max');
@@ -129,8 +129,9 @@ export function computeSessionLoads(data: AppData, settings: CalcSettings, now: 
     const day = sessionDay(s);
     const c = ctxFor(day);
     const ser = data.series[s.id];
-    const hr = ser && !ser.deleted ? cleanHr(ser.hr) : [];
-    const drift = hr.length ? hrDrift(hr) : null;
+    const an = ser && !ser.deleted ? analyzeHr(ser.hr) : null;
+    const hr = an ? an.clean : [];
+    const drift = an ? an.drift : null;
     let res: SessionLoad | null = null;
     if (c && hr.length) {
       const t = trimpFromSeries(hr, c, s.durationSec);

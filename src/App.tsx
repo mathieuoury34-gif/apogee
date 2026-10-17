@@ -6,6 +6,7 @@ import { AddSheet, CalendarMonthScreen, CalendarWeekScreen, PlannedDetailScreen 
 import { PlannedEditorScreen } from './screens/Editor';
 import { JournalScreen, ManualEntryScreen, ReviewScreen, StatsScreen } from './screens/Sessions';
 import { LoadScreen, ObjectiveScreen, ZoneHistoryScreen, ZonesScreen } from './screens/Progress';
+import { AnalysisScreen } from './screens/Analysis';
 import { CoachScreen } from './screens/Coach';
 import { PeriodizationScreen } from './screens/Periodization';
 import { InterruptionsScreen, LoadingScreen, ProfileScreen, SettingsScreen } from './screens/Settings';
@@ -30,6 +31,7 @@ function Screen() {
       if (b) return <ReviewScreen key={b} id={b} />;
       return <JournalScreen key={route.query.get('filtre') ?? ''} />;
     case 'progression':
+      if (b === 'analyse') return <AnalysisScreen />;
       if (b === 'objectif') return <ObjectiveScreen />;
       if (b === 'zones' && c) return <ZoneHistoryScreen kind={c} />;
       if (b === 'zones') return <ZonesScreen key={route.query.get('ajout') ?? ''} />;
