@@ -6,6 +6,11 @@ import { execFileSync } from 'node:child_process';
 import { estimateDistance, estimateDuration, newBlock, validateSession } from '../src/domain/blocks';
 import { addDays, localDay, mondayOf, weeksOfMonth } from '../src/domain/dates';
 import { derive, refsOf } from '../src/domain/engine';
+import { bestSegment, bestSpeedOver, suggestZones } from '../src/domain/records';
+import { forecastLoad } from '../src/domain/forecast';
+import { fitnessByDiscipline } from '../src/domain/loadByDiscipline';
+import { polarSplit, zoneIndex, zoneTimes } from '../src/domain/zones';
+import { trainingAlerts } from '../src/domain/review';
 import { planCompliance } from '../src/domain/compliance';
 import { computeDailyForm } from '../src/domain/form';
 import { ingest } from '../src/domain/health';
@@ -346,4 +351,73 @@ test('respect du plan : séances échues rattachées, interruptions neutres, dur
   const all = [...rep.weeks, ...rep.months];
   for (const c of all) { assert.ok(c.done <= c.planned); assert.ok(c.doneSec >= 0); }
   assert.ok(rep.last4.planned >= rep.last4.done);
+});
+
+test('zones de FC : bornes, temps par zone, répartition facile / soutenue / intense', () => {
+  assert.equal(zoneIndex(100, 200), 0);
+  assert.equal(zoneIndex(120, 200), 1, '60 % est le début de Z2');
+  assert.equal(zoneIndex(160, 200), 3);
+  assert.equal(zoneIndex(180, 200), 4);
+  const ser: [number, number][] = Array.from({ length: 101 }, (_, i) => [i * 10, i < 50 ? 110 : i < 80 ? 170 : 185]);
+  const z = zoneTimes(ser, 200);
+  assert.equal(z.reduce((t, x) => t + x, 0), 1000 + 11, 'le dernier échantillon vaut l’intervalle nominal');
+  const p = polarSplit(z);
+  assert.equal(p.easy + p.hard + p.intense, p.total);
+  assert.ok(p.easy > p.hard && p.hard > p.intense);
+});
+
+test('records : meilleur segment et meilleure vitesse tenue dans une série de vitesse', () => {
+  // 5 m/s pendant 600 s puis 3 m/s pendant 600 s : le meilleur km est dans la partie rapide
+  const sp: [number, number][] = Array.from({ length: 241 }, (_, i) => [i * 5, i * 5 < 600 ? 5 : 3]);
+  const t = bestSegment(sp, 1000)!;
+  assert.ok(Math.abs(t - 200) <= 5, `1 km en ~200 s, obtenu ${t}`);
+  const v = bestSpeedOver(sp, 360)!;
+  assert.ok(Math.abs(v - 5) < 0.05);
+  assert.equal(bestSegment(sp.slice(0, 4), 100), null);
+});
+
+test('forme de fond par discipline : la somme des disciplines redonne la forme de fond totale', () => {
+  const data = legacy();
+  const d = derive(data, SETTINGS, new Date('2026-10-01T12:00:00Z'));
+  const slices = fitnessByDiscipline(data, d.loads, d.series);
+  if (!slices.length) return;
+  const last = slices[slices.length - 1];
+  assert.ok(Math.abs(last.total - d.series.days[d.series.days.length - 1].fitness) < 1e-6);
+});
+
+test('prévisionnel : une séance prévue à venir fait monter la charge projetée ; sans plan, rien à projeter', () => {
+  const data = legacy();
+  const now = new Date('2026-10-01T12:00:00Z');
+  const d = derive(data, SETTINGS, now);
+  if (!d.series.days.length) return;
+  const base = forecastLoad(data, d.series, d.loads, d.links, d.refs, d.today, 14);
+  assert.equal(base.days[0].day, d.today);
+  assert.ok(base.days.every((x) => x.load >= 0));
+  const tpl = Object.values(data.planned).find((p) => p.discipline === 'RUN' || p.discipline === 'BIKE');
+  if (!tpl) return;
+  const fut = { ...data, planned: { ...data.planned, fx: { ...tpl, id: 'fx', plannedDate: addDays(d.today, 2), blocks: [{ ...tpl.blocks[0], kind: 'WORK' as const, measure: 'TIME' as const, measureValue: 3600, discipline: undefined }] } } } as AppData;
+  const withPlan = forecastLoad(fut, d.series, d.loads, d.links, d.refs, d.today, 14);
+  const day2 = withPlan.days.find((x) => x.day === addDays(d.today, 2))!;
+  assert.ok(day2.load >= base.days.find((x) => x.day === day2.day)!.load);
+});
+
+test('alerte blessure : blessure active + charge qui monte ; rien si la blessure est résolue', () => {
+  const data = legacy();
+  data.athlete.main = { ...data.athlete.main, injuries: [{ id: 'i', label: 'Achille', date: null, notes: null, resolved: false }] };
+  const constat = { acuteChronicRatio: 1.4 } as never;
+  const series = { byDay: new Map<string, { load: number }>() };
+  const codes = (inj: boolean) => { if (inj) data.athlete.main.injuries[0].resolved = true; return trainingAlerts(data, { byActual: new Map(), byPlanned: new Map() }, new Map(), constat, '2026-10-10', series).map((a) => a.code); };
+  assert.ok(codes(false).includes('INJURY_LOAD'));
+  assert.ok(!codes(true).includes('INJURY_LOAD'));
+});
+
+test('estimation de VMA : proposée seulement si elle dépasse la valeur actuelle', () => {
+  const data = emptyData();
+  const sp: [number, number][] = Array.from({ length: 200 }, (_, i) => [i * 5, 5]);
+  data.actual.a = { id: 'a', updatedAt: '', sourceId: 'x', source: 'health', discipline: 'RUN', rawExerciseType: '56', startAt: '2026-10-05T07:00:00.000Z', endAt: '2026-10-05T07:20:00.000Z', zoneOffsetMinutes: 0, durationSec: 1000, distanceM: 5000, activeCaloriesJ: null, totalCaloriesJ: null, elevationGainM: null, avgHrBpm: null, maxHrBpm: null, minHrBpm: null, hrCoverageRatio: null, hrSampleCount: null, avgSpeedMs: 5, maxSpeedMs: null, hasSeries: true, edited: [], rpe: null, comment: null, ingestedAt: '' } as ActualSession;
+  data.series.a = { id: 'a', updatedAt: '', hr: [], speed: sp };
+  const lower = { id: 'z', updatedAt: '', kind: 'vma', value: 4.6, measuredAt: '2026-06-01T00:00:00.000Z', source: 'test', notes: null } as const;
+  const higher = { ...lower, value: 5.5 };
+  assert.equal(suggestZones(data, { vma: lower, css: null }, '2026-10-10').length, 1);
+  assert.equal(suggestZones(data, { vma: higher, css: null }, '2026-10-10').length, 0);
 });

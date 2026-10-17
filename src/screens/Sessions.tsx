@@ -21,6 +21,8 @@ import type { ActualDiscipline, ActualSession, PlannedDiscipline } from '../doma
 import { ACTUAL_DISCIPLINES } from '../domain/types';
 import { DISCIPLINE_SHORT, bpm, dateFr, dateTimeFr, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, hours, km, mmss, monthLong, num, paceFor, parseNum, pct, pctSigned, signed, speedKmh, timeOf, toInput, NBSP } from '../ui/format';
 import { cleanHr } from '../domain/hr';
+import { polarSplit, zoneTimes } from '../domain/zones';
+import { SplitBars } from '../ui/charts2';
 
 const NAV = [{ to: '/seances', label: $t("Journal") }, { to: '/seances/stats', label: $t("Statistiques") }];
 
@@ -250,7 +252,7 @@ function Kpi({ label, value, cls = '' }: { label: string; value: string; cls?: s
 }
 
 function HrTrace({ id }: { id: string }) {
-  const { data } = useCalc();
+  const { data, d } = useCalc();
   const [ref, w] = useWidth<HTMLDivElement>();
   const ser = data.series[id];
   const hr = ser && !ser.deleted ? cleanHr(ser.hr) : [];
@@ -262,7 +264,12 @@ function HrTrace({ id }: { id: string }) {
   const Y = (v: number) => 4 + H - ((v - lo) / (hi - lo || 1)) * H;
   const step = Math.max(1, Math.round(hr.length / 300));
   const dpath = hr.filter((_, i) => i % step === 0).map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join(' ');
+  const hrMax = d.ctx.hrMax.bpm;
+  const zt = hrMax ? zoneTimes(hr, hrMax) : null;
+  const zsum = zt ? zt.reduce((t, x) => t + x, 0) : 0;
+  const pol = zt ? polarSplit(zt) : null;
   return (
+    <>
     <div ref={ref} className="chart" style={{ height: H + 26 }} aria-label={$t("Fréquence cardiaque pendant la séance")}>
       <svg width={w} height={H + 26} viewBox={`0 0 ${w} ${H + 26}`} role="img" aria-label={$t("FC de {0} à {1} bpm", { 0: num(lo, 0), 1: num(hi, 0) })}>
         <path d={dpath} fill="none" strokeWidth="1.75" strokeLinejoin="round" style={{ stroke: 'var(--critical)' }} />
@@ -271,6 +278,13 @@ function HrTrace({ id }: { id: string }) {
       <span className="tick" style={{ left: w - 30, top: Y(lo) - 9 }}>{num(lo, 0)}</span>
       <span className="tick" style={{ left: 0, top: H + 8 }}>{$t("FC (bpm) ·")} {duration(t1 - t0)}</span>
     </div>
+    {zt && pol && zsum > 0 && (
+      <div className="stack-4" aria-label={$t("Temps par zone de FC")}>
+        <SplitBars rows={[{ label: $t("Temps par zone de FC"), easy: pol.easy, hard: pol.hard, intense: pol.intense }]} />
+        <span className="t-caption c-neutral">{zt.map((v, i) => `Z${i + 1} ${pct(v / zsum)}`).join(' · ')}</span>
+      </div>
+    )}
+    </>
   );
 }
 

@@ -615,3 +615,11 @@ input, textarea, select, [contenteditable="true"], pre, code, .help-f, .help-cod
 .sport-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: var(--space-8); }
 .sport-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 4px; min-height: 64px; border-radius: var(--radius-12); border: 1.5px solid var(--divider); background: var(--bg-surface-minimal); color: var(--text-neutral); font: inherit; font-size: 11px; line-height: 1.15; text-align: center; cursor: pointer; }
 .sport-btn[aria-pressed="true"] { border-color: var(--d-OTHER); background: var(--d-OTHER-bg); color: var(--text-strong, var(--text-neutral)); font-weight: 600; box-shadow: inset 0 0 0 1px var(--d-OTHER); }
+
+/* Analyse : barre de répartition 100 % et mini-liste de records */
+.zbar { display: flex; height: 10px; border-radius: var(--radius-full); overflow: hidden; background: var(--bg-grey-minimal); }
+.zbar > span { display: block; height: 100%; }
+.zbar > span + span { margin-left: 2px; }
+.rec-row { display: grid; grid-template-columns: 1fr auto; gap: var(--space-8); align-items: baseline; padding: var(--space-8) 0; }
+.rec-row + .rec-row { border-top: 1px solid var(--divider-minimal); }
+.spark { width: 100%; height: 56px; display: block; }

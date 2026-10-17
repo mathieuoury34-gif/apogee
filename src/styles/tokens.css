@@ -132,6 +132,9 @@
   --chart-8: #7BBFA8;
   --chart-other: #C3BEB2;
   --chart-grid: #E9E6DF;
+  --zone-easy: #4E9C86;
+  --zone-hard: #E0A030;
+  --zone-intense: #B4432A;
   --chart-axis: #656970;
   --chart-fitness: #3E7A86;
   --chart-fatigue: #4C5C8E;
@@ -266,6 +269,9 @@
   --chart-8: #A9E3CD;
   --chart-other: #3D474E;
   --chart-grid: #232A30;
+  --zone-easy: #63C9A6;
+  --zone-hard: #F0B74A;
+  --zone-intense: #E88663;
   --chart-axis: #8A939B;
   --chart-fitness: #57AEBC;
   --chart-fatigue: #7189C4;

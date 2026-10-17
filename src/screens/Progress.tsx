@@ -11,11 +11,14 @@ import { useCalc } from '../data/store';
 import { addZone, deleteZone, restore, saveRace } from '../data/actions';
 import { addDays, dayRange, daysBetween } from '../domain/dates';
 import { FORM_LABEL, FORM_STEP_LABEL, FORM_WEIGHTS, formStep, type FormKey } from '../domain/form';
-import { zoneHistory } from '../domain/load';
+import { latestZone, zoneHistory } from '../domain/load';
 import { requiredPaces, type RequiredPace } from '../domain/objective';
 import { weeklyVolume } from '../domain/stats';
+import { forecastLoad } from '../domain/forecast';
+import { suggestZones } from '../domain/records';
+import type { DayLoad } from '../domain/load';
 import type { ZoneKind, ZoneReading, ZoneSource } from '../domain/types';
-import { dateFr, dayTitle, DISCIPLINE_LABEL, duration, dvar, hhmm, km, mmss, num, parseMmss, parseNum, pct, signed, toInput, NBSP } from '../ui/format';
+import { dateFr, dayMonth, dayTitle, DISCIPLINE_LABEL, duration, dvar, hhmm, km, mmss, num, parseMmss, parseNum, pct, signed, toInput, NBSP } from '../ui/format';
 
 export const NAV = [{ to: '/progression', label: $t("Charge") }, { to: '/progression/analyse', label: $t("Analyse") }, { to: '/progression/objectif', label: $t("Objectif") }, { to: '/progression/zones', label: $t("Zones") }];
 
@@ -88,6 +91,8 @@ export function LoadScreen() {
             </>
           )}
         </section>
+
+        <ForecastCard />
 
         <div className="dmasonry">
         <section className="card g12 dspan-6" aria-label={$t("Forme du jour, détail")}>
@@ -286,6 +291,7 @@ export function ZonesScreen() {
       <ErrorBanner />
       <SubNav items={NAV} label={$t("Sections Progression")} />
       <main className="content dgrid">
+        <ZoneSuggestions />
         {(['vma', 'ftp', 'css', 'hr_max'] as ZoneKind[]).map((k) => {
           const h = zoneHistory(data, k);
           const z = h[0];
@@ -374,5 +380,63 @@ function ZoneSheet({ kind, onClose }: { kind: ZoneKind; onClose: () => void }) {
         <label className="field"><span className="lbl">{$t("Note")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><input className="input" value={notes} placeholder={$t("Test demi-Cooper, piste…")} onChange={(e) => setNotes(e.target.value)} /></label>
       </div>
     </Sheet>
+  );
+}
+
+// ------------------------------------------------------------------ Prévisionnel de charge
+function ForecastCard() {
+  const { data, d } = useCalc();
+  const [h, setH] = useState<'14' | '28' | 'plan'>('14');
+  const f = forecastLoad(data, d.series, d.loads, d.links, d.refs, d.today, h === 'plan' ? 'plan' : +h);
+  const hasPlan = f.lastPlanned !== null;
+  const past = d.series.days.slice(-15, -1);
+  const days: DayLoad[] = [...past, ...f.days.map((x) => ({ day: x.day, load: x.load, estimated: true, interruptionFill: false, fitness: x.fitness, fatigue: x.fatigue, freshness: x.freshness }))];
+  return (
+    <section className="card g12 dspan-12" aria-label={$t("Prévisionnel de charge")}>
+      <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
+        <h2>{$t("Prévisionnel de charge")}</h2>
+        <ChipGroup label={$t("Horizon")} value={h} onChange={setH} options={[['14', $t("2 sem.")], ['28', $t("4 sem.")], ['plan', $t("Tout le plan")]]} />
+      </div>
+      {!hasPlan || d.series.days.length < 2 ? <p className="t-caption c-moderate">{$t("Aucune séance prévue à venir : importe un plan du coach ou ajoute des séances au calendrier pour voir la projection.")}</p> : (
+        <>
+          <p className="t-caption c-neutral">{$t("Ce que deviendraient ta forme de fond, ta fatigue et ta fraîcheur si tu réalisais tout le plan prévu. Les barres pâles à droite sont projetées ; celles de gauche sont réelles.")}</p>
+          <LoadPanels days={days} today={d.today} />
+          <h3 className="t-strong">{$t("Semaine par semaine")}</h3>
+          <ul>
+            {f.weeks.map((w) => (
+              <li key={w.start} className="rec-row">
+                <span className="stack-4"><span className="t-label">{$t("Semaine du {0}", { 0: dayMonth(w.start) })}</span><span className="t-caption c-moderate">{w.plannedSessions} {$t("séance")}{w.plannedSessions > 1 ? 's' : ''} {$t("prévue")}{w.plannedSessions > 1 ? 's' : ''}{$t(" · charge ")}{num(w.load, 0)}</span></span>
+                <span className="stack-4" style={{ textAlign: 'right' }}><span className="t-strong">{$t("Forme")} {num(w.endFitness, 0)} · {signed(w.endFreshness, 0)}</span><span className={'t-caption' + (w.endAcwr !== null && w.endAcwr > 1.3 ? ' c-critical' : ' c-moderate')}>{$t("Aigu/chronique")} {w.endAcwr === null ? '—' : num(w.endAcwr, 2)}</span></span>
+              </li>
+            ))}
+          </ul>
+          {f.skipped > 0 && <div className="note"><Icon name="info" size={20} /><span>{$t("{0} séance(s) prévue(s) ne sont pas comptées : durée ou habitude inconnue (blocs sans durée, ou aucune séance récente de cette discipline).", { 0: f.skipped })}</span></div>}
+          <p className="t-legal c-moderate">{$t("Méthode : charge d’une séance prévue = durée estimée de ses blocs × ta charge par minute habituelle dans la discipline (médiane des 90 derniers jours). L’intensité prévue n’est pas modélisée : une séance de seuil et un footing de même durée valent pareil. Les valeurs sont celles du modèle (forme 42 jours, fatigue 7 jours) ; une projection sert à comparer des semaines, pas à prédire ta forme le jour J.")}</p>
+        </>
+      )}
+    </section>
+  );
+}
+
+// ------------------------------------------------------------------ Estimations suggérées (VMA, CSS)
+function ZoneSuggestions() {
+  const { data, d } = useCalc();
+  const sugg = suggestZones(data, { vma: latestZone(data, 'vma'), css: latestZone(data, 'css') }, d.today);
+  if (!sugg.length) return null;
+  const show = (k: 'vma' | 'css', v: number) => (k === 'vma' ? num(v * 3.6, 1) + NBSP + $t("km/h") : mmss(100 / v) + NBSP + '/100' + NBSP + 'm');
+  return (
+    <section className="card g12 dspan-12" aria-label={$t("Estimations suggérées")}>
+      <h2>{$t("Estimations suggérées")}</h2>
+      {sugg.map((s) => (
+        <div key={s.kind} className="between wrap" style={{ gap: 'var(--space-8)' }}>
+          <span className="stack-4 grow">
+            <span className="t-label">{s.kind === 'vma' ? $t("VMA") : $t("CSS")} : {show(s.kind, s.value)}</span>
+            <span className="t-caption c-moderate">{s.current ? $t("Actuellement {0}. ", { 0: show(s.kind, s.current.value) }) : $t("Aucune valeur enregistrée. ")}{s.kind === 'vma' ? $t("Meilleur effort de 6 minutes sur 90 jours") : $t("Meilleurs 200 m et 400 m d’une même séance (méthode de Wakayoshi)")} · {dateFr(s.day)}</span>
+          </span>
+          <button type="button" className="btn btn-secondary" onClick={() => { addZone({ kind: s.kind, value: s.value, measuredAt: new Date().toISOString(), source: 'estimation', notes: s.kind === 'vma' ? 'Meilleur effort de 6 minutes (90 j)' : 'Méthode 200/400 m' }); showToast($t("Estimation enregistrée")); }}>{$t("Adopter")}</button>
+        </div>
+      ))}
+      <p className="t-legal c-moderate">{$t("Une estimation n’est jamais appliquée seule : tu l’adoptes, elle est enregistrée avec la source « estimation » et reste modifiable. Un effort de 6 minutes ne prouve qu’une VMA au moins égale ; elle n’est proposée que si elle dépasse ta valeur actuelle. Pour la CSS, il faut deux vrais efforts maximaux (200 m et 400 m) dans la même séance.")}</p>
+    </section>
   );
 }

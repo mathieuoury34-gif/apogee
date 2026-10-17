@@ -96,7 +96,7 @@ export function LoadChart({ days, height = 150, compact = false }: { days: DayLo
 
 /** Version « lecture facile » de la charge : trois graphiques séparés, chacun avec son titre et une phrase qui dit ce qu'il montre,
  *  et un bandeau qui donne les valeurs exactes du jour touché (il sert aussi de légende). */
-export function LoadPanels({ days }: { days: DayLoad[] }) {
+export function LoadPanels({ days, today }: { days: DayLoad[]; today?: string }) {
   const [ref, cw] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const n = days.length;
@@ -104,8 +104,10 @@ export function LoadPanels({ days }: { days: DayLoad[] }) {
   const W = cw - AXIS, T = 8;
   const X = (i: number) => ((i + 0.5) / n) * W;
   const bw = Math.max(1.5, (W / n) * 0.62);
-  const h = hover ?? n - 1;
+  const todayIdx = today ? Math.max(0, days.findIndex((x) => x.day === today)) : n - 1;
+  const h = hover ?? todayIdx;
   const hd = days[h];
+  const projected = !!today && hd.day > today;
   // A. forme de fond et fatigue
   const H1 = 130;
   const vals = days.flatMap((d) => [d.fitness, d.fatigue]);
@@ -139,7 +141,7 @@ export function LoadPanels({ days }: { days: DayLoad[] }) {
   return (
     <div ref={ref} className="load-panels" data-component="LoadPanels">
       <div role="status" aria-live="polite" className="load-readout">
-        <span className="when t-caption-strong">{hover === null && h === n - 1 ? $t("Aujourd’hui") : dayMonth(hd.day)}{hd.interruptionFill ? $t(" · forfait") : ''}</span>
+        <span className="when t-caption-strong">{hover === null && h === todayIdx ? $t("Aujourd’hui") : dayMonth(hd.day)}{projected ? $t(" · projeté") : ''}{hd.interruptionFill ? $t(" · forfait") : ''}</span>
         <span>{sw('var(--chart-load)')}<span className="c-neutral">{$t("Charge du jour")}</span><strong>{num(hd.load, 0)}</strong>{hd.estimated && hd.load ? <em>{$t("estimée")}</em> : null}</span>
         <span>{sw('var(--chart-fitness)')}<span className="c-neutral">{$t("Forme de fond")}</span><strong>{num(hd.fitness, 0)}</strong></span>
         <span>{sw('var(--chart-fatigue)', true)}<span className="c-neutral">{$t("Fatigue")}</span><strong>{num(hd.fatigue, 0)}</strong></span>

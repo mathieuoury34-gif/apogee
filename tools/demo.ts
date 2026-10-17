@@ -54,7 +54,13 @@ function session(day: string, disc: ActualDiscipline, min: number, opts: { km?: 
       v += (target - v) * 0.06 + (rnd() - 0.5) * 2.4;
       hr.push([t0 + t, Math.round(v)]);
     }
-    d.series[i] = { id: i, updatedAt: now, hr, speed: [] };
+    const speed: [number, number][] = [];
+    if (opts.km && disc !== 'STRENGTH') {
+      const v0 = (opts.km * 1000) / dur;
+      // vitesse en m/s toutes les 5 s, ondulation déterministe (pas de tirage : la graine des autres données ne bouge pas)
+      for (let t = 0; t <= dur; t += 5) speed.push([t0 + t, Math.max(0.3, v0 * (1 + 0.06 * Math.sin(t / 240) + (disc === 'RUN' && min < 60 && t > dur * 0.3 && t < dur * 0.8 ? (Math.floor(t / 240) % 2 ? 0.18 : -0.08) : 0)))]);
+    }
+    d.series[i] = { id: i, updatedAt: now, hr, speed };
   }
   return d.actual[i];
 }

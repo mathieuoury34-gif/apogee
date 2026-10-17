@@ -50,6 +50,6 @@ export function derive(data: AppData, settings: CalcSettings, now: Date = new Da
   const refs = refsOf(data, ctx.hrMax.bpm);
   const links = computeLinks(data, refs);
   const constat = coachConstat(series, day);
-  const alerts = trainingAlerts(data, links, loads, constat, day);
+  const alerts = trainingAlerts(data, links, loads, constat, day, series);
   return { today: day, refs, loads, ctx, series, formInputs: inputs, form, lastForm, formByDay, links, constat, alerts };
 }

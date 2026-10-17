@@ -136,7 +136,7 @@ export function reviewSession(data: AppData, loads: Map<string, SessionLoad>, li
 }
 
 // ------------------------------------------------------------------ alertes de période (accueil)
-export type TrainingAlertCode = 'MISSED_SESSIONS' | 'RPE_HIGH_STREAK' | 'LOAD_RAMP' | 'PENDING_RPE';
+export type TrainingAlertCode = 'MISSED_SESSIONS' | 'RPE_HIGH_STREAK' | 'LOAD_RAMP' | 'PENDING_RPE' | 'INJURY_LOAD';
 export interface TrainingAlert { code: TrainingAlertCode; count: number; value?: number }
 
 export function suspendedDays(data: AppData, from: string, to: string): Set<string> {
@@ -148,8 +148,19 @@ export function suspendedDays(data: AppData, from: string, to: string): Set<stri
   return out;
 }
 
-export function trainingAlerts(data: AppData, links: Links, loads: Map<string, SessionLoad>, constat: CoachConstat, todayDay: string): TrainingAlert[] {
+/** Une blessure déclarée « active » dans le profil, pendant que la charge récente monte (rapport aigu/chronique ≥ 1,3 ou semaine ≥ 25 % au-dessus de la précédente). */
+export const INJURY_RATIO = 1.3;
+export const INJURY_WEEK_RISE = 0.25;
+
+export function trainingAlerts(data: AppData, links: Links, loads: Map<string, SessionLoad>, constat: CoachConstat, todayDay: string, series?: { byDay: Map<string, { load: number }> }): TrainingAlert[] {
   const out: TrainingAlert[] = [];
+  const active = (data.athlete.main?.injuries ?? []).filter((i) => !i.resolved);
+  if (active.length) {
+    const week = (from: number) => { let t = 0; for (let k = from; k < from + 7; k++) t += series?.byDay.get(addDays(todayDay, -k))?.load ?? 0; return t; };
+    const a = week(0), b = week(7);
+    const rising = (constat.acuteChronicRatio !== null && constat.acuteChronicRatio >= INJURY_RATIO) || (b > 0 && a / b - 1 >= INJURY_WEEK_RISE);
+    if (rising) out.push({ code: 'INJURY_LOAD', count: active.length, value: constat.acuteChronicRatio ?? (b > 0 ? a / b : undefined) });
+  }
   const from = addDays(todayDay, -7), to = addDays(todayDay, -1);
   const susp = suspendedDays(data, from, to);
   const missed = liveRecords(data.planned).filter((p) => p.plannedDate >= from && p.plannedDate <= to && !links.byPlanned.has(p.id) && !susp.has(p.plannedDate)).length;
@@ -169,5 +180,6 @@ export const ALERT_TEXT: Record<TrainingAlertCode, (a: TrainingAlert) => string>
   MISSED_SESSIONS: (a) => (a.count > 1 ? $t("{0} séances prévues non réalisées sur les 7 derniers jours.", { 0: a.count }) : $t("1 séance prévue non réalisée sur les 7 derniers jours.")),
   RPE_HIGH_STREAK: () => $t("3 séances de suite à ressenti élevé (RPE 8 ou plus)."),
   LOAD_RAMP: (a) => $t("Hausse de charge rapide : ratio aigu/chronique à {0} (au-delà de 1,5).", { 0: (a.value ?? 0).toFixed(2).replace('.', $t(",")) }),
+  INJURY_LOAD: (a) => (a.count > 1 ? $t("{0} blessures actives et une charge récente qui monte : prudence sur les prochaines séances.", { 0: a.count }) : $t("Une blessure active et une charge récente qui monte : prudence sur les prochaines séances.")),
   PENDING_RPE: (a) => (a.count > 1 ? $t("{0} séances récentes attendent ton ressenti pour une charge fiable.", { 0: a.count }) : $t("1 séance récente attend ton ressenti pour une charge fiable.")),
 };
