@@ -1,6 +1,6 @@
 # GUIDE DE REPRISE — refaire ou reprendre Apogée de zéro
 
-**Version** 1.0 — 16 octobre 2026
+**Version** 1.1 — 17 octobre 2026
 But : si le code, le dépôt ou un compte était perdu, ce guide permet de **tout reconstruire** en suivant les
 étapes dans l'ordre, sans rien deviner. Il complète `PRD.md` (produit), `SPECS-TECH.md` (architecture exacte) et
 `ETAT.md` (où on en est).
@@ -48,7 +48,7 @@ GitHub ou l'archive `.zip` ; (3) le reste se reconstruit avec ce guide.
    ensemble ; il faut **republier l'APK** (le nouveau charge la nouvelle adresse), puis ajouter le nouveau domaine dans
    Firebase › Authentication › Domaines autorisés si le compte GitHub change.
 
-Poste de travail : Node 22. `npm install`, `npm test` (18 tests), `npm run typecheck`, `npm run build`,
+Poste de travail : Node 22. `npm install`, `npm test` (34 tests), `npm run typecheck`, `npm run build`,
 `npm run dev` (http://127.0.0.1:5173).
 
 ## 3. Reconstruire Firebase (≈ 20 min, gratuit, sans carte bancaire)
@@ -94,6 +94,8 @@ navigateur, ouvrir. Une nouvelle version s'installe **par-dessus** (même clé d
 4. Autoriser les notifications pour les rappels.
 
 Réinstaller l'APK n'est nécessaire que si le module natif, les permissions, les icônes ou l'écran de lancement changent.
+C'est le cas depuis le 17/10/2026 (puissance, variabilité cardiaque, poids, tracé GPS) : après réinstallation, rouvrir
+Paramètres › Montre › *Autoriser Health Connect* pour accorder les nouvelles autorisations.
 
 ## 5. Icônes, logo, captures, démonstration
 
@@ -110,10 +112,11 @@ Réinstaller l'APK n'est nécessaire que si le module natif, les permissions, le
 
 Chaque étape est testable seule. Les constantes sont dans `SPECS-TECH.md` §5.
 
-1. **Domaine pur** (`src/domain/`) : types (12 collections, vocabulaire de blocs) → dates (jour civil local avec
+1. **Domaine pur** (`src/domain/`) : types (15 collections, vocabulaire de blocs) → dates (jour civil local avec
    décalage de la montre) → `hr.ts` (nettoyage, TRIMP, dérive, pic soutenu) → `load.ts` (FC max, repos, charge, Banister)
    → `form.ts` → `blocks.ts` (estimation) → `links.ts` → `review.ts` → `stats.ts`, `objective.ts` → `engine.ts`
-   (`derive`). Écrire les 18 tests au fur et à mesure (liste dans `SPECS-TECH.md` §12).
+   (`derive`) → analyses (`zones`, `compliance`, `forecast`, `records`, `power`, `body`, `route`,
+   `loadByDiscipline`, `summary`) → `fit.ts`. Écrire les 34 tests au fur et à mesure (liste dans `SPECS-TECH.md` §12).
 2. **Données** : `idb.ts` → `store.ts` (`commit`, `dirty`) → `actions.ts` (avec `Snapshot`/annuler) → `backup.ts` →
    `sync.ts` (Firestore) → `dedupe.ts`.
 3. **Échanges** : `coach.ts` (export/import `apogee/1`, voir `docs/coach-context-apogee-1.md`), `manual.ts`,
@@ -144,4 +147,4 @@ si tout est vide. À vérifier dans l'app, elles évoluent :
 - [ ] Connexion Google OK (web et APK) ; les séances apparaissent identiques sur PC et téléphone.
 - [ ] APK : carte Montre = « disponible », lecture OK, notifications autorisées.
 - [ ] Import de la sauvegarde `.json` redonne le même nombre de séances ; export coach puis réimport d'un plan test OK.
-- [ ] `npm test` (18) et `npm run typecheck` verts.
+- [ ] `npm test` (34) et `npm run typecheck` verts.

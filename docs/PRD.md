@@ -96,7 +96,7 @@ Aucun nombre sans sa méthode : les valeurs estimées sont **soulignées en poin
 | Charge par séance | TRIMP de Banister sur la courbe cardio ; à défaut TRIMP sur FC moyenne ; à défaut ressenti × durée recalé sur l'échelle du TRIMP ; à défaut charge provisoire | mesurée / estimée / saisie |
 | Forme de fond, fatigue, fraîcheur | Modèle impulsion-réponse de Banister (constantes de temps 42 j et 7 j) | solide |
 | Rapport aigu/chronique (ACWR) | charge des 7 derniers jours ÷ moyenne hebdomadaire des 28 jours ; calculé seulement après 28 jours d'historique ; alerte au-delà de 1,5 | repère, jamais un verdict |
-| Forme du jour | composite sommeil / FC de repos / fraîcheur au réveil / RPE de la veille, 5 paliers (Épuisé, Entamé, Correct, Disponible, Frais) | approximatif mais transparent (chaque composante, son poids, sa valeur habituelle) |
+| Forme du jour | composite sommeil / FC de repos / variabilité cardiaque (si la montre l'envoie) / fraîcheur au réveil / RPE de la veille, 5 paliers (Épuisé, Entamé, Correct, Disponible, Frais) | approximatif mais transparent (chaque composante, son poids, sa valeur habituelle) |
 | Dérive cardiaque | écart de FC moyenne entre 2ᵉ et 1ʳᵉ moitié ; interprétée seulement si l'effort est continu | conditionnelle |
 | Verdict de séance | écart au plan (±10 %) sinon rapport aux habitudes (médiane 8 semaines, même discipline) | factuel |
 
@@ -157,18 +157,25 @@ Thèmes clair et sombre. Annuler proposé après toute suppression, modification
    séance prévue (détail au niveau du bloc) ; **éditeur de blocs** (glisser-déposer entre séries, duplication
    d'un bloc/série, couleurs par type, nom du bloc, intensité) ; **appui long** sur une séance (dupliquer vers un
    autre jour, déplacer, modifier, supprimer ; titre, bilan, dupliquer le prévu lié pour une séance réalisée) ;
+   **réutilisation** : copier une semaine vers une autre, semaines types et **séances favorites** (collection
+   `templates`, écran Séances types), « Ajouter aux favoris » depuis l'appui long ; **export .FIT** d'une séance
+   prévue pour la montre (voir 13) ;
    **périodisation** (blocs datés : passés / courant / à venir / course ; création et édition ; jamais de
    chevauchement) ; bandeau d'interruption.
 3. **Séances** — journal ; **bilan de séance** (prévu vs réalisé, verdict, dérive, courbe cardio, ressenti RPE 1–10
    + commentaire, titre, rattachement manuel ±3 jours ou « n'était pas prévue », « revenir à l'automatique »,
    proposition BRICK) ; **saisie** unique ou en lot (fait / prévu) ; **édition** d'une séance réalisée ; suppression ;
    **statistiques par discipline** (volumes, allures, tendance de la référence VMA/CSS/FTP, bilan global en carte
-   héro, bouton « Inclure Autre » éteint par défaut).
+   héro, bouton « Inclure Autre » éteint par défaut) ; **recherche** (titre, commentaire, discipline) et **période**
+   (4 semaines, 3 mois, 1 an, tout) dans le journal ; pour une sortie à vélo avec capteur : puissance moyenne,
+   normalisée, maximale, W/kg, indice d'intensité et TSS indicatifs ; **tracé GPS et profil d'altitude** (APK, lecture à
+   la demande, accord Health Connect séance par séance, tracé dessiné sans fond de carte).
 4. **Progression** — charge (trois graphiques légendés : forme de fond + fatigue / charge du jour / fraîcheur ;
    lecture du jour touché ; 1 sem. / 2 sem. …) ; ACWR détaillé (aiguë, chronique, jour dominant) ; forme du jour
    détaillée ; **objectif** (décomposition manuelle du chrono cible par discipline, confrontée à VMA/CSS/FTP,
    **aucun verdict de faisabilité**, vélo non comparable à la FTP et dit en toutes lettres) ; **zones** et journal
-   des relevés.
+   des relevés ; **prévisionnel de charge** (forme, fatigue, fraîcheur, ACWR projetés si tout le plan est fait) ;
+   **estimations suggérées** de VMA, CSS, FTP (jamais appliquées sans « Adopter ») ; onglet **Analyse** (voir 13).
 5. **Coach** — export (sélection de séances), import avec aperçu, journal des échanges.
 6. **Paramètres** (ordre) — Compte et synchronisation, Montre (Health Connect : état, autorisations, diagnostic,
    lecture), Thème, Langue, Athlète (profil, indicateurs, course objectif, périodisation, interruptions), Données (export Excel,
@@ -176,7 +183,7 @@ Thèmes clair et sombre. Annuler proposé après toute suppression, modification
    nombre de séances, puis confirmer), Aide,
    Calculs (charge provisoire, heure des rappels). La reprise de l'ancienne base `.db` se fait depuis la
    carte de bienvenue de l'Accueil (affichée tant qu'aucune séance n'existe).
-7. **Aide** (Paramètres › Aide) — mode d'emploi complet FR/EN avec recherche, 16 rubriques, lien de téléchargement
+7. **Aide** (Paramètres › Aide) — mode d'emploi complet FR/EN avec recherche, 18 rubriques, lien de téléchargement
    de l'APK. Les chiffres du texte doivent rester alignés sur `src/domain` (à relire à chaque changement de calcul).
 8. **Interruptions** — période d'indisponibilité (blessure, voyage, charge externe, autre) avec charge forfaitaire
    optionnelle et suspension optionnelle des rappels. Jamais deux interruptions qui se chevauchent. **Aucune séance
@@ -192,6 +199,16 @@ Thèmes clair et sombre. Annuler proposé après toute suppression, modification
     réelles à ce jour.**
 12. **Démarrage** — écran de lancement animé (trois lunes), minimum 1,7 s, identique PC / téléphone, écran natif
     de l'APK maintenu jusqu'au premier dessin de la page.
+13. **Analyse** (Progression › Analyse, ajout du 17/10/2026 sur sélection de Mathieu) — bilan de semaine (copiable pour
+    le coach) ; respect du plan (semaines, mois, temps réalisé / prévu) ; temps par zone de FC et répartition
+    facile / soutenue / intense (repère 80/20) ; forme de fond par discipline ; tendance d'efficacité (course :
+    mètres par battement ; vélo : watts par battement dès trois sorties avec capteur) ; records de course, vélo,
+    natation et **meilleures puissances** (5 s à 60 min, W/kg) ; **poids** (moyenne 7 jours, saisie manuelle) ;
+    **sommeil** (durée récente, heure de coucher, régularité) ; enchaînements vélo → course.
+14. **Capteurs de l'APK** (ajout du 17/10/2026) — Health Connect lit en plus la **puissance** du vélo, la
+    **variabilité cardiaque** (RMSSD) et le **poids**. La variabilité entre dans la forme du jour (poids 0,20 ; absente,
+    les autres poids se répartissent comme avant). Nécessite une réinstallation de l'APK puis de nouvelles
+    autorisations.
 
 ### Écartés (définitivement, ne pas reproposer)
 Écran de connexion au premier lancement (retiré : la connexion Google se fait depuis Paramètres › Compte ou la
@@ -202,8 +219,9 @@ existe aujourd'hui dans le Calendrier d'Apogée, c'est une autre construction).
 
 ## 8. Hors périmètre (à ne pas construire sans le signaler)
 
-Réseau social façon Strava ; multi-utilisateur ; application iOS native ; export automatique vers la montre ;
-génération de `.FIT` ; coach conversationnel embarqué ; nutrition, hydratation, plan de pacing du jour J ;
+Réseau social façon Strava ; multi-utilisateur ; application iOS native ; envoi **automatique** vers la montre
+(l'export `.FIT` existe depuis le 17/10, mais le fichier se copie à la main) ; carte avec fond de plan (aucun service
+de cartographie) ; coach conversationnel embarqué ; nutrition, hydratation, plan de pacing du jour J ;
 résolution de `ONE_RM` en kilos (aucun 1RM stocké) ; lecture de la montre sur iPhone.
 
 ## 9. Marque et design
@@ -245,6 +263,15 @@ résolution de `ONE_RM` en kilos (aucun 1RM stocké) ; lecture de la montre sur 
 - Appui long = menu contextuel d'une séance (16/10).
 - Écran de démarrage : fond encre visible au moins pendant l'animation (16/10).
 
+**17/10/2026 — sélection de Mathieu (19 améliorations, livrées en cinq lots)**
+- Cache de l'analyse cardiaque par série (recalcul ≈ 5× plus rapide) ; textes corrigés ; recherche et période dans le journal.
+- Analyse : respect du plan, zones de FC (80/20), forme par discipline, records, efficacité, bilan de semaine,
+  enchaînements vélo → course, prévisionnel de charge, estimations VMA / CSS / FTP, alerte blessure.
+- Réutilisation : copier une semaine, semaines types, séances favorites.
+- APK : puissance vélo, variabilité cardiaque dans la forme du jour, poids, sommeil (lecture), tracé GPS et altitude.
+- Export `.FIT` des séances prévues (entraînement structuré, copie manuelle par USB).
+- Écarté pour l'instant : fond de carte (aucun service externe), envoi automatique vers la montre.
+
 **Plateforme**
 - Web + APK, Firebase Spark, anglais, Aide (12/10) ; nouveau projet Firebase `apogee-d171c` (16/10).
 
@@ -255,7 +282,8 @@ résolution de `ONE_RM` en kilos (aucun 1RM stocké) ; lecture de la montre sur 
 | Atténuation du rapport aigu/chronique pour les très longues séances (GR20 : charge jusqu'à ~1 200/jour) | **Non décidée.** Cause probable de l'écart avec Garmin (0,26 vs 2,1) : très longues sorties qui gonflent la chronique + échelle de charge différente de l'EPOC. Piste : rendements décroissants du ressenti sur les très longues séances |
 | Quatre rappels (APK) jamais vus se déclencher | À observer en usage réel |
 | Interruptions (ancienne T6.3) jamais formellement confirmées sur appareil | Technique complète, testée côté web |
-| Puissance vélo | À re-sonder en octobre 2026 |
+| Puissance vélo, variabilité cardiaque, poids, tracé GPS (17/10) | Écrits contre l'API Health Connect 1.1.0-alpha10 et compilés en CI ; **jamais lus sur le téléphone de Mathieu** (réinstaller l'APK, accorder les nouvelles autorisations, vérifier que Garmin Connect envoie bien ces données) |
+| Fichiers `.FIT` | Structure vérifiée par un lecteur indépendant (CRC, en-têtes, étapes) ; **jamais ouverts sur la Fenix 7S Pro** : à tester avec une séance simple |
 | APK sans mode hors ligne (il charge le site à distance) | Limite connue. Option : embarquer l'app dans l'APK (non faite ; imposerait de réinstaller à chaque mise à jour) |
 | Ancien projet Firebase `ironapp-99f99` | À supprimer vers le 23/10/2026 après vérification |
 | Objectif 5h45 | Outil de confrontation livré ; la révision reste à la discrétion de Mathieu |

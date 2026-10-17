@@ -115,6 +115,19 @@ signalé, grâce à son empreinte.
   bute jamais sur la taille maximale d'un document, même avec les courbes cardio de toute une saison.
 - **Annuler** sur toute suppression, modification ou reprise (bandeau en bas de l'écran, comme dans PEAnalyze).
 
+## G. Évolutions du 17/10/2026 (sélection de Mathieu)
+
+- **Recalcul plus rapide.** L'analyse cardiaque d'une séance (nettoyage, pic soutenu, dérive) est mise en cache par
+  série : un recalcul complet passe d'environ 80 ms à environ 16 ms. Les résultats sont identiques (testé).
+- **Forme du jour avec variabilité cardiaque.** Si la montre envoie la variabilité (RMSSD), elle compte pour 0,20. Sans
+  elle, les autres poids se renormalisent exactement comme avant : aucune forme du jour déjà calculée ne change tant
+  que la variabilité est absente.
+- **Textes corrigés** dans l'aide et les paramètres (rappels, description « multisport »).
+- **Rien d'ajouté à la charge.** La puissance, le poids, le sommeil et le tracé GPS sont des lectures à côté : ils ne
+  modifient aucune charge, forme de fond ni ACWR. Le TSS affiché est indicatif et distinct de la charge d'Apogée.
+- **Estimations proposées, jamais imposées.** VMA (meilleur 6 min), CSS (200/400 m), FTP (95 % du meilleur 20 min) sont
+  enregistrées avec la source « estimation » seulement quand tu les adoptes.
+
 ## Limites connues
 
 - **Fichier `.db` de l'ancienne app.** Le partage n'emporte pas le fichier annexe où SQLite garde les
