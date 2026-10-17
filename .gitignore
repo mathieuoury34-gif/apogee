@@ -6,3 +6,4 @@ android-shell/capacitor.config.json
 tools/demo.json
 *.log
 .DS_Store
+node_modules
