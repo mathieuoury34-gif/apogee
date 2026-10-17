@@ -5,7 +5,7 @@
 16/10/2026 pour pouvoir refaire l'application de zéro : `PRD.md` (quoi / pourquoi), `SPECS-TECH.md` (comment),
 `GUIDE-REPRISE.md` (par où recommencer), `HISTORIQUE-RN.md` (archive de l'ancienne version React Native),
 `claude/BRIEF-DESIGN.md` (brief nom et logo).
-**Dernier commit** `3eb962d` (lot 5) — CI : voir l'onglet Actions (lots 1 à 4 verts, y compris la compilation Kotlin).
+**Dernier commit** `8538c5f` (retrait de la puissance, de la variabilité et du tracé GPS) — CI : voir l'onglet Actions.
 
 ---
 
