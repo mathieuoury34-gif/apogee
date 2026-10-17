@@ -8,6 +8,7 @@ import { AppHeader, DatePicker, DiscIcon, ErrorBanner, Fab, Sheet, SubHeader, Su
 import { Icon } from '../ui/icons';
 import { back, closeSheet, navigate, openSheet, useRoute } from '../ui/router';
 import { useCalc } from '../data/store';
+import { exportWorkoutFit } from '../data/exportFit';
 import { deletePlanned, duplicatePlanned, movePlanned, restore } from '../data/actions';
 import { estimateDistance, estimateDuration } from '../domain/blocks';
 import { addDays, daysBetween, mondayOf, weeksOfMonth } from '../domain/dates';
@@ -258,6 +259,7 @@ export function PlannedDetailScreen({ id }: { id: string }) {
   const p = data.planned[id];
   const [picker, setPicker] = useState<'move' | 'copy' | null>(null);
   const [confirm, setConfirm] = useState(false);
+  const [fitWarn, setFitWarn] = useState<string[]>([]);
   if (!p || p.deleted) {
     return (<div className="screen"><SubHeader title={$t("Séance prévue")} fallback="/calendrier" /><main className="content"><p className="c-neutral">{$t("Cette séance n’existe plus.")}</p></main></div>);
   }
@@ -293,6 +295,21 @@ export function PlannedDetailScreen({ id }: { id: string }) {
           <h2>{$t("Blocs")}</h2>
           <BlockList p={p} />
         </section>
+        {p.blocks.length > 0 && p.discipline !== 'STRENGTH' && (
+          <section className="card g8 dspan-12" aria-label={$t("Montre")}>
+            <h2>{$t("Sur la montre")}</h2>
+            <p className="t-caption c-neutral">{$t("Exporte la séance en entraînement structuré (.FIT) : étapes, durées ou distances, cibles d’allure, de puissance ou de FC, répétitions. Copie le fichier dans le dossier GARMIN/Workouts de la montre branchée en USB ; elle le propose ensuite dans Entraînement › Séances.")}</p>
+            <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={async () => {
+              try {
+                const r = await exportWorkoutFit(p, d.refs);
+                showToast(r.files ? $t("{0} fichier(s) .FIT prêt(s)", { 0: r.files }) + (r.warnings.length ? ' · ' + $t("{0} avertissement(s)", { 0: r.warnings.length }) : '') : $t("Rien à exporter : aucune étape"), { error: !r.files });
+                if (r.warnings.length) setFitWarn(r.warnings);
+              } catch (e) { showToast((e as Error).message || $t("Export impossible"), { error: true }); }
+            }}><Icon name="download" size={18} />{$t("Exporter pour la montre (.FIT)")}</button>
+            {fitWarn.length > 0 && <div className="note note-warning"><Icon name="alert" size={20} /><span>{[...new Set(fitWarn)].join(' ; ')}.</span></div>}
+            {p.discipline === 'BRICK' && <p className="t-legal c-moderate">{$t("Une montre ne lit qu’un sport par entraînement : un enchaînement donne un fichier par discipline.")}</p>}
+          </section>
+        )}
         <section className="card g8 dspan-12" aria-label={$t("Réalisation")}>
           <h2>{$t("Réalisation")}</h2>
           {done.length ? done.map((s) => (

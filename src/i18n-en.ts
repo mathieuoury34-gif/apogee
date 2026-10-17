@@ -1064,4 +1064,13 @@ export const EN: Record<string, string> = {
   "Puissance vélo": "Bike power",
   "{0} pesée(s) · dernière {1}": "{0} weigh-in(s) · last {1}",
   "{0} sortie(s) avec capteur": "{0} ride(s) with a power meter",
+  "Montre": "Watch",
+  "Sur la montre": "On the watch",
+  "Exporte la séance en entraînement structuré (.FIT) : étapes, durées ou distances, cibles d’allure, de puissance ou de FC, répétitions. Copie le fichier dans le dossier GARMIN/Workouts de la montre branchée en USB ; elle le propose ensuite dans Entraînement › Séances.": "Exports the session as a structured workout (.FIT): steps, durations or distances, pace, power or HR targets, repeats. Copy the file into the GARMIN/Workouts folder of the watch plugged in by USB; it then offers it under Training › Workouts.",
+  "{0} fichier(s) .FIT prêt(s)": "{0} .FIT file(s) ready",
+  "{0} avertissement(s)": "{0} warning(s)",
+  "Rien à exporter : aucune étape": "Nothing to export: no steps",
+  "Export impossible": "Export failed",
+  "Exporter pour la montre (.FIT)": "Export for the watch (.FIT)",
+  "Une montre ne lit qu’un sport par entraînement : un enchaînement donne un fichier par discipline.": "A watch only reads one sport per workout: a brick gives one file per discipline.",
 };

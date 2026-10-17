@@ -16,6 +16,7 @@ import { computeDailyForm, FORM_WEIGHTS } from '../src/domain/form';
 import { ingest, withRoute } from '../src/domain/health';
 import { bestPowerOver, normalizedPower, powerRecords, suggestFtp, weightAt } from '../src/domain/power';
 import { routeStats } from '../src/domain/route';
+import { encodeFit, fitCrc, fitFileName, toFitWorkouts } from '../src/domain/fit';
 import { sleepStats, weightTrend } from '../src/domain/body';
 import { efficiency } from '../src/domain/records';
 import { analyzeHr, cleanHr, hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
@@ -533,4 +534,79 @@ test('Health Connect : puissance, VFC du jour (médiane), poids (la saisie manue
   const again = ingest(d, [{ ...base, hr: Array.from({ length: 300 }, (_, i) => [Date.parse('2026-10-01T06:00:00Z') / 1000 + i, 130] as [number, number]) }], [], []);
   assert.equal(again.report.updated, 1);
   assert.equal(again.ops.series[0].route!.length, 1);
+});
+
+/** Lecteur FIT minimal et indépendant de l'encodeur : en-tête, CRC, définitions et données. */
+function readFit(buf: Uint8Array) {
+  const v = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  assert.equal(buf[0], 14);
+  assert.equal(String.fromCharCode(...buf.slice(8, 12)), '.FIT');
+  assert.equal(v.getUint16(12, true), fitCrc(buf, 0, 12), 'CRC de l’en-tête');
+  const dataSize = v.getUint32(4, true);
+  assert.equal(buf.length, 14 + dataSize + 2);
+  assert.equal(v.getUint16(buf.length - 2, true), fitCrc(buf, 0, buf.length - 2), 'CRC du fichier');
+  const defs = new Map<number, { global: number; fields: [number, number][] }>();
+  const msgs: { global: number; f: Record<number, number | string> }[] = [];
+  let o = 14;
+  while (o < 14 + dataSize) {
+    const h = buf[o++];
+    if (h & 0x40) {
+      o += 2; const global = v.getUint16(o, true); o += 2; const n = buf[o++];
+      const fields: [number, number][] = [];
+      for (let i = 0; i < n; i++) { fields.push([buf[o], buf[o + 1]]); o += 3; }
+      defs.set(h & 0x0f, { global, fields });
+    } else {
+      const def = defs.get(h & 0x0f)!; const f: Record<number, number | string> = {};
+      for (const [num, size] of def.fields) {
+        if (size === 1) f[num] = buf[o]; else if (size === 2) f[num] = v.getUint16(o, true); else if (size === 4) f[num] = v.getUint32(o, true);
+        else f[num] = new TextDecoder().decode(buf.slice(o, o + size)).replace(/\0+$/, '');
+        o += size;
+      }
+      msgs.push({ global: def.global, f });
+    }
+  }
+  assert.equal(o, 14 + dataSize);
+  return msgs;
+}
+
+test('fichier .FIT : structure valide, cibles converties, répétitions, BRICK en deux fichiers', () => {
+  const refs = { vma: 4.8, css: 100 / 105, ftp: 250, hrMax: 188 };
+  const warm = { ...newBlock('WARMUP'), measureValue: 600 };
+  const set = { ...newBlock('SET'), setCount: 6, children: [
+    { ...newBlock('WORK'), measure: 'TIME' as const, measureValue: 180, targetType: 'PACE' as const, targetLow: 270, targetHigh: 280, label: 'Vite' },
+    { ...newBlock('RECOVERY'), measure: 'TIME' as const, measureValue: 90 },
+  ] };
+  const cool = { ...newBlock('COOLDOWN'), measureValue: 300 };
+  const run = { id: 'p', updatedAt: '', discipline: 'RUN', plannedDate: '2026-10-20', title: 'Fractionné 6×3', notes: null, origin: 'manual', idempotencyKey: null, coachExchangeId: null, blocks: [warm, set, cool], createdAt: '' } as never;
+  const [wk] = toFitWorkouts(run, refs);
+  assert.equal(wk.steps.length, 5); // échauffement, effort, récupération, répétition, retour au calme
+  const msgs = readFit(encodeFit(wk, new Date('2026-10-17T10:00:00Z')));
+  assert.equal(msgs[0].global, 0); assert.equal(msgs[0].f[0], 5, 'fichier d’entraînement');
+  assert.equal(msgs[1].global, 26); assert.equal(msgs[1].f[4], 1, 'course à pied'); assert.equal(msgs[1].f[6], wk.steps.length); assert.equal(msgs[1].f[8], 'Fractionné 6×3');
+  const steps = msgs.filter((m) => m.global === 27).map((m) => m.f);
+  assert.equal(steps.length, wk.steps.length);
+  const work = steps[1];
+  assert.equal(work[1], 0, 'durée en temps'); assert.equal(work[2], 180000, 'en millisecondes');
+  assert.equal(work[3], 0, 'cible de vitesse');
+  assert.equal(work[5], Math.round((1000 / 280) * 1000), 'vitesse basse = allure lente'); assert.equal(work[6], Math.round((1000 / 270) * 1000));
+  assert.equal(work[0], 'Vite');
+  const rep = steps[3];
+  assert.equal(rep[1], 6, 'répéter jusqu’à la fin des étapes'); assert.equal(rep[2], 1, 'revient à l’étape 1'); assert.equal(rep[4], 6, '6 répétitions');
+  assert.equal(steps[0][7], 2, 'intensité échauffement'); assert.equal(steps[2][7], 4, 'récupération');
+  // puissance en % de FTP et FC en % de FC max
+  const bike = { ...run, discipline: 'BIKE', blocks: [{ ...newBlock('WORK'), measure: 'DISTANCE' as const, measureValue: 20000, targetType: 'POWER' as const, targetLow: 80, targetHigh: 90, relativeTo: 'FTP' as const }, { ...newBlock('WORK'), measure: 'OPEN' as const, measureValue: null, targetType: 'HR' as const, targetLow: 70, targetHigh: 80, relativeTo: 'HRMAX' as const }] } as never;
+  const b = toFitWorkouts(bike, refs)[0].steps;
+  assert.equal(b[0].durationType, 1); assert.equal(b[0].durationValue, 2000000, 'distance en centimètres');
+  assert.equal(b[0].low, 200 + 1000); assert.equal(b[0].high, 225 + 1000);
+  assert.equal(b[1].low, Math.round(188 * 0.7) + 100);
+  // référence inconnue : étape ouverte et avertissement
+  const noRef = toFitWorkouts(bike, { vma: null, css: null, ftp: null, hrMax: null })[0];
+  assert.equal(noRef.steps[0].targetType, 2); assert.equal(noRef.warnings.length, 2);
+  // BRICK : un fichier par discipline, la transition disparaît
+  const brick = { ...run, discipline: 'BRICK', title: 'Brick', blocks: [{ ...newBlock('WORK'), discipline: 'BIKE' as const, measureValue: 3600 }, { ...newBlock('TRANSITION'), measure: 'OPEN' as const }, { ...newBlock('WORK'), discipline: 'RUN' as const, measureValue: 1200 }] } as never;
+  const files = toFitWorkouts(brick, refs);
+  assert.deepEqual(files.map((f) => f.discipline), ['BIKE', 'RUN']);
+  assert.ok(files[1].name.includes('course'));
+  assert.equal(readFit(encodeFit(files[0]))[1].f[4], 2);
+  assert.equal(fitFileName('Fractionné 6×3 — vélo', '2026-10-20'), '2026-10-20-Fractionne-6-3-velo.fit');
 });
