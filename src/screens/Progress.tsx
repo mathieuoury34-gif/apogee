@@ -11,7 +11,7 @@ import { useCalc } from '../data/store';
 import { addZone, deleteZone, restore, saveRace } from '../data/actions';
 import { addDays, dayRange, daysBetween } from '../domain/dates';
 import { FORM_LABEL, FORM_STEP_LABEL, FORM_WEIGHTS, formStep, type FormKey } from '../domain/form';
-import { latestZone, liveRecords, zoneHistory } from '../domain/load';
+import { latestZone, zoneHistory } from '../domain/load';
 import { requiredPaces, type RequiredPace } from '../domain/objective';
 import { weeklyVolume } from '../domain/stats';
 import { forecastLoad } from '../domain/forecast';
@@ -103,7 +103,6 @@ export function LoadScreen() {
               <ul className="stack" style={{ gap: 'var(--space-10)' }}>
                 {(Object.keys(FORM_WEIGHTS) as FormKey[]).map((k) => {
                   const comp = form.components.find((x) => x.key === k);
-                  if (k === 'hrv' && !comp && !liveRecords(data.hrv).length) return null; // pas de variabilité cardiaque lue : la ligne n'apparaît pas
                   return (
                     <li key={k} className="stack-4">
                       <div className="between t-caption"><span className="t-caption-strong">{FORM_LABEL[k]} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("· poids")} {pct(comp ? comp.effectiveWeight : 0)}</span></span><span className="c-neutral">{comp ? componentText(k, comp.value, comp.center) : $t("pas de donnée")}</span></div>
@@ -138,7 +137,6 @@ export function LoadScreen() {
 function componentText(k: FormKey, v: number, center: number) {
   if (k === 'sleep') return $t("{0} (habituel {1})", { 0: hhmm(v), 1: hhmm(center) });
   if (k === 'restingHr') return $t("{0} bpm (habituel {1})", { 0: num(v, 0), 1: num(center, 0) });
-  if (k === 'hrv') return $t("{0} ms (habituel {1})", { 0: num(v, 0), 1: num(center, 0) });
   if (k === 'freshness') return $t("{0} (habituel {1})", { 0: signed(v, 0), 1: signed(center, 0) });
   return $t("RPE {0} (habituel {1})", { 0: num(v, 0), 1: num(center, 1) });
 }
@@ -420,25 +418,25 @@ function ForecastCard() {
   );
 }
 
-// ------------------------------------------------------------------ Estimations suggérées (VMA, CSS, FTP)
+// ------------------------------------------------------------------ Estimations suggérées (VMA, CSS)
 function ZoneSuggestions() {
   const { data, d } = useCalc();
-  const sugg = suggestZones(data, { vma: latestZone(data, 'vma'), css: latestZone(data, 'css'), ftp: latestZone(data, 'ftp') }, d.today);
+  const sugg = suggestZones(data, { vma: latestZone(data, 'vma'), css: latestZone(data, 'css') }, d.today);
   if (!sugg.length) return null;
-  const show = (k: 'vma' | 'css' | 'ftp', v: number) => (k === 'ftp' ? num(v, 0) + NBSP + 'W' : k === 'vma' ? num(v * 3.6, 1) + NBSP + $t("km/h") : mmss(100 / v) + NBSP + '/100' + NBSP + 'm');
+  const show = (k: 'vma' | 'css', v: number) => (k === 'vma' ? num(v * 3.6, 1) + NBSP + $t("km/h") : mmss(100 / v) + NBSP + '/100' + NBSP + 'm');
   return (
     <section className="card g12 dspan-12" aria-label={$t("Estimations suggérées")}>
       <h2>{$t("Estimations suggérées")}</h2>
       {sugg.map((s) => (
         <div key={s.kind} className="between wrap" style={{ gap: 'var(--space-8)' }}>
           <span className="stack-4 grow">
-            <span className="t-label">{s.kind === 'vma' ? $t("VMA") : s.kind === 'ftp' ? $t("FTP") : $t("CSS")} : {show(s.kind, s.value)}</span>
-            <span className="t-caption c-moderate">{s.current ? $t("Actuellement {0}. ", { 0: show(s.kind, s.current.value) }) : $t("Aucune valeur enregistrée. ")}{s.kind === 'vma' ? $t("Meilleur effort de 6 minutes sur 90 jours") : s.kind === 'ftp' ? $t("95 % de ta meilleure puissance sur 20 minutes (90 jours)") : $t("Meilleurs 200 m et 400 m d’une même séance (méthode de Wakayoshi)")} · {dateFr(s.day)}</span>
+            <span className="t-label">{s.kind === 'vma' ? $t("VMA") : $t("CSS")} : {show(s.kind, s.value)}</span>
+            <span className="t-caption c-moderate">{s.current ? $t("Actuellement {0}. ", { 0: show(s.kind, s.current.value) }) : $t("Aucune valeur enregistrée. ")}{s.kind === 'vma' ? $t("Meilleur effort de 6 minutes sur 90 jours") : $t("Meilleurs 200 m et 400 m d’une même séance (méthode de Wakayoshi)")} · {dateFr(s.day)}</span>
           </span>
-          <button type="button" className="btn btn-secondary" onClick={() => { addZone({ kind: s.kind, value: s.value, measuredAt: new Date().toISOString(), source: 'estimation', notes: s.kind === 'vma' ? 'Meilleur effort de 6 minutes (90 j)' : s.kind === 'ftp' ? '95 % du meilleur 20 min (90 j)' : 'Méthode 200/400 m' }); showToast($t("Estimation enregistrée")); }}>{$t("Adopter")}</button>
+          <button type="button" className="btn btn-secondary" onClick={() => { addZone({ kind: s.kind, value: s.value, measuredAt: new Date().toISOString(), source: 'estimation', notes: s.kind === 'vma' ? 'Meilleur effort de 6 minutes (90 j)' : 'Méthode 200/400 m' }); showToast($t("Estimation enregistrée")); }}>{$t("Adopter")}</button>
         </div>
       ))}
-      <p className="t-legal c-moderate">{$t("Une estimation n’est jamais appliquée seule : tu l’adoptes, elle est enregistrée avec la source « estimation » et reste modifiable. Un effort de 6 minutes ne prouve qu’une VMA au moins égale ; elle n’est proposée que si elle dépasse ta valeur actuelle. Pour la CSS, il faut deux vrais efforts maximaux (200 m et 400 m) dans la même séance. La FTP vient de la meilleure puissance moyenne sur 20 minutes (× 0,95) : il faut un effort réellement maximal et un capteur de puissance.")}</p>
+      <p className="t-legal c-moderate">{$t("Une estimation n’est jamais appliquée seule : tu l’adoptes, elle est enregistrée avec la source « estimation » et reste modifiable. Un effort de 6 minutes ne prouve qu’une VMA au moins égale ; elle n’est proposée que si elle dépasse ta valeur actuelle. Pour la CSS, il faut deux vrais efforts maximaux (200 m et 400 m) dans la même séance.")}</p>
     </section>
   );
 }

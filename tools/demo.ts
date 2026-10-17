@@ -60,20 +60,7 @@ function session(day: string, disc: ActualDiscipline, min: number, opts: { km?: 
       // vitesse en m/s toutes les 5 s, ondulation déterministe (pas de tirage : la graine des autres données ne bouge pas)
       for (let t = 0; t <= dur; t += 5) speed.push([t0 + t, Math.max(0.3, v0 * (1 + 0.06 * Math.sin(t / 240) + (disc === 'RUN' && min < 60 && t > dur * 0.3 && t < dur * 0.8 ? (Math.floor(t / 240) % 2 ? 0.18 : -0.08) : 0)))]);
     }
-    // puissance vélo (déterministe, sans tirage) : progresse un peu au fil des semaines, avec un effort de 20 min dans les sorties de plus d'une heure
-    const power: [number, number][] = [];
-    if (disc === 'BIKE') {
-      const prog = 1 + (Date.parse(day) - Date.parse('2026-06-15')) / 86400000 / 400;
-      const base = 140 * prog * (avg! > 144 ? 1.12 : 1);
-      for (let t = 0; t <= dur; t += 2) {
-        const burst = min > 60 && t > dur * 0.4 && t < dur * 0.4 + 1200 ? 1.35 : 1;
-        power.push([t0 + t, Math.max(0, Math.round(base * burst * (1 + 0.12 * Math.sin(t / 37) + 0.08 * Math.sin(t / 211))))]);
-      }
-      const a = d.actual[i];
-      a.avgPowerW = Math.round(power.reduce((x, p) => x + p[1], 0) / power.length);
-      a.maxPowerW = Math.max(...power.map((p) => p[1]));
-    }
-    d.series[i] = { id: i, updatedAt: now, hr, speed, ...(power.length ? { power } : {}) };
+    d.series[i] = { id: i, updatedAt: now, hr, speed };
   }
   return d.actual[i];
 }
@@ -109,8 +96,7 @@ for (const day of days) {
     d.resting[day] = { id: day, updatedAt: now, day, bpm: Math.round(49 + (rnd() - 0.5) * 4 - Math.min(4, w * 0.2) + (day === addDays(TODAY, -1) ? 3 : 0)) };
   }
   if (day <= TODAY) {
-    // variabilité cardiaque et poids (déterministes)
-    d.hrv[day] = { id: day, updatedAt: now, day, ms: Math.round((62 + 5 * Math.sin(w * 0.9 + wd) - (day === addDays(TODAY, -1) ? 9 : 0)) * 10) / 10 };
+    // poids (déterministe)
     if (wd % 2 === 0) d.weight[day] = { id: day, updatedAt: now, day, kg: Math.round((75.2 - w * 0.06 + 0.35 * Math.sin(wd + w)) * 10) / 10, source: 'health' };
   }
   if (inTravel) { if (past && wd === 3) session(day, 'RUN', 40, { km: 7.2, hr: 141, rpe: 4, comment: 'Footing en bord de mer' }); continue; }
@@ -134,15 +120,7 @@ for (const day of days) {
 // la dernière séance n'a pas encore son ressenti ; une séance « Autre »
 const last = Object.values(d.actual).sort((a, b) => (a.startAt < b.startAt ? 1 : -1))[0];
 last.rpe = null;
-const hike = session(addDays(TODAY, -9), 'OTHER', 120, { hr: 108, rpe: 3, hour: 14, comment: 'Randonnée' });
-if (d.series[hike.id]) {
-  // tracé de randonnée en boucle (déterministe) : montée, crête, descente
-  const t0 = Math.floor(Date.parse(hike.startAt) / 1000);
-  d.series[hike.id].route = Array.from({ length: 241 }, (_, k) => {
-    const f = k / 240, a = f * 2 * Math.PI;
-    return [t0 + k * 30, Math.round((43.52 + 0.011 * Math.sin(a) + 0.003 * Math.sin(3 * a)) * 1e5) / 1e5, Math.round((5.45 + 0.016 * (1 - Math.cos(a)) + 0.002 * Math.sin(2 * a)) * 1e5) / 1e5, Math.round((210 + 380 * Math.sin(Math.PI * f) ** 1.3 + 12 * Math.sin(k / 3)) * 10) / 10] as [number, number, number, number];
-  });
-}
+session(addDays(TODAY, -9), 'OTHER', 120, { hr: 108, rpe: 3, hour: 14, comment: 'Randonnée' });
 const ex = 'x1';
 d.exchanges[ex] = { id: ex, updatedAt: now, direction: 'import', schemaVersion: 'apogee/1', occurredAt: addDays(TODAY, -22) + 'T19:12:00.000Z', status: 'applied', operationCount: 18, payloadHash: 'demo', planValidUntil: addDays(TODAY, 13), importSummary: { created: [], updated: [], deleted: [], rejected: [], noop: [], malformedCount: 0 }, error: null };
 

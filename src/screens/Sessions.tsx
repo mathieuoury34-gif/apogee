@@ -21,11 +21,6 @@ import type { ActualDiscipline, ActualSession, PlannedDiscipline } from '../doma
 import { ACTUAL_DISCIPLINES } from '../domain/types';
 import { DISCIPLINE_SHORT, bpm, dateFr, dateTimeFr, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, hours, km, mmss, monthLong, num, paceFor, parseNum, pct, pctSigned, signed, speedKmh, timeOf, toInput, NBSP } from '../ui/format';
 import { cleanHr } from '../domain/hr';
-import { cleanPower, powerStats, weightAt } from '../domain/power';
-import { routeStats } from '../domain/route';
-import { loadRoute } from '../native/healthSync';
-import { native } from '../native/bridge';
-import { latestZone } from '../domain/load';
 import { polarSplit, zoneTimes } from '../domain/zones';
 import { SplitBars } from '../ui/charts2';
 
@@ -178,15 +173,11 @@ export function ReviewScreen({ id }: { id: string }) {
             <Kpi label={s.discipline === 'BIKE' ? $t("Vitesse") : $t("Allure")} value={pace ? paceFor(pace, s.discipline) : '—'} cls={mark('distanceM')} />
             <Kpi label={$t("FC moyenne")} value={bpm(s.avgHrBpm)} cls={mark('avgHrBpm')} />
             <Kpi label={$t("FC max")} value={bpm(s.maxHrBpm)} />
-            {s.avgPowerW ? <Kpi label={$t("Puissance moy.")} value={num(s.avgPowerW, 0) + NBSP + 'W'} /> : null}
             <Kpi label={$t("Charge")} value={l.load === null ? '—' : num(l.load, 0)} cls={l.assise === 'estimated' ? $t(" est") : ''} />
           </div>
           <p className="t-caption c-moderate">{$t("Charge")} {METHOD_LABEL[l.method]}{l.method === 'srpe' ? $t(" (RPE × minutes × {0}, coefficient appris sur {1})", { 0: num(d.ctx.srpeFactor, 2), 1: d.ctx.srpeCalibrationPairs >= 5 ? $t("tes séances") : $t("une valeur type") }) : ''}.{s.edited.length ? $t(" Valeurs soulignées : corrigées à la main.") : ''}{s.elevationGainM ? $t(" Dénivelé {0} m.", { 0: num(s.elevationGainM, 0) }) : ''}{s.activeCaloriesJ ? $t(" {0} kcal actives.", { 0: num(s.activeCaloriesJ / 4184, 0) }) : ''}</p>
           <HrTrace id={s.id} />
-          <PowerLine s={s} />
         </section>
-
-        <RouteCard s={s} />
 
         <section className="card g12 dspan-5" aria-label={$t("Verdict")}>
           <h2>{$t("Verdict")}</h2>
@@ -253,95 +244,6 @@ export function ReviewScreen({ id }: { id: string }) {
       {editing && <EditSheet s={s} onClose={() => setEditing(false)} />}
       {linkOpen && <LinkSheet s={s} onClose={() => setLinkOpen(false)} />}
     </div>
-  );
-}
-
-/** Puissance d'une sortie à vélo : normalisée, indice d'intensité et TSS indicatifs (FTP connue), W/kg. */
-function PowerLine({ s }: { s: ActualSession }) {
-  const { data } = useCalc();
-  const ser = data.series[s.id];
-  if (s.discipline !== 'BIKE' || !ser || ser.deleted || !ser.power?.length) return null;
-  const ftp = latestZone(data, 'ftp')?.value ?? null;
-  const st = powerStats(cleanPower(ser.power), s.durationSec, ftp);
-  if (!st) return null;
-  const kg = weightAt(data, sessionDay(s));
-  const parts = [
-    $t("Puissance moyenne {0} W", { 0: num(st.avg, 0) }),
-    st.np !== null ? $t("normalisée {0} W", { 0: num(st.np, 0) }) : null,
-    $t("max {0} W", { 0: num(st.max, 0) }),
-    kg ? $t("{0} W/kg", { 0: num(st.avg / kg, 2) }) : null,
-    st.variability !== null ? $t("variabilité {0}", { 0: num(st.variability, 2) }) : null,
-    st.ifactor !== null ? $t("intensité {0} de ta FTP", { 0: num(st.ifactor, 2) }) : null,
-    st.tss !== null ? $t("TSS ≈ {0}", { 0: num(st.tss, 0) }) : null,
-  ].filter(Boolean);
-  return (
-    <div className="stack-4">
-      <span className="t-caption c-neutral">{parts.join(' · ')}</span>
-      <span className="t-legal c-moderate">{$t("Puissance normalisée = moyenne pondérée (30 s, puissance 4) qui reflète le coût d’une sortie irrégulière. Le TSS est indicatif : il suppose une FTP juste ({0}) et ne remplace pas la charge d’Apogée.", { 0: ftp ? num(ftp, 0) + ' W' : $t("aucune FTP enregistrée") })}</span>
-    </div>
-  );
-}
-
-/** Tracé GPS et profil d'altitude, lus à la demande dans Health Connect (un accord par séance). */
-function RouteCard({ s }: { s: ActualSession }) {
-  const { data } = useCalc();
-  const [ref, w] = useWidth<HTMLDivElement>();
-  const [busy, setBusy] = useState(false);
-  const ser = data.series[s.id];
-  const st = useMemo(() => (ser && !ser.deleted && ser.route ? routeStats(ser.route) : null), [ser]);
-  const canRead = native.hasHealth() && s.source === 'health';
-  if (!st && !canRead) return null;
-  const read = async () => {
-    setBusy(true);
-    try {
-      const r = await loadRoute(s);
-      showToast(r === 'ok' ? $t("Tracé chargé") : r === 'denied' ? $t("Accès au tracé refusé : rien n’a été lu") : r === 'none' ? $t("Aucun tracé GPS pour cette séance") : $t("Lecture du tracé impossible : l’APK installé est trop ancien, réinstalle la dernière version"), { error: r !== 'ok' });
-    } catch (e) { showToast((e as Error).message || $t("Lecture du tracé impossible"), { error: true }); }
-    finally { setBusy(false); }
-  };
-  const SH = 150, PH = 90;
-  const shapeW = Math.min(w, 320);
-  return (
-    <section className="card g12 dspan-12" aria-label={$t("Tracé et altitude")}>
-      <h2>{$t("Tracé et altitude")}</h2>
-      {!st ? (
-        <>
-          <p className="t-caption c-neutral">{$t("Le tracé GPS n’est pas stocké avec la séance : Health Connect le prête séance par séance, avec ton accord. Une fois lu, il est conservé et synchronisé avec tes autres appareils.")}</p>
-          <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} disabled={busy} onClick={read}>{busy ? $t("Lecture…") : $t("Lire le tracé GPS")}</button>
-        </>
-      ) : (
-        <>
-          <dl className="kv">
-            <dt>{$t("Distance du tracé")}</dt><dd>{km(st.distanceM, 2)}</dd>
-            {st.ascentM !== null && <><dt>{$t("Dénivelé positif / négatif")}</dt><dd>+{num(st.ascentM, 0)} / −{num(st.descentM!, 0)}{NBSP}m</dd></>}
-            {st.minAlt !== null && <><dt>{$t("Altitude mini / maxi")}</dt><dd>{num(st.minAlt, 0)} / {num(st.maxAlt!, 0)}{NBSP}m</dd></>}
-          </dl>
-          <div ref={ref} className="stack-8">
-            {st.profile.length > 1 && w > 0 && (() => {
-              const lo = st.minAlt!, hi = st.maxAlt!, X = (d: number) => (d / st.distanceM) * (w - 8) + 4, Y = (a: number) => 6 + (PH - 12) - ((a - lo) / (hi - lo || 1)) * (PH - 12);
-              const line = st.profile.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join(' ');
-              return (
-                <svg width={w} height={PH + 16} viewBox={`0 0 ${w} ${PH + 16}`} role="img" aria-label={$t("Profil d’altitude de {0} à {1} m", { 0: num(lo, 0), 1: num(hi, 0) })}>
-                  <path d={`${line} L${X(st.distanceM).toFixed(1)},${PH} L${X(0).toFixed(1)},${PH} Z`} style={{ fill: 'var(--chart-fitness)', opacity: 0.18 }} />
-                  <path d={line} fill="none" strokeWidth="1.75" strokeLinejoin="round" style={{ stroke: 'var(--chart-fitness)' }} />
-                  <text x="4" y={PH + 13} className="t-legal" style={{ fill: 'var(--text-moderate)', fontSize: 11 }}>0</text>
-                  <text x={w - 4} y={PH + 13} textAnchor="end" className="t-legal" style={{ fill: 'var(--text-moderate)', fontSize: 11 }}>{km(st.distanceM, 1)}</text>
-                </svg>
-              );
-            })()}
-            <svg width={shapeW} height={SH} viewBox={`0 0 ${shapeW} ${SH}`} role="img" aria-label={$t("Forme du tracé")} style={{ alignSelf: 'center' }}>
-              {(() => {
-                const sc = Math.min((shapeW - 16) / (st.aspect >= 1 ? 1 : st.aspect), (SH - 16) / (st.aspect >= 1 ? 1 / st.aspect : 1));
-                const ox = (shapeW - sc * (st.aspect >= 1 ? 1 : st.aspect)) / 2, oy = (SH - sc * (st.aspect >= 1 ? 1 / st.aspect : 1)) / 2;
-                const path = st.shape.map((p, i) => (i ? 'L' : 'M') + (ox + p[0] * sc).toFixed(1) + ',' + (SH - oy - p[1] * sc).toFixed(1)).join(' ');
-                return <path d={path} fill="none" strokeWidth="2.25" strokeLinejoin="round" strokeLinecap="round" style={{ stroke: 'var(--brand-primary)' }} />;
-              })()}
-            </svg>
-          </div>
-          <p className="t-legal c-moderate">{$t("Distance calculée sur les points GPS (parfois un peu différente de celle de la montre). Dénivelé calculé sur une altitude lissée avec un seuil de 3 m pour ignorer le bruit du capteur : il peut différer de celui de Garmin. Le tracé est dessiné seul, sans fond de carte : Apogée n’appelle aucun service de cartographie.")}</p>
-        </>
-      )}
-    </section>
   );
 }
 

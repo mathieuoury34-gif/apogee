@@ -1074,4 +1074,7 @@ export const EN: Record<string, string> = {
   "Exporter pour la montre (.FIT)": "Export for the watch (.FIT)",
   "Une montre ne lit qu’un sport par entraînement : un enchaînement donne un fichier par discipline.": "A watch only reads one sport per workout: a brick gives one file per discipline.",
   "Lecture du tracé impossible : l’APK installé est trop ancien, réinstalle la dernière version": "Cannot read the route: the installed APK is too old, reinstall the latest version",
+  "Aucune pesée. Saisis-la à la main ; elle vient aussi de Health Connect si une balance connectée l’y dépose (Garmin ne l’envoie pas).": "No weigh-ins. Enter one by hand; it also comes from Health Connect if a connected scale puts it there (Garmin does not send it).",
+  "La moyenne sur 7 jours lisse les variations d’hydratation d’un jour à l’autre. Le poids est un simple suivi : il ne modifie aucune charge. Une pesée saisie à la main n’est jamais écrasée par Health Connect.": "The 7-day average smooths day-to-day hydration changes. Weight is simple tracking: it does not change any load. A weigh-in entered by hand is never overwritten by Health Connect.",
+  "Autorise Apogée à lire tes séances, ta FC, ton sommeil, ta FC de repos et ton poids dans Health Connect. Coche aussi « Historique » pour reprendre tes séances passées.": "Allow Apogée to read your sessions, HR, sleep, resting HR and weight in Health Connect. Also tick “History” to bring in your past sessions.",
 };

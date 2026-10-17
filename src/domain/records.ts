@@ -3,7 +3,6 @@
 import { addDays, mondayOf } from './dates';
 import { analyzeHr, median } from './hr';
 import type { Links } from './links';
-import { suggestFtp } from './power';
 import { liveRecords, sessionDay } from './load';
 import type { ActualSession, AppData, ZoneReading } from './types';
 
@@ -90,46 +89,32 @@ export const EF_BAND: [number, number] = [0.65, 0.85];
 export const EF_MIN_SEC = 20 * 60;
 export const EF_MAX_CLIMB = 0.02;
 
-export interface EfPoint { day: string; sessionId: string; speedMs: number; powerW?: number; avgHr: number; ef: number }
+export interface EfPoint { day: string; sessionId: string; speedMs: number; avgHr: number; ef: number }
 export interface EfWeek { start: string; ef: number; n: number }
 export interface Efficiency {
   discipline: 'RUN' | 'BIKE';
-  /** `power` : watts par battement (vélo avec capteur de puissance) ; `speed` : vitesse par battement. */
-  metric: 'speed' | 'power';
   points: EfPoint[];
   weeks: EfWeek[];
   /** Changement (%) de l'efficacité médiane des 28 derniers jours par rapport aux 28 précédents. */
   change: number | null;
   refHr: number | null;
-  /** Vitesse (m/s) ou puissance (W, si `metric` = power) à la FC de référence, maintenant et il y a 4 semaines. */
+  /** Vitesse à la FC de référence, maintenant et il y a 4 semaines (m/s). */
   speedNow: number | null; speedBefore: number | null;
 }
 
 export function efficiency(data: AppData, hrMax: number | null, discipline: 'RUN' | 'BIKE', todayDay: string, spanWeeks = 26): Efficiency {
   const from = addDays(mondayOf(todayDay), -7 * (spanWeeks - 1));
-  const candidates: ActualSession[] = [];
+  const points: EfPoint[] = [];
   if (hrMax) {
     for (const s of liveRecords(data.actual)) {
-      if (s.discipline !== discipline || s.durationSec < EF_MIN_SEC || !s.avgHrBpm) continue;
-      if (sessionDay(s) < from) continue;
+      if (s.discipline !== discipline || s.durationSec < EF_MIN_SEC || !s.avgHrBpm || !s.distanceM) continue;
+      const day = sessionDay(s);
+      if (day < from) continue;
       const r = s.avgHrBpm / hrMax;
       if (r < EF_BAND[0] || r > EF_BAND[1]) continue;
-      candidates.push(s);
-    }
-  }
-  // vélo : la puissance est plus fiable que la vitesse (vent, relief) dès qu'au moins trois sorties en ont une
-  const withPower = discipline === 'BIKE' ? candidates.filter((s) => (s.avgPowerW ?? 0) > 0) : [];
-  const metric: 'speed' | 'power' = withPower.length >= 3 ? 'power' : 'speed';
-  const points: EfPoint[] = [];
-  for (const s of metric === 'power' ? withPower : candidates) {
-    const day = sessionDay(s);
-    if (metric === 'power') {
-      points.push({ day, sessionId: s.id, speedMs: s.distanceM ? s.distanceM / s.durationSec : 0, powerW: s.avgPowerW!, avgHr: s.avgHrBpm!, ef: s.avgPowerW! / s.avgHrBpm! });
-    } else {
-      if (!s.distanceM) continue;
       if (s.elevationGainM && s.elevationGainM / s.distanceM > EF_MAX_CLIMB) continue;
       const speedMs = s.distanceM / s.durationSec;
-      points.push({ day, sessionId: s.id, speedMs, avgHr: s.avgHrBpm!, ef: (speedMs * 60) / s.avgHrBpm! });
+      points.push({ day, sessionId: s.id, speedMs, avgHr: s.avgHrBpm, ef: (speedMs * 60) / s.avgHrBpm });
     }
   }
   points.sort((a, b) => (a.day < b.day ? -1 : 1));
@@ -139,12 +124,11 @@ export function efficiency(data: AppData, hrMax: number | null, discipline: 'RUN
   const recent = points.filter((p) => p.day > addDays(todayDay, -28)), before = points.filter((p) => p.day <= addDays(todayDay, -28) && p.day > addDays(todayDay, -56));
   const mr = recent.length >= 2 ? median(recent.map((p) => p.ef)) : null, mb = before.length >= 2 ? median(before.map((p) => p.ef)) : null;
   const refHr = points.length ? Math.round(median(points.map((p) => p.avgHr))!) : null;
-  const scale = metric === 'power' ? 1 : 1 / 60;
   return {
-    discipline, metric, points, weeks,
+    discipline, points, weeks,
     change: mr !== null && mb !== null ? mr / mb - 1 : null,
     refHr,
-    speedNow: mr !== null && refHr ? mr * refHr * scale : null, speedBefore: mb !== null && refHr ? mb * refHr * scale : null,
+    speedNow: mr !== null && refHr ? (mr * refHr) / 60 : null, speedBefore: mb !== null && refHr ? (mb * refHr) / 60 : null,
   };
 }
 
@@ -199,9 +183,9 @@ export function brickAnalysis(data: AppData, links: Links, todayDay: string): Br
 }
 
 // ------------------------------------------------------------------ estimations de VMA et de CSS
-export interface ZoneSuggestion { kind: 'vma' | 'css' | 'ftp'; value: number; current: ZoneReading | null; day: string; sessionId: string; note: string }
+export interface ZoneSuggestion { kind: 'vma' | 'css'; value: number; current: ZoneReading | null; day: string; sessionId: string; note: string }
 
-export function suggestZones(data: AppData, current: { vma: ZoneReading | null; css: ZoneReading | null; ftp?: ZoneReading | null }, todayDay: string): ZoneSuggestion[] {
+export function suggestZones(data: AppData, current: { vma: ZoneReading | null; css: ZoneReading | null }, todayDay: string): ZoneSuggestion[] {
   const out: ZoneSuggestion[] = [];
   const since = addDays(todayDay, -90);
   let vma: { v: number; day: string; id: string } | null = null;
@@ -222,7 +206,5 @@ export function suggestZones(data: AppData, current: { vma: ZoneReading | null; 
   }
   if (vma && (!current.vma || vma.v >= current.vma.value * 1.01)) out.push({ kind: 'vma', value: vma.v, current: current.vma, day: vma.day, sessionId: vma.id, note: 'meilleur effort de 6 minutes sur les 90 derniers jours' });
   if (css && (!current.css || Math.abs(css.v / current.css.value - 1) >= 0.02)) out.push({ kind: 'css', value: css.v, current: current.css, day: css.day, sessionId: css.id, note: 'meilleurs 200 m et 400 m d’une même séance (méthode de Wakayoshi)' });
-  const ftp = suggestFtp(data, current.ftp ?? null, todayDay);
-  if (ftp) out.push({ kind: 'ftp', value: ftp.value, current: ftp.current, day: ftp.day, sessionId: ftp.sessionId, note: ftp.note });
   return out;
 }

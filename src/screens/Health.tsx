@@ -37,13 +37,8 @@ function useWatchStats() {
   const lastSession = health.map((s) => sessionDay(s)).sort().pop() ?? null;
   const nights = liveRecords(data.sleep);
   const resting = liveRecords(data.resting);
-  const hrv = liveRecords(data.hrv);
   const weights = liveRecords(data.weight).filter((w) => w.source === 'health');
   return {
-    powerSessions: health.filter((s) => (s.avgPowerW ?? 0) > 0).length,
-    routes: health.filter((s) => data.series[s.id]?.route?.length).length,
-    hrv: hrv.length,
-    lastHrv: hrv.map((r) => r.day).sort().pop() ?? null,
     weights: weights.length,
     lastWeight: weights.map((r) => r.day).sort().pop() ?? null,
     sessions: health.length,
@@ -101,7 +96,7 @@ export function HealthCard({ compact = false }: { compact?: boolean }) {
     update: { tone: 'warn', title: $t("Health Connect doit être mis à jour"), text: $t("Mets à jour « Health Connect » depuis le Play Store, puis reviens dans l’app.") },
     unavailable: { tone: 'crit', title: $t("Health Connect indisponible"), text: $t("Health Connect n’est pas installé sur ce téléphone. Installe-le depuis le Play Store, puis relie Garmin Connect à Health Connect.") },
     error: { tone: 'crit', title: $t("La dernière lecture a échoué"), text: prefs.healthLastError || h.error || $t("Erreur inconnue.") },
-    permissions: { tone: 'warn', title: $t("Montre pas encore reliée"), text: $t("Autorise Apogée à lire tes séances, ta FC, ton sommeil, ta FC de repos, ta variabilité cardiaque, ton poids et ta puissance vélo dans Health Connect. Coche aussi « Historique » pour reprendre tes séances passées.") },
+    permissions: { tone: 'warn', title: $t("Montre pas encore reliée"), text: $t("Autorise Apogée à lire tes séances, ta FC, ton sommeil, ta FC de repos et ton poids dans Health Connect. Coche aussi « Historique » pour reprendre tes séances passées.") },
     never: { tone: 'warn', title: $t("Autorisations accordées, montre jamais lue"), text: $t("Lance une première lecture : elle remonte jusqu’à 400 jours si l’historique est autorisé.") },
     ok: { tone: 'ok', title: $t("Montre reliée"), text: $t("Dernière lecture le {0}{1}.", { 0: dateTimeFr(prefs.healthLastRun!), 1: report ? $t(" : {0} séance(s) vue(s), {1} nouvelle(s), {2} complétée(s), {3} nuit(s), {4} FC de repos", { 0: report.found, 1: report.inserted, 2: report.updated, 3: report.nights, 4: report.restingDays }) : '' }) },
   };
@@ -147,9 +142,7 @@ function WatchKv({ st }: { st: ReturnType<typeof useWatchStats> }) {
       <dt>{$t("Séances de la montre")}</dt><dd className="t-caption">{st.sessions ? $t("{0} ({1} avec courbe cardio) · dernière {2}", { 0: num(st.sessions), 1: num(st.withHr), 2: dateFr(st.lastSession) }) : none}</dd>
       <dt>{$t("Nuits")}</dt><dd className="t-caption">{st.nights ? $t("{0} · dernière {1}", { 0: num(st.nights), 1: dateFr(st.lastNight) }) : none}</dd>
       <dt>{$t("FC de repos")}</dt><dd className="t-caption">{st.resting ? $t("{0} jour(s) · dernier {1}", { 0: num(st.resting), 1: dateFr(st.lastResting) }) : none}</dd>
-      <dt>{$t("Variabilité cardiaque")}</dt><dd className="t-caption">{st.hrv ? $t("{0} jour(s) · dernier {1}", { 0: num(st.hrv), 1: dateFr(st.lastHrv) }) : none}</dd>
       <dt>{$t("Poids")}</dt><dd className="t-caption">{st.weights ? $t("{0} pesée(s) · dernière {1}", { 0: num(st.weights), 1: dateFr(st.lastWeight) }) : none}</dd>
-      <dt>{$t("Puissance vélo")}</dt><dd className="t-caption">{st.powerSessions ? $t("{0} sortie(s) avec capteur", { 0: num(st.powerSessions) }) : none}</dd>
     </dl>
   );
 }
