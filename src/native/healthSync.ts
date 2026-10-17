@@ -2,7 +2,7 @@
 // recouvrement (Garmin dépose parfois en retard). Au premier lancement, l'historique est relu aussi loin que
 // Health Connect le permet (permission « historique ») : tout ce que Garmin y a déposé est récupéré.
 import { useSyncExternalStore } from 'react';
-import { ingest, type IngestReport, type NativeResting, type NativeSession, type NativeSleep } from '../domain/health';
+import { ingest, withRoute, type IngestReport, type NativeHrv, type NativeResting, type NativeRoute, type NativeSession, type NativeSleep, type NativeWeight } from '../domain/health';
 import { commit, getData, getPrefs, setPrefs } from '../data/store';
 import { native } from './bridge';
 
@@ -62,17 +62,22 @@ export async function runHealthSync(): Promise<IngestReport | null> {
   const start = prev ? new Date(Date.parse(prev) - OVERLAP_H * 3600_000) : new Date(end.getTime() - (state.history ? FIRST_RUN_DAYS_HISTORY : FIRST_RUN_DAYS) * 86400_000);
   const range = { start: start.toISOString(), end: end.toISOString() };
   try {
-    const [s, n, r] = await Promise.all([
+    const [s, n, r, hv, wt] = await Promise.all([
       h.readSessions(range) as Promise<{ sessions: NativeSession[] }>,
       (h.readSleep(range) as Promise<{ nights: NativeSleep[] }>).catch(() => ({ nights: [] })),
       (h.readResting(range) as Promise<{ records: NativeResting[] }>).catch(() => ({ records: [] })),
+      // lectures ajoutées avec la version « puissance, HRV, poids » : un APK ou une autorisation en retard ne bloque rien
+      (h.readHrv?.(range) as Promise<{ records: NativeHrv[] }> | undefined)?.catch(() => ({ records: [] })) ?? Promise.resolve({ records: [] as NativeHrv[] }),
+      (h.readWeight?.(range) as Promise<{ records: NativeWeight[] }> | undefined)?.catch(() => ({ records: [] })) ?? Promise.resolve({ records: [] as NativeWeight[] }),
     ]);
-    const { ops, report } = ingest(getData(), s.sessions ?? [], n.nights ?? [], r.records ?? []);
+    const { ops, report } = ingest(getData(), s.sessions ?? [], n.nights ?? [], r.records ?? [], { hrv: hv.records ?? [], weight: wt.records ?? [] });
     commit((tx) => {
       ops.actual.forEach((x) => tx.put('actual', x));
       ops.series.forEach((x) => tx.put('series', x));
       ops.sleep.forEach((x) => tx.put('sleep', x));
       ops.resting.forEach((x) => tx.put('resting', x));
+      ops.hrv.forEach((x) => tx.put('hrv', x));
+      ops.weight.forEach((x) => tx.put('weight', x));
     });
     setPrefs({ healthSyncedUntil: range.end, healthLastRun: range.end, healthLastError: '', healthLastReport: JSON.stringify(report) });
     set({ running: false, lastReport: report });
@@ -83,4 +88,17 @@ export async function runHealthSync(): Promise<IngestReport | null> {
     set({ running: false, error: msg });
     return null;
   }
+}
+
+export type RouteOutcome = 'ok' | 'none' | 'denied' | 'unavailable';
+
+/** Lit le tracé GPS d'une séance dans Health Connect (l'écran d'accord s'ouvre si besoin) et le range dans sa série. */
+export async function loadRoute(session: { id: string; sourceId: string; startAt: string; endAt: string }): Promise<RouteOutcome> {
+  const h = native.health();
+  if (!h?.readRoute) return 'unavailable';
+  const res = (await h.readRoute({ startTime: session.startAt, endTime: session.endAt, clientRecordId: session.sourceId })) as NativeRoute;
+  if (res.status !== 'ok') return res.status;
+  if (!res.points?.length) return 'none';
+  commit((tx) => tx.put('series', withRoute(getData().series[session.id], session.id, res.points)));
+  return 'ok';
 }

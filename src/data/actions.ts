@@ -5,7 +5,7 @@ import { newId, nowIso } from '../domain/ids';
 import { buildManualSession, existingSourceIds, manualSourceId, type ManualInput } from '../domain/manual';
 import { liveRecords, sessionDay } from '../domain/load';
 import { planDedupe } from '../domain/dedupe';
-import type { SessionTemplate, ActualSession, AppData, Athlete, CollectionName, Collections, EditableField, Interruption, PlannedSession, Race, TrainingPhase, ZoneReading } from '../domain/types';
+import type { SessionTemplate, ActualSession, AppData, Athlete, CollectionName, Collections, EditableField, Interruption, WeightReading, PlannedSession, Race, TrainingPhase, ZoneReading } from '../domain/types';
 import { COLLECTIONS } from '../domain/types';
 import { applyPreview, type CoachPlan, type Preview } from '../domain/coach';
 import { commit, getData } from './store';
@@ -251,4 +251,18 @@ export function mergeDuplicateActuals(): number {
     }
   });
   return plan.drop.length;
+}
+
+// ------------------------------------------------------------------ poids (saisie à la main)
+/** Enregistre une pesée du jour. Une pesée saisie à la main n'est jamais écrasée par Health Connect. */
+export function saveWeight(day: string, kg: number): Snapshot {
+  const s = snapshot([['weight', day]]);
+  const rec: WeightReading = { id: day, updatedAt: nowIso(), day, kg: Math.round(kg * 10) / 10, source: 'manual' };
+  commit((tx) => tx.put('weight', rec));
+  return s;
+}
+export function deleteWeight(day: string): Snapshot {
+  const s = snapshot([['weight', day]]);
+  commit((tx) => tx.remove('weight', day));
+  return s;
 }

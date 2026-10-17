@@ -11,11 +11,12 @@ import type { LoadSeries } from './load';
 import { liveRecords, sessionDay } from './load';
 import type { AppData } from './types';
 
-export type FormKey = 'sleep' | 'restingHr' | 'freshness' | 'previousRpe';
-export const FORM_WEIGHTS: Record<FormKey, number> = { sleep: 0.3, restingHr: 0.25, freshness: 0.3, previousRpe: 0.15 };
-export const FORM_LABEL: Record<FormKey, string> = { sleep: $t("Sommeil"), restingHr: $t("FC de repos"), freshness: $t("Fraîcheur"), previousRpe: $t("RPE de la veille") };
-const DIRECTION: Record<FormKey, 1 | -1> = { sleep: 1, restingHr: -1, freshness: 1, previousRpe: -1 };
-const SPREAD_FLOOR: Record<FormKey, number> = { sleep: 1800, restingHr: 1.5, freshness: 5, previousRpe: 0.8 };
+export type FormKey = 'sleep' | 'restingHr' | 'hrv' | 'freshness' | 'previousRpe';
+// Sans variabilité cardiaque (pas de capteur ou pas encore lue), les poids se renormalisent à l'identique de l'ancien calcul (0,30 / 0,25 / 0,30 / 0,15).
+export const FORM_WEIGHTS: Record<FormKey, number> = { sleep: 0.24, restingHr: 0.2, hrv: 0.2, freshness: 0.24, previousRpe: 0.12 };
+export const FORM_LABEL: Record<FormKey, string> = { sleep: $t("Sommeil"), restingHr: $t("FC de repos"), hrv: $t("Variabilité cardiaque"), freshness: $t("Fraîcheur"), previousRpe: $t("RPE de la veille") };
+const DIRECTION: Record<FormKey, 1 | -1> = { sleep: 1, restingHr: -1, hrv: 1, freshness: 1, previousRpe: -1 };
+const SPREAD_FLOOR: Record<FormKey, number> = { sleep: 1800, restingHr: 1.5, hrv: 4, freshness: 5, previousRpe: 0.8 };
 export const FORM_WINDOW = 14;
 export const MIN_OBSERVATIONS = 3;
 export const MIN_TOTAL_WEIGHT = 0.5;
@@ -42,6 +43,8 @@ export function formInputs(data: AppData, series: LoadSeries): FormInputs {
   for (const n of liveRecords(data.sleep)) sleep.set(n.nightDate, n.durationSec);
   const restingHr = new Map<string, number>();
   for (const r of liveRecords(data.resting)) restingHr.set(r.day, r.bpm);
+  const hrv = new Map<string, number>();
+  for (const r of liveRecords(data.hrv)) hrv.set(r.day, r.ms);
   const freshness = new Map<string, number>();
   for (const d of series.days) freshness.set(addDays(d.day, 1), d.freshness); // fraîcheur au réveil = fin de la veille
   if (series.firstDay) freshness.set(series.firstDay, series.seedLoad - series.seedLoad);
@@ -53,7 +56,7 @@ export function formInputs(data: AppData, series: LoadSeries): FormInputs {
   }
   const previousRpe = new Map<string, number>();
   for (const [d, v] of rpeByDay) previousRpe.set(addDays(d, 1), v);
-  return { sleep, restingHr, freshness, previousRpe };
+  return { sleep, restingHr, hrv, freshness, previousRpe };
 }
 
 export function computeDailyForm(day: string, inputs: FormInputs): DailyForm | null {
@@ -61,6 +64,7 @@ export function computeDailyForm(day: string, inputs: FormInputs): DailyForm | n
   const missing: FormKey[] = [];
   for (const key of Object.keys(FORM_WEIGHTS) as FormKey[]) {
     const s = inputs[key];
+    if (!s || (key === 'hrv' && s.size === 0)) continue; // pas de capteur de variabilité cardiaque : ni manquante ni pesée
     const value = s.get(day);
     if (value === undefined) { missing.push(key); continue; }
     const win: number[] = [];

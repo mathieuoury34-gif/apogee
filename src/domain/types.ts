@@ -154,6 +154,9 @@ export interface ActualSession extends Rec {
   hrSampleCount: number | null;
   avgSpeedMs: number | null;
   maxSpeedMs: number | null;
+  /** Puissance moyenne et maximale (W), vélo avec capteur de puissance. */
+  avgPowerW?: number | null;
+  maxPowerW?: number | null;
   /** Une série brute existe dans la collection `series` (même id). */
   hasSeries: boolean;
   /** Champs corrigés à la main (édition d'une séance Health Connect). */
@@ -173,7 +176,12 @@ export interface ActualSession extends Rec {
 export interface SessionSeries extends Rec {
   hr: [number, number][];
   speed: [number, number][];
+  /** Puissance `[epoch s, W]` (vélo avec capteur). */
+  power?: [number, number][];
+  /** Tracé GPS `[epoch s, latitude, longitude, altitude m | null]`, lu à la demande (accord Health Connect séance par séance). */
+  route?: RoutePoint[];
 }
+export type RoutePoint = [number, number, number, number | null];
 
 export interface BrickPair extends Rec {
   firstId: string;
@@ -209,6 +217,19 @@ export interface SleepNight extends Rec {
 export interface RestingHr extends Rec {
   day: string;
   bpm: number;
+}
+
+/** Variabilité cardiaque (RMSSD, ms) du jour (id = day) : médiane des mesures du jour. */
+export interface HrvReading extends Rec {
+  day: string;
+  ms: number;
+}
+
+/** Pesée du jour (id = day), kg. Venue de Health Connect ou saisie à la main (la saisie l'emporte). */
+export interface WeightReading extends Rec {
+  day: string;
+  kg: number;
+  source: 'health' | 'manual';
 }
 
 export interface PreviewItem { entity: 'session' | 'phase'; idempotencyKey: string; label: string; issueCodes: string[]; /** précision lisible (ex. blocs en conflit) */ detail?: string }
@@ -250,11 +271,13 @@ export interface Collections {
   interruptions: Interruption;
   sleep: SleepNight;
   resting: RestingHr;
+  hrv: HrvReading;
+  weight: WeightReading;
   exchanges: CoachExchange;
   templates: SessionTemplate;
 }
 export type CollectionName = keyof Collections;
-export const COLLECTIONS: CollectionName[] = ['athlete', 'race', 'zones', 'phases', 'planned', 'actual', 'series', 'bricks', 'interruptions', 'sleep', 'resting', 'exchanges', 'templates'];
+export const COLLECTIONS: CollectionName[] = ['athlete', 'race', 'zones', 'phases', 'planned', 'actual', 'series', 'bricks', 'interruptions', 'sleep', 'resting', 'hrv', 'weight', 'exchanges', 'templates'];
 
 export type AppData = { [K in CollectionName]: Record<string, Collections[K]> } & { updatedAt: string };
 

@@ -12,8 +12,12 @@ import { fitnessByDiscipline } from '../src/domain/loadByDiscipline';
 import { polarSplit, zoneIndex, zoneTimes } from '../src/domain/zones';
 import { trainingAlerts } from '../src/domain/review';
 import { planCompliance } from '../src/domain/compliance';
-import { computeDailyForm } from '../src/domain/form';
-import { ingest } from '../src/domain/health';
+import { computeDailyForm, FORM_WEIGHTS } from '../src/domain/form';
+import { ingest, withRoute } from '../src/domain/health';
+import { bestPowerOver, normalizedPower, powerRecords, suggestFtp, weightAt } from '../src/domain/power';
+import { routeStats } from '../src/domain/route';
+import { sleepStats, weightTrend } from '../src/domain/body';
+import { efficiency } from '../src/domain/records';
 import { analyzeHr, cleanHr, hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
 import { importLegacyDb, emptyData } from '../src/domain/legacy';
 import { buildLoadSeries, computeSessionLoads, resolveHrMax } from '../src/domain/load';
@@ -420,4 +424,113 @@ test('estimation de VMA : proposée seulement si elle dépasse la valeur actuell
   const higher = { ...lower, value: 5.5 };
   assert.equal(suggestZones(data, { vma: lower, css: null }, '2026-10-10').length, 1);
   assert.equal(suggestZones(data, { vma: higher, css: null }, '2026-10-10').length, 0);
+});
+
+const bikeSession = (id: string, day: string, extra: Partial<ActualSession> = {}) => ({ id, updatedAt: '', sourceId: id, source: 'health', discipline: 'BIKE', rawExerciseType: '8', startAt: day + 'T07:00:00.000Z', endAt: day + 'T08:30:00.000Z', zoneOffsetMinutes: 0, durationSec: 5400, distanceM: 40000, activeCaloriesJ: null, totalCaloriesJ: null, elevationGainM: null, avgHrBpm: 140, maxHrBpm: null, minHrBpm: null, hrCoverageRatio: null, hrSampleCount: null, avgSpeedMs: 7.4, maxSpeedMs: null, hasSeries: true, edited: [], rpe: null, comment: null, ingestedAt: '', ...extra }) as ActualSession;
+const flat = (w: number, sec: number, t0 = 0): [number, number][] => Array.from({ length: sec }, (_, i) => [t0 + i, w]);
+
+test('puissance : meilleure moyenne tenue, puissance normalisée, FTP à 95 % du meilleur 20 min', () => {
+  // 10 min à 150 W puis 20 min à 300 W : le meilleur 20 min est 300 W, le meilleur 10 min aussi
+  const pw = [...flat(150, 600), ...flat(300, 1200, 600)];
+  assert.ok(Math.abs(bestPowerOver(pw, 1200)! - 300) < 1);
+  assert.ok(Math.abs(bestPowerOver(pw, 300)! - 300) < 1);
+  assert.equal(bestPowerOver(flat(200, 5), 60), null, 'série trop courte');
+  // une puissance constante a une puissance normalisée égale à la moyenne ; une série irrégulière l'a plus haute
+  assert.ok(Math.abs(normalizedPower(flat(200, 600))! - 200) < 0.5);
+  const irregular: [number, number][] = Array.from({ length: 1200 }, (_, i) => [i, Math.floor(i / 60) % 2 ? 400 : 0]);
+  assert.ok(normalizedPower(irregular)! > 200);
+  const data = emptyData();
+  data.actual.b = bikeSession('b', '2026-10-05', { avgPowerW: 250 });
+  data.series.b = { id: 'b', updatedAt: '', hr: [], speed: [], power: pw };
+  const ftp = suggestFtp(data, null, '2026-10-10')!;
+  assert.equal(ftp.value, 285);
+  assert.equal(suggestFtp(data, { id: 'z', updatedAt: '', kind: 'ftp', value: 290, measuredAt: '2026-06-01T00:00:00.000Z', source: 'test', notes: null }, '2026-10-10'), null, 'pas de proposition sous la valeur actuelle');
+  assert.equal(suggestZones(data, { vma: null, css: null, ftp: null }, '2026-10-10').filter((x) => x.kind === 'ftp').length, 1);
+  // W/kg : poids connu à la date de la sortie
+  data.weight['2026-10-01'] = { id: '2026-10-01', updatedAt: '', day: '2026-10-01', kg: 75, source: 'manual' };
+  assert.equal(weightAt(data, '2026-10-05'), 75);
+  const rec = powerRecords(data).find((r) => r.spec.sec === 1200)!;
+  assert.ok(Math.abs(rec.perKg! - 4) < 0.01);
+});
+
+test('efficacité vélo : en watts par battement dès trois sorties avec capteur de puissance', () => {
+  const data = emptyData();
+  for (const [i, day] of ['2026-09-20', '2026-09-27', '2026-10-04', '2026-10-08'].entries()) data.actual['s' + i] = bikeSession('s' + i, day, { avgPowerW: 200 + i * 5, avgHrBpm: 140 });
+  const ef = efficiency(data, 190, 'BIKE', '2026-10-10');
+  assert.equal(ef.metric, 'power');
+  assert.equal(ef.points.length, 4);
+  const noPower = emptyData();
+  for (const [i, day] of ['2026-09-20', '2026-09-27', '2026-10-04'].entries()) noPower.actual['s' + i] = bikeSession('s' + i, day);
+  assert.equal(efficiency(noPower, 190, 'BIKE', '2026-10-10').metric, 'speed');
+});
+
+test('forme du jour : la variabilité cardiaque entre dans le score, sans elle les poids restent ceux de avant', () => {
+  const total = Object.values(FORM_WEIGHTS).reduce((t, v) => t + v, 0);
+  assert.ok(Math.abs(total - 1) < 1e-9);
+  const mk = (withHrv: boolean) => {
+    const sleep = new Map<string, number>(), resting = new Map<string, number>(), hrv = new Map<string, number>(), fresh = new Map<string, number>(), rpe = new Map<string, number>();
+    for (let k = 0; k <= 14; k++) { const d = addDays('2026-10-01', k); sleep.set(d, 7 * 3600 + (k % 3) * 600); resting.set(d, 50 + (k % 2)); fresh.set(d, 2 + (k % 4)); rpe.set(d, 4 + (k % 3)); if (withHrv) hrv.set(d, 60 + (k % 5)); }
+    return { sleep, restingHr: resting, hrv, freshness: fresh, previousRpe: rpe };
+  };
+  const without = computeDailyForm('2026-10-15', mk(false))!;
+  const withH = computeDailyForm('2026-10-15', mk(true))!;
+  assert.ok(!without.components.some((c) => c.key === 'hrv'));
+  assert.ok(Math.abs(without.components.find((c) => c.key === 'sleep')!.effectiveWeight - 0.3) < 1e-9, 'sans VFC : 0,30 / 0,25 / 0,30 / 0,15 comme avant');
+  assert.ok(Math.abs(withH.components.find((c) => c.key === 'hrv')!.effectiveWeight - 0.2) < 1e-9);
+  // une VFC très basse ce jour-là fait baisser le score
+  const low = mk(true); low.hrv.set('2026-10-15', 30);
+  assert.ok(computeDailyForm('2026-10-15', low)!.score < withH.score);
+});
+
+test('poids et sommeil : tendance sur 7 jours, régularité du coucher', () => {
+  const data = emptyData();
+  for (let k = 0; k < 7; k++) { const d = addDays('2026-10-04', k); data.weight[d] = { id: d, updatedAt: '', day: d, kg: 74, source: 'health' }; }
+  for (let k = 0; k < 7; k++) { const d = addDays('2026-09-06', k); data.weight[d] = { id: d, updatedAt: '', day: d, kg: 76, source: 'health' }; }
+  const t = weightTrend(data, '2026-10-10');
+  assert.ok(Math.abs(t.avg7! - 74) < 1e-9);
+  assert.ok(Math.abs(t.change! - -2) < 1e-9);
+  // coucher à 22 h 30 chaque soir : écart-type nul ; passer après minuit ne casse pas le calcul
+  for (let k = 1; k <= 10; k++) {
+    const d = addDays('2026-10-10', -k);
+    const start = new Date(Date.parse(addDays(d, -1) + 'T22:30:00Z') + (k % 2 ? 0 : 3600000 * 2)).toISOString();
+    data.sleep[d] = { id: d, updatedAt: '', nightDate: d, startAt: start, endAt: d + 'T06:30:00.000Z', zoneOffsetMinutes: 0, durationSec: 8 * 3600, sourceId: null };
+  }
+  const st = sleepStats(data, '2026-10-10');
+  assert.equal(st.nights14, 10);
+  assert.ok(st.bedtimeSd! > 50 && st.bedtimeSd! < 80, 'deux heures de coucher à 2 h d’écart : ≈ 63 min');
+  assert.ok(Math.abs(st.avg7! - 8 * 3600) < 1);
+});
+
+test('tracé GPS : distance, dénivelé avec seuil, sous-échantillonnage', () => {
+  // 3 km vers le nord, altitude 100 → 400 m en montée régulière avec un bruit de ±1 m
+  const pts: [number, number, number, number | null][] = Array.from({ length: 600 }, (_, i) => [i * 6, 45 + (i * 3000) / 600 / 111195, 6, 100 + (i / 599) * 300 + (i % 2 ? 1 : -1)]);
+  const series = withRoute(undefined, 'x', pts);
+  assert.ok(series.route!.length <= 1200);
+  const st = routeStats(series.route!)!;
+  assert.ok(Math.abs(st.distanceM - 3000) < 40);
+  assert.ok(Math.abs(st.ascentM! - 300) < 15, 'le bruit de ±1 m n’est pas compté comme dénivelé');
+  assert.ok(st.descentM! < 15);
+  assert.ok(st.maxAlt! - st.minAlt! > 290);
+  assert.equal(routeStats([[0, 45, 6, 100]]), null);
+  // les points trop rapprochés dans le temps sont écartés
+  assert.equal(withRoute(undefined, 'y', [[0, 45, 6, 1], [2, 45.0001, 6, 1], [6, 45.0002, 6, 1]]).route!.length, 2);
+});
+
+test('Health Connect : puissance, VFC du jour (médiane), poids (la saisie manuelle n’est pas écrasée), tracé conservé', () => {
+  const d = emptyData();
+  const power = flat(220, 300, Date.parse('2026-10-01T06:00:00Z') / 1000);
+  const base = { id: 'hc1', clientRecordId: 'garmin-1', startTime: '2026-10-01T06:00:00Z', endTime: '2026-10-01T06:05:00Z', startZoneOffsetSeconds: 0, exerciseType: 8, distanceM: 2000, activeKcal: null, totalKcal: null, elevationM: null, hr: [] as [number, number][], speed: [] as [number, number][], power };
+  const r = ingest(d, [base], [], [], { hrv: [{ id: 'a', time: '2026-10-01T03:00:00Z', zoneOffsetSeconds: 0, ms: 50 }, { id: 'b', time: '2026-10-01T04:00:00Z', zoneOffsetSeconds: 0, ms: 70 }, { id: 'c', time: '2026-10-01T05:00:00Z', zoneOffsetSeconds: 0, ms: 60 }], weight: [{ id: 'w1', time: '2026-10-01T06:00:00Z', zoneOffsetSeconds: 0, kg: 74.04 }, { id: 'w2', time: '2026-10-01T18:00:00Z', zoneOffsetSeconds: 0, kg: 73.46 }] });
+  assert.equal(r.ops.actual[0].avgPowerW, 220);
+  assert.equal(r.ops.series[0].power!.length, 300);
+  assert.equal(r.ops.hrv[0].ms, 60);
+  assert.equal(r.ops.weight.length, 1);
+  assert.equal(r.ops.weight[0].kg, 73.5, 'dernière pesée du jour, arrondie au dixième');
+  d.weight['2026-10-01'] = { id: '2026-10-01', updatedAt: '', day: '2026-10-01', kg: 72, source: 'manual' };
+  assert.equal(ingest(d, [], [], [], { weight: [{ id: 'w', time: '2026-10-01T18:00:00Z', zoneOffsetSeconds: 0, kg: 73.5 }] }).ops.weight.length, 0);
+  // relecture d'une séance déjà connue qui a un tracé : le tracé reste
+  const s = r.ops.actual[0]; d.actual[s.id] = s; d.series[s.id] = { ...r.ops.series[0], route: [[1, 45, 6, 10]] };
+  const again = ingest(d, [{ ...base, hr: Array.from({ length: 300 }, (_, i) => [Date.parse('2026-10-01T06:00:00Z') / 1000 + i, 130] as [number, number]) }], [], []);
+  assert.equal(again.report.updated, 1);
+  assert.equal(again.ops.series[0].route!.length, 1);
 });

@@ -3,10 +3,14 @@
 // Chaque carte dit comment elle calcule : aucun nombre sans sa méthode.
 import { $t } from '../i18n';
 import { Fragment, useState } from 'react';
-import { AppHeader, Empty, ErrorBanner, OtherToggle, Segmented, SubNav, showToast, useWithOther } from '../ui/kit';
+import { AppHeader, Empty, ErrorBanner, OtherToggle, Segmented, Sheet, SubNav, showToast, useWithOther } from '../ui/kit';
+import { useLocalSheet } from '../ui/menu';
 import { FITNESS_COLOR, FITNESS_LABEL, SplitBars, StackedFitness } from '../ui/charts2';
 import { navigate } from '../ui/router';
 import { useCalc } from '../data/store';
+import { deleteWeight, restore, saveWeight } from '../data/actions';
+import { sleepStats, weightTrend } from '../domain/body';
+import { powerRecords } from '../domain/power';
 import { planCompliance, type Compliance } from '../domain/compliance';
 import { addDays, mondayOf } from '../domain/dates';
 import { fitnessByDiscipline, type LoadKey } from '../domain/loadByDiscipline';
@@ -34,6 +38,9 @@ export function AnalysisScreen() {
           <FitnessCard data={data} d={d} />
           <EfficiencyCard data={data} d={d} />
           <RecordsCard data={data} d={d} />
+          <PowerCard data={data} d={d} />
+          <WeightCard data={data} d={d} />
+          <SleepCard data={data} d={d} />
           <BricksCard data={data} d={d} />
         </div>
       </main>
@@ -206,7 +213,7 @@ function Spark({ values }: { values: number[] }) {
 function EfficiencyCard({ d, data }: Props) {
   const [disc, setDisc] = useState<'RUN' | 'BIKE'>('RUN');
   const ef = efficiency(data, d.ctx.hrMax.bpm, disc, d.today);
-  const fmt = (v: number | null) => (v === null ? '—' : disc === 'RUN' ? mmss(1000 / v) + NBSP + '/km' : speedKmh(v));
+  const fmt = (v: number | null) => (v === null ? '—' : ef.metric === 'power' ? num(v, 0) + NBSP + 'W' : disc === 'RUN' ? mmss(1000 / v) + NBSP + '/km' : speedKmh(v));
   return (
     <section className="card g12" aria-label={$t("Tendance d’efficacité")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
@@ -225,7 +232,7 @@ function EfficiencyCard({ d, data }: Props) {
           <div className="between t-legal c-moderate"><span>{dateShort(ef.weeks[0].start)}</span><span>{$t("{0} séances comparables", { 0: ef.points.length })}</span><span>{dateShort(ef.weeks[ef.weeks.length - 1].start)}</span></div>
         </>
       )}
-      <p className="t-legal c-moderate">{$t("Efficacité = mètres parcourus par battement (vitesse ÷ FC moyenne), médiane par semaine, sur 26 semaines. On compare des séances à effort égal (FC moyenne entre 65 et 85 % de ta FC max, 20 min minimum, dénivelé inférieur à 2 %). Chaleur, fatigue, vent ou revêtement la font varier : lis une tendance, pas une séance.")}</p>
+      <p className="t-legal c-moderate">{ef.metric === 'power' ? $t("Efficacité = watts par battement (puissance moyenne ÷ FC moyenne), médiane par semaine, sur 26 semaines : à vélo, la puissance remplace la vitesse dès qu’au moins trois sorties en ont une, car elle ne dépend ni du vent ni du relief. On compare des sorties à effort égal (FC moyenne entre 65 et 85 % de ta FC max, 20 min minimum). Chaleur, fatigue ou dérive la font varier : lis une tendance, pas une sortie.") : $t("Efficacité = mètres parcourus par battement (vitesse ÷ FC moyenne), médiane par semaine, sur 26 semaines. On compare des séances à effort égal (FC moyenne entre 65 et 85 % de ta FC max, 20 min minimum, dénivelé inférieur à 2 %). Chaleur, fatigue, vent ou revêtement la font varier : lis une tendance, pas une séance.")}</p>
     </section>
   );
 }
@@ -251,6 +258,92 @@ function RecordsCard({ data }: Props) {
       <h2>{$t("Records personnels")}</h2>
       <ul>{recs.map(line)}</ul>
       <p className="t-legal c-moderate">{$t("Meilleur segment continu de la distance, lu dans la courbe de vitesse de la montre ; « séance entière » quand il n’y a pas de courbe et que la distance de la séance est à 3 % près celle du record. Une vitesse physiquement impossible est écartée. Cliquer ouvre la séance.")}</p>
+    </section>
+  );
+}
+
+// ------------------------------------------------------------------ meilleures puissances (vélo, capteur de puissance)
+function PowerCard({ data }: Props) {
+  const recs = powerRecords(data);
+  if (!recs.length) return null;
+  return (
+    <section className="card g12" aria-label={$t("Meilleures puissances")}>
+      <h2>{$t("Meilleures puissances")}</h2>
+      <ul>
+        {recs.map((r) => (
+          <li key={r.spec.label} className="rec-row">
+            <button type="button" className="row-btn" style={{ padding: 0, textAlign: 'left' }} onClick={() => navigate('/seances/' + r.sessionId)}>
+              <span className="stack-4"><span className="t-label">{DISCIPLINE_LABEL.BIKE} · {r.spec.label}</span><span className="t-caption c-moderate">{dateFr(r.day)}{r.previous ? $t(" · avant : {0} W", { 0: num(r.previous.watts, 0) }) : ''}</span></span>
+            </button>
+            <span className="stack-4" style={{ textAlign: 'right' }}><span className="t-strong">{num(r.watts, 0)}{NBSP}W</span><span className="t-caption c-moderate">{r.perKg ? num(r.perKg, 2) + NBSP + 'W/kg' : $t("poids inconnu")}</span></span>
+          </li>
+        ))}
+      </ul>
+      <p className="t-legal c-moderate">{$t("Meilleure puissance moyenne tenue sans interruption sur la durée, lue dans la courbe de puissance du capteur. Les W/kg utilisent la pesée connue à la date de la sortie. Une valeur au-dessus du plausible pour la durée est écartée. Cliquer ouvre la sortie.")}</p>
+    </section>
+  );
+}
+
+// ------------------------------------------------------------------ poids
+function WeightCard({ data, d }: Props) {
+  const t = weightTrend(data, d.today);
+  const sheet = useLocalSheet();
+  const [val, setVal] = useState('');
+  const kg = Number(val.replace(',', '.'));
+  const ok = Number.isFinite(kg) && kg >= 25 && kg <= 300;
+  const save = () => {
+    if (!ok) return;
+    const snap = saveWeight(d.today, kg);
+    sheet.hide();
+    showToast($t("Pesée enregistrée"), { undo: () => restore(snap) });
+  };
+  return (
+    <section className="card g12" aria-label={$t("Poids")}>
+      <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
+        <h2>{$t("Poids")}</h2>
+        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => { setVal(t.latest ? String(t.latest.kg).replace('.', ',') : ''); sheet.show(); }}>{$t("Saisir une pesée")}</button>
+      </div>
+      {!t.latest ? <p className="t-caption c-moderate">{$t("Aucune pesée. Elles viennent de Health Connect (balance connectée, Garmin Connect) ou de ta saisie.")}</p> : (
+        <>
+          <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}>
+            <span className="t-h2">{num(t.avg7 ?? t.latest.kg, 1)}{NBSP}kg</span>
+            <span className="t-caption c-neutral">{t.avg7 !== null ? $t("moyenne des 7 derniers jours") : $t("dernière pesée le {0}", { 0: dateFr(t.latest.day) })}</span>
+          </div>
+          {t.change !== null && <span className="t-caption c-neutral">{signed(t.change, 1)}{NBSP}kg {$t("par rapport à il y a 4 semaines")}</span>}
+          <Spark values={t.points.map((p) => p.kg)} />
+          <div className="between t-legal c-moderate"><span>{t.points.length ? dateShort(t.points[0].day) : ''}</span><span>{$t("{0} pesées sur 90 jours", { 0: t.points.length })}</span><span>{t.points.length ? dateShort(t.points[t.points.length - 1].day) : ''}</span></div>
+        </>
+      )}
+      <p className="t-legal c-moderate">{$t("La moyenne sur 7 jours lisse les variations d’hydratation d’un jour à l’autre. Le poids sert aux W/kg des records de puissance ; il ne modifie aucune charge. Une pesée saisie à la main n’est jamais écrasée par Health Connect.")}</p>
+      {sheet.open && (
+        <Sheet title={$t("Saisir une pesée")} onClose={sheet.hide} footer={<button type="button" className="btn btn-primary block" disabled={!ok} onClick={save}>{$t("Enregistrer")}</button>}>
+          <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
+            <label className="field"><span className="lbl">{$t("Poids (kg), aujourd’hui")}</span><input className="input num" inputMode="decimal" autoFocus value={val} onChange={(e) => setVal(e.target.value)} /></label>
+            {t.latest?.day === d.today && t.latest.source === 'manual' && <button type="button" className="btn btn-tertiary" style={{ color: 'var(--critical-text)' }} onClick={() => { const snap = deleteWeight(d.today); sheet.hide(); showToast($t("Pesée supprimée"), { undo: () => restore(snap) }); }}>{$t("Supprimer la pesée d’aujourd’hui")}</button>}
+          </div>
+        </Sheet>
+      )}
+    </section>
+  );
+}
+
+// ------------------------------------------------------------------ sommeil
+function SleepCard({ data, d }: Props) {
+  const st = sleepStats(data, d.today);
+  if (st.nights14 === 0) return null;
+  const hh = (sec: number) => Math.floor(sec / 3600) + NBSP + 'h' + String(Math.round((sec % 3600) / 60)).padStart(2, '0');
+  const clock = (m: number) => { const x = Math.round(m) % 1440; return String(Math.floor(x / 60)).padStart(2, '0') + NBSP + 'h' + String(x % 60).padStart(2, '0'); };
+  const diff = st.avg7 !== null && st.avgBefore !== null ? st.avg7 - st.avgBefore : null;
+  return (
+    <section className="card g12" aria-label={$t("Sommeil")}>
+      <h2>{$t("Sommeil")}</h2>
+      <dl className="kv">
+        <dt>{$t("Durée moyenne, 7 dernières nuits")}</dt><dd>{st.avg7 === null ? '—' : hh(st.avg7)}</dd>
+        <dt>{$t("Écart avec les 3 semaines précédentes")}</dt><dd>{diff === null ? '—' : (diff >= 0 ? '+' : '−') + Math.round(Math.abs(diff) / 60) + NBSP + 'min'}</dd>
+        <dt>{$t("Heure de coucher habituelle")}</dt><dd>{st.bedtimeMedian === null ? '—' : clock(st.bedtimeMedian)}</dd>
+        <dt>{$t("Régularité du coucher (écart-type)")}</dt><dd>{st.bedtimeSd === null ? '—' : '± ' + Math.round(st.bedtimeSd) + NBSP + 'min'}</dd>
+      </dl>
+      <p className="t-legal c-moderate">{$t("Lecture seule, sans objectif de sommeil imposé : on compare ta semaine à tes propres habitudes. Le coucher est l’heure de début de la nuit lue par Health Connect, sur les 14 dernières nuits (5 minimum). Plus l’écart-type est petit, plus tes nuits sont régulières. La durée de la nuit compte déjà dans la forme du jour.")}</p>
     </section>
   );
 }

@@ -12,7 +12,13 @@ import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ElevationGainedRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.contracts.ExerciseRouteRequestContract
+import androidx.health.connect.client.records.ExerciseRoute
+import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.PowerRecord
+import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
@@ -38,6 +44,8 @@ class ApogeeHealthPlugin : Plugin() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var launcher: ActivityResultLauncher<Set<String>>? = null
     private var pendingPermissionCall: PluginCall? = null
+    private var routeLauncher: ActivityResultLauncher<String>? = null
+    private var pendingRouteCall: PluginCall? = null
 
     private val types: Map<String, KClass<out Record>> = linkedMapOf(
         "ExerciseSession" to ExerciseSessionRecord::class,
@@ -49,6 +57,9 @@ class ApogeeHealthPlugin : Plugin() {
         "ElevationGained" to ElevationGainedRecord::class,
         "SleepSession" to SleepSessionRecord::class,
         "RestingHeartRate" to RestingHeartRateRecord::class,
+        "Power" to PowerRecord::class,
+        "HeartRateVariability" to HeartRateVariabilityRmssdRecord::class,
+        "Weight" to WeightRecord::class,
     )
     private val readPermissions: Map<String, String> get() = types.mapValues { HealthPermission.getReadPermission(it.value) }
     private val historyPermission = "android.permission.health.READ_HEALTH_DATA_HISTORY"
@@ -58,6 +69,12 @@ class ApogeeHealthPlugin : Plugin() {
             val call = pendingPermissionCall ?: return@registerForActivityResult
             pendingPermissionCall = null
             permissions(call)
+        }
+        // Itinéraire d'une séance : Health Connect demande l'accord de l'utilisateur séance par séance.
+        routeLauncher = activity.registerForActivityResult(ExerciseRouteRequestContract()) { route ->
+            val call = pendingRouteCall ?: return@registerForActivityResult
+            pendingRouteCall = null
+            if (route == null) call.resolve(JSObject().put("status", "denied")) else call.resolve(routeResult(route))
         }
     }
 
@@ -144,6 +161,10 @@ class ApogeeHealthPlugin : Plugin() {
                     safe { readAll(c, SpeedRecord::class, s.startTime, s.endTime) }?.flatMap { it.samples }?.sortedBy { it.time }?.forEach {
                         speed.put(JSArray().put(it.time.epochSecond).put(it.speed.inMetersPerSecond))
                     }
+                    val power = JSArray()
+                    safe { readAll(c, PowerRecord::class, s.startTime, s.endTime) }?.flatMap { it.samples }?.sortedBy { it.time }?.forEach {
+                        power.put(JSArray().put(it.time.epochSecond).put(it.power.inWatts))
+                    }
                     // Totaux : agrégats Health Connect (dédoublonnés entre sources) sur la durée de la séance
                     val agg = safe {
                         c.aggregate(androidx.health.connect.client.request.AggregateRequest(
@@ -163,6 +184,7 @@ class ApogeeHealthPlugin : Plugin() {
                     o.putN("elevationM", agg?.get(ElevationGainedRecord.ELEVATION_GAINED_TOTAL)?.inMeters)
                     o.put("hr", hr)
                     o.put("speed", speed)
+                    o.put("power", power)
                     list.put(o)
                 }
                 call.resolve(JSObject().put("sessions", list))
@@ -201,6 +223,74 @@ class ApogeeHealthPlugin : Plugin() {
                 call.resolve(JSObject().put("records", records))
             } catch (e: Exception) { call.reject(e.message ?: "Lecture de la FC de repos impossible") }
         }
+    }
+
+    @PluginMethod
+    fun readHrv(call: PluginCall) {
+        val c = client() ?: return call.reject("Health Connect indisponible")
+        val (start, end) = range(call) ?: return call.reject("Période invalide")
+        scope.launch {
+            try {
+                val records = JSArray()
+                for (r in readAll(c, HeartRateVariabilityRmssdRecord::class, start, end)) {
+                    records.put(JSObject().put("id", r.metadata.id).put("time", r.time.toString())
+                        .putN("zoneOffsetSeconds", r.zoneOffset?.totalSeconds).put("ms", r.heartRateVariabilityMillis))
+                }
+                call.resolve(JSObject().put("records", records))
+            } catch (e: Exception) { call.reject(e.message ?: "Lecture de la variabilité cardiaque impossible") }
+        }
+    }
+
+    @PluginMethod
+    fun readWeight(call: PluginCall) {
+        val c = client() ?: return call.reject("Health Connect indisponible")
+        val (start, end) = range(call) ?: return call.reject("Période invalide")
+        scope.launch {
+            try {
+                val records = JSArray()
+                for (r in readAll(c, WeightRecord::class, start, end)) {
+                    records.put(JSObject().put("id", r.metadata.id).put("time", r.time.toString())
+                        .putN("zoneOffsetSeconds", r.zoneOffset?.totalSeconds).put("kg", r.weight.inKilograms))
+                }
+                call.resolve(JSObject().put("records", records))
+            } catch (e: Exception) { call.reject(e.message ?: "Lecture du poids impossible") }
+        }
+    }
+
+    /** Itinéraire GPS d'une séance, retrouvée par ses heures de début et de fin. Si Health Connect demande l'accord de l'utilisateur pour cette séance, l'écran d'accord s'ouvre. */
+    @PluginMethod
+    fun readRoute(call: PluginCall) {
+        val c = client() ?: return call.reject("Health Connect indisponible")
+        val startS = call.getString("startTime") ?: return call.reject("Séance inconnue")
+        val endS = call.getString("endTime") ?: return call.reject("Séance inconnue")
+        val clientId = call.getString("clientRecordId")
+        scope.launch {
+            try {
+                val start = Instant.parse(startS)
+                val found = readAll(c, ExerciseSessionRecord::class, start.minusSeconds(120), Instant.parse(endS).plusSeconds(120))
+                val rec = found.firstOrNull { clientId != null && it.metadata.clientRecordId == clientId }
+                    ?: found.minByOrNull { Math.abs(it.startTime.epochSecond - start.epochSecond) }
+                if (rec == null) { call.resolve(JSObject().put("status", "none")); return@launch }
+                when (val r = rec.exerciseRouteResult) {
+                    is ExerciseRouteResult.Data -> call.resolve(routeResult(r.exerciseRoute))
+                    is ExerciseRouteResult.ConsentRequired -> {
+                        val l = routeLauncher
+                        if (l == null) { call.resolve(JSObject().put("status", "denied")); return@launch }
+                        pendingRouteCall = call
+                        activity.runOnUiThread { l.launch(rec.metadata.id) }
+                    }
+                    else -> call.resolve(JSObject().put("status", "none"))
+                }
+            } catch (e: Exception) { call.reject(e.message ?: "Lecture de l'itinéraire impossible") }
+        }
+    }
+
+    private fun routeResult(route: ExerciseRoute): JSObject {
+        val pts = JSArray()
+        for (p in route.route) {
+            pts.put(JSArray().put(p.time.epochSecond).put(p.latitude).put(p.longitude).put(p.altitude?.inMeters ?: org.json.JSONObject.NULL))
+        }
+        return JSObject().put("status", "ok").put("points", pts)
     }
 
     /** JSONObject.put(k, null) retire la clé : on écrit un vrai null JSON. */

@@ -6,13 +6,14 @@
 //  - l'identifiant d'une séance ne change jamais, même après édition (avant : l'édition fabriquait un
 //    nouvel identifiant `manual:` et la séance revenait en double à la collecte suivante).
 import { $t } from '../i18n';
-import { aggregates, cleanHr } from './hr';
+import { aggregates, cleanHr, median } from './hr';
+import { cleanPower, powerAggregates } from './power';
 import { localDay } from './dates';
 import { newId, nowIso } from './ids';
 import { liveRecords } from './load';
 import { sameActivity } from './dossier';
 import { EXERCISE_TO_SUBSPORT } from './subsports';
-import type { ActualDiscipline, ActualSession, AppData, RestingHr, SessionSeries, SleepNight } from './types';
+import type { ActualDiscipline, ActualSession, AppData, HrvReading, RestingHr, RoutePoint, SessionSeries, SleepNight, WeightReading } from './types';
 
 export const EXERCISE_TO_DISCIPLINE: Record<number, ActualDiscipline> = {
   8: 'BIKE', 9: 'BIKE', 56: 'RUN', 57: 'RUN', 73: 'SWIM', 74: 'SWIM', 70: 'STRENGTH', 81: 'STRENGTH', 13: 'STRENGTH', 36: 'STRENGTH', 10: 'STRENGTH',
@@ -37,30 +38,38 @@ export interface NativeSession {
   elevationM: number | null;
   hr: [number, number][];
   speed: [number, number][];
+  /** Puissance `[epoch s, W]` (absente avant l'autorisation « puissance »). */
+  power?: [number, number][];
 }
 export interface NativeSleep { id: string; clientRecordId: string | null; startTime: string; endTime: string; startZoneOffsetSeconds: number | null }
 export interface NativeResting { id: string; time: string; zoneOffsetSeconds: number | null; bpm: number }
+export interface NativeHrv { id: string; time: string; zoneOffsetSeconds: number | null; ms: number }
+export interface NativeWeight { id: string; time: string; zoneOffsetSeconds: number | null; kg: number }
+/** Ce que rend `ApogeeHealth.readRoute` : `[epoch s, lat, lon, altitude | null]`. */
+export interface NativeRoute { status: 'ok' | 'none' | 'denied'; points?: [number, number, number, number | null][] }
 
-export interface IngestOps { actual: ActualSession[]; series: SessionSeries[]; sleep: SleepNight[]; resting: RestingHr[] }
-export interface IngestReport { found: number; inserted: number; updated: number; known: number; nights: number; restingDays: number; unmapped: number[] }
+export interface IngestOps { actual: ActualSession[]; series: SessionSeries[]; sleep: SleepNight[]; resting: RestingHr[]; hrv: HrvReading[]; weight: WeightReading[] }
+export interface NativeExtras { hrv?: NativeHrv[]; weight?: NativeWeight[] }
+export interface IngestReport { found: number; inserted: number; updated: number; known: number; nights: number; restingDays: number; hrvDays?: number; weights?: number; unmapped: number[] }
 
 const KCAL_J = 4184;
 
-export function ingest(data: AppData, sessions: NativeSession[], nights: NativeSleep[], resting: NativeResting[]): { ops: IngestOps; report: IngestReport } {
+export function ingest(data: AppData, sessions: NativeSession[], nights: NativeSleep[], resting: NativeResting[], extras: NativeExtras = {}): { ops: IngestOps; report: IngestReport } {
   const now = nowIso();
   const bySource = new Map(liveRecords(data.actual).map((s) => [s.sourceId, s]));
-  const ops: IngestOps = { actual: [], series: [], sleep: [], resting: [] };
-  const report: IngestReport = { found: sessions.length, inserted: 0, updated: 0, known: 0, nights: 0, restingDays: 0, unmapped: [] };
+  const ops: IngestOps = { actual: [], series: [], sleep: [], resting: [], hrv: [], weight: [] };
+  const report: IngestReport = { found: sessions.length, inserted: 0, updated: 0, known: 0, nights: 0, restingDays: 0, hrvDays: 0, weights: 0, unmapped: [] };
   for (const n of sessions) {
     const sourceId = n.clientRecordId || n.id;
     if (!sourceId) continue;
     const hr = cleanHr(n.hr);
+    const power = cleanPower(n.power);
     const speed = (n.speed || []).filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1])).sort((a, b) => a[0] - b[0]);
     // séance reprise du dossier coach de l'ancienne app (sans identifiant Garmin) : même activité, même heure
     const placeholder = bySource.has(sourceId) ? undefined : liveRecords(data.actual).find((s) => s.sourceId.startsWith('dossier:') && sameActivity(s, EXERCISE_TO_DISCIPLINE[n.exerciseType] ?? 'OTHER', n.startTime));
     const existing = bySource.get(sourceId) ?? placeholder;
     if (existing && !placeholder) {
-      const better = hr.length > (existing.hrSampleCount ?? 0) + 5 && existing.edited.length === 0;
+      const better = (hr.length > (existing.hrSampleCount ?? 0) + 5 || (power.length > 10 && !(existing.avgPowerW && existing.avgPowerW > 0))) && existing.edited.length === 0;
       if (!better) { report.known++; continue; }
     }
     const durationSec = Math.max(0, Math.round((Date.parse(n.endTime) - Date.parse(n.startTime)) / 1000));
@@ -81,10 +90,15 @@ export function ingest(data: AppData, sessions: NativeSession[], nights: NativeS
       totalCaloriesJ: n.totalKcal == null ? null : n.totalKcal * KCAL_J,
       elevationGainM: n.elevationM ?? null,
       ...agg,
-      hasSeries: hr.length > 0 || speed.length > 0,
+      ...powerAggregates(power),
+      hasSeries: hr.length > 0 || speed.length > 0 || power.length > 0,
     } as ActualSession;
     ops.actual.push(s);
-    if (s.hasSeries) ops.series.push({ id, updatedAt: now, hr, speed });
+    if (s.hasSeries) {
+      // le tracé GPS, lu à part et à la demande, est conservé quand la série est relue
+      const route = data.series[id]?.route;
+      ops.series.push({ id, updatedAt: now, hr, speed, ...(power.length ? { power } : {}), ...(route?.length ? { route } : {}) });
+    }
     if (existing) report.updated++; else report.inserted++;
   }
   // sommeil : jour de réveil, la nuit la plus longue l'emporte
@@ -105,5 +119,45 @@ export function ingest(data: AppData, sessions: NativeSession[], nights: NativeS
     ops.resting.push({ id: day, updatedAt: now, day, bpm: r.bpm });
     report.restingDays++;
   }
+  // variabilité cardiaque : médiane des mesures du jour de réveil
+  const hrvByDay = new Map<string, number[]>();
+  for (const r of extras.hrv ?? []) {
+    if (!(r.ms > 0) || r.ms > 400) continue;
+    const day = localDay(r.time, r.zoneOffsetSeconds == null ? null : Math.round(r.zoneOffsetSeconds / 60));
+    hrvByDay.set(day, [...(hrvByDay.get(day) ?? []), r.ms]);
+  }
+  for (const [day, v] of hrvByDay) {
+    const ms = Math.round(median(v)! * 10) / 10;
+    if (data.hrv[day] && !data.hrv[day].deleted && data.hrv[day].ms === ms) continue;
+    ops.hrv.push({ id: day, updatedAt: now, day, ms });
+    report.hrvDays!++;
+  }
+  // poids : dernière pesée du jour ; une pesée saisie à la main n'est jamais écrasée
+  const lastWeight = new Map<string, { t: number; kg: number }>();
+  for (const r of extras.weight ?? []) {
+    if (!(r.kg >= 25 && r.kg <= 300)) continue;
+    const day = localDay(r.time, r.zoneOffsetSeconds == null ? null : Math.round(r.zoneOffsetSeconds / 60));
+    const t = Date.parse(r.time);
+    if (!lastWeight.has(day) || lastWeight.get(day)!.t < t) lastWeight.set(day, { t, kg: r.kg });
+  }
+  for (const [day, w] of lastWeight) {
+    const cur = data.weight[day];
+    const kg = Math.round(w.kg * 10) / 10;
+    if (cur && (cur.deleted || cur.source === 'manual' || cur.kg === kg)) continue; // une pesée supprimée ou saisie à la main n'est pas ré-importée
+    ops.weight.push({ id: day, updatedAt: now, day, kg, source: 'health' });
+    report.weights!++;
+  }
   return { ops, report };
 }
+
+/** Ajoute le tracé lu à la demande à la série d'une séance : points espacés d'au moins 5 s, au plus 1 200. */
+export function withRoute(series: SessionSeries | undefined, id: string, points: NativeRoute['points']): SessionSeries {
+  const raw = (points ?? []).filter((p) => Number.isFinite(p[1]) && Number.isFinite(p[2]) && Math.abs(p[1]) <= 90 && Math.abs(p[2]) <= 180);
+  const keep: RoutePoint[] = [];
+  let last = -Infinity;
+  for (const p of raw) if (p[0] - last >= 5) { keep.push([p[0], round(p[1], 5), round(p[2], 5), p[3] == null ? null : Math.round(p[3] * 10) / 10]); last = p[0]; }
+  const step = Math.ceil(keep.length / 1200);
+  const route = step > 1 ? keep.filter((_, i) => i % step === 0 || i === keep.length - 1) : keep;
+  return { ...(series ?? { hr: [], speed: [] }), id, updatedAt: nowIso(), route };
+}
+const round = (v: number, d: number) => Math.round(v * 10 ** d) / 10 ** d;
