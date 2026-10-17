@@ -227,6 +227,16 @@ export interface CoachExchange extends Rec {
   error: string | null;
 }
 
+/** Séance (favorite) ou semaine type réutilisable : copiée dans le calendrier avec de nouveaux identifiants. */
+export interface TemplateItem { offset: number; discipline: PlannedDiscipline; title: string | null; notes: string | null; blocks: Block[] }
+export interface SessionTemplate extends Rec {
+  name: string;
+  kind: 'session' | 'week';
+  /** Séance favorite : un seul élément (offset 0). Semaine type : offset 0 = lundi … 6 = dimanche. */
+  items: TemplateItem[];
+  createdAt: string;
+}
+
 /** Collections synchronisées (une collection Firestore chacune). */
 export interface Collections {
   athlete: Athlete;
@@ -241,9 +251,10 @@ export interface Collections {
   sleep: SleepNight;
   resting: RestingHr;
   exchanges: CoachExchange;
+  templates: SessionTemplate;
 }
 export type CollectionName = keyof Collections;
-export const COLLECTIONS: CollectionName[] = ['athlete', 'race', 'zones', 'phases', 'planned', 'actual', 'series', 'bricks', 'interruptions', 'sleep', 'resting', 'exchanges'];
+export const COLLECTIONS: CollectionName[] = ['athlete', 'race', 'zones', 'phases', 'planned', 'actual', 'series', 'bricks', 'interruptions', 'sleep', 'resting', 'exchanges', 'templates'];
 
 export type AppData = { [K in CollectionName]: Record<string, Collections[K]> } & { updatedAt: string };
 

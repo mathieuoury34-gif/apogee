@@ -15,7 +15,8 @@ import { liveRecords, sessionDay } from '../domain/load';
 import type { ActualSession, PlannedSession } from '../domain/types';
 import { DISCIPLINE_ICON, blockDetail, blockHead, dateFr, dayLong, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, MONTHS_TITLE, num, WD_LETTER, KIND_LABEL, phaseLabel } from '../ui/format';
 import { refKeyOfSession } from '../domain/coach';
-import { useActualMenu, usePlannedMenu } from '../ui/menu';
+import { useActualMenu, useLocalSheet, usePlannedMenu } from '../ui/menu';
+import { WeekActionsSheet } from './Templates';
 
 const NAV = [{ to: '/calendrier', label: $t("Semaine") }, { to: '/calendrier/mois', label: $t("Mois") }];
 
@@ -77,6 +78,7 @@ export function CalendarWeekScreen() {
   // La semaine affichée est gardée dans l'adresse (sans ajouter d'entrée d'historique) : en revenant d'une séance, on retrouve la même semaine.
   const go = (k: number) => { setDir(k > 0 ? 'l' : 'r'); const m = addDays(monday, 7 * k); setMonday(m); navigate(m === mondayOf(d.today) ? '/calendrier' : '/calendrier?sem=' + m, { replace: true }); };
   const swipe = useSwipe(() => go(1), () => go(-1));
+  const wk = useLocalSheet();
   return (
     <div className="screen" data-screen="calendrier-semaine">
       <AppHeader title={$t("Calendrier")} />
@@ -100,6 +102,8 @@ export function CalendarWeekScreen() {
             <div className="kpi"><span className="label">{$t("Charge")}</span><span className="value">{num(load, 0)}</span></div>
           </div>
         </div>
+        <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'center', minHeight: 32 }} onClick={wk.show}><Icon name="layers" size={18} /> {$t("Actions de la semaine")}</button>
+        {wk.open && <WeekActionsSheet monday={monday} sh={wk} />}
         {!isThisWeek && <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'center', minHeight: 32 }} onClick={() => setMonday(mondayOf(d.today))}>{$t("Revenir à cette semaine")}</button>}
         <div className="stack dcols-days" style={{ gap: 0 }}>
           {days.map((day) => {
@@ -367,6 +371,7 @@ export function AddSheet() {
           </button>
         </div>
         <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
+          <SheetRow icon="bookmark" title={$t("Mes séances favorites")} sub={$t("Réutilise une séance enregistrée")} onClick={() => navigate(route.path + '?sheet=favoris&date=' + date, { replace: true })} />
           <SheetRow icon="clipboard" title={$t("Coller un lot de séances faites")} sub={$t("Une ligne par séance, depuis tes notes")} onClick={() => go('/seances/saisie?mode=lot')} />
           <SheetRow icon="clipboard" title={$t("Coller un lot de séances prévues")} sub={$t("Date ; discipline ; durée ; titre")} onClick={() => go('/seances/saisie?mode=prevues')} />
           <SheetRow icon="pause" title={$t("Déclarer une interruption")} sub={$t("Blessure, déplacement, bivouac…")} onClick={() => go('/parametres/interruptions?nouvelle=' + date)} />

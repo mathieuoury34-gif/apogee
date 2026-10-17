@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DatePicker, Sheet, SportPicker, showToast } from './kit';
 import { Icon } from './icons';
 import { navigate } from './router';
-import { deletePlanned, duplicatePlanned, movePlanned, restore, setActualLook } from '../data/actions';
+import { deletePlanned, duplicatePlanned, movePlanned, restore, setActualLook, templateFromSession } from '../data/actions';
 import { useCalc } from '../data/store';
 import { dateFr, dayTitle, DISCIPLINE_LABEL, sessionLabel } from './format';
 import { sessionDay } from '../domain/load';
@@ -92,6 +92,7 @@ function PlannedSheet({ p, sh }: { p: PlannedSession; sh: SheetCtl }) {
           sh.hide();
           showToast($t("Séance déplacée au ") + dateFr(date), { undo: () => restore(snap) });
         }} />}
+        <Action icon="bookmark" title={$t("Ajouter aux favoris")} sub={$t("Pour la replacer plus tard en un geste")} onClick={() => { const t = templateFromSession(p.id); sh.hide(); if (t) showToast($t("Ajoutée aux favoris : {0}", { 0: t.name })); }} />
         <Action icon="pencil" title={$t("Modifier")} sub={$t("Ouvre l’éditeur de blocs")} onClick={() => sh.leave('/calendrier/editer/' + p.id)} />
         {!confirm
           ? <Action icon="trash" title={$t("Supprimer")} danger onClick={() => setConfirm(true)} />

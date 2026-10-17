@@ -6,6 +6,7 @@ import { AddSheet, CalendarMonthScreen, CalendarWeekScreen, PlannedDetailScreen 
 import { PlannedEditorScreen } from './screens/Editor';
 import { JournalScreen, ManualEntryScreen, ReviewScreen, StatsScreen } from './screens/Sessions';
 import { LoadScreen, ObjectiveScreen, ZoneHistoryScreen, ZonesScreen } from './screens/Progress';
+import { FavoritesSheet } from './screens/Templates';
 import { AnalysisScreen } from './screens/Analysis';
 import { CoachScreen } from './screens/Coach';
 import { PeriodizationScreen } from './screens/Periodization';
@@ -70,6 +71,7 @@ export function App() {
       </div>
       {!fullScreen && <TabBar />}
       {sheet === 'ajouter' && <AddSheet />}
+      {sheet === 'favoris' && <FavoritesSheet />}
       <ToastHost />
     </>
   );

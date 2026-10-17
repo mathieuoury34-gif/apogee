@@ -1,10 +1,11 @@
 // Toutes les écritures de l'interface passent par ici : un seul endroit pour l'horodatage, la propagation
 // cloud et l'« Annuler » des toasts (comme PEAnalyze).
+import { addDays, daysBetween, mondayOf } from '../domain/dates';
 import { newId, nowIso } from '../domain/ids';
 import { buildManualSession, existingSourceIds, manualSourceId, type ManualInput } from '../domain/manual';
 import { liveRecords, sessionDay } from '../domain/load';
 import { planDedupe } from '../domain/dedupe';
-import type { ActualSession, AppData, Athlete, CollectionName, Collections, EditableField, Interruption, PlannedSession, Race, TrainingPhase, ZoneReading } from '../domain/types';
+import type { SessionTemplate, ActualSession, AppData, Athlete, CollectionName, Collections, EditableField, Interruption, PlannedSession, Race, TrainingPhase, ZoneReading } from '../domain/types';
 import { COLLECTIONS } from '../domain/types';
 import { applyPreview, type CoachPlan, type Preview } from '../domain/coach';
 import { commit, getData } from './store';
@@ -50,6 +51,53 @@ export function movePlanned(id: string, date: string): Snapshot {
   if (src && !src.deleted) commit((tx) => tx.put('planned', { ...src, plannedDate: date, editedAt: src.origin === 'coach' ? nowIso() : src.editedAt ?? null }));
   return s;
 }
+/** Copie toutes les séances prévues d'une semaine vers une autre (nouveaux identifiants, origine « manuelle »). */
+export function copyWeek(srcMonday: string, dstMonday: string): { snap: Snapshot; count: number } {
+  const d = getData();
+  const src = Object.values(d.planned).filter((p) => !p.deleted && p.plannedDate >= srcMonday && p.plannedDate <= addDays(srcMonday, 6));
+  const now = nowIso();
+  const copies = src.map((p) => ({ ...structuredClone(p), id: newId(), plannedDate: addDays(dstMonday, daysBetween(srcMonday, p.plannedDate)), origin: 'manual' as const, idempotencyKey: null, coachExchangeId: null, createdAt: now, updatedAt: now, editedAt: null }));
+  const snap = snapshot(copies.map((c) => ['planned', c.id] as [CollectionName, string]));
+  commit((tx) => copies.forEach((c) => tx.put('planned', c)));
+  return { snap, count: copies.length };
+}
+
+export function weekPlanned(monday: string): PlannedSession[] {
+  return Object.values(getData().planned).filter((p) => !p.deleted && p.plannedDate >= monday && p.plannedDate <= addDays(monday, 6));
+}
+
+// ------------------------------------------------------------------ séances favorites et semaines types
+export function saveTemplate(t: { name: string; kind: 'session' | 'week'; items: SessionTemplate['items'] }): SessionTemplate {
+  const now = nowIso();
+  const rec: SessionTemplate = { id: newId(), updatedAt: now, createdAt: now, name: t.name.trim(), kind: t.kind, items: structuredClone(t.items) };
+  commit((tx) => tx.put('templates', rec));
+  return rec;
+}
+export function templateFromWeek(name: string, monday: string): SessionTemplate | null {
+  const list = weekPlanned(monday);
+  if (!list.length) return null;
+  return saveTemplate({ name, kind: 'week', items: list.map((p) => ({ offset: daysBetween(monday, p.plannedDate), discipline: p.discipline, title: p.title, notes: p.notes, blocks: p.blocks })) });
+}
+export function templateFromSession(id: string, name?: string): SessionTemplate | null {
+  const p = getData().planned[id];
+  if (!p || p.deleted) return null;
+  return saveTemplate({ name: name?.trim() || p.title || p.discipline, kind: 'session', items: [{ offset: 0, discipline: p.discipline, title: p.title, notes: p.notes, blocks: p.blocks }] });
+}
+export function deleteTemplate(id: string): Snapshot {
+  const s = snapshot([['templates', id]]);
+  commit((tx) => tx.remove('templates', id));
+  return s;
+}
+/** Ajoute au calendrier les séances d'un modèle : `date` est le jour (séance favorite) ou le lundi (semaine type). */
+export function applyTemplate(t: SessionTemplate, date: string): { snap: Snapshot; count: number } {
+  const now = nowIso();
+  const base = t.kind === 'week' ? mondayOf(date) : date;
+  const copies: PlannedSession[] = t.items.map((it) => ({ id: newId(), updatedAt: now, createdAt: now, discipline: it.discipline, plannedDate: addDays(base, it.offset), title: it.title, notes: it.notes, origin: 'manual', idempotencyKey: null, coachExchangeId: null, blocks: structuredClone(it.blocks) }));
+  const snap = snapshot(copies.map((c) => ['planned', c.id] as [CollectionName, string]));
+  commit((tx) => copies.forEach((c) => tx.put('planned', c)));
+  return { snap, count: copies.length };
+}
+
 export function addPlannedBulk(list: PlannedSession[]): void {
   commit((tx) => list.forEach((p) => tx.put('planned', p)));
 }
