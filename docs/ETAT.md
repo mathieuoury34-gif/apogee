@@ -5,7 +5,7 @@
 16/10/2026 pour pouvoir refaire l'application de zéro : `PRD.md` (quoi / pourquoi), `SPECS-TECH.md` (comment),
 `GUIDE-REPRISE.md` (par où recommencer), `HISTORIQUE-RN.md` (archive de l'ancienne version React Native),
 `claude/BRIEF-DESIGN.md` (brief nom et logo).
-**Dernier commit** `8538c5f` (retrait de la puissance, de la variabilité et du tracé GPS) — CI : voir l'onglet Actions.
+**Dernier commit** `0bf8c1d` (Analyse : respect du plan coloré, records en temps de déplacement, efficacité vélo, sommeil endormi) — CI : voir l'onglet Actions.
 
 ---
 
@@ -20,7 +20,7 @@
 | Données | IndexedDB sur l'appareil + Firestore (projet `apogee-d171c`, Europe `eur3`), connexion Google |
 | Montre | Garmin Fenix 7S Pro → Health Connect → APK (Android seulement) |
 | Stack | React 19 + esbuild (PWA), Capacitor 7 + Kotlin pour l'APK, Firebase Spark. 0 €/mois |
-| Qualité | `npm test` : 29 tests verts ; `npm run typecheck` propre |
+| Qualité | `npm test` : 32 tests verts ; `npm run typecheck` propre |
 | Appareils de Mathieu | PC (Chrome) et téléphone Android (APK) connectés au même compte Google ; synchronisation en service depuis le 16/10 |
 
 ## 2. Ce qui est fait (fonctionnel)
@@ -48,6 +48,7 @@ Détail des écrans et fonctions : `PRD.md` §7 ; construction : `SPECS-TECH.md`
 | 2 | Onglet Analyse : bilan de semaine, zones de FC et 80/20, forme par discipline, records, efficacité, enchaînements ; prévisionnel de charge ; estimations VMA / CSS ; alerte blessure | `5645825` | non |
 | 3 | Copier une semaine, semaines types, séances favorites (collection `templates`) | `822bc22` | non |
 | 4 | Poids (saisie à la main) et sommeil ; la puissance vélo, la variabilité cardiaque et le tracé GPS livrés avec ce lot ont été **retirés** (voir ci-dessous) ; nouvelle collection `weight` | `eb01b8d`, retrait `8538c5f` | non |
+| 4b | Retouches Analyse (18/10) : bilan sans copie, respect du plan 3 sem./3 mois en couleur, zones FC 4 sem. par défaut, forme de fond expliquée, efficacité vélo dès 2 séances, records recalculés en temps de déplacement, sommeil en temps endormi (étapes) | `0bf8c1d` | **oui** pour le sommeil |
 | 5 | Export `.FIT` d'une séance prévue pour la montre | `3eb962d` | non |
 
 **Retrait du 17/10 (soir, décision de Mathieu).** Testé sur son téléphone avec l'APK à jour : l'écran « Data and access »

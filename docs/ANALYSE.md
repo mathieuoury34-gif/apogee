@@ -135,3 +135,20 @@ signalé, grâce à son empreinte.
   l'Android, et l'iPhone ne reçoit pas de rappels.
 - **Données de démonstration.** Les captures d'écran de validation utilisent un jeu fictif (`tools/demo.ts`),
   jamais publié.
+
+## Retouches du 18/10/2026 (onglet Analyse)
+
+**Records faux (20 km et 40 km à vélo).** Trois causes trouvées : le temps comptait les arrêts (feu rouge, pause
+de la montre) alors que Garmin compte le temps de déplacement ; le franchissement de la distance se lisait à l'échantillon
+près, sans interpolation ; la courbe de vitesse n'était pas recalée sur la distance enregistrée de la séance.
+→ Intégration trapézoïdale, pauses (trou > 30 s) exclues, franchissement interpolé, passes avant et arrière, recalage
+sur la distance de la séance (rapport 0,85–1,15, sinon repli « séance entière » à 3 % près). Testé sur séries
+synthétiques ; **à confirmer sur les vrais chiffres** en comparant avec Garmin Connect.
+
+**Sommeil.** Health Connect donne début–fin de la nuit (temps au lit, éveils compris) ; Garmin affiche le temps endormi.
+→ Le plugin renvoie `asleepSec` (somme des étapes endormi/léger/profond/paradoxal) ; l'app l'utilise quand il existe
+et relit 400 jours une seule fois. Nécessite l'APK à jour.
+
+**Efficacité vélo** : disponible dès 2 séances comparables (FC 55–85 %, dénivelé < 3 %), avec compteurs expliquant les
+séances écartées. **Forme de fond** : texte d'explication, total actuel contre il y a 4 semaines, écart par discipline.
+**Respect du plan** : 3 semaines et 3 mois, en couleur. **Zones de FC** : 4 semaines par défaut. Bouton de copie du bilan retiré.

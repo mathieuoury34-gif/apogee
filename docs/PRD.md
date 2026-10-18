@@ -197,12 +197,12 @@ Thèmes clair et sombre. Annuler proposé après toute suppression, modification
     réelles à ce jour.**
 12. **Démarrage** — écran de lancement animé (trois lunes), minimum 1,7 s, identique PC / téléphone, écran natif
     de l'APK maintenu jusqu'au premier dessin de la page.
-13. **Analyse** (Progression › Analyse, ajout du 17/10/2026 sur sélection de Mathieu) — bilan de semaine (copiable pour
-    le coach) ; respect du plan (semaines, mois, temps réalisé / prévu) ; temps par zone de FC et répartition
-    facile / soutenue / intense (repère 80/20) ; forme de fond par discipline ; tendance d'efficacité (course :
-    mètres par battement) ; records de course, vélo, natation ; **poids** (moyenne 7 jours, saisie manuelle ;
+13. **Analyse** (Progression › Analyse, ajout du 17/10/2026 sur sélection de Mathieu) — bilan de semaine (sans bouton de
+    copie : le coach s'en charge) ; respect du plan (3 dernières semaines et 3 derniers mois, colorés ; temps réalisé / prévu) ; temps par zone de FC et répartition
+    facile / soutenue / intense (repère 80/20) ; forme de fond par discipline ; tendance d'efficacité (course et vélo, dès 2 séances
+    comparables) ; records de course, vélo, natation ; **poids** (moyenne 7 jours, saisie manuelle ;
     Health Connect seulement si une balance connectée l'y dépose) ;
-    **sommeil** (durée récente, heure de coucher, régularité) ; enchaînements vélo → course.
+    **sommeil** (durée réellement endormie avec l'APK à jour, heure de coucher, régularité) ; enchaînements vélo → course.
 14. **Retiré le 17/10/2026 (décision de Mathieu)** — puissance vélo (records, FTP suggérée, W/kg, efficacité en W/bpm),
     variabilité cardiaque dans la forme du jour et tracé GPS / altitude : la liste « Data and access » de Garmin Connect
     dans Health Connect ne contient ni puissance, ni variabilité, ni poids, et l'app a constaté qu'aucun tracé n'y était

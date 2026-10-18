@@ -22,7 +22,7 @@ Drizzle) est archivée dans `HISTORIQUE-RN.md` et **ne s'applique plus**.
 | Stockage local | IndexedDB base `apogee` (stores `records` et `meta`) ; préférences d'appareil dans `localStorage` (`apogee:*`) |
 | Synchronisation | Firebase (offre Spark) : Authentication Google + Firestore ; SDK chargé à l'exécution depuis `www.gstatic.com/firebasejs/10.14.1/` (pas dans le bundle) |
 | Calcul | Fonctions pures dans `src/domain/`, sans interface ; **rien de calculé n'est stocké** |
-| Tests | `node --import tsx --test tests/*.test.ts` : **29 tests** verts ; `tsc --noEmit -p .` limité à `src/` |
+| Tests | `node --import tsx --test tests/*.test.ts` : **32 tests** verts ; `tsc --noEmit -p .` limité à `src/` |
 | Coût | 0 € (Pages, Actions, Spark). Aucun secret dans le dépôt |
 | Identifiants | Android `com.mathieu.apogee` ; schéma de lien `apogee://auth` ; plugin Capacitor `ApogeeHealth` ; formats `apogee/1` et `apogee-backup/1` ; base `apogee` ; clés `apogee:*` ; caches `apogee-shell-<hash>` et `apogee-runtime` |
 
@@ -284,20 +284,26 @@ poids sont renormalisés sur les composantes présentes. Paliers : `<25 Épuisé
 - `zones.ts` : zones en % de la FC max retenue, bornes **60 / 70 / 80 / 90 %** (Z1 … Z5) ; classes facile (< 80 %), soutenue
   (80–90 %), intense (≥ 90 %) ; RUN, BIKE, SWIM (OTHER en option), STRENGTH exclu ; le dernier échantillon compte le
   pas nominal (11 s).
-- `compliance.ts` : respect du plan sur 12 semaines et 6 mois ; séances prévues échues rattachées ; jours d'interruption
+- `compliance.ts` : respect du plan (l'écran montre les 3 dernières semaines et les 3 derniers mois, vides compris ; couleurs : vert ≥ 80 %, orange 50–79 %, rouge < 50 %) ; séances prévues échues rattachées ; jours d'interruption
   exclus ; temps seulement pour les séances de durée connue.
 - `loadByDiscipline.ts` : forme de fond linéaire par discipline (SWIM, BIKE, RUN, STRENGTH, OTHER, FORFAIT) ; la somme
   redonne la forme totale (testé).
 - `forecast.ts` : charge d'une séance prévue = durée estimée des blocs × charge par minute médiane des 90 jours de la
   discipline ; projection de Banister (42 / 7 j) ; ACWR sur 28 jours glissants ; horizon ≤ 200 jours ou « jusqu'à la fin du
   plan » ; l'intensité n'est pas modélisée.
-- `records.ts` : meilleur segment (fenêtre glissante sur la vitesse, trou plafonné à 30 s, vitesse plausible maximale
-  par distance) ; efficacité = vitesse × 60 ÷ FC moyenne sur séances ≥ 20 min, FC 65–85 % de la FC max, dénivelé < 2 %,
-  4 dernières semaines contre 4 précédentes ; enchaînements
+- `records.ts` : meilleur segment en **temps de déplacement** (intégration trapézoïdale de la vitesse ; un trou > 30 s =
+  pause, exclue du temps comme du chemin ; franchissement interpolé ; passes avant et arrière ; courbe recalée sur la
+  distance enregistrée de la séance si le rapport est entre 0,85 et 1,15, sinon courbe inutilisable → repli « séance
+  entière » à 3 % près ; vitesse plausible maximale par distance) ; efficacité = vitesse × 60 ÷ FC moyenne sur séances ≥ 20 min,
+  course : FC 65–85 % de la FC max, dénivelé < 2 % ; vélo : FC 55–85 %, dénivelé < 3 % ; 4 dernières semaines contre 4
+  précédentes, ou dernière séance contre précédente dès 2 séances comparables (compteurs de diagnostic sinon) ; enchaînements
   (paire confirmée ou BRICK prévu, transition ≤ 45 min, allure contre médiane 90 jours) ; `suggestZones` : VMA = meilleur
   6 min des 90 jours (si ≥ 1 % au-dessus de la valeur actuelle), CSS = 200 ÷ (t400 − t200).
 - `body.ts` : poids (moyenne 7 j, écart avec les 7 jours précédant le 28ᵉ jour) ; sommeil (moyenne 7 nuits contre 21,
-  coucher médian et écart-type sur 14 nuits, 5 minimum).
+  coucher médian et écart-type sur 14 nuits, 5 minimum). Durée = **temps réellement endormi** quand Health Connect fournit les
+  étapes (SLEEPING 2, LIGHT 4, DEEP 5, REM 6 ; plugin `asleepSec`, champ `fromStages`), sinon temps passé au lit
+  (début–fin) ; une nuit avec étapes remplace une nuit sans. Relecture unique de 400 jours (préférence `healthSleepAsleep`,
+  posée seulement quand l'APK renvoie `asleepSec`) — **nécessite l'APK à jour**.
 - `summary.ts` : bilan de semaine ; `review.ts` : alerte `INJURY_LOAD` (blessure déclarée non résolue + ACWR ≥ **1,3** ou
   semaine ≥ **25 %** au-dessus de la précédente).
 
