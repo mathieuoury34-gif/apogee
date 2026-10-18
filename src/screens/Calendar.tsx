@@ -298,7 +298,7 @@ export function PlannedDetailScreen({ id }: { id: string }) {
         {p.blocks.length > 0 && (
           <section className="card g8 dspan-12" aria-label={$t("Montre")}>
             <h2>{$t("Sur la montre")}</h2>
-            <p className="t-caption c-neutral">{$t("Exporte la séance en entraînement structuré (.FIT) : étapes, durées ou distances, cibles d’allure, de puissance ou de FC, répétitions. Branche la montre en USB à un ordinateur et copie le fichier dans son dossier GARMIN/NewFiles (ou GARMIN/Workouts) ; après l’avoir débranchée, elle le propose dans Entraînement › Séances. Ne l’envoie pas par « Importer des données » de Garmin Connect : cette page n’accepte que des séances déjà faites.")}</p>
+            <p className="t-caption c-neutral">{$t("Exporte la séance en entraînement structuré (.FIT) : étapes, durées ou distances, cibles d’allure, de puissance ou de FC, répétitions. Où l’envoyer : branche la montre en USB à un ordinateur et copie le fichier dans GARMIN/NewFiles, puis débranche-la ; la séance apparaît dans Entraînement › Séances. Pas par « Importer des données » de Garmin Connect : cette page n’accepte que des séances déjà faites.")}</p>
             <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={async () => {
               try {
                 const r = await exportWorkoutFit(p, d.refs);

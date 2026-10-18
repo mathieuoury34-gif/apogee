@@ -81,7 +81,7 @@ copier dans `GARMIN/NewFiles` (ou `GARMIN/Workouts`) de la Fenix 7S Pro et véri
 2. **Rappels (APK)** — les quatre comportements n'ont jamais été observés en conditions réelles. (Le texte de
    Paramètres › Calculs qui annonçait un rappel inexistant a été corrigé le 17/10.)
 3. **Interruptions** — jamais confirmées formellement sur appareil par Mathieu (technique complète, testée côté web).
-4. **Export `.FIT`** — livré le 17/10, jamais ouvert sur la montre de Mathieu (voir §2 bis). (Puissance, variabilité et tracé GPS : retirés.)
+4. **Export `.FIT`** — livré le 17/10, validé sur la montre le 19/10 (copie dans `NewFiles`). (Puissance, variabilité et tracé GPS : retirés.)
 5. **APK sans mode hors ligne** — il charge le site à distance. Option : embarquer l'app dans l'APK (non faite ;
    imposerait de réinstaller l'APK à chaque mise à jour).
 6. **Aide** (`help-content.ts`) — mise à jour le 17/10 pour les lots 1 à 5 ; à relire si un calcul change ; non revérifiée ligne à ligne contre le code.
@@ -101,7 +101,7 @@ copier dans `GARMIN/NewFiles` (ou `GARMIN/Workouts`) de la Fenix 7S Pro et véri
 - [ ] Déposer `docs/coach-context-apogee-1.md` dans les connaissances du projet Claude de coaching s'il ne l'est pas.
 - [ ] Faire une sauvegarde `.json` (Paramètres › Données) après chaque grosse saisie ; garder une copie de l'archive du
       code livrée avec ce dossier.
-- [ ] **Lots du 17/10** : tester un export `.FIT` sur la montre (copie dans `GARMIN/NewFiles` (ou `GARMIN/Workouts`)).
+- [x] **Lots du 17/10** : export `.FIT` testé sur la montre (OK) (copie dans `GARMIN/NewFiles` (ou `GARMIN/Workouts`)).
 - [ ] Observer les rappels pendant quelques jours (§4.2).
 
 ## 6. À faire par Claude (si demandé)
@@ -123,4 +123,4 @@ copier dans `GARMIN/NewFiles` (ou `GARMIN/Workouts`) de la Fenix 7S Pro et véri
 **19/10/2026 — export `.FIT`** : Mathieu a tenté d'envoyer les fichiers par « Importer des données » de Garmin Connect (site) : refus de
 tous, car cette page n'accepte que des **séances faites** (`.fit` d'activité, `.tcx`, `.gpx`), jamais un entraînement à venir. Ce n'est pas un défaut
 des fichiers (les RPE ne sont pas transmis : étape ouverte, simple avertissement). Voie correcte : copie USB dans `GARMIN/NewFiles` (ou
-`Workouts`). Textes de l'app et aide corrigés. Toujours **jamais testé sur la montre**.
+`Workouts`). Textes de l'app et aide corrigés. **Validé par Mathieu le 19/10 sur sa montre** : copie dans `GARMIN/NewFiles`, les séances apparaissent. Aide et texte du calendrier précisent ce dossier.
