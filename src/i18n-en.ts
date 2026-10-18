@@ -1066,7 +1066,7 @@ export const EN: Record<string, string> = {
   "{0} sortie(s) avec capteur": "{0} ride(s) with a power meter",
   "Montre": "Watch",
   "Sur la montre": "On the watch",
-  "Exporte la séance en entraînement structuré (.FIT) : étapes, durées ou distances, cibles d’allure, de puissance ou de FC, répétitions. Copie le fichier dans le dossier GARMIN/Workouts de la montre branchée en USB ; elle le propose ensuite dans Entraînement › Séances.": "Exports the session as a structured workout (.FIT): steps, durations or distances, pace, power or HR targets, repeats. Copy the file into the GARMIN/Workouts folder of the watch plugged in by USB; it then offers it under Training › Workouts.",
+  "Exporte la séance en entraînement structuré (.FIT) : étapes, durées ou distances, cibles d’allure, de puissance ou de FC, répétitions. Branche la montre en USB à un ordinateur et copie le fichier dans son dossier GARMIN/NewFiles (ou GARMIN/Workouts) ; après l’avoir débranchée, elle le propose dans Entraînement › Séances. Ne l’envoie pas par « Importer des données » de Garmin Connect : cette page n’accepte que des séances déjà faites.": "Exports the session as a structured workout (.FIT): steps, durations or distances, pace, power or HR targets, repeats. Plug the watch into a computer by USB and copy the file into its GARMIN/NewFiles (or GARMIN/Workouts) folder; once unplugged, it offers it under Training › Workouts. Do not send it through Garmin Connect’s “Import Data”: that page only accepts activities already done.",
   "{0} fichier(s) .FIT prêt(s)": "{0} .FIT file(s) ready",
   "{0} avertissement(s)": "{0} warning(s)",
   "Rien à exporter : aucune étape": "Nothing to export: no steps",

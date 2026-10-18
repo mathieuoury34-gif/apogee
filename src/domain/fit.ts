@@ -1,6 +1,6 @@
 // Export d'une séance prévue en fichier d'entraînement structuré .FIT (montre Garmin).
 // Le fichier décrit les étapes (durée ou distance, cible d'allure / de puissance / de FC, répétitions) :
-// copié dans le dossier GARMIN/Workouts de la montre, il apparaît dans Entraînement › Séances.
+// copié en USB dans GARMIN/NewFiles (ou GARMIN/Workouts) de la montre, il apparaît dans Entraînement › Séances. Garmin Connect (site) ne l'importe pas : « Importer des données » ne prend que des séances faites.
 // Format : FIT SDK (en-tête 14 octets, messages file_id / workout / workout_step, CRC-16). Aucune bibliothèque.
 import type { RefValues } from './blocks';
 import type { Block, PlannedDiscipline, PlannedSession } from './types';

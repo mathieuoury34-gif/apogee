@@ -315,7 +315,7 @@ basse = allure lente) ; puissance → W + 1000 (% FTP résolu si FTP connue) ; F
 seule devient une fenêtre de ± 3 %. Une cible sans référence, une zone, une charge ou un ressenti → étape ouverte avec
 avertissement. `SET` répété → étapes puis étape de répétition (`repeat_until_steps_cmplt`) ; AMRAP → une étape chronométrée.
 BRICK → un fichier par discipline (transition retirée). Plus de 50 étapes → avertissement. Copie manuelle dans
-`GARMIN/Workouts` de la montre.
+`GARMIN/NewFiles` (ou `GARMIN/Workouts`) de la montre.
 
 ## 6. Échange coach (`coach.ts`, contrat `docs/coach-context-apogee-1.md`)
 

@@ -58,7 +58,7 @@ GPS d'une séance répond « aucun tracé ». Ces trois fonctions n'avaient rien
 La collection `hrv` n'existe plus ; une sauvegarde qui en contient une est lue sans erreur (clé ignorée).
 
 À valider par Mathieu sur appareil : exporter une séance simple en `.FIT` (course, vélo, natation ou renforcement), la
-copier dans `GARMIN/Workouts` de la Fenix 7S Pro et vérifier qu'elle apparaît.
+copier dans `GARMIN/NewFiles` (ou `GARMIN/Workouts`) de la Fenix 7S Pro et vérifier qu'elle apparaît.
 
 ## 3. Journal condensé (Iron App 2 et suites)
 
@@ -101,7 +101,7 @@ copier dans `GARMIN/Workouts` de la Fenix 7S Pro et vérifier qu'elle apparaît.
 - [ ] Déposer `docs/coach-context-apogee-1.md` dans les connaissances du projet Claude de coaching s'il ne l'est pas.
 - [ ] Faire une sauvegarde `.json` (Paramètres › Données) après chaque grosse saisie ; garder une copie de l'archive du
       code livrée avec ce dossier.
-- [ ] **Lots du 17/10** : tester un export `.FIT` sur la montre (copie dans `GARMIN/Workouts`).
+- [ ] **Lots du 17/10** : tester un export `.FIT` sur la montre (copie dans `GARMIN/NewFiles` (ou `GARMIN/Workouts`)).
 - [ ] Observer les rappels pendant quelques jours (§4.2).
 
 ## 6. À faire par Claude (si demandé)
@@ -119,3 +119,8 @@ copier dans `GARMIN/Workouts` de la Fenix 7S Pro et vérifier qu'elle apparaît.
 - Toute modification de calcul → mettre à jour l'Aide, `docs/ANALYSE.md` et `SPECS-TECH.md` §5.
 - Signaler tout ce qui sort du périmètre MVP avant de le faire.
 - Un problème de démarrage/cache : voir `SPECS-TECH.md` §9 et §13 avant de chercher ailleurs.
+
+**19/10/2026 — export `.FIT`** : Mathieu a tenté d'envoyer les fichiers par « Importer des données » de Garmin Connect (site) : refus de
+tous, car cette page n'accepte que des **séances faites** (`.fit` d'activité, `.tcx`, `.gpx`), jamais un entraînement à venir. Ce n'est pas un défaut
+des fichiers (les RPE ne sont pas transmis : étape ouverte, simple avertissement). Voie correcte : copie USB dans `GARMIN/NewFiles` (ou
+`Workouts`). Textes de l'app et aide corrigés. Toujours **jamais testé sur la montre**.
