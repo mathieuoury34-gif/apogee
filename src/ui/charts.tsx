@@ -325,7 +325,9 @@ export function StepChart({ history, format, color = 'var(--brand-primary)' }: {
   const [ref, cw] = useWidth<HTMLDivElement>();
   const pts = [...history].sort((a, b) => (a.measuredAt < b.measuredAt ? -1 : 1));
   if (pts.length < 2) return <div ref={ref} />;
-  const W = cw - AXIS - 4, T = 14, H = 90, B = T + H;
+  // la colonne des repères à droite s'adapte à la largeur des valeurs (« 2:15 /100 m » est plus large que « 202 bpm »)
+  const axis = Math.max(AXIS, Math.max(...pts.map((p) => format(p.value).length)) * 6.6 + 12);
+  const W = cw - axis - 4, T = 14, H = 90, B = T + H;
   const t0 = Date.parse(pts[0].measuredAt), t1 = Math.max(Date.now(), Date.parse(pts[pts.length - 1].measuredAt) + 864e5);
   const lo = Math.min(...pts.map((p) => p.value)), hi = Math.max(...pts.map((p) => p.value));
   const pad = (hi - lo) * 0.2 || hi * 0.05;
@@ -349,7 +351,7 @@ export function StepChart({ history, format, color = 'var(--brand-primary)' }: {
       <span className="tick" style={{ left: W + 6, top: Y(hi) - 9 }}>{format(hi)}</span>
       {hi !== lo && <span className="tick" style={{ left: W + 6, top: Y(lo) - 9 }}>{format(lo)}</span>}
       <span className="tick" style={{ top: B + 4, left: 0 }}>{monthShort(pts[0].measuredAt.slice(0, 7))}</span>
-      <span className="tick" style={{ top: B + 4, right: AXIS }}>{$t("aujourd’hui")}</span>
+      <span className="tick" style={{ top: B + 4, right: axis }}>{$t("aujourd’hui")}</span>
     </div>
   );
 }
