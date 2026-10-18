@@ -163,6 +163,8 @@ ul { list-style: none; margin: 0; padding: 0; }
 
 .chips { display: flex; gap: var(--space-8); overflow-x: auto; margin: 0 calc(-1 * var(--screen-margin)); padding: 0 var(--screen-margin) var(--space-2); scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
+/* souris : pas de balayage au doigt, les pastilles passent à la ligne au lieu d'être coupées */
+@media (hover: hover) and (pointer: fine) { .chips { flex-wrap: wrap; overflow-x: visible; row-gap: var(--space-8); } }
 .chips.g6 { gap: var(--space-6); }
 .chip { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-4); height: var(--chip-height); padding: 0 var(--space-16); border: 1px solid var(--border-moderate); border-radius: var(--radius-full); background: var(--bg-surface); color: var(--text); font: var(--type-chip); cursor: pointer; white-space: nowrap; }
 .chip[aria-pressed="true"] { border-color: var(--chip-on-border); background: var(--chip-on-bg); color: var(--chip-on-fg); }
