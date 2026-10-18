@@ -9,21 +9,61 @@ import type { ActualSession, AppData, ZoneReading } from './types';
 type Pts = [number, number][];
 const MAX_DT = 30;
 
-/** Plus court temps pour couvrir `distanceM` dans une série de vitesse [s, m/s] (fenêtre glissante). */
-export function bestSegment(speed: Pts, distanceM: number): number | null {
-  if (speed.length < 10) return null;
-  const t = speed.map((p) => p[0]);
-  const cum: number[] = [0];
-  for (let i = 1; i < speed.length; i++) cum.push(cum[i - 1] + Math.max(0, speed[i - 1][1]) * Math.min(MAX_DT, t[i] - t[i - 1]));
-  let best: number | null = null, i = 0;
-  for (let j = 0; j < speed.length; j++) {
-    if (i < j) i = j;
-    while (i < speed.length && cum[i] - cum[j] < distanceM) i++;
-    if (i >= speed.length) break;
-    const dt = t[i] - t[j];
+/** Au-delà de 30 s entre deux points, la montre était en pause (arrêt automatique) : ni distance ni temps de déplacement. */
+const PAUSE_S = MAX_DT;
+
+interface Track { cd: number[]; ct: number[] }
+
+/** Distance et temps de déplacement cumulés point par point (trapèzes) ; `scale` recale la distance sur celle de la séance. */
+function track(speed: Pts, scale = 1): Track {
+  const cd = [0], ct = [0];
+  for (let i = 1; i < speed.length; i++) {
+    const dt = speed[i][0] - speed[i - 1][0];
+    if (!(dt > 0) || dt > PAUSE_S) { cd.push(cd[i - 1]); ct.push(ct[i - 1]); continue; }
+    const v = (Math.max(0, speed[i - 1][1]) + Math.max(0, speed[i][1])) / 2;
+    cd.push(cd[i - 1] + v * dt * scale);
+    ct.push(ct[i - 1] + dt);
+  }
+  return { cd, ct };
+}
+
+/** Plus court temps pour couvrir `distanceM`, départ sur un point de la courbe, arrivée interpolée entre deux points. */
+function fastestFrom({ cd, ct }: Track, distanceM: number): number | null {
+  const n = cd.length;
+  let best: number | null = null, i = 1;
+  for (let j = 0; j < n - 1; j++) {
+    if (i < j + 1) i = j + 1;
+    while (i < n && cd[i] - cd[j] < distanceM) i++;
+    if (i >= n) break;
+    const step = cd[i] - cd[i - 1];
+    if (!(step > 0)) continue;
+    const frac = (distanceM - (cd[i - 1] - cd[j])) / step;
+    const dt = ct[i - 1] - ct[j] + frac * (ct[i] - ct[i - 1]);
     if (dt > 0 && (best === null || dt < best)) best = dt;
   }
   return best;
+}
+
+/**
+ * Plus court temps de DÉPLACEMENT (arrêts exclus, comme la montre) pour couvrir `distanceM` dans une série de vitesse
+ * [s, m/s] : fenêtre glissante, début et fin interpolés entre les points de la courbe.
+ */
+export function bestSegment(speed: Pts, distanceM: number, scale = 1): number | null {
+  if (speed.length < 10) return null;
+  const tr = track(speed, scale);
+  const n = tr.cd.length, D = tr.cd[n - 1], T = tr.ct[n - 1];
+  if (D < distanceM) return null;
+  // départ sur un point, puis arrivée sur un point (série retournée) : le meilleur des deux est le vrai minimum
+  const rev: Track = { cd: tr.cd.map((_, k) => D - tr.cd[n - 1 - k]), ct: tr.ct.map((_, k) => T - tr.ct[n - 1 - k]) };
+  const a = fastestFrom(tr, distanceM), b = fastestFrom(rev, distanceM);
+  return a === null ? b : b === null ? a : Math.min(a, b);
+}
+
+/** Distance (m) que donne la courbe de vitesse, pauses exclues. */
+export function trackDistance(speed: Pts): number {
+  if (speed.length < 10) return 0;
+  const { cd } = track(speed);
+  return cd[cd.length - 1];
 }
 
 /** Plus haute vitesse moyenne tenue pendant `windowSec` secondes (m/s). */
@@ -69,7 +109,13 @@ export function personalRecords(data: AppData): PersonalRecord[] {
     for (const s of sessions) {
       if (s.discipline !== spec.discipline) continue;
       let t: number | null = null, basis: 'segment' | 'session' = 'segment';
-      if (s.distanceM && s.distanceM >= spec.distanceM) t = bestSegment(sp(data, s.id), spec.distanceM);
+      if (s.distanceM && s.distanceM >= spec.distanceM) {
+        // la courbe est recalée sur la distance enregistrée de la séance (GPS contre odomètre : 1 à 3 % d'écart) ;
+        // si elle en est trop éloignée (points manquants), elle n'est pas fiable pour un meilleur segment
+        const curve = sp(data, s.id), total = trackDistance(curve);
+        const ratio = total > 0 ? s.distanceM / total : 0;
+        if (ratio >= 0.85 && ratio <= 1.15) t = bestSegment(curve, spec.distanceM, ratio);
+      }
       if (t === null && s.distanceM && Math.abs(s.distanceM - spec.distanceM) / spec.distanceM <= 0.03 && s.durationSec > 0) { t = s.durationSec * (spec.distanceM / s.distanceM); basis = 'session'; }
       if (t === null || spec.distanceM / t > spec.maxSpeed) continue;
       cands.push({ timeSec: t, day: sessionDay(s), sessionId: s.id, basis });
@@ -86,8 +132,11 @@ export function personalRecords(data: AppData): PersonalRecord[] {
 
 // ------------------------------------------------------------------ efficacité (vitesse par battement)
 export const EF_BAND: [number, number] = [0.65, 0.85];
+/** Vélo : les sorties d'endurance se font souvent à une FC plus basse, et le relief est plus fréquent. */
+export const EF_BAND_BIKE: [number, number] = [0.55, 0.85];
 export const EF_MIN_SEC = 20 * 60;
 export const EF_MAX_CLIMB = 0.02;
+export const EF_MAX_CLIMB_BIKE = 0.03;
 
 export interface EfPoint { day: string; sessionId: string; speedMs: number; avgHr: number; ef: number }
 export interface EfWeek { start: string; ef: number; n: number }
@@ -97,25 +146,35 @@ export interface Efficiency {
   weeks: EfWeek[];
   /** Changement (%) de l'efficacité médiane des 28 derniers jours par rapport aux 28 précédents. */
   change: number | null;
+  /** Faute de mieux (trop peu de séances sur 28 jours) : dernière séance comparable contre la précédente. */
+  lastVsPrevious: number | null;
   refHr: number | null;
   /** Vitesse à la FC de référence, maintenant et il y a 4 semaines (m/s). */
   speedNow: number | null; speedBefore: number | null;
+  /** Pourquoi des séances sont écartées : séances de la discipline (20 min+), puis celles dont la FC convient, puis celles dont le relief convient. */
+  diag: { sessions: number; withHr: number; inBand: number; flat: number };
 }
 
 export function efficiency(data: AppData, hrMax: number | null, discipline: 'RUN' | 'BIKE', todayDay: string, spanWeeks = 26): Efficiency {
   const from = addDays(mondayOf(todayDay), -7 * (spanWeeks - 1));
+  const band = discipline === 'BIKE' ? EF_BAND_BIKE : EF_BAND, maxClimb = discipline === 'BIKE' ? EF_MAX_CLIMB_BIKE : EF_MAX_CLIMB;
   const points: EfPoint[] = [];
-  if (hrMax) {
-    for (const s of liveRecords(data.actual)) {
-      if (s.discipline !== discipline || s.durationSec < EF_MIN_SEC || !s.avgHrBpm || !s.distanceM) continue;
-      const day = sessionDay(s);
-      if (day < from) continue;
-      const r = s.avgHrBpm / hrMax;
-      if (r < EF_BAND[0] || r > EF_BAND[1]) continue;
-      if (s.elevationGainM && s.elevationGainM / s.distanceM > EF_MAX_CLIMB) continue;
-      const speedMs = s.distanceM / s.durationSec;
-      points.push({ day, sessionId: s.id, speedMs, avgHr: s.avgHrBpm, ef: (speedMs * 60) / s.avgHrBpm });
-    }
+  const diag = { sessions: 0, withHr: 0, inBand: 0, flat: 0 };
+  for (const s of liveRecords(data.actual)) {
+    if (s.discipline !== discipline || s.durationSec < EF_MIN_SEC || !s.distanceM) continue;
+    const day = sessionDay(s);
+    if (day < from) continue;
+    diag.sessions++;
+    if (!s.avgHrBpm) continue;
+    diag.withHr++;
+    if (!hrMax) continue;
+    const r = s.avgHrBpm / hrMax;
+    if (r < band[0] || r > band[1]) continue;
+    diag.inBand++;
+    if (s.elevationGainM && s.elevationGainM / s.distanceM > maxClimb) continue;
+    diag.flat++;
+    const speedMs = s.distanceM / s.durationSec;
+    points.push({ day, sessionId: s.id, speedMs, avgHr: s.avgHrBpm, ef: (speedMs * 60) / s.avgHrBpm });
   }
   points.sort((a, b) => (a.day < b.day ? -1 : 1));
   const byWeek = new Map<string, number[]>();
@@ -124,9 +183,11 @@ export function efficiency(data: AppData, hrMax: number | null, discipline: 'RUN
   const recent = points.filter((p) => p.day > addDays(todayDay, -28)), before = points.filter((p) => p.day <= addDays(todayDay, -28) && p.day > addDays(todayDay, -56));
   const mr = recent.length >= 2 ? median(recent.map((p) => p.ef)) : null, mb = before.length >= 2 ? median(before.map((p) => p.ef)) : null;
   const refHr = points.length ? Math.round(median(points.map((p) => p.avgHr))!) : null;
+  const n = points.length;
   return {
-    discipline, points, weeks,
+    discipline, points, weeks, diag,
     change: mr !== null && mb !== null ? mr / mb - 1 : null,
+    lastVsPrevious: n >= 2 ? points[n - 1].ef / points[n - 2].ef - 1 : null,
     refHr,
     speedNow: mr !== null && refHr ? (mr * refHr) / 60 : null, speedBefore: mb !== null && refHr ? (mb * refHr) / 60 : null,
   };

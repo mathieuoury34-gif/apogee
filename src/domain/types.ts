@@ -201,7 +201,10 @@ export interface SleepNight extends Rec {
   startAt: string;
   endAt: string;
   zoneOffsetMinutes: number | null;
+  /** Temps endormi quand Health Connect donne les étapes du sommeil (éveils exclus, comme Garmin) ; sinon temps passé au lit. */
   durationSec: number;
+  /** `true` : `durationSec` est le temps endormi (étapes connues). Absent : temps passé au lit, éveils compris. */
+  fromStages?: boolean;
   sourceId: string | null;
 }
 

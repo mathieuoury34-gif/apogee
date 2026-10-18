@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { estimateDistance, estimateDuration, newBlock, validateSession } from '../src/domain/blocks';
 import { addDays, localDay, mondayOf, weeksOfMonth } from '../src/domain/dates';
 import { derive, refsOf } from '../src/domain/engine';
-import { bestSegment, bestSpeedOver, suggestZones } from '../src/domain/records';
+import { bestSegment, bestSpeedOver, efficiency, personalRecords, suggestZones } from '../src/domain/records';
 import { forecastLoad } from '../src/domain/forecast';
 import { fitnessByDiscipline } from '../src/domain/loadByDiscipline';
 import { polarSplit, zoneIndex, zoneTimes } from '../src/domain/zones';
@@ -376,6 +376,72 @@ test('records : meilleur segment et meilleure vitesse tenue dans une série de v
   const v = bestSpeedOver(sp, 360)!;
   assert.ok(Math.abs(v - 5) < 0.05);
   assert.equal(bestSegment(sp.slice(0, 4), 100), null);
+});
+
+test('records : temps de déplacement (arrêts exclus), arrivée interpolée, courbe recalée sur la distance de la séance', () => {
+  const steady = (v: number, sec: number, step = 1, t0 = 0): [number, number][] => Array.from({ length: Math.floor(sec / step) + 1 }, (_, i) => [t0 + i * step, v]);
+  // 10 m/s : 1 km en 100 s pile, même quand les points sont espacés de 7 s (arrivée interpolée entre deux points)
+  assert.ok(Math.abs(bestSegment(steady(10, 4000), 1000)! - 100) < 0.01);
+  assert.ok(Math.abs(bestSegment(steady(10, 4000, 7), 1000)! - 100) < 0.01);
+  // 10 m/s pendant 1 000 s, 10 minutes d'arrêt (aucun point), puis 10 m/s pendant 1 000 s : 20 km = 2 000 s de déplacement, pas 2 600
+  const withStop = [...steady(10, 1000), ...steady(10, 1000, 1, 1600)];
+  assert.ok(Math.abs(bestSegment(withStop, 15000)! - 1500) < 0.5, 'les arrêts ne comptent pas');
+  // vitesse recalée : 2 % de distance en plus = 2 % de temps en moins
+  assert.ok(Math.abs(bestSegment(steady(10, 4000), 1000, 1.02)! - 100 / 1.02) < 0.01);
+  // le meilleur 1 km est dans la partie rapide, qu'il commence ou finisse entre deux points
+  const mixed: [number, number][] = [...steady(5, 600, 5), ...steady(8, 600, 5, 605)];
+  assert.ok(Math.abs(bestSegment(mixed, 1000)! - 125) < 1.5);
+  // personalRecords : une courbe qui ne couvre que 70 % de la distance enregistrée n'est pas utilisée
+  const data = emptyData();
+  const mk = (id: string, distanceM: number) => ({ id, updatedAt: '', sourceId: id, source: 'health', discipline: 'BIKE', rawExerciseType: '8', startAt: '2026-10-18T07:00:00.000Z', endAt: '2026-10-18T08:30:00.000Z', zoneOffsetMinutes: 0, durationSec: 5400, distanceM, activeCaloriesJ: null, totalCaloriesJ: null, elevationGainM: null, avgHrBpm: null, maxHrBpm: null, minHrBpm: null, hrCoverageRatio: null, hrSampleCount: null, avgSpeedMs: null, maxSpeedMs: null, hasSeries: true, edited: [], rpe: null, comment: null, ingestedAt: '' }) as unknown as ActualSession;
+  data.actual.a = mk('a', 45000);
+  data.series.a = { id: 'a', updatedAt: '', hr: [], speed: steady(9, 5000) };      // 45 km au compteur, 45 km dans la courbe
+  data.actual.b = mk('b', 64000);
+  data.series.b = { id: 'b', updatedAt: '', hr: [], speed: steady(9, 5000) };      // 64 km annoncés, 45 km dans la courbe : inutilisable
+  const recs = personalRecords(data);
+  const r20 = recs.find((r) => r.spec.label === '20 km')!;
+  assert.equal(r20.sessionId, 'a');
+  assert.ok(Math.abs(r20.timeSec - 20000 / 9) < 0.5, `20 km à 9 m/s : ${r20.timeSec}`);
+  assert.equal(r20.basis, 'segment');
+});
+
+test('efficacité à vélo : disponible dès deux sorties, et dit pourquoi des séances sont écartées', () => {
+  const data = emptyData();
+  const ride = (id: string, day: string, hr: number, climbM = 100) => ({ id, updatedAt: '', sourceId: id, source: 'health', discipline: 'BIKE', rawExerciseType: '8', startAt: day + 'T07:00:00.000Z', endAt: day + 'T08:30:00.000Z', zoneOffsetMinutes: 0, durationSec: 5400, distanceM: 40000, activeCaloriesJ: null, totalCaloriesJ: null, elevationGainM: climbM, avgHrBpm: hr, maxHrBpm: null, minHrBpm: null, hrCoverageRatio: null, hrSampleCount: null, avgSpeedMs: null, maxSpeedMs: null, hasSeries: false, edited: [], rpe: null, comment: null, ingestedAt: '' }) as unknown as ActualSession;
+  // FC max 190 : 55 % = 105 bpm ; 130 bpm = 68 % (hors de l'ancienne bande vélo ? non, dedans), 100 bpm = 53 % (trop bas)
+  data.actual.a = ride('a', '2026-10-04', 132);
+  data.actual.b = ride('b', '2026-10-11', 128);
+  data.actual.c = ride('c', '2026-10-12', 100);
+  data.actual.d = ride('d', '2026-10-13', 135, 1500);   // 3,75 % de pente : écartée
+  const ef = efficiency(data, 190, 'BIKE', '2026-10-17');
+  assert.equal(ef.points.length, 2);
+  assert.deepEqual(ef.diag, { sessions: 4, withHr: 4, inBand: 3, flat: 2 });
+  assert.ok(ef.lastVsPrevious! > 0, 'même distance et même durée à une FC plus basse : plus efficace');
+  const one = emptyData(); one.actual.a = ride('a', '2026-10-04', 132);
+  assert.equal(efficiency(one, 190, 'BIKE', '2026-10-17').points.length, 1);
+});
+
+test('sommeil : le temps endormi remplace le temps passé au lit, une sieste ou une nuit sans étapes ne le remplace pas', () => {
+  const d = emptyData();
+  const night = (id: string, start: string, end: string, asleepSec?: number | null) => ({ id, clientRecordId: null, startTime: start, endTime: end, startZoneOffsetSeconds: 7200, ...(asleepSec === undefined ? {} : { asleepSec }) });
+  // nuit lue sans étapes (ancien APK) : 8 h au lit
+  let r = ingest(d, [], [night('n1', '2026-10-16T20:30:00Z', '2026-10-17T04:30:00Z')], []);
+  assert.equal(r.ops.sleep[0].durationSec, 8 * 3600);
+  assert.ok(!r.ops.sleep[0].fromStages);
+  d.sleep[r.ops.sleep[0].id] = r.ops.sleep[0];
+  // même nuit relue avec les étapes : 7 h endormi, qui remplace les 8 h
+  r = ingest(d, [], [night('n1', '2026-10-16T20:30:00Z', '2026-10-17T04:30:00Z', 7 * 3600)], []);
+  assert.equal(r.ops.sleep.length, 1);
+  assert.equal(r.ops.sleep[0].durationSec, 7 * 3600);
+  assert.equal(r.ops.sleep[0].fromStages, true);
+  d.sleep[r.ops.sleep[0].id] = r.ops.sleep[0];
+  // une sieste du même jour (plus courte) ou une lecture sans étapes ne l'écrase pas
+  assert.equal(ingest(d, [], [night('nap', '2026-10-17T11:00:00Z', '2026-10-17T11:40:00Z', 35 * 60)], []).ops.sleep.length, 0);
+  assert.equal(ingest(d, [], [night('n1', '2026-10-16T20:30:00Z', '2026-10-17T04:30:00Z', null)], []).ops.sleep.length, 0);
+  // jamais plus que le temps passé au lit
+  const odd = ingest(emptyData(), [], [night('x', '2026-10-16T20:30:00Z', '2026-10-17T04:30:00Z', 99 * 3600)], []);
+  assert.equal(odd.ops.sleep[0].durationSec, 8 * 3600);
+  assert.equal(sleepStats(d, '2026-10-17').staged14, 1);
 });
 
 test('forme de fond par discipline : la somme des disciplines redonne la forme de fond totale', () => {

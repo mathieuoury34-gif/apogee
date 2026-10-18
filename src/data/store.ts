@@ -142,6 +142,8 @@ export interface Prefs {
   healthLastRun?: string;
   healthLastError?: string;
   healthLastReport?: string;
+  /** Les nuits ont été relues avec le temps réellement endormi (APK avec les étapes du sommeil). */
+  healthSleepAsleep?: boolean;
   /** Rappels de séance (APK) : heure locale. */
   reminderHour: number;
 }

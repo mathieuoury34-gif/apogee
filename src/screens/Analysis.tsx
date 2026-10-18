@@ -7,13 +7,14 @@ import { AppHeader, Empty, ErrorBanner, OtherToggle, Segmented, Sheet, SubNav, s
 import { useLocalSheet } from '../ui/menu';
 import { FITNESS_COLOR, FITNESS_LABEL, SplitBars, StackedFitness } from '../ui/charts2';
 import { navigate } from '../ui/router';
+import { Icon } from '../ui/icons';
 import { useCalc } from '../data/store';
 import { deleteWeight, restore, saveWeight } from '../data/actions';
 import { sleepStats, weightTrend } from '../domain/body';
 import { planCompliance, type Compliance } from '../domain/compliance';
 import { addDays, mondayOf } from '../domain/dates';
 import { fitnessByDiscipline, type LoadKey } from '../domain/loadByDiscipline';
-import { brickAnalysis, efficiency, personalRecords, type PersonalRecord } from '../domain/records';
+import { brickAnalysis, efficiency, EF_BAND, EF_BAND_BIKE, EF_MAX_CLIMB, EF_MAX_CLIMB_BIKE, personalRecords, type PersonalRecord } from '../domain/records';
 import { weekSummary, type WeekSummary } from '../domain/summary';
 import { HR_ZONE_EDGES, polarSplit, weeklyZones } from '../domain/zones';
 import { dateFr, dateShort, dayMonth, DISCIPLINE_LABEL, duration, mmss, monthLong, num, pct, signed, speedKmh, NBSP } from '../ui/format';
@@ -49,23 +50,10 @@ export function AnalysisScreen() {
 const hms = (sec: number) => { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.round(sec % 60); return (h ? h + ':' + String(m).padStart(2, '0') : String(m)) + ':' + String(s).padStart(2, '0'); };
 
 // ------------------------------------------------------------------ bilan de semaine
-function weekText(w: WeekSummary): string {
-  const lines = [`Bilan de la semaine du ${dateFr(w.start)} au ${dateFr(w.end)}${w.partial ? ' (en cours)' : ''}`];
-  lines.push(`Séances : ${w.doneSessions} réalisées sur ${w.plannedSessions} prévues.`);
-  for (const r of w.disciplines) lines.push(`- ${DISCIPLINE_LABEL[r.key as 'RUN']} : ${duration(r.doneSec)} réalisé${r.plannedSec ? ` pour ${duration(r.plannedSec)} prévu` : ''}`);
-  lines.push(`Charge de la semaine : ${num(w.load, 0)}${w.previousLoad !== null ? ` (semaine précédente : ${num(w.previousLoad, 0)})` : ''}.`);
-  if (w.fitness !== null) lines.push(`Forme de fond : ${num(w.fitness, 0)}${w.fitnessDelta !== null ? ` (${signed(w.fitnessDelta, 1)} sur 7 jours)` : ''} ; fraîcheur : ${w.freshness === null ? '—' : signed(w.freshness, 0)}${w.acwr !== null ? ` ; rapport aigu/chronique : ${num(w.acwr, 2)}` : ''}.`);
-  if (w.interruption) lines.push(`Interruption déclarée : ${w.interruption}.`);
-  return lines.join('\n');
-}
-
 function WeekCard({ data, d }: Props) {
   const [which, setWhich] = useState<'this' | 'last'>('this');
   const start = which === 'this' ? mondayOf(d.today) : addDays(mondayOf(d.today), -7);
   const w = weekSummary(data, d, start);
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(weekText(w)); showToast($t("Bilan copié")); } catch { showToast($t("Copie impossible sur cet appareil"), { error: true }); }
-  };
   const diff = w.previousLoad && w.previousLoad > 0 ? w.load / w.previousLoad - 1 : null;
   return (
     <section className="card g12" aria-label={$t("Bilan de semaine")}>
@@ -87,21 +75,24 @@ function WeekCard({ data, d }: Props) {
           <p className="t-legal c-moderate">{$t("Les durées sont « réalisé / prévu » ; le prévu n’est compté que pour les séances dont la durée est connue.")}</p>
         </>
       )}
-      <button type="button" className="btn btn-secondary" onClick={copy}>{$t("Copier le bilan pour mon coach")}</button>
     </section>
   );
 }
 
 // ------------------------------------------------------------------ respect du plan
+/** Vert : au moins 80 % des séances prévues faites ; orange : 50 à 79 % ; rouge : moins de la moitié. */
+const rateTone = (r: number) => (r >= 0.8 ? 'success' : r >= 0.5 ? 'warning' : 'critical');
+
 function rateBar(c: Compliance) {
   const r = c.planned ? c.done / c.planned : null;
+  const tone = r === null ? null : rateTone(r);
   return (
     <li key={c.key} className="stack-4">
       <div className="between t-caption">
         <span className="t-caption-strong">{c.key.length === 7 ? monthLong(c.key) : $t("Semaine du {0}", { 0: dayMonth(c.key) })}</span>
-        <span className="c-neutral">{r === null ? '—' : `${c.done}/${c.planned} · ${pct(r)}`}{c.plannedSec > 0 ? ` · ${duration(c.doneSec)} / ${duration(c.plannedSec)}` : ''}</span>
+        <span className="c-neutral">{r === null ? $t("rien de prévu") : <><span className="t-caption-strong" style={{ color: `var(--${tone}-text)` }}>{pct(r)}</span>{` · ${c.done}/${c.planned}`}</>}{c.plannedSec > 0 ? ` · ${duration(c.doneSec)} / ${duration(c.plannedSec)}` : ''}</span>
       </div>
-      <div className="meter"><span style={{ width: r === null ? 0 : `${Math.round(Math.min(1, r) * 100)}%`, background: "var(--brand-primary)" }} /></div>
+      <div className="meter"><span style={{ width: r === null ? 0 : `${Math.round(Math.min(1, r) * 100)}%`, background: tone ? `var(--${tone})` : undefined }} /></div>
     </li>
   );
 }
@@ -109,29 +100,39 @@ function rateBar(c: Compliance) {
 function ComplianceCard({ d, data }: Props) {
   const [by, setBy] = useState<'week' | 'month'>('week');
   const rep = planCompliance(data, d.links, d.refs, d.today);
-  const l4 = rep.last4;
-  if (!l4.planned && !rep.weeks.length && !rep.months.length) {
+  if (!rep.weeks.length && !rep.months.length) {
     return <section className="card g12" aria-label={$t("Respect du plan")}><h2>{$t("Respect du plan")}</h2><Empty icon="calendrier" title={$t("Pas encore de séance prévue échue")} text={$t("Dès que des séances prévues sont passées, tu verras ici la part que tu as réalisée.")} /></section>;
   }
-  const rows = (by === 'week' ? rep.weeks : rep.months).slice().reverse();
+  // les 3 dernières semaines (ou les 3 derniers mois) civils, y compris celles où rien n'était prévu
+  const wanted = by === 'week'
+    ? [0, 1, 2].map((k) => addDays(mondayOf(d.today), -7 * k))
+    : [0, 1, 2].map((k) => { const x = new Date(d.today + 'T00:00:00Z'); x.setUTCDate(1); x.setUTCMonth(x.getUTCMonth() - k); return x.toISOString().slice(0, 7); });
+  const pool = by === 'week' ? rep.weeks : rep.months;
+  const rows: Compliance[] = wanted.map((k) => pool.find((c) => c.key === k) ?? { key: k, planned: 0, done: 0, plannedSec: 0, doneSec: 0 });
+  const tot = rows.reduce((t, c) => ({ planned: t.planned + c.planned, done: t.done + c.done, plannedSec: t.plannedSec + c.plannedSec, doneSec: t.doneSec + c.doneSec }), { planned: 0, done: 0, plannedSec: 0, doneSec: 0 });
   return (
     <section className="card g12" aria-label={$t("Respect du plan")}>
-      <div className="between"><h2>{$t("Respect du plan")}</h2><Segmented label={$t("Regroupement")} value={by} onChange={setBy} options={[['week', $t("Semaine")], ['month', $t("Mois")]]} /></div>
-      {l4.planned > 0 && (
+      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Respect du plan")}</h2><Segmented label={$t("Regroupement")} value={by} onChange={setBy} options={[['week', $t("3 sem.")], ['month', $t("3 mois")]]} /></div>
+      {tot.planned > 0 && (
         <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}>
-          <span className="t-h2">{pct(l4.done / l4.planned)}</span>
-          <span className="t-caption c-neutral">{$t("des séances prévues ces 4 dernières semaines ({0} sur {1}){2}", { 0: l4.done, 1: l4.planned, 2: l4.plannedSec > 0 ? $t(", soit {0} de temps réalisé sur {1} prévu", { 0: duration(l4.doneSec), 1: duration(l4.plannedSec) }) : '' })}</span>
+          <span className="t-h2" style={{ color: `var(--${rateTone(tot.done / tot.planned)}-text)` }}>{pct(tot.done / tot.planned)}</span>
+          <span className="t-caption c-neutral">{by === 'week' ? $t("des séances prévues sur ces 3 semaines ({0} sur {1}){2}", { 0: tot.done, 1: tot.planned, 2: tot.plannedSec > 0 ? $t(", soit {0} de temps réalisé sur {1} prévu", { 0: duration(tot.doneSec), 1: duration(tot.plannedSec) }) : '' }) : $t("des séances prévues sur ces 3 mois ({0} sur {1}){2}", { 0: tot.done, 1: tot.planned, 2: tot.plannedSec > 0 ? $t(", soit {0} de temps réalisé sur {1} prévu", { 0: duration(tot.doneSec), 1: duration(tot.plannedSec) }) : '' })}</span>
         </div>
       )}
       <ul className="stack" style={{ gap: 'var(--space-10)' }}>{rows.map(rateBar)}</ul>
-      <p className="t-legal c-moderate">{$t("Une séance prévue compte comme faite quand une séance réalisée lui est rattachée. Les jours couverts par une interruption ne comptent pas comme manqués. Le temps ne porte que sur les séances dont la durée prévue est connue.")}</p>
+      <div className="row t-legal c-moderate" style={{ gap: 'var(--space-12)', flexWrap: 'wrap' }}>
+        <span><span className="dot s10" style={{ background: 'var(--success)' }} /> {$t("80 % ou plus")}</span>
+        <span><span className="dot s10" style={{ background: 'var(--warning)' }} /> {$t("50 à 79 %")}</span>
+        <span><span className="dot s10" style={{ background: 'var(--critical)' }} /> {$t("moins de 50 %")}</span>
+      </div>
+      <p className="t-legal c-moderate">{$t("Une séance prévue compte comme faite quand une séance réalisée lui est rattachée. Les jours couverts par une interruption ne comptent pas comme manqués. Le temps ne porte que sur les séances dont la durée prévue est connue. Le mois et la semaine en cours ne comptent que les jours déjà passés.")}</p>
     </section>
   );
 }
 
 // ------------------------------------------------------------------ zones de FC
 function ZonesCard({ d, data }: Props) {
-  const [n, setN] = useState<'4' | '8' | '12'>('8');
+  const [n, setN] = useState<'4' | '8' | '12'>('4');
   const [withOther] = useWithOther();
   const hrMax = d.ctx.hrMax.bpm;
   const rep = weeklyZones(data, hrMax, d.today, +n, withOther);
@@ -183,18 +184,29 @@ function FitnessCard({ d, data }: Props) {
   if (all.length < 2) return null;
   const keys = (['SWIM', 'BIKE', 'RUN', 'STRENGTH', 'OTHER', 'FORFAIT'] as LoadKey[]).filter((k) => (k !== 'OTHER' || withOther) && all.some((s) => s.byKey[k] > 0.5));
   const last = all[all.length - 1];
+  const before = all.filter((s) => s.day <= addDays(last.day, -28)).pop() ?? null;
   const tot = keys.reduce((t, k) => t + last.byKey[k], 0);
+  const totBefore = before ? keys.reduce((t, k) => t + before.byKey[k], 0) : null;
   return (
     <section className="card g12" aria-label={$t("Forme de fond par discipline")}>
       <h2>{$t("Forme de fond par discipline")}</h2>
+      <p className="t-caption c-neutral">{$t("Ta forme de fond est ton niveau d’entraînement des dernières semaines : une moyenne de ta charge sur 6 semaines, sans unité. Plus elle est haute, plus tu t’entraînes régulièrement.")}</p>
+      <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}>
+        <span className="t-h2">{num(tot, 0)}</span>
+        <span className="t-caption c-neutral">{totBefore !== null ? $t("aujourd’hui, contre {0} il y a 4 semaines ({1})", { 0: num(totBefore, 0), 1: signed(tot - totBefore, 0) }) : $t("aujourd’hui")}</span>
+      </div>
       <OtherToggle />
+      <p className="t-caption c-moderate">{$t("Chaque barre est une semaine : sa hauteur est ta forme de fond ce jour-là, et ses couleurs montrent la part de chaque discipline.")}</p>
       <StackedFitness slices={all} keys={keys} />
       <ul>
-        {keys.map((k) => (
-          <li key={k} className="legend-row"><span className="dot s10" style={{ background: FITNESS_COLOR[k] }} /><span className="t-caption">{FITNESS_LABEL[k]}</span><span className="t-caption-strong">{num(last.byKey[k], 0)} · {pct(tot ? last.byKey[k] / tot : 0)}</span></li>
-        ))}
+        {keys.map((k) => {
+          const dv = before ? last.byKey[k] - before.byKey[k] : null;
+          return (
+            <li key={k} className="legend-row"><span className="dot s10" style={{ background: FITNESS_COLOR[k] }} /><span className="t-caption">{FITNESS_LABEL[k]}</span><span className="t-caption-strong">{num(last.byKey[k], 0)} · {pct(tot ? last.byKey[k] / tot : 0)}{dv !== null ? ` · ${signed(dv, 0)}` : ''}</span></li>
+          );
+        })}
       </ul>
-      <p className="t-legal c-moderate">{$t("Le même calcul que la forme de fond (moyenne exponentielle sur 42 jours), appliqué séparément à la charge de chaque discipline ; la somme redonne la forme de fond totale. Un point par semaine, sur 6 mois.")}</p>
+      <p className="t-legal c-moderate">{$t("Pour chaque discipline : sa part de la forme de fond actuelle, puis son évolution depuis 4 semaines. « Interruption (forfait) » est la charge forfaitaire comptée pendant une blessure ou un voyage déclaré. Même calcul que la forme de fond de l’onglet Charge (moyenne exponentielle sur 42 jours) : la somme des disciplines redonne la forme de fond totale. Un point par semaine, sur 6 mois.")}</p>
     </section>
   );
 }
@@ -210,27 +222,57 @@ function Spark({ values }: { values: number[] }) {
 
 function EfficiencyCard({ d, data }: Props) {
   const [disc, setDisc] = useState<'RUN' | 'BIKE'>('RUN');
-  const ef = efficiency(data, d.ctx.hrMax.bpm, disc, d.today);
+  const hrMax = d.ctx.hrMax.bpm;
+  const ef = efficiency(data, hrMax, disc, d.today);
   const fmt = (v: number | null) => (v === null ? '—' : disc === 'RUN' ? mmss(1000 / v) + NBSP + '/km' : speedKmh(v));
+  const band = disc === 'BIKE' ? EF_BAND_BIKE : EF_BAND;
+  const climb = disc === 'BIKE' ? EF_MAX_CLIMB_BIKE : EF_MAX_CLIMB;
+  const recent = ef.points.slice(-5).reverse();
   return (
     <section className="card g12" aria-label={$t("Tendance d’efficacité")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
         <h2>{$t("Tendance d’efficacité")}</h2>
         <Segmented label={$t("Discipline")} value={disc} onChange={setDisc} options={[['RUN', DISCIPLINE_LABEL.RUN], ['BIKE', DISCIPLINE_LABEL.BIKE]]} />
       </div>
-      {ef.points.length < 4 ? <p className="t-caption c-moderate">{$t("Pas assez de séances comparables : il faut des séances d’au moins 20 minutes, à une FC moyenne entre 65 et 85 % de ta FC max, sur terrain peu pentu, avec distance et FC moyenne.")}</p> : (
+      {ef.points.length < 2 ? (
+        <>
+          <p className="t-caption c-moderate">{$t("Pas encore assez de séances comparables : il en faut au moins 2.")}</p>
+          <dl className="kv">
+            <dt>{$t("{0} de 20 min ou plus avec distance", { 0: DISCIPLINE_LABEL[disc] })}</dt><dd>{ef.diag.sessions}</dd>
+            <dt>{$t("dont avec une FC moyenne")}</dt><dd>{ef.diag.withHr}</dd>
+            <dt>{hrMax ? $t("dont FC moyenne entre {0} et {1} bpm", { 0: Math.round(band[0] * hrMax), 1: Math.round(band[1] * hrMax) }) : $t("dont FC moyenne dans la bonne zone")}</dt><dd>{ef.diag.inBand}</dd>
+            <dt>{$t("dont relief inférieur à {0} %", { 0: climb * 100 })}</dt><dd>{ef.diag.flat}</dd>
+          </dl>
+        </>
+      ) : (
         <>
           {ef.change !== null && ef.refHr ? (
             <div className="stack-4">
               <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2">{signed(ef.change * 100, 1)}{NBSP}%</span><span className="t-caption c-neutral">{$t("d’efficacité sur les 4 dernières semaines")}</span></div>
               <span className="t-caption c-neutral">{$t("À {0} bpm : {1} aujourd’hui, contre {2} il y a 4 semaines.", { 0: ef.refHr, 1: fmt(ef.speedNow), 2: fmt(ef.speedBefore) })}</span>
             </div>
-          ) : <p className="t-caption c-moderate">{$t("Il faut au moins 2 séances comparables sur les 4 dernières semaines et 2 sur les 4 précédentes pour afficher une évolution.")}</p>}
-          <Spark values={ef.weeks.map((w) => w.ef)} />
-          <div className="between t-legal c-moderate"><span>{dateShort(ef.weeks[0].start)}</span><span>{$t("{0} séances comparables", { 0: ef.points.length })}</span><span>{dateShort(ef.weeks[ef.weeks.length - 1].start)}</span></div>
+          ) : ef.lastVsPrevious !== null ? (
+            <div className="stack-4">
+              <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2">{signed(ef.lastVsPrevious * 100, 1)}{NBSP}%</span><span className="t-caption c-neutral">{$t("d’efficacité par rapport à la séance comparable précédente")}</span></div>
+              <span className="t-caption c-moderate">{$t("Pas encore 2 séances sur les 4 dernières semaines et 2 sur les 4 précédentes : on compare pour l’instant la dernière séance à la précédente.")}</span>
+            </div>
+          ) : null}
+          {ef.weeks.length >= 2 && <Spark values={ef.weeks.map((w) => w.ef)} />}
+          {ef.weeks.length >= 2 && <div className="between t-legal c-moderate"><span>{dateShort(ef.weeks[0].start)}</span><span>{$t("{0} séances comparables", { 0: ef.points.length })}</span><span>{dateShort(ef.weeks[ef.weeks.length - 1].start)}</span></div>}
+          <h3 className="t-strong">{$t("Dernières séances comparables")}</h3>
+          <ul>
+            {recent.map((p) => (
+              <li key={p.sessionId} className="rec-row">
+                <button type="button" className="row-btn" style={{ padding: 0, textAlign: 'left' }} onClick={() => navigate('/seances/' + p.sessionId)}>
+                  <span className="stack-4"><span className="t-label">{dateFr(p.day)}</span><span className="t-caption c-moderate">{$t("{0} en moyenne, FC {1} bpm", { 0: fmt(p.speedMs), 1: num(p.avgHr, 0) })}</span></span>
+                </button>
+                <span className="stack-4" style={{ textAlign: 'right' }}><span className="t-strong">{ef.refHr ? fmt((p.ef * ef.refHr) / 60) : '—'}</span><span className="t-caption c-moderate">{ef.refHr ? $t("à {0} bpm", { 0: ef.refHr }) : ''}</span></span>
+              </li>
+            ))}
+          </ul>
         </>
       )}
-      <p className="t-legal c-moderate">{$t("Efficacité = mètres parcourus par battement (vitesse ÷ FC moyenne), médiane par semaine, sur 26 semaines. On compare des séances à effort égal (FC moyenne entre 65 et 85 % de ta FC max, 20 min minimum, dénivelé inférieur à 2 %). Chaleur, fatigue, vent ou revêtement la font varier : lis une tendance, pas une séance.")}</p>
+      <p className="t-legal c-moderate">{disc === 'RUN' ? $t("Efficacité = mètres parcourus par battement (vitesse ÷ FC moyenne). On compare des séances à effort égal : FC moyenne entre 65 et 85 % de ta FC max, 20 min minimum, dénivelé inférieur à 2 %. La colonne de droite ramène chaque séance à la même FC (la FC habituelle de ces séances) pour qu’elles soient comparables. Chaleur, fatigue, vent ou revêtement la font varier : lis une tendance, pas une séance.") : $t("Efficacité = mètres parcourus par battement (vitesse ÷ FC moyenne). À vélo : FC moyenne entre 55 et 85 % de ta FC max, 20 min minimum, dénivelé inférieur à 3 %. La colonne de droite ramène chaque sortie à la même FC (la FC habituelle de ces sorties) pour qu’elles soient comparables. Vent, relief, arrêts et groupe la font varier : lis une tendance, pas une sortie.")}</p>
     </section>
   );
 }
@@ -255,7 +297,7 @@ function RecordsCard({ data }: Props) {
     <section className="card g12" aria-label={$t("Records personnels")}>
       <h2>{$t("Records personnels")}</h2>
       <ul>{recs.map(line)}</ul>
-      <p className="t-legal c-moderate">{$t("Meilleur segment continu de la distance, lu dans la courbe de vitesse de la montre ; « séance entière » quand il n’y a pas de courbe et que la distance de la séance est à 3 % près celle du record. Une vitesse physiquement impossible est écartée. Cliquer ouvre la séance.")}</p>
+      <p className="t-legal c-moderate">{$t("Meilleur segment de la distance, lu dans la courbe de vitesse de la montre et recalé sur la distance enregistrée de la séance. Le temps est le temps de déplacement : les arrêts (pause automatique de la montre) ne comptent pas, comme dans Garmin. « Séance entière » : pas de courbe exploitable, et la distance de la séance est à 3 % près celle du record. Une vitesse physiquement impossible est écartée. Cliquer ouvre la séance.")}</p>
     </section>
   );
 }
@@ -319,7 +361,8 @@ function SleepCard({ data, d }: Props) {
         <dt>{$t("Heure de coucher habituelle")}</dt><dd>{st.bedtimeMedian === null ? '—' : clock(st.bedtimeMedian)}</dd>
         <dt>{$t("Régularité du coucher (écart-type)")}</dt><dd>{st.bedtimeSd === null ? '—' : '± ' + Math.round(st.bedtimeSd) + NBSP + 'min'}</dd>
       </dl>
-      <p className="t-legal c-moderate">{$t("Lecture seule, sans objectif de sommeil imposé : on compare ta semaine à tes propres habitudes. Le coucher est l’heure de début de la nuit lue par Health Connect, sur les 14 dernières nuits (5 minimum). Plus l’écart-type est petit, plus tes nuits sont régulières. La durée de la nuit compte déjà dans la forme du jour.")}</p>
+      {st.staged14 < st.nights14 && <div className="note"><Icon name="info" size={20} /><span>{st.staged14 === 0 ? $t("Ces durées sont le temps passé au lit, éveils compris : Health Connect ne donne pas (encore) les étapes du sommeil. Avec la dernière version de l’APK, l’app compte le temps réellement endormi, comme Garmin Connect.") : $t("{0} nuit(s) sur {1} sont comptées en temps passé au lit (étapes du sommeil indisponibles), les autres en temps réellement endormi.", { 0: st.nights14 - st.staged14, 1: st.nights14 })}</span></div>}
+      <p className="t-legal c-moderate">{$t("Lecture seule, sans objectif de sommeil imposé : on compare ta semaine à tes propres habitudes. La durée est le temps réellement endormi (éveils exclus) quand Health Connect donne les étapes du sommeil, comme dans Garmin Connect. Le coucher est l’heure de début de la nuit lue par Health Connect, sur les 14 dernières nuits (5 minimum). Plus l’écart-type est petit, plus tes nuits sont régulières. La durée de la nuit compte déjà dans la forme du jour.")}</p>
     </section>
   );
 }

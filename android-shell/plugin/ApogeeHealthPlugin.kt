@@ -180,9 +180,15 @@ class ApogeeHealthPlugin : Plugin() {
             try {
                 val nights = JSArray()
                 for (s in readAll(c, SleepSessionRecord::class, start, end)) {
+                    // temps réellement endormi : étapes « dormir » (2), léger (4), profond (5), paradoxal (6) ; l'éveil (1, 7), la sortie du lit (3) et l'inconnu (0) sont exclus
+                    var asleep = 0L
+                    for (st in s.stages) {
+                        if (st.stage == 2 || st.stage == 4 || st.stage == 5 || st.stage == 6) asleep += st.endTime.epochSecond - st.startTime.epochSecond
+                    }
                     nights.put(JSObject().put("id", s.metadata.id).putN("clientRecordId", s.metadata.clientRecordId)
                         .put("startTime", s.startTime.toString()).put("endTime", s.endTime.toString())
-                        .putN("startZoneOffsetSeconds", s.startZoneOffset?.totalSeconds))
+                        .putN("startZoneOffsetSeconds", s.startZoneOffset?.totalSeconds)
+                        .putN("asleepSec", if (s.stages.isEmpty()) null else asleep))
                 }
                 call.resolve(JSObject().put("nights", nights))
             } catch (e: Exception) { call.reject(e.message ?: "Lecture du sommeil impossible") }

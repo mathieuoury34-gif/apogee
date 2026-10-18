@@ -38,7 +38,7 @@ export interface NativeSession {
   hr: [number, number][];
   speed: [number, number][];
 }
-export interface NativeSleep { id: string; clientRecordId: string | null; startTime: string; endTime: string; startZoneOffsetSeconds: number | null }
+export interface NativeSleep { id: string; clientRecordId: string | null; startTime: string; endTime: string; startZoneOffsetSeconds: number | null; /** Temps endormi d'après les étapes (absent avant l'APK qui les lit ; null si pas d'étapes). */ asleepSec?: number | null }
 export interface NativeResting { id: string; time: string; zoneOffsetSeconds: number | null; bpm: number }
 export interface NativeWeight { id: string; time: string; zoneOffsetSeconds: number | null; kg: number }
 
@@ -96,12 +96,18 @@ export function ingest(data: AppData, sessions: NativeSession[], nights: NativeS
   for (const n of nights) {
     const off = n.startZoneOffsetSeconds == null ? null : Math.round(n.startZoneOffsetSeconds / 60);
     const nightDate = localDay(n.endTime, off);
-    const dur = Math.round((Date.parse(n.endTime) - Date.parse(n.startTime)) / 1000);
+    const inBed = Math.round((Date.parse(n.endTime) - Date.parse(n.startTime)) / 1000);
+    // temps réellement endormi quand les étapes sont connues (Garmin affiche ce temps, pas celui passé au lit)
+    const stages = typeof n.asleepSec === 'number' && n.asleepSec > 0;
+    const dur = stages ? Math.min(Math.round(n.asleepSec!), inBed) : inBed;
     const cur = bestNight.get(nightDate) ?? (data.sleep[nightDate] && !data.sleep[nightDate].deleted ? data.sleep[nightDate] : undefined);
-    if (cur && cur.durationSec >= dur) continue;
-    bestNight.set(nightDate, { id: nightDate, updatedAt: now, nightDate, startAt: new Date(n.startTime).toISOString(), endAt: new Date(n.endTime).toISOString(), zoneOffsetMinutes: off, durationSec: dur, sourceId: n.clientRecordId || n.id });
+    if (cur) {
+      if (cur.fromStages && !stages) continue;
+      if (!!cur.fromStages === stages && cur.durationSec >= dur) continue;
+    }
+    bestNight.set(nightDate, { id: nightDate, updatedAt: now, nightDate, startAt: new Date(n.startTime).toISOString(), endAt: new Date(n.endTime).toISOString(), zoneOffsetMinutes: off, durationSec: dur, ...(stages ? { fromStages: true } : {}), sourceId: n.clientRecordId || n.id });
   }
-  for (const v of bestNight.values()) if (!data.sleep[v.id] || data.sleep[v.id].durationSec !== v.durationSec) { ops.sleep.push(v); report.nights++; }
+  for (const v of bestNight.values()) if (!data.sleep[v.id] || data.sleep[v.id].durationSec !== v.durationSec || !!data.sleep[v.id].fromStages !== !!v.fromStages) { ops.sleep.push(v); report.nights++; }
   for (const r of resting) {
     const day = localDay(r.time, r.zoneOffsetSeconds == null ? null : Math.round(r.zoneOffsetSeconds / 60));
     if (data.resting[day] && !data.resting[day].deleted && data.resting[day].bpm === r.bpm) continue;

@@ -40,6 +40,8 @@ export interface SleepStats {
   /** Heure du coucher médiane (minutes depuis minuit, peut dépasser 1 440 après minuit). */
   bedtimeMedian: number | null;
   nights14: number;
+  /** Parmi les 14 dernières nuits, celles dont la durée est le temps réellement endormi (étapes connues). */
+  staged14: number;
 }
 
 /** Minutes depuis midi de la veille ramenées à une échelle continue : 22 h = 1 320, 1 h = 1 500 (évite la coupure à minuit). */
@@ -63,5 +65,6 @@ export function sleepStats(data: AppData, todayDay: string): SleepStats {
     bedtimeSd: sd,
     bedtimeMedian: bt.length >= 5 ? median(bt) : null,
     nights14: n14.length,
+    staged14: n14.filter((n) => n.fromStages).length,
   };
 }

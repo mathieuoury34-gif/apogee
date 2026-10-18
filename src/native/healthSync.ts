@@ -62,9 +62,12 @@ export async function runHealthSync(): Promise<IngestReport | null> {
   const start = prev ? new Date(Date.parse(prev) - OVERLAP_H * 3600_000) : new Date(end.getTime() - (state.history ? FIRST_RUN_DAYS_HISTORY : FIRST_RUN_DAYS) * 86400_000);
   const range = { start: start.toISOString(), end: end.toISOString() };
   try {
+    // une fois, relire 400 jours de nuits pour y mettre le temps réellement endormi (les étapes viennent de l'APK à jour)
+    const rescanSleep = !getPrefs().healthSleepAsleep;
+    const sleepRange = rescanSleep ? { start: new Date(end.getTime() - FIRST_RUN_DAYS_HISTORY * 86400_000).toISOString(), end: range.end } : range;
     const [s, n, r, wt] = await Promise.all([
       h.readSessions(range) as Promise<{ sessions: NativeSession[] }>,
-      (h.readSleep(range) as Promise<{ nights: NativeSleep[] }>).catch(() => ({ nights: [] })),
+      (h.readSleep(sleepRange) as Promise<{ nights: NativeSleep[] }>).catch(() => ({ nights: [] })),
       (h.readResting(range) as Promise<{ records: NativeResting[] }>).catch(() => ({ records: [] })),
       // poids : un APK ou une autorisation en retard ne bloque rien
       (h.readWeight?.(range) as Promise<{ records: NativeWeight[] }> | undefined)?.catch(() => ({ records: [] })) ?? Promise.resolve({ records: [] as NativeWeight[] }),
@@ -77,6 +80,7 @@ export async function runHealthSync(): Promise<IngestReport | null> {
       ops.resting.forEach((x) => tx.put('resting', x));
       ops.weight.forEach((x) => tx.put('weight', x));
     });
+    if (rescanSleep && (n.nights ?? []).some((x) => 'asleepSec' in x)) setPrefs({ healthSleepAsleep: true });
     setPrefs({ healthSyncedUntil: range.end, healthLastRun: range.end, healthLastError: '', healthLastReport: JSON.stringify(report) });
     set({ running: false, lastReport: report });
     return report;
