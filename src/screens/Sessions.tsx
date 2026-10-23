@@ -10,7 +10,7 @@ import { useActualMenu } from '../ui/menu';
 import { back, navigate, openSheet, useRoute } from '../ui/router';
 import { useCalc } from '../data/store';
 import { addManualSessions, addPlannedBulk, brickDecision, deleteActual, editActual, restore, setFeedback, setManualLink } from '../data/actions';
-import { addDays, daysBetween, monthOf } from '../domain/dates';
+import { addDays, daysBetween, mondayOf, monthOf } from '../domain/dates';
 import { exerciseLabel } from '../domain/health';
 import { linkCandidates, findBrickSibling } from '../domain/links';
 import { liveRecords, METHOD_LABEL, sessionDay } from '../domain/load';
@@ -497,8 +497,9 @@ export function StatsScreen() {
   const [period, setPeriod] = useState<'4' | '12' | 'all'>('12');
   const ov = overview(data, d.today);
   const st = disciplineStats(data, d.loads, disc, d.today, d.links);
-  const weeks = period === 'all' ? 520 : +period;
-  const share = weeklyVolume(data, d.today, Math.min(weeks, Math.max(1, ov.weeks)));
+  // « Tout » : depuis la semaine (du lundi) qui contient la première séance, sinon une séance du dimanche de la semaine d'avant restait hors du total
+  const weeks = period === 'all' ? (ov.firstDay ? Math.round(daysBetween(mondayOf(ov.firstDay), mondayOf(d.today)) / 7) + 1 : 1) : +period;
+  const share = weeklyVolume(data, d.today, weeks);
   const totals: Record<string, number> = {};
   share.forEach((w) => Object.entries(w.byDiscipline).forEach(([k, v]) => (totals[k] = (totals[k] ?? 0) + v)));
   const [withOther] = useWithOther();
