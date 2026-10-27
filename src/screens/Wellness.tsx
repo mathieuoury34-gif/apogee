@@ -1,14 +1,16 @@
 // Santé et capacités : calories (dépense / apport) et point hebdomadaire (VO₂max, seuil de lactate, ressenti, prédictions).
 // Tout ce qui vient d'une estimation Apogée ou d'une saisie est étiqueté comme tel ; Apogée ne recalcule pas les indices Garmin.
 import { $t } from '../i18n';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Sheet, showToast, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { Icon } from '../ui/icons';
+import { DecField, DurationField, IntField, PaceField, numOf } from '../ui/wheels';
 import { useLocalSheet } from '../ui/menu';
 import { useCalc } from '../data/store';
 import { addMeal, deleteMeal, restore, saveCheckin } from '../data/actions';
 import { addDays, mondayOf } from '../domain/dates';
 import { dayEnergy, weekEnergy } from '../domain/energy';
+import { capacityHistory, type CapacityPoint } from '../domain/capacity';
 import { currentCheckin, hasContent, metricSeries, type CheckinMetric } from '../domain/checkin';
 import { liveRecords } from '../domain/load';
 import type { Checkin } from '../domain/types';
@@ -93,14 +95,14 @@ export function CaloriesCard() {
         <span><span style={{ width: 14, height: 3, background: 'var(--text)', borderRadius: 2 }} />{$t("Mangées")}</span>
       </div>
       <p className="t-legal c-moderate">{$t("Semaine : {0} actives, {1} de repos, {2} mangées sur {3} jour(s) saisi(s).", { 0: KCAL(week.active), 1: KCAL(week.rest), 2: week.mealDays ? KCAL(week.intake) : '—', 3: week.mealDays })}</p>
-      <Info>{$t("Le repos vient de Health Connect quand la montre donne le total ; sinon c’est une estimation (formule de Mifflin-St Jeor, avec ta taille, ton poids, ton âge et ton sexe). Le journal de repas est un simple compteur : tu entres les kcal toi-même, il n’y a pas de base d’aliments. Une estimation reste une estimation : ne la prends pas pour une mesure.")}</Info>
+      <Info>{$t("Le repos vient de Health Connect quand la montre donne le total ; sinon c’est une estimation (formule de Mifflin-St Jeor, avec ta taille, ton poids, ton âge et ton sexe). Le journal de repas est un simple compteur : tu entres les kcal toi-même, il n’y a pas de base d’aliments. Une estimation reste une estimation : ne la prends pas pour une mesure.")} {$t("Si tu renseignes les calories de repos de ta montre (Paramètres › Profil), le total reste celui de Health Connect et les actives sont calculées comme dans Garmin Connect.")}</Info>
       {sheet.open && (
         <Sheet title={$t("Ajouter un repas")} onClose={sheet.hide} footer={<button type="button" className="btn btn-primary block" disabled={!ok} onClick={save}>{$t("Enregistrer")}</button>}>
           <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
             <div className="row wrap" style={{ gap: 'var(--space-6)' }}>
               {[$t("Petit-déjeuner"), $t("Déjeuner"), $t("Collation"), $t("Dîner")].map((l) => <button key={l} type="button" className="chip" aria-pressed={label === l} onClick={() => setLabel(label === l ? '' : l)}>{l}</button>)}
             </div>
-            <label className="field"><span className="lbl">{$t("Calories (kcal)")}</span><input className="input num" inputMode="numeric" autoFocus value={kc} onChange={(ev) => setKc(ev.target.value)} /></label>
+            <div className="field"><span className="lbl">{$t("Calories (kcal)")}</span><IntField label={$t("Calories (kcal)")} unit="kcal" value={numOf(kc)} onChange={(x) => setKc(x === null ? '' : String(x))} min={5} max={3000} step={5} initial={500} /></div>
             <label className="field"><span className="lbl">{$t("Libellé")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><input className="input" value={label} onChange={(ev) => setLabel(ev.target.value)} /></label>
             <span className="t-legal c-moderate">{$t("Pour le jour affiché : {0}.", { 0: dateFr(day) })}</span>
           </div>
@@ -157,6 +159,7 @@ export function CheckinCard() {
     showToast($t("Point de la semaine enregistré"), { undo: () => restore(snap) });
   };
   const s = cur.saved;
+  const clk = (x: number | null) => (x !== null && Number.isFinite(x) ? x : null);
   const set = (k: string) => (ev: { target: { value: string } }) => setF({ ...f, [k]: ev.target.value });
   const scale = (val: number | null, on: (v: number | null) => void, label: string) => (
     <div className="stack-4" role="group" aria-label={label}>
@@ -191,19 +194,19 @@ export function CheckinCard() {
             <span className="t-caption c-neutral">{$t("Semaine du {0}. Laisse vide ce que ta montre ne donne pas.", { 0: dateFr(cur.week) })}</span>
             <h3 className="t-strong">{$t("Capacités")}</h3>
             <div className="grid-2">
-              <label className="field"><span className="lbl">{$t("VO₂max")}</span><input className="input num" inputMode="decimal" value={f.vo2max ?? ''} onChange={set('vo2max')} /></label>
-              <label className="field"><span className="lbl">{$t("Seuil : FC (bpm)")}</span><input className="input num" inputMode="numeric" value={f.lthrBpm ?? ''} onChange={set('lthrBpm')} /></label>
+              <div className="field"><span className="lbl">{$t("VO₂max")}</span><DecField label={$t("VO₂max")} value={numOf(f.vo2max ?? '')} onChange={(x) => setF({ ...f, vo2max: x === null ? '' : String(x).replace('.', ',') })} hiMax={90} clearable initial={50} /></div>
+              <div className="field"><span className="lbl">{$t("Seuil : FC (bpm)")}</span><IntField label={$t("Seuil : FC (bpm)")} unit="bpm" value={numOf(f.lthrBpm ?? '')} onChange={(x) => setF({ ...f, lthrBpm: x === null ? '' : String(x) })} min={80} max={230} clearable initial={170} /></div>
             </div>
-            <label className="field"><span className="lbl">{$t("Seuil : allure (min:s /km)")}</span><input className="input num" inputMode="text" placeholder="4:35" value={f.lthPace ?? ''} onChange={set('lthPace')} /></label>
+            <div className="field"><span className="lbl">{$t("Seuil : allure (min:s /km)")}</span><PaceField label={$t("Seuil : allure (min:s /km)")} value={clk(lthp)} onChange={(x) => setF({ ...f, lthPace: x === null ? '' : clock(x) })} clearable initial={275} /></div>
             <h3 className="t-strong">{$t("Ressenti de la semaine")}</h3>
             {scale(sleepF, setSleepF, $t("Sommeil"))}
             {scale(recF, setRecF, $t("Récupération"))}
             <h3 className="t-strong">{$t("Prédictions de course de la montre")}</h3>
             <div className="grid-2">
-              <label className="field"><span className="lbl">{$t("5 km")}</span><input className="input num" placeholder="24:30" value={f.p5 ?? ''} onChange={set('p5')} /></label>
-              <label className="field"><span className="lbl">{$t("10 km")}</span><input className="input num" placeholder="51:00" value={f.p10 ?? ''} onChange={set('p10')} /></label>
-              <label className="field"><span className="lbl">{$t("Semi")}</span><input className="input num" placeholder="1:52:00" value={f.ph ?? ''} onChange={set('ph')} /></label>
-              <label className="field"><span className="lbl">{$t("Marathon")}</span><input className="input num" placeholder="3:55:00" value={f.pm ?? ''} onChange={set('pm')} /></label>
+              <div className="field"><span className="lbl">{$t("5 km")}</span><DurationField label={$t("5 km")} hours={false} value={clk(p5)} onChange={(x) => setF({ ...f, p5: x === null ? '' : clock(x) })} clearable initial={1500} /></div>
+              <div className="field"><span className="lbl">{$t("10 km")}</span><DurationField label={$t("10 km")} hours={true} value={clk(p10)} onChange={(x) => setF({ ...f, p10: x === null ? '' : clock(x) })} clearable initial={3100} /></div>
+              <div className="field"><span className="lbl">{$t("Semi")}</span><DurationField label={$t("Semi")} hours={true} value={clk(ph)} onChange={(x) => setF({ ...f, ph: x === null ? '' : clock(x) })} clearable initial={6600} /></div>
+              <div className="field"><span className="lbl">{$t("Marathon")}</span><DurationField label={$t("Marathon")} hours={true} value={clk(pm)} onChange={(x) => setF({ ...f, pm: x === null ? '' : clock(x) })} clearable initial={14100} /></div>
             </div>
             <label className="field"><span className="lbl">{$t("Note")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><input className="input" value={f.note ?? ''} onChange={set('note')} /></label>
             {bad && <span className="t-caption" style={{ color: 'var(--critical-text)' }}>{$t("Une valeur est illisible ou hors limites.")}</span>}
@@ -236,30 +239,45 @@ function Line({ values }: { values: number[] }) {
 }
 
 export function CapacitiesTrendsCard() {
-  const { data } = useCalc();
+  const { data, d } = useCalc();
   const rows = TRENDS.map((t) => ({ t, s: metricSeries(data, t.k) })).filter((r) => r.s.length > 0);
+  // courbes calculées par Apogée sur tes séances, sans rien recopier : une valeur par semaine sur 12 semaines
+  const hist = useMemo(() => capacityHistory(data, d, 12), [data, d]);
+  const own = [
+    { label: $t("VO₂max"), fmt: (v: number) => num(v, 0, 1), better: 'up' as const, pick: (p: CapacityPoint) => p.vo2max },
+    { label: $t("Prédiction 5 km"), fmt: clock as (v: number) => string, better: 'down' as const, pick: (p: CapacityPoint) => p.pred['5k'] },
+    { label: $t("Prédiction 10 km"), fmt: clock as (v: number) => string, better: 'down' as const, pick: (p: CapacityPoint) => p.pred['10k'] },
+    { label: $t("Prédiction semi"), fmt: clock as (v: number) => string, better: 'down' as const, pick: (p: CapacityPoint) => p.pred.half },
+    { label: $t("Prédiction marathon"), fmt: clock as (v: number) => string, better: 'down' as const, pick: (p: CapacityPoint) => p.pred.marathon },
+  ].map((m) => ({ ...m, pts: hist.filter((p) => m.pick(p) !== null).map((p) => ({ day: p.day, v: m.pick(p) as number })) })).filter((m) => m.pts.length >= 2);
+  const trend = (label: string, last: number, prev: number | null, better: 'up' | 'down' | null, fmt: (v: number) => string, vals: number[], from: string, to: string, count: string) => {
+    const diff = prev !== null ? last - prev : null;
+    const good = diff === null || diff === 0 || better === null ? null : (diff > 0) === (better === 'up');
+    return (
+      <li key={label} className="stack-4">
+        <div className="between"><span className="t-caption-strong">{label}</span>
+          <span className="row" style={{ gap: 'var(--space-8)', alignItems: 'baseline' }}><strong>{fmt(last)}</strong>{diff !== null && diff !== 0 && <span className="t-legal" style={{ color: good === null ? 'var(--text-moderate)' : good ? 'var(--success-text)' : 'var(--warning-text)' }}>{diff > 0 ? '+' : '−'}{fmt(Math.abs(diff))}</span>}</span>
+        </div>
+        <Line values={vals} />
+        <div className="between t-legal c-moderate"><span>{from}</span><span>{count}</span><span>{to}</span></div>
+      </li>
+    );
+  };
   return (
     <InfoCard className="card g12" aria-label={$t("Courbes de capacité")}>
-      <h2>{$t("Courbes de capacité")}<InfoToggle /></h2>
-      {rows.length === 0 ? <p className="t-caption c-moderate">{$t("Les courbes apparaîtront dès que tu auras rempli ton point de la semaine, une ou deux fois.")}</p> : (
-        <ul className="stack" style={{ gap: 'var(--space-16)' }}>
-          {rows.map(({ t, s }) => {
-            const last = s[s.length - 1], prev = s.length > 1 ? s[s.length - 2] : null;
-            const diff = prev ? last.v - prev.v : null;
-            const good = diff === null || diff === 0 || t.better === null ? null : (diff > 0) === (t.better === 'up');
-            return (
-              <li key={t.k} className="stack-4">
-                <div className="between"><span className="t-caption-strong">{t.label}</span>
-                  <span className="row" style={{ gap: 'var(--space-8)', alignItems: 'baseline' }}><strong>{t.fmt(last.v)}</strong>{diff !== null && diff !== 0 && <span className="t-legal" style={{ color: good === null ? 'var(--text-moderate)' : good ? 'var(--success-text)' : 'var(--warning-text)' }}>{t.k.endsWith('Sec') || t.k === 'lthPaceSecKm' ? (diff > 0 ? '+' : '−') + clock(Math.abs(diff)) : signed(diff, t.k === 'vo2max' ? 1 : 0)}</span>}</span>
-                </div>
-                <Line values={s.map((x) => x.v)} />
-                <div className="between t-legal c-moderate"><span>{dayMonth(s[0].week)}</span><span>{$t("{0} point(s)", { 0: s.length })}</span><span>{dayMonth(last.week)}</span></div>
-              </li>
-            );
-          })}
-        </ul>
+      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Courbes de capacité")}<InfoToggle /></h2>{own.length > 0 && <span className="var-chip flat" style={{ alignSelf: 'center' }}>{$t("estimation Apogée")}</span>}</div>
+      {own.length === 0 && rows.length === 0 ? <p className="t-caption c-moderate">{$t("Les courbes apparaîtront dès qu’Apogée aura assez de sorties de course pour estimer ta VO₂max ou tes prédictions, ou dès que tu auras rempli ton point de la semaine.")}</p> : (
+        <>
+          {own.length > 0 && <ul className="stack" style={{ gap: 'var(--space-16)' }}>
+            {own.map((m) => trend(m.label, m.pts[m.pts.length - 1].v, m.pts[m.pts.length - 2].v, m.better, m.fmt, m.pts.map((x) => x.v), dayMonth(m.pts[0].day), dayMonth(m.pts[m.pts.length - 1].day), $t("{0} semaine(s)", { 0: m.pts.length })))}
+          </ul>}
+          {rows.length > 0 && <h3 className="t-strong">{$t("Recopié de ta montre")}</h3>}
+          {rows.length > 0 && <ul className="stack" style={{ gap: 'var(--space-16)' }}>
+            {rows.map(({ t, s }) => trend(t.label, s[s.length - 1].v, s.length > 1 ? s[s.length - 2].v : null, t.better, t.fmt, s.map((x) => x.v), dayMonth(s[0].week), dayMonth(s[s.length - 1].week), $t("{0} point(s)", { 0: s.length })))}
+          </ul>}
+        </>
       )}
-      <Info>{$t("Valeurs recopiées de ta montre (ou lues dans Health Connect quand elle les envoie) : Apogée ne les recalcule pas, elle en trace l’évolution.")}</Info>
+      <Info>{$t("Courbes calculées par Apogée sur tes propres séances : chaque point est recalculé avec les séances connues à cette date (VO₂max : sorties de course à allure stable des 60 jours précédents ; prédictions : meilleur effort des 90 jours précédents). Plus bas, les valeurs que tu recopies de ta montre. Les deux ne sont pas comparables un à un : Garmin utilise ses propres modèles.")}</Info>
     </InfoCard>
   );
 }

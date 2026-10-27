@@ -663,9 +663,23 @@ input, textarea, select, [contenteditable="true"], pre, code, .help-f, .help-cod
 
 /* explication repliable : icône « i », texte masqué par défaut */
 .info { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); }
-.info-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin: -4px 0 -4px -6px; border: 0; border-radius: var(--radius-full); background: none; color: var(--text-moderate); cursor: pointer; }
+.info-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin: -4px 0 -4px -6px; border: 0; border-radius: var(--radius-full); background: none; color: var(--info-icon); cursor: pointer; }
 .info-btn[aria-expanded="true"] { color: var(--info-text); background: var(--info-bg); }
 .info-btn:focus-visible { outline: 2px solid var(--focus-indicator); }
 .info-text { align-self: stretch; padding: var(--space-12); border-radius: var(--radius-12); background: var(--bg-surface-minimal); color: var(--text-neutral); font: var(--type-caption); display: flex; flex-direction: column; gap: var(--space-8); }
 .info-text p { margin: 0; }
 .info-btn.inline { margin: -4px 0 -4px var(--space-4); width: 28px; height: 28px; vertical-align: middle; }
+
+/* roulette en fenêtre pop-up */
+.input.picker { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); text-align: left; cursor: pointer; font-variant-numeric: tabular-nums; }
+.input.picker:disabled { opacity: .5; cursor: default; }
+.pop-overlay { z-index: 40; }
+.popup { position: fixed; z-index: 41; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(360px, calc(100vw - 2 * var(--screen-margin))); max-height: calc(100vh - 2 * var(--space-24)); overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-16); padding: var(--space-20) var(--space-16) var(--space-16); border-radius: var(--radius-20); background: var(--bg-surface); box-shadow: 0 8px 32px #00000040; animation: pea-fade .15s ease-out; }
+.popup-body { display: flex; flex-direction: column; gap: var(--space-12); }
+.popup-foot { display: flex; align-items: center; gap: var(--space-8); }
+.popup-foot .grow { flex: 1; }
+.stepper .input.picker { height: 100%; border: 0; border-radius: 0; justify-content: center; font: var(--type-amount-m); color: var(--text); background: transparent; padding: 0; }
+.nights summary { cursor: pointer; list-style: none; }
+.nights summary::-webkit-details-marker { display: none; }
+.nights summary::after { content: " ▾"; }
+.nights[open] summary::after { content: " ▴"; }

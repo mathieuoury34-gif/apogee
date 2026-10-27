@@ -56,8 +56,8 @@ export function AcuteLoadChart({ points, today }: { points: AcutePoint[]; today:
       <div ref={ref} className="chart" style={{ height: B + 22 }}>
         <svg viewBox={`0 0 ${cw} ${B + 22}`} width={cw} height={B + 22} role="img" aria-label={$t("Charge aiguë des 7 derniers jours : {0}, zone optimale {1}", { 0: num(points[n - 1].acute, 0), 1: points[n - 1].lo === null ? '—' : num(points[n - 1].lo!, 0) + '–' + num(points[n - 1].hi!, 0) })}>
           <path d={grid} fill="none" strokeWidth="1" style={{ stroke: 'var(--chart-grid)' }} />
-          <path d={poly((p) => p.hi!, (p) => p.top!)} style={{ fill: 'var(--warning)', opacity: 0.16 }} />
-          <path d={poly((p) => p.lo!, (p) => p.hi!)} style={{ fill: 'var(--success)', opacity: 0.22 }} />
+          <path d={poly((p) => p.hi!, (p) => p.top!)} style={{ fill: 'var(--warning)', opacity: 0.34 }} />
+          <path d={poly((p) => p.lo!, (p) => p.hi!)} style={{ fill: 'var(--success)', opacity: 0.42 }} />
           <path d={line} fill="none" strokeWidth="2.75" strokeLinejoin="round" strokeLinecap="round" style={{ stroke: 'var(--text)' }} />
         </svg>
         {ticks}
@@ -98,7 +98,7 @@ export function RatioChart({ points }: { points: AcutePoint[] }) {
       </div>
       <div ref={ref} className="chart" style={{ height: B + 22 }}>
         <svg viewBox={`0 0 ${cw} ${B + 22}`} width={cw} height={B + 22} role="img" aria-label={$t("Rapport de charge {0}", { 0: num(pts[pts.length - 1].p.ratio!, 2) })}>
-          {bands.map(([a, b, c]) => <rect key={a} x="0" y={Y(b)} width={W} height={Y(a) - Y(b)} style={{ fill: c, opacity: 0.16 }} />)}
+          {bands.map(([a, b, c]) => <rect key={a} x="0" y={Y(b)} width={W} height={Y(a) - Y(b)} style={{ fill: c, opacity: 0.34 }} />)}
           <path d={path} fill="none" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" style={{ stroke: 'var(--text)' }} />
         </svg>
         {[RATIO_LOW, RATIO_OPT_HIGH, RATIO_HIGH].map((v) => <span key={v} className="tick" style={{ left: W + 6, top: Y(v) - 9 }}>{num(v, 1)}</span>)}
@@ -161,7 +161,7 @@ export function FocusBars({ focus }: { focus: LoadFocus }) {
           </div>
         );
       })}
-      <Info>{$t("Bande claire = repère courant d’une semaine équilibrée (indicatif, pas une prescription). Calcul sur 28 jours, séances de course, vélo et natation avec FC{0}.", { 0: focus.skipped ? $t(" ; {0} séance(s) sans FC non comptée(s)", { 0: focus.skipped }) : '' })}</Info>
+      <Info>{$t("Bande claire = repère courant d’une semaine équilibrée (indicatif, pas une prescription). Calcul sur 28 jours : la charge de chaque séance de course, vélo ou natation avec FC est partagée selon le temps passé dans chaque zone, une minute intense pesant plus qu’une minute facile (poids 1 à 5, Edwards 1993) ; la charge du renforcement compte en anaérobie{0}. Garmin classe autrement, avec ses propres seuils : les parts ne sont pas comparables une à une.", { 0: focus.skipped ? $t(" ; {0} séance(s) sans FC non comptée(s)", { 0: focus.skipped }) : '' })}</Info>
     </div>
   );
 }

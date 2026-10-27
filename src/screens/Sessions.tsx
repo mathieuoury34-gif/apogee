@@ -3,7 +3,8 @@
 // Modifier / Supprimer (avec « Annuler »), filtres en pastilles.
 import { $t } from '../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppHeader, ChipGroup, DatePicker, DiscIcon, DurationWheel, Empty, ErrorBanner, Fab, Hero, Sheet, SportPicker, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
+import { AppHeader, ChipGroup, DatePicker, DiscIcon, Empty, ErrorBanner, Fab, Hero, Sheet, SportPicker, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
+import { DistanceField, DurationField, IntField, numOf } from '../ui/wheels';
 import { Donut, StepChart, WeekBars } from '../ui/charts';
 import { Icon } from '../ui/icons';
 import { useActualMenu } from '../ui/menu';
@@ -352,11 +353,11 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
         <label className="field"><span className="lbl">{$t("Titre")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>
           <input className="input" value={title} maxLength={80} placeholder={disc === 'OTHER' ? $t("Nom de l’activité : GR20 étape 3, kayak, balade…") : $t("Sortie avec Paul, vélo de nuit…")} onChange={(e) => setTitle(e.target.value)} />
           <span className="hint">{$t("Remplace le nom de la discipline dans les listes. Ne change aucun calcul.")}</span></label>
-        <div className="field"><span className="lbl">{$t("Durée")}</span><DurationWheel value={durSec} onChange={setDurSec} label={$t("Durée")} /></div>
+        <div className="field"><span className="lbl">{$t("Durée")}</span><DurationField value={durSec} onChange={(v) => setDurSec(v ?? 0)} label={$t("Durée")} /></div>
         <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
-          <label className="field"><span className="lbl">{$t("Distance (km)")}</span><input className="input num" inputMode="decimal" value={dist} onChange={(e) => setDist(e.target.value)} /></label>
-          {withElev && <label className="field"><span className="lbl">{$t("Dénivelé + (m)")}</span><input className="input num" inputMode="numeric" value={elev} onChange={(e) => setElev(e.target.value)} /></label>}
-          <label className="field"><span className="lbl">{$t("FC moy.")}</span><input className="input num" inputMode="numeric" value={hr} onChange={(e) => setHr(e.target.value)} /></label>
+          <div className="field"><span className="lbl">{$t("Distance")}</span><DistanceField label={$t("Distance")} value={numOf(dist) === null ? null : numOf(dist)! * 1000} onChange={(m) => setDist(m === null || m === 0 ? '' : toInput(m / 1000, 3).replace(/[.,]?0+$/, ''))} clearable hiMax={400} loStep={disc === 'SWIM' ? 25 : 10} /></div>
+          {withElev && <div className="field"><span className="lbl">{$t("Dénivelé + (m)")}</span><IntField label={$t("Dénivelé + (m)")} value={numOf(elev)} onChange={(v) => setElev(v === null ? '' : String(v))} clearable min={0} max={9000} step={10} unit="m" /></div>}
+          <div className="field"><span className="lbl">{$t("FC moy.")}</span><IntField label={$t("FC moy.")} value={numOf(hr)} onChange={(v) => setHr(v === null ? '' : String(v))} clearable min={30} max={230} unit="bpm" initial={140} /></div>
         </div>
         {'error' in r && <span className="err t-caption-strong c-critical">{r.error}</span>}
       </div>
@@ -463,11 +464,11 @@ export function ManualEntryScreen() {
         <label className="field"><span className="lbl">{$t("Titre")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>
           <input className="input" value={title} maxLength={80} placeholder={disc === 'OTHER' ? $t("Nom de l’activité : GR20 étape 3, kayak, balade…") : $t("Sortie avec Paul, vélo de nuit…")} onChange={(e) => setTitle(e.target.value)} />
           <span className="hint">{$t("Remplace le nom de la discipline dans les listes. Ne change aucun calcul.")}</span></label>
-              <div className="field"><span className="lbl">{$t("Durée")}</span><DurationWheel value={durSec} onChange={setDurSec} label={$t("Durée")} /></div>
+              <div className="field"><span className="lbl">{$t("Durée")}</span><DurationField value={durSec} onChange={(v) => setDurSec(v ?? 0)} label={$t("Durée")} /></div>
               <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
-                <label className="field"><span className="lbl">{$t("Distance (km)")}</span><input className="input num" inputMode="decimal" value={dist} placeholder="—" onChange={(e) => setDist(e.target.value)} /></label>
-                {withElev && <label className="field"><span className="lbl">{$t("Dénivelé + (m)")}</span><input className="input num" inputMode="numeric" value={elev} placeholder="—" onChange={(e) => setElev(e.target.value)} /></label>}
-                <label className="field"><span className="lbl">{$t("FC moy.")}</span><input className="input num" inputMode="numeric" value={hr} placeholder="—" onChange={(e) => setHr(e.target.value)} /></label>
+                <div className="field"><span className="lbl">{$t("Distance")}</span><DistanceField label={$t("Distance")} value={numOf(dist) === null ? null : numOf(dist)! * 1000} onChange={(m) => setDist(m === null || m === 0 ? '' : toInput(m / 1000, 3).replace(/[.,]?0+$/, ''))} clearable hiMax={400} loStep={disc === 'SWIM' ? 25 : 10} /></div>
+                {withElev && <div className="field"><span className="lbl">{$t("Dénivelé + (m)")}</span><IntField label={$t("Dénivelé + (m)")} value={numOf(elev)} onChange={(v) => setElev(v === null ? '' : String(v))} clearable min={0} max={9000} step={10} unit="m" /></div>}
+                <div className="field"><span className="lbl">{$t("FC moy.")}</span><IntField label={$t("FC moy.")} value={numOf(hr)} onChange={(v) => setHr(v === null ? '' : String(v))} clearable min={30} max={230} unit="bpm" initial={140} /></div>
               </div>
               <div className="field"><span className="lbl">{$t("Ressenti")}</span><RpeScale value={rpe} onChange={setRpe} /></div>
               <label className="field"><span className="lbl">{$t("Commentaire")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><textarea className="input textarea" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} /></label>

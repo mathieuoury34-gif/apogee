@@ -64,7 +64,7 @@ export async function runHealthSync(): Promise<IngestReport | null> {
   const range = { start: start.toISOString(), end: end.toISOString() };
   try {
     // une fois, relire 400 jours de nuits pour y mettre le temps réellement endormi (les étapes viennent de l'APK à jour)
-    const rescanSleep = !getPrefs().healthSleepAsleep;
+    const rescanSleep = !getPrefs().healthSleepAsleep || !getPrefs().healthSleepMerged;
     const sleepRange = rescanSleep ? { start: new Date(end.getTime() - FIRST_RUN_DAYS_HISTORY * 86400_000).toISOString(), end: range.end } : range;
     const [s, n, r, wt] = await Promise.all([
       h.readSessions(range) as Promise<{ sessions: NativeSession[] }>,
@@ -92,7 +92,7 @@ export async function runHealthSync(): Promise<IngestReport | null> {
       energyOps.forEach((x) => tx.put('energy', x));
       vitalsOps.forEach((x) => tx.put('vitals', x));
     });
-    if (rescanSleep && (n.nights ?? []).some((x) => 'asleepSec' in x)) setPrefs({ healthSleepAsleep: true });
+    if (rescanSleep && (n.nights ?? []).some((x) => 'asleepSec' in x)) setPrefs({ healthSleepAsleep: true, healthSleepMerged: true });
     setPrefs({ healthSyncedUntil: range.end, healthLastRun: range.end, healthLastError: '', healthLastReport: JSON.stringify(report) });
     set({ running: false, lastReport: report });
     return report;

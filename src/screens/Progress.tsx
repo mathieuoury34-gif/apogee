@@ -23,6 +23,7 @@ import { forecastLoad } from '../domain/forecast';
 import { suggestZones } from '../domain/records';
 import type { DayLoad } from '../domain/load';
 import type { ZoneKind, ZoneReading, ZoneSource } from '../domain/types';
+import { DecField, DistanceField, DurationField, IntField, PaceField, numOf } from '../ui/wheels';
 import { dateFr, dayMonth, dayTitle, DISCIPLINE_LABEL, duration, dvar, hhmm, km, mmss, num, parseMmss, parseNum, pct, signed, toInput, NBSP } from '../ui/format';
 
 export const NAV = [{ to: '/progression', label: $t("Charge") }, { to: '/progression/sante', label: $t("Santé") }, { to: '/progression/capacites', label: $t("Capacités") }, { to: '/progression/objectif', label: $t("Objectif") }];
@@ -282,6 +283,7 @@ function RaceSheet({ onClose }: { onClose: () => void }) {
   const hms = (s: string): number | null => { if (!s.trim()) return null; const m = s.trim().match(/^(\d{1,2})\s*[h:]\s*(\d{1,2})(?:\s*[:']\s*(\d{1,2}))?$/); return m ? +m[1] * 3600 + +m[2] * 60 + (+(m[3] ?? 0)) : NaN; };
   const ms = (s: string): number | null => (s.trim() ? parseMmss(s) : null);
   const vals = { total: hms(total), ts: hms(ts), tb: hms(tb), tr: hms(tr), tt: ms(tt) };
+  const nz = (v: number | null) => (v !== null && Number.isFinite(v) ? v : null);
   const bad = Object.values(vals).some((v) => v !== null && !Number.isFinite(v)) || !name.trim();
   const dist = (s: string, k: number) => { const v = parseNum(s); return Number.isFinite(v) && v > 0 ? Math.round(v * k) : null; };
   const save = () => {
@@ -297,18 +299,18 @@ function RaceSheet({ onClose }: { onClose: () => void }) {
           {cal && <DatePicker value={date} onChange={(v) => { setDate(v); setCal(false); }} />}
         </div>
         <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
-          <label className="field"><span className="lbl">{$t("Natation (m)")}</span><input className="input num" inputMode="numeric" value={swim} onChange={(e) => setSwim(e.target.value)} /></label>
-          <label className="field"><span className="lbl">{$t("Vélo (km)")}</span><input className="input num" inputMode="decimal" value={bike} onChange={(e) => setBike(e.target.value)} /></label>
-          <label className="field"><span className="lbl">{$t("Course (km)")}</span><input className="input num" inputMode="decimal" value={run} onChange={(e) => setRun(e.target.value)} /></label>
+          <div className="field"><span className="lbl">{$t("Natation (m)")}</span><DistanceField label={$t("Natation (m)")} meters value={numOf(swim)} onChange={(m) => setSwim(m === null ? '' : String(m))} loStep={25} hiMax={30} clearable initial={1900} /></div>
+          <div className="field"><span className="lbl">{$t("Vélo (km)")}</span><DistanceField label={$t("Vélo (km)")} value={numOf(bike) === null ? null : numOf(bike)! * 1000} onChange={(m) => setBike(m === null ? '' : toInput(m / 1000, 1))} hiMax={400} loStep={100} clearable initial={90000} /></div>
+          <div className="field"><span className="lbl">{$t("Course (km)")}</span><DistanceField label={$t("Course (km)")} value={numOf(run) === null ? null : numOf(run)! * 1000} onChange={(m) => setRun(m === null ? '' : toInput(m / 1000, 1))} hiMax={250} loStep={100} clearable initial={21100} /></div>
         </div>
-        <label className="field"><span className="lbl">{$t("Chrono visé (h:mm)")}</span><input className="input num" value={total} placeholder="11:30" onChange={(e) => setTotal(e.target.value)} /></label>
+        <div className="field"><span className="lbl">{$t("Chrono visé (h:mm)")}</span><DurationField label={$t("Chrono visé (h:mm)")} seconds={false} value={nz(vals.total)} onChange={(v) => setTotal(v === null ? '' : hhmm(v))} clearable initial={41400} /></div>
         <div className="grid-2" style={{ gap: 'var(--space-12)' }}>
-          <label className="field"><span className="lbl">{$t("Natation (h:mm)")}</span><input className="input num" value={ts} placeholder="1:15" onChange={(e) => setTs(e.target.value)} /></label>
-          <label className="field"><span className="lbl">{$t("Vélo (h:mm)")}</span><input className="input num" value={tb} placeholder="5:45" onChange={(e) => setTb(e.target.value)} /></label>
-          <label className="field"><span className="lbl">{$t("Course (h:mm)")}</span><input className="input num" value={tr} placeholder="4:15" onChange={(e) => setTr(e.target.value)} /></label>
-          <label className="field"><span className="lbl">{$t("Transitions (mm:ss)")}</span><input className="input num" value={tt} placeholder="15:00" onChange={(e) => setTt(e.target.value)} /></label>
+          <div className="field"><span className="lbl">{$t("Natation (h:mm)")}</span><DurationField label={$t("Natation (h:mm)")} seconds={false} value={nz(vals.ts)} onChange={(v) => setTs(v === null ? '' : hhmm(v))} clearable initial={4500} /></div>
+          <div className="field"><span className="lbl">{$t("Vélo (h:mm)")}</span><DurationField label={$t("Vélo (h:mm)")} seconds={false} value={nz(vals.tb)} onChange={(v) => setTb(v === null ? '' : hhmm(v))} clearable initial={20700} /></div>
+          <div className="field"><span className="lbl">{$t("Course (h:mm)")}</span><DurationField label={$t("Course (h:mm)")} seconds={false} value={nz(vals.tr)} onChange={(v) => setTr(v === null ? '' : hhmm(v))} clearable initial={15300} /></div>
+          <div className="field"><span className="lbl">{$t("Transitions (mm:ss)")}</span><DurationField label={$t("Transitions (mm:ss)")} hours={false} value={nz(vals.tt)} onChange={(v) => setTt(v === null ? '' : mmss(v))} clearable initial={900} /></div>
         </div>
-        {bad && <span className="t-caption-strong c-critical">{$t("Format attendu : 11:30 ou 11h30 pour les heures, 15:00 pour les transitions.")}</span>}
+        
       </div>
     </Sheet>
   );
@@ -424,8 +426,11 @@ function ZoneSheet({ kind, onClose }: { kind: ZoneKind; onClose: () => void }) {
   return (
     <Sheet title={$t("Nouvelle valeur — ") + KIND_INFO[kind].label} onClose={onClose} footer={<button type="button" className="btn btn-primary block" disabled={!ok} onClick={save}>{$t("Enregistrer")}</button>}>
       <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
-        <label className="field"><span className="lbl">{KIND_INFO[kind].label} ({KIND_INFO[kind].unit})</span><input className="input num" autoFocus inputMode={kind === 'css' ? 'text' : 'decimal'} placeholder={KIND_INFO[kind].hint} value={v} onChange={(e) => setV(e.target.value)} /></label>
-        {v && !ok && <span className="t-caption-strong c-critical">{$t("Valeur hors des bornes plausibles.")}</span>}
+        <div className="field"><span className="lbl">{KIND_INFO[kind].label} ({KIND_INFO[kind].unit})</span>
+          {kind === 'css' ? <PaceField label={KIND_INFO[kind].label} unit={'/100' + NBSP + 'm'} value={v && Number.isFinite(raw) && raw > 0 ? raw : null} onChange={(s) => setV(s === null ? '' : mmss(s))} clearable initial={105} />
+            : kind === 'vma' ? <DecField label={KIND_INFO[kind].label} unit="km/h" value={numOf(v)} onChange={(x) => setV(x === null ? '' : toInput(x, 1))} hiMax={30} clearable initial={16} />
+            : <IntField label={KIND_INFO[kind].label} unit={kind === 'ftp' ? 'W' : 'bpm'} value={numOf(v)} onChange={(x) => setV(x === null ? '' : String(x))} min={kind === 'ftp' ? 60 : 120} max={kind === 'ftp' ? 600 : 230} clearable initial={kind === 'ftp' ? 220 : 185} />}
+        </div>
         <div className="field"><span className="lbl">{$t("Source")}</span><Segmented label={$t("Source")} value={source} onChange={setSource} options={[['test', $t("Test")], ['estimation', $t("Estimation")], ['manual', $t("Saisie")]]} /></div>
         <div className="field"><span className="lbl">{$t("Date")}</span>
           <button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setCal(!cal)}><span>{dayTitle(date)} {date.slice(0, 4)}</span><Icon name="calendar" size={20} /></button>

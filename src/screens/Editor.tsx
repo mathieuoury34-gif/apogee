@@ -13,8 +13,7 @@ import { estimateDistance, estimateDuration, ISSUE_TEXT, newBlock, validateSessi
 import { newId, nowIso } from '../domain/ids';
 import type { Block, BlockKind, PlannedDiscipline, PlannedSession } from '../domain/types';
 import { BLOCK_KINDS, PLANNED_DISCIPLINES, TARGET_TYPES } from '../domain/types';
-import { MeasureWheel, TargetWheel, defaultDisp, fromDisp, toDisp } from '../ui/wheels';
-import { DurationWheel } from '../ui/kit';
+import { DurationField, IntField, MeasureField, TargetField, defaultDisp, fromDisp, toDisp } from '../ui/wheels';
 import { blockDetail, blockHead, dayTitle, DISCIPLINE_LABEL, distanceFor, duration, KIND_LABEL, MEASURE_LABEL, mmss, parseMmss, parseNum, REL_LABEL, SETMODE_LABEL, TARGET_LABEL, toInput, DISCIPLINE_SHORT } from '../ui/format';
 
 const B = (o: Partial<Block>): Block => ({ ...newBlock(o.kind ?? 'WORK'), ...o });
@@ -412,14 +411,14 @@ function BlockSheet({ block, discipline, isChild, refs, onApply, onClose, onDele
                 <span className="lbl">{$t("Nombre de tours")}</span>
                 <div className="stepper" style={{ maxWidth: 200 }}>
                   <button type="button" aria-label={$t("Un tour de moins")} onClick={() => setB({ ...b, setCount: Math.max(1, (b.setCount ?? 1) - 1) })}><Icon name="minus" size={20} /></button>
-                  <input inputMode="numeric" value={b.setCount ?? ''} onChange={(e) => { const v = parseInt(e.target.value.replace(/\D/g, ''), 10); setB({ ...b, setCount: isFinite(v) && v > 0 ? v : null }); }} />
+                  <IntField label={$t("Nombre de tours")} value={b.setCount} onChange={(v) => setB({ ...b, setCount: v })} min={1} max={200} initial={4} />
                   <button type="button" aria-label={$t("Un tour de plus")} onClick={() => setB({ ...b, setCount: (b.setCount ?? 0) + 1 })}><Icon name="plus" size={20} /></button>
                 </div>
               </div>
             )}
             {b.setMode !== 'REPEAT' && (
               <div className="field"><span className="lbl">{b.setMode === 'AMRAP' ? $t("Fenêtre AMRAP") : $t("Départ toutes les")}</span>
-                <DurationWheel value={win} onChange={setWin} label={b.setMode === 'AMRAP' ? $t("Fenêtre AMRAP") : $t("Départ toutes les")} hours={false} />
+                <DurationField value={win} onChange={(v) => setWin(v ?? 60)} label={b.setMode === 'AMRAP' ? $t("Fenêtre AMRAP") : $t("Départ toutes les")} hours={false} />
                 <span className="hint">{$t("Minutes et secondes")}</span></div>
             )}
           </>
@@ -427,7 +426,7 @@ function BlockSheet({ block, discipline, isChild, refs, onApply, onClose, onDele
           <div className="field">
             <span className="lbl">{$t("Ce qui le termine")}</span>
             <div className="seg" role="group">{(['TIME', 'DISTANCE', 'REPS', 'OPEN'] as const).map((m) => <button key={m} type="button" aria-pressed={b.measure === m} onClick={() => { setB({ ...b, measure: m }); setMeas(defaultMeas(m)); }}>{MEASURE_LABEL[m]}</button>)}</div>
-            {b.measure !== 'OPEN' && b.measure !== null && <MeasureWheel measure={b.measure} value={meas} onChange={setMeas} discipline={eff} />}
+            {b.measure !== 'OPEN' && b.measure !== null && <MeasureField measure={b.measure} value={meas} onChange={setMeas} discipline={eff} />}
             {b.measure === 'DISTANCE' && <span className="hint">{$t("Kilomètres et mètres")}</span>}
           </div>
         )}
@@ -449,9 +448,9 @@ function BlockSheet({ block, discipline, isChild, refs, onApply, onClose, onDele
             {b.targetType !== 'NONE' && (
               <div className="stack" style={{ gap: 'var(--space-12)' }}>
                 <div className="stack-4"><span className="t-caption-strong">{high === null ? $t("Valeur") : $t("Borne basse")}</span>
-                  <TargetWheel type={b.targetType} rel={b.relativeTo} value={low} onChange={setLow} label={$t("Valeur ou borne basse")} /></div>
+                  <TargetField type={b.targetType} rel={b.relativeTo} value={low} onChange={setLow} label={$t("Valeur ou borne basse")} swim={eff === 'SWIM'} /></div>
                 {high !== null && <div className="stack-4"><span className="t-caption-strong">{$t("Borne haute")}</span>
-                  <TargetWheel type={b.targetType} rel={b.relativeTo} value={high} onChange={setHigh} label={$t("Borne haute (facultatif)")} /></div>}
+                  <TargetField type={b.targetType} rel={b.relativeTo} value={high} onChange={setHigh} label={$t("Borne haute (facultatif)")} swim={eff === 'SWIM'} /></div>}
                 <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start', height: 36 }} onClick={() => setHigh(high === null ? low : null)}>{high === null ? $t("Ajouter une borne haute (fourchette)") : $t("Retirer la borne haute")}</button>
               </div>
             )}

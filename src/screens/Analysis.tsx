@@ -8,16 +8,17 @@ import { useLocalSheet } from '../ui/menu';
 import { FITNESS_COLOR, FITNESS_LABEL, SplitBars, StackedFitness } from '../ui/charts2';
 import { navigate } from '../ui/router';
 import { Icon } from '../ui/icons';
+import { DecField, numOf } from '../ui/wheels';
 import { useCalc } from '../data/store';
 import { deleteWeight, restore, saveWeight } from '../data/actions';
-import { sleepStats, weightTrend } from '../domain/body';
+import { recentNights, sleepStats, weightTrend } from '../domain/body';
 import { planCompliance, type Compliance } from '../domain/compliance';
 import { addDays, mondayOf } from '../domain/dates';
 import { fitnessByDiscipline, type LoadKey } from '../domain/loadByDiscipline';
 import { brickAnalysis, efficiency, EF_BAND, EF_BAND_BIKE, EF_MAX_CLIMB, EF_MAX_CLIMB_BIKE, personalRecords, type PersonalRecord } from '../domain/records';
 import { weekSummary, type WeekSummary } from '../domain/summary';
 import { HR_ZONE_EDGES, polarSplit, weeklyZones } from '../domain/zones';
-import { dateFr, dateShort, dayMonth, DISCIPLINE_LABEL, duration, mmss, monthLong, num, pct, signed, speedKmh, NBSP } from '../ui/format';
+import { dayTitle, timeOf, dateFr, dateShort, dayMonth, DISCIPLINE_LABEL, duration, mmss, monthLong, num, pct, signed, speedKmh, NBSP } from '../ui/format';
 
 type CalcCtx = ReturnType<typeof useCalc>;
 export type Props = { data: CalcCtx['data']; d: CalcCtx['d'] };
@@ -311,7 +312,7 @@ export function WeightCard({ data, d }: Props) {
       {sheet.open && (
         <Sheet title={$t("Saisir une pesée")} onClose={sheet.hide} footer={<button type="button" className="btn btn-primary block" disabled={!ok} onClick={save}>{$t("Enregistrer")}</button>}>
           <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
-            <label className="field"><span className="lbl">{$t("Poids (kg), aujourd’hui")}</span><input className="input num" inputMode="decimal" autoFocus value={val} onChange={(e) => setVal(e.target.value)} /></label>
+            <div className="field"><span className="lbl">{$t("Poids (kg), aujourd’hui")}</span><DecField label={$t("Poids (kg), aujourd’hui")} unit="kg" value={numOf(val)} onChange={(x) => setVal(x === null ? '' : String(x).replace('.', ','))} hiMax={200} initial={t.latest ? t.latest.kg : 70} /></div>
             {t.latest?.day === d.today && t.latest.source === 'manual' && <button type="button" className="btn btn-tertiary" style={{ color: 'var(--critical-text)' }} onClick={() => { const snap = deleteWeight(d.today); sheet.hide(); showToast($t("Pesée supprimée"), { undo: () => restore(snap) }); }}>{$t("Supprimer la pesée d’aujourd’hui")}</button>}
           </div>
         </Sheet>
@@ -337,6 +338,19 @@ export function SleepCard({ data, d }: Props) {
         <dt>{$t("Régularité du coucher (écart-type)")}</dt><dd>{st.bedtimeSd === null ? '—' : '± ' + Math.round(st.bedtimeSd) + NBSP + 'min'}</dd>
       </dl>
       {st.staged14 < st.nights14 && <div className="note"><Icon name="info" size={20} /><span>{st.staged14 === 0 ? $t("Ces durées sont le temps passé au lit, éveils compris : Health Connect ne donne pas (encore) les étapes du sommeil. Avec la dernière version de l’APK, l’app compte le temps réellement endormi, comme Garmin Connect.") : $t("{0} nuit(s) sur {1} sont comptées en temps passé au lit (étapes du sommeil indisponibles), les autres en temps réellement endormi.", { 0: st.nights14 - st.staged14, 1: st.nights14 })}</span></div>}
+      <details className="nights">
+        <summary className="t-caption-strong c-neutral">{$t("Détail des dernières nuits")}</summary>
+        <ul className="stack-4" style={{ paddingTop: 'var(--space-8)' }}>
+          {recentNights(data, d.today, 7).map((r) => (
+            <li key={r.nightDate} className="between t-caption">
+              <span>{dayTitle(r.nightDate)}</span>
+              <span className="c-moderate">{timeOf(r.startAt, r.zoneOffsetMinutes)} → {timeOf(r.endAt, r.zoneOffsetMinutes)}</span>
+              <strong>{hh(r.durationSec)}{r.fromStages ? '' : ' *'}</strong>
+            </li>
+          ))}
+        </ul>
+        <p className="t-legal c-moderate">{$t("Jour de réveil, comme dans Garmin Connect. * = temps passé au lit (étapes du sommeil indisponibles).")}</p>
+      </details>
       <Info>{$t("Lecture seule, sans objectif de sommeil imposé : on compare ta semaine à tes propres habitudes. La durée est le temps réellement endormi (éveils exclus) quand Health Connect donne les étapes du sommeil, comme dans Garmin Connect. Le coucher est l’heure de début de la nuit lue par Health Connect, sur les 14 dernières nuits (5 minimum). Plus l’écart-type est petit, plus tes nuits sont régulières. La durée de la nuit compte déjà dans la forme du jour.")}</Info>
     </InfoCard>
   );

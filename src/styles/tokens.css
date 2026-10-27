@@ -97,7 +97,7 @@
   --success: #2E7560;  --success-text: #2E7560; --success-bg: #E2F0EA;
   --critical: #8E2B20; --critical-text: #8E2B20; --critical-bg: #F6E7E3;
   --warning: #9A6B12;  --warning-text: #84590C; --warning-bg: #F5EDDB;
-  --info: #1D6E80;     --info-text: #1D6E80;    --info-bg: #E1EDEF;
+  --info: #1D6E80;     --info-text: #1D6E80;    --info-bg: #E1EDEF;  --info-icon: #3C9DB4;
   --notification: #B4432A;
 
   /* ---------- Disciplines (theme/tokens.ts) ---------- */
@@ -237,7 +237,7 @@
   --success: #63C9A6;  --success-text: #63C9A6; --success-bg: #14291F;
   --critical: #E0705E; --critical-text: #E0705E; --critical-bg: #2A1613;
   --warning: #D9A83F;  --warning-text: #D9A83F; --warning-bg: #2A2112;
-  --info: #5CB6C9;     --info-text: #5CB6C9;    --info-bg: #13262B;
+  --info: #5CB6C9;     --info-text: #5CB6C9;    --info-bg: #13262B;  --info-icon: #6FC8DB;
   --notification: #E88663;
 
   --d-RUN: #E88663;
@@ -274,10 +274,10 @@
   --zone-intense: #E88663;
   --chart-axis: #8A939B;
   --chart-fitness: #57AEBC;
-  --chart-fatigue: #7189C4;
+  --chart-fatigue: #8FA6DC;
   --chart-fresh-pos: #A9E3CD;
-  --chart-fresh-neg: #7A63A8;
-  --chart-load: #3D474E;
+  --chart-fresh-neg: #9C86CC;
+  --chart-load: #77858F;
   --chart-value: #57AEBC;
   --chart-value-area: #57AEBC26;
 

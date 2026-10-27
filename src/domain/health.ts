@@ -47,6 +47,29 @@ export interface IngestOps { actual: ActualSession[]; series: SessionSeries[]; s
 export interface NativeExtras { weight?: NativeWeight[] }
 export interface IngestReport { found: number; inserted: number; updated: number; known: number; nights: number; restingDays: number; weights?: number; unmapped: number[] }
 
+/** Écart maximal entre deux sessions de sommeil pour qu'elles forment une seule nuit (réveil au milieu de la nuit découpé par la montre). */
+export const SLEEP_MERGE_GAP_MIN = 90;
+/**
+ * Recolle les sessions de sommeil séparées de 90 min au plus : certaines montres coupent la nuit en deux quand on se lève.
+ * Le temps endormi s'additionne ; l'intervalle entre les deux n'est pas compté (le temps « au lit » englobe tout).
+ */
+export function mergeSleepParts(nights: NativeSleep[]): NativeSleep[] {
+  const sorted = [...nights].filter((n) => Number.isFinite(Date.parse(n.startTime)) && Number.isFinite(Date.parse(n.endTime))).sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
+  const out: NativeSleep[] = [];
+  for (const n of sorted) {
+    const prev = out[out.length - 1];
+    if (prev && Date.parse(n.startTime) - Date.parse(prev.endTime) <= SLEEP_MERGE_GAP_MIN * 60_000) {
+      const staged = typeof prev.asleepSec === 'number' && typeof n.asleepSec === 'number';
+      out[out.length - 1] = {
+        ...prev, id: prev.id + '+' + n.id, clientRecordId: null,
+        endTime: Date.parse(n.endTime) > Date.parse(prev.endTime) ? n.endTime : prev.endTime,
+        asleepSec: staged ? (prev.asleepSec as number) + (n.asleepSec as number) : undefined,
+      };
+    } else out.push({ ...n });
+  }
+  return out;
+}
+
 export function ingest(data: AppData, sessions: NativeSession[], nights: NativeSleep[], resting: NativeResting[], extras: NativeExtras = {}): { ops: IngestOps; report: IngestReport } {
   const now = nowIso();
   const bySource = new Map(liveRecords(data.actual).map((s) => [s.sourceId, s]));
@@ -90,9 +113,9 @@ export function ingest(data: AppData, sessions: NativeSession[], nights: NativeS
     }
     if (existing) report.updated++; else report.inserted++;
   }
-  // sommeil : jour de réveil, la nuit la plus longue l'emporte
+  // sommeil : jour de réveil, la nuit la plus longue l'emporte (après recollage des morceaux d'une même nuit)
   const bestNight = new Map<string, SleepNight>();
-  for (const n of nights) {
+  for (const n of mergeSleepParts(nights)) {
     const off = n.startZoneOffsetSeconds == null ? null : Math.round(n.startZoneOffsetSeconds / 60);
     const nightDate = localDay(n.endTime, off);
     const inBed = Math.round((Date.parse(n.endTime) - Date.parse(n.startTime)) / 1000);

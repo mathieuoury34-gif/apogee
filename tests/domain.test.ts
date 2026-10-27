@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { estimateDistance, estimateDuration, newBlock, validateSession } from '../src/domain/blocks';
-import { addDays, localDay, mondayOf, weeksOfMonth } from '../src/domain/dates';
+import { addDays, today, localDay, mondayOf, weeksOfMonth } from '../src/domain/dates';
 import { derive, refsOf } from '../src/domain/engine';
 import { bestSegment, bestSpeedOver, efficiency, personalRecords, suggestZones } from '../src/domain/records';
 import { forecastLoad } from '../src/domain/forecast';
@@ -22,6 +22,9 @@ import { buildLoadSeries, computeSessionLoads, resolveHrMax } from '../src/domai
 import { buildManualSession, parseBulkActual, parseBulkPlanned, parseManualFields } from '../src/domain/manual';
 import { hm } from '../src/ui/format';
 import { bmrKcal, dayEnergy, weekEnergy } from '../src/domain/energy';
+import { mergeSleepParts } from '../src/domain/health';
+import { loadFocus } from '../src/domain/loadStatus';
+import { AMATEUR_EXPONENT } from '../src/domain/capacity';
 import { ingestEnergy, ingestVitals } from '../src/domain/healthExtra';
 import { currentCheckin, metricSeries } from '../src/domain/checkin';
 import { acuteSeries, statusOf, weeklyStatus } from '../src/domain/loadStatus';
@@ -813,4 +816,42 @@ test('roulettes de bloc : conversions d\'affichage (vitesse en dixièmes de km/h
   assert.equal(toDisp('PACE', null, 270), 270); assert.equal(fromDisp('PACE', null, 270), 270);
   assert.equal(toDisp('SPEED', 'VMA', 85), 85); assert.equal(fromDisp('SPEED', 'VMA', 85), 85);
   assert.equal(defaultDisp('PACE', null, 'SWIM'), 105); assert.equal(defaultDisp('ZONE', null, 'RUN'), 2); assert.equal(defaultDisp('POWER', 'FTP', 'BIKE'), 85);
+});
+
+test('calories : avec les calories de repos de la montre, le total de Health Connect est partagé comme Garmin Connect', () => {
+  const d = emptyData();
+  d.athlete.main = { id: 'main', updatedAt: 'x', displayName: null, birthDate: null, sex: null, availability: [], equipment: [], injuries: [], restKcal: 2150 };
+  d.energy['2026-10-26'] = { id: '2026-10-26', updatedAt: 'x', day: '2026-10-26', activeKcal: 1362, totalKcal: 2408, source: 'health' };
+  const e = dayEnergy(d, '2026-10-26', 600);
+  assert.equal(e.rest, 2150); assert.equal(e.active, 258); assert.equal(e.total, 2408);
+  // jour en cours : repos au prorata de l'heure (la montre fait pareil), actives jamais négatives
+  const t = today();
+  d.energy[t] = { id: t, updatedAt: 'x', day: t, activeKcal: 400, totalKcal: 1200, source: 'health' };
+  const n = dayEnergy(d, t, 720);
+  assert.equal(n.rest, 1075); assert.equal(n.active, 125);
+  // sans réglage : comportement d'avant
+  d.athlete.main = { ...d.athlete.main!, restKcal: null };
+  assert.equal(dayEnergy(d, '2026-10-26').rest, 1046);
+});
+
+test('sommeil : les sessions d’une même nuit coupée par un réveil sont recollées, pas les siestes', () => {
+  const part = (id: string, a: string, b: string, asleep: number) => ({ id, clientRecordId: null, startTime: a, endTime: b, startZoneOffsetSeconds: 0, asleepSec: asleep });
+  const out = mergeSleepParts([
+    part('b', '2026-10-27T02:00:00Z', '2026-10-27T05:30:00Z', 11000),
+    part('a', '2026-10-26T22:30:00Z', '2026-10-27T01:15:00Z', 9000), // 45 min avant la suivante : même nuit
+    part('n', '2026-10-27T14:00:00Z', '2026-10-27T14:40:00Z', 2000), // sieste
+  ]);
+  assert.equal(out.length, 2);
+  assert.equal(out[0].asleepSec, 20000); assert.equal(out[0].startTime, '2026-10-26T22:30:00Z'); assert.equal(out[0].endTime, '2026-10-27T05:30:00Z');
+  assert.equal(out[1].asleepSec, 2000);
+});
+
+test('répartition de la charge : le renforcement compte en anaérobie', () => {
+  const d = emptyData();
+  const base = { updatedAt: 'x', rawExerciseType: '', source: 'manual' as const, startAt: '2026-10-25T10:00:00.000Z', endAt: '2026-10-25T11:00:00.000Z', zoneOffsetMinutes: 0, durationSec: 3600, distanceM: null, avgHrBpm: null };
+  d.actual.f = { ...base, id: 'f', sourceId: 'f', discipline: 'STRENGTH' } as unknown as ActualSession;
+  const loads = new Map([['f', { load: 60 } as never]]);
+  const f = loadFocus(d, loads, 188, '2026-10-27');
+  assert.equal(f.anaerobic, 60); assert.equal(f.low, 0); assert.equal(f.total, 60);
+  assert.ok(AMATEUR_EXPONENT > 1.06 && AMATEUR_EXPONENT < 1.2);
 });

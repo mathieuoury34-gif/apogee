@@ -4,6 +4,7 @@ import { $t, lang, setLang } from '../i18n';
 import { useRef, useState } from 'react';
 import { DatePicker, Empty, Sheet, SubHeader, Switch, showToast } from '../ui/kit';
 import { Icon, Logo } from '../ui/icons';
+import { IntField, numOf } from '../ui/wheels';
 import { navigate, useRoute } from '../ui/router';
 import { getData, getPrefs, setPrefs, useCalc, usePrefs } from '../data/store';
 import { deleteCloud, signIn, signOut, syncNow, useSync } from '../data/sync';
@@ -192,13 +193,11 @@ export function SettingsScreen() {
               <Switch checked={prefs.provisionalLoad} labelledBy="lbl-prov" onChange={(v) => setPrefs({ provisionalLoad: v })} />
             </div>
             {app && (
-              <label className="field">
+              <div className="field">
                 <span className="lbl">{$t("Heure des rappels de séance")}</span>
-                <select className="input" value={prefs.reminderHour} onChange={(e) => setPrefs({ reminderHour: Number(e.target.value) })}>
-                  {[6, 7, 8, 9, 12, 18, 20].map((h) => <option key={h} value={h}>{h} h 00</option>)}
-                </select>
+                <IntField label={$t("Heure des rappels de séance")} unit="h" value={prefs.reminderHour} onChange={(x) => setPrefs({ reminderHour: x ?? 8 })} min={0} max={23} />
                 <span className="hint">{$t("Rappel le matin d’une séance prévue, et rappels de renouvellement du plan. Suspendus pendant une interruption.")}</span>
-              </label>
+              </div>
             )}
           </div>
         </Section>
@@ -244,12 +243,13 @@ export function ProfileScreen() {
   const [cal, setCal] = useState(false);
   const [sex, setSex] = useState<'M' | 'F' | null>(a?.sex ?? null);
   const [height, setHeight] = useState(a?.heightCm ? String(a.heightCm) : '');
+  const [restKcal, setRestKcal] = useState(a?.restKcal ? String(a.restKcal) : '');
   const [avail, setAvail] = useState<Weekday[]>(a?.availability ?? []);
   const [equip, setEquip] = useState((a?.equipment ?? []).join(', '));
   const [injuries, setInjuries] = useState<InjuryEntry[]>(a?.injuries ?? []);
   const [newInjury, setNewInjury] = useState('');
   const save = () => {
-    saveAthlete({ displayName: name.trim() || null, birthDate: birth || null, sex, heightCm: (() => { const h = Number(height.replace(',', '.')); return Number.isFinite(h) && h >= 100 && h <= 250 ? Math.round(h) : null; })(), availability: WEEKDAYS.filter((w) => avail.includes(w)), equipment: equip.split(',').map((x) => x.trim()).filter(Boolean), injuries });
+    saveAthlete({ displayName: name.trim() || null, birthDate: birth || null, sex, heightCm: (() => { const h = Number(height.replace(',', '.')); return Number.isFinite(h) && h >= 100 && h <= 250 ? Math.round(h) : null; })(), restKcal: (() => { const k = Number(restKcal); return Number.isFinite(k) && k >= 800 && k <= 4500 ? Math.round(k) : null; })(), availability: WEEKDAYS.filter((w) => avail.includes(w)), equipment: equip.split(',').map((x) => x.trim()).filter(Boolean), injuries });
     showToast($t("Profil enregistré"));
     navigate('/parametres', { replace: true });
   };
@@ -268,7 +268,9 @@ export function ProfileScreen() {
             <div className="seg" role="group" aria-label={$t("Sexe")}><button type="button" aria-pressed={sex === 'M'} onClick={() => setSex('M')}>{$t("Homme")}</button><button type="button" aria-pressed={sex === 'F'} onClick={() => setSex('F')}>{$t("Femme")}</button></div>
             <span className="hint">{$t("Le TRIMP de Banister utilise un coefficient différent selon le sexe.")}</span>
           </div>
-          <label className="field"><span className="lbl">{$t("Taille (cm)")}</span><input className="input num" inputMode="numeric" value={height} onChange={(e) => setHeight(e.target.value)} /><span className="hint">{$t("Sert à estimer ta dépense de repos (calories), avec ton poids, ton âge et ton sexe.")}</span></label>
+          <div className="field"><span className="lbl">{$t("Taille (cm)")}</span><IntField label={$t("Taille (cm)")} unit="cm" value={numOf(height)} onChange={(x) => setHeight(x === null ? '' : String(x))} min={120} max={230} clearable initial={175} /><span className="hint">{$t("Sert à estimer ta dépense de repos (calories), avec ton poids, ton âge et ton sexe.")}</span></div>
+          <div className="field"><span className="lbl">{$t("Calories de repos de ta montre (par jour)")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><IntField label={$t("Calories de repos de ta montre (par jour)")} unit="kcal" value={numOf(restKcal)} onChange={(x) => setRestKcal(x === null ? '' : String(x))} min={1000} max={4000} step={10} clearable initial={2000} />
+            <span className="hint">{$t("Le total de calories vient de Health Connect ; le partage entre repos et actives, lui, diffère de Garmin Connect. Recopie ici les calories de repos d’une journée complète affichées par Garmin Connect (par exemple 2 150) : Apogée en déduit les actives comme la montre.")}</span></div>
           <div className="field"><span className="lbl">{$t("Jours disponibles pour s’entraîner")}</span>
             <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>
               {WEEKDAYS.map((w) => <button key={w} type="button" className="chip" aria-pressed={avail.includes(w)} onClick={() => setAvail(avail.includes(w) ? avail.filter((x) => x !== w) : [...avail, w])}>{WD_LABEL[w]}</button>)}

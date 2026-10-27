@@ -146,6 +146,8 @@ export interface Prefs {
   healthProbe?: string;
   /** Les nuits ont été relues avec le temps réellement endormi (APK avec les étapes du sommeil). */
   healthSleepAsleep?: boolean;
+  /** Les nuits ont été relues une fois avec le recollage des sessions coupées (sommeil). */
+  healthSleepMerged?: boolean;
   /** Rappels de séance (APK) : heure locale. */
   reminderHour: number;
 }

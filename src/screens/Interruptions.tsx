@@ -4,6 +4,7 @@ import { $t } from '../i18n';
 import { useState } from 'react';
 import { DatePicker, Empty, Sheet, SubHeader, Switch, showToast, Info } from '../ui/kit';
 import { Icon } from '../ui/icons';
+import { IntField } from '../ui/wheels';
 import { navigate, useRoute } from '../ui/router';
 import { useCalc } from '../data/store';
 import { deleteInterruption, restore, saveInterruption } from '../data/actions';
@@ -77,7 +78,7 @@ function InterruptionSheet({ value, defaultStart, onClose, onDelete }: { value: 
         </div>
         {open && <DatePicker value={open === 'start' ? start : end} onChange={(v) => { if (open === 'start') { setStart(v); if (end < v) setEnd(v); } else setEnd(v); setOpen(null); }} />}
         {end < start && <span className="t-caption-strong c-critical">{$t("La fin précède le début.")}</span>}
-        <label className="field"><span className="lbl">{$t("Charge forfaitaire par jour")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><input className="input num" inputMode="numeric" value={load} placeholder={$t("vide = charge mesurée")} onChange={(e) => setLoad(e.target.value)} /><span className="hint">{$t("Remplace la charge des jours sans séance. 0 pour un arrêt complet ; une valeur pour un effort non mesuré (déménagement, randonnée).")}</span></label>
+        <div className="field"><span className="lbl">{$t("Charge forfaitaire par jour")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><IntField label={$t("Charge forfaitaire par jour")} value={load.trim() && Number.isFinite(parseNum(load)) ? parseNum(load) : null} onChange={(x) => setLoad(x === null ? '' : String(x))} clearable min={0} max={1000} step={5} initial={0} /><span className="hint">{$t("Remplace la charge des jours sans séance. 0 pour un arrêt complet ; une valeur pour un effort non mesuré (déménagement, randonnée).")}</span></div>
         <div className="between" style={{ gap: 'var(--space-12)' }}><span className="t-strong" id="lbl-susp">{$t("Suspendre les rappels et alertes")}</span><Switch checked={suspends} labelledBy="lbl-susp" onChange={setSuspends} /></div>
         <label className="field"><span className="lbl">{$t("Notes")}</span><textarea className="input textarea" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
         {onDelete && <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start', color: 'var(--critical-text)' }} onClick={onDelete}><Icon name="trash" size={18} />{$t("Supprimer")}</button>}

@@ -1,4 +1,5 @@
 // Composants partagés (planche Système de PEAnalyze, adaptés à Apogée)
+import { createPortal } from 'react-dom';
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { $t } from '../i18n';
 import { Icon, Logo } from './icons';
@@ -474,6 +475,54 @@ export function DurationWheel({ value, onChange, label, hours = true, seconds = 
       <WheelColumn items={wheelRange(0, 59)} value={m} unit="min" label={$t("Minutes")} onChange={(x) => set(h, x, s)} />
       {seconds && <WheelColumn items={wheelRange(0, 59)} value={s} unit="s" label={$t("Secondes")} onChange={(x) => set(h, m, x)} />}
     </div>
+  );
+}
+
+// ------------------------------------------------------------------ valeur choisie à la roulette, dans une fenêtre pop-up
+/** Petite fenêtre centrée (au-dessus d'une feuille éventuelle) : un titre, un contenu, Annuler / OK et, si besoin, Effacer. */
+export function Popup({ title, children, onClose, onOk, onClear }: { title: string; children: ReactNode; onClose: () => void; onOk: () => void; onClear?: () => void }) {
+  const ref = useRef<HTMLElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    ref.current?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); close.current(); } };
+    document.addEventListener('keydown', onKey, true);
+    return () => { document.removeEventListener('keydown', onKey, true); prev?.focus?.(); };
+  }, []);
+  return createPortal(
+    <>
+      <div className="overlay pop-overlay" onClick={onClose} onTouchStart={stopTouch} onTouchEnd={stopTouch} aria-hidden="true" />
+      <section ref={ref} className="popup" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onTouchStart={stopTouch} onTouchEnd={stopTouch} style={{ outline: 'none' }}>
+        <h2 className="t-h3">{title}</h2>
+        <div className="popup-body">{children}</div>
+        <div className="popup-foot">
+          {onClear && <button type="button" className="btn btn-tertiary" onClick={onClear}>{$t("Effacer")}</button>}
+          <span className="grow" />
+          <button type="button" className="btn btn-secondary" onClick={onClose}>{$t("Annuler")}</button>
+          <button type="button" className="btn btn-primary" onClick={onOk}>{$t("OK")}</button>
+        </div>
+      </section>
+    </>,
+    document.body,
+  );
+}
+
+/**
+ * Case qui affiche la valeur ; un appui ouvre la fenêtre avec la roulette (`wheel`), « OK » valide, « Annuler » ou la touche Échap laissent
+ * la valeur telle quelle. `onClear` ajoute un bouton « Effacer » (valeur facultative).
+ */
+export function WheelField<T>({ label, value, onChange, text, wheel, onClear, disabled }: { label: string; value: T; onChange: (v: T) => void; text: string; wheel: (draft: T, set: (v: T) => void) => ReactNode; onClear?: () => void; disabled?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<T>(value);
+  return (
+    <>
+      <button type="button" className="input picker" disabled={disabled} aria-haspopup="dialog" aria-label={label + ' : ' + text} onClick={() => { setDraft(value); setOpen(true); }}>
+        <span className={text === '—' ? 'c-moderate' : ''}>{text}</span><Icon name="down" size={16} />
+      </button>
+      {open && <Popup title={label} onClose={() => setOpen(false)} onOk={() => { onChange(draft); setOpen(false); }} onClear={onClear ? () => { onClear(); setOpen(false); } : undefined}>{wheel(draft, setDraft)}</Popup>}
+    </>
   );
 }
 

@@ -5,7 +5,7 @@
 import { addDays, mondayOf } from './dates';
 import { analyzeHr } from './hr';
 import { liveRecords, sessionDay, type DayLoad, type SessionLoad } from './load';
-import { ZONE_DISCIPLINES, polarSplit, zoneTimes } from './zones';
+import { ZONE_DISCIPLINES, zoneTimes } from './zones';
 import type { AppData } from './types';
 
 /** Rapport aigu/chronique : sous 0,8 = charge basse, 0,8–1,3 = optimal, 1,3–1,5 = élevé, au-delà = très élevé. */
@@ -82,23 +82,32 @@ export interface LoadFocus { low: number; high: number; anaerobic: number; total
 /** Repères génériques (part de la charge) d'une semaine équilibrée. Ce n'est pas une prescription. */
 export const FOCUS_REF = { low: [0.5, 0.75], high: [0.2, 0.4], anaerobic: [0.02, 0.15] } as const;
 
-/** Répartition de la charge des `span` derniers jours selon l'intensité cardiaque (zones Z1–Z3 / Z4 / Z5 de la FC max retenue). */
+/** Poids de chaque zone dans la charge (Edwards 1993 : 1 à 5) : une minute en zone 5 pèse cinq fois une minute en zone 1. */
+export const ZONE_LOAD_WEIGHT = [1, 2, 3, 4, 5] as const;
+
+/**
+ * Répartition de la charge des `span` derniers jours. Endurance : la charge de chaque séance est partagée selon le temps passé dans chaque zone de FC,
+ * pondéré par le poids de la zone (une minute intense pèse plus qu'une minute facile) : Z1–Z3 = faible aérobie, Z4 = aérobie élevée, Z5 = anaérobie.
+ * Renforcement : sa charge compte en anaérobie (effort de force, comme dans Garmin Connect).
+ */
 export function loadFocus(data: AppData, loads: Map<string, SessionLoad>, hrMax: number | null, today: string, span = 28): LoadFocus {
   const out: LoadFocus = { low: 0, high: 0, anaerobic: 0, total: 0, used: 0, skipped: 0 };
-  if (!hrMax) return out;
   const from = addDays(today, -(span - 1));
   for (const s of liveRecords(data.actual)) {
-    if (!ZONE_DISCIPLINES.includes(s.discipline)) continue;
     const day = sessionDay(s);
     if (day < from || day > today) continue;
     const load = loads.get(s.id)?.load ?? null;
     if (!(load && load > 0)) continue;
+    if (s.discipline === 'STRENGTH') { out.anaerobic += load; out.total += load; out.used++; continue; }
+    if (!hrMax || !ZONE_DISCIPLINES.includes(s.discipline)) continue;
     const ser = data.series[s.id];
     const hr = ser && !ser.deleted ? analyzeHr(ser.hr).clean : [];
     let e = 0, h = 0, a = 0;
     if (hr.length >= 10) {
-      const p = polarSplit(zoneTimes(hr, hrMax));
-      if (p.total > 0) { e = p.easy / p.total; h = p.hard / p.total; a = p.intense / p.total; }
+      const z = zoneTimes(hr, hrMax);
+      const w = z.map((t, i) => t * ZONE_LOAD_WEIGHT[i]);
+      const tot = w.reduce((t, v) => t + v, 0);
+      if (tot > 0) { e = (w[0] + w[1] + w[2]) / tot; h = w[3] / tot; a = w[4] / tot; }
     } else if (s.avgHrBpm) {
       const r = s.avgHrBpm / hrMax;
       if (r < 0.8) e = 1; else if (r < 0.9) h = 1; else a = 1;

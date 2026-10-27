@@ -27,6 +27,7 @@ declare module 'react' {
   export default React;
 }
 declare module 'react/jsx-runtime' { export const jsx: any; export const jsxs: any; export const Fragment: any; }
+declare module 'react-dom' { export function createPortal(children: any, container: Element): any; }
 declare module 'react-dom/client' { export function createRoot(el: Element): { render(node: any): void }; }
 declare module 'jszip' { export default class JSZip { constructor(); [k: string]: any; static [k: string]: any } }
 declare module '*.css';

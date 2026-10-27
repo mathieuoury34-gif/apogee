@@ -68,3 +68,13 @@ export function sleepStats(data: AppData, todayDay: string): SleepStats {
     staged14: n14.filter((n) => n.fromStages).length,
   };
 }
+
+export interface SleepRow { nightDate: string; durationSec: number; startAt: string; endAt: string; zoneOffsetMinutes: number | null; fromStages: boolean }
+/** Les `n` dernières nuits (jour de réveil, du plus récent au plus ancien), pour les comparer ligne à ligne avec la montre. */
+export function recentNights(data: AppData, todayDay: string, n = 7): SleepRow[] {
+  return liveRecords(data.sleep)
+    .filter((x) => x.nightDate <= todayDay)
+    .sort((a, b) => (a.nightDate < b.nightDate ? 1 : -1))
+    .slice(0, n)
+    .map((x) => ({ nightDate: x.nightDate, durationSec: x.durationSec, startAt: x.startAt, endAt: x.endAt, zoneOffsetMinutes: x.zoneOffsetMinutes, fromStages: !!x.fromStages }));
+}

@@ -67,6 +67,8 @@ export interface Athlete extends Rec {
   sex: 'M' | 'F' | null;
   /** Taille en cm : sert à estimer la dépense de repos (formule de Mifflin-St Jeor). */
   heightCm?: number | null;
+  /** Calories de repos par jour affichées par la montre (Garmin Connect) : sert à partager le total de Health Connect entre repos et actives. */
+  restKcal?: number | null;
   availability: Weekday[];
   equipment: string[];
   injuries: InjuryEntry[];

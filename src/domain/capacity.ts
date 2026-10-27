@@ -148,12 +148,21 @@ export interface RacePrediction {
   dist: RaceDistance;
   /** Temps prévu à partir de la VO₂max (VDOT de Daniels). */
   vdotSec: number | null;
-  /** Temps prévu par Riegel à partir du meilleur effort récent, et cet effort. */
+  /** Temps prévu à partir du meilleur effort récent (loi de puissance, exposant amateur), et cet effort. */
   riegelSec: number | null; riegelFrom: Effort | null;
+  /** Extrapolation lointaine (distance prédite > 4,3 fois celle de l'effort) : à lire avec prudence. */
+  far: boolean;
   /** Prédiction recopiée de la montre. */
   watchSec: number | null;
 }
-export const RIEGEL_MAX_RATIO = 4.3;
+/** Ratio maximal entre la distance prédite et celle de l'effort de départ ; au-delà de 4,3 la prédiction est une extrapolation lointaine. */
+export const RIEGEL_MAX_RATIO = 8.5;
+export const RIEGEL_FAR_RATIO = 4.3;
+/**
+ * Exposant de la loi de puissance chez un coureur amateur. Riegel (1981) donne 1,06, ajusté sur des records ; sur des coureurs amateurs, les études
+ * trouvent un exposant plus élevé (Vickers et Vertosick 2016 : de l'ordre de 1,1 à 1,15) : le chrono se dégrade plus vite quand la distance s'allonge.
+ */
+export const AMATEUR_EXPONENT = 1.12;
 
 export function racePredictions(data: AppData, vo2: Vo2Estimate, efforts: Effort[]): { rows: RacePrediction[]; vdot: number | null; basis: 'estimate' | 'watch' | null } {
   const last = liveRecords(data.checkins).sort((a, b) => (a.week < b.week ? 1 : -1));
@@ -165,11 +174,11 @@ export function racePredictions(data: AppData, vo2: Vo2Estimate, efforts: Effort
     for (const e of efforts) {
       const ratio = dist.meters / e.distanceM;
       if (ratio < 0.5 || ratio > RIEGEL_MAX_RATIO) continue;
-      const t = riegel(e.timeSec, e.distanceM, dist.meters);
+      const t = riegel(e.timeSec, e.distanceM, dist.meters, AMATEUR_EXPONENT);
       if (!best || t < best.t) best = { t, e };
     }
     const key = dist.key === '5k' ? 'pred5kSec' : dist.key === '10k' ? 'pred10kSec' : dist.key === 'half' ? 'predHalfSec' : 'predMarathonSec';
-    return { dist, vdotSec: vdot === null ? null : timeOfVdot(vdot, dist.meters), riegelSec: best ? best.t : null, riegelFrom: best ? best.e : null, watchSec: watch(key) };
+    return { dist, vdotSec: vdot === null ? null : timeOfVdot(vdot, dist.meters), riegelSec: best ? best.t : null, riegelFrom: best ? best.e : null, far: !!best && dist.meters / best.e.distanceM > RIEGEL_FAR_RATIO, watchSec: watch(key) };
   });
   return { rows, vdot, basis };
 }
@@ -199,7 +208,8 @@ export function acuteScore(r: number): number {
   return clamp(45 - (r - 1.5) * 90, 0, 100);
 }
 
-export function readiness(data: AppData, d: Derived, day: string = d.today): Readiness | null {
+/** Les facteurs calculables ce jour-là, et ceux qui manquent (pour dire à l'écran ce qui manque quand le score ne peut pas être calculé). */
+export function readinessFactors(data: AppData, d: Derived, day: string = d.today): { factors: ReadinessFactor[]; missing: ReadinessKey[] } {
   const factors: ReadinessFactor[] = [];
   const missing: ReadinessKey[] = [];
   const add = (key: ReadinessKey, value: number | null, score: (v: number) => number) => {
@@ -219,6 +229,11 @@ export function readiness(data: AppData, d: Derived, day: string = d.today): Rea
   add('acuteLoad', pt && pt.ratio !== null ? pt.ratio : null, acuteScore);
   const fr = (day === d.today ? d.form : d.formByDay.get(day))?.components.find((c) => c.key === 'freshness');
   add('freshness', fr ? fr.value : null, () => fr!.score);
+  return { factors, missing };
+}
+
+export function readiness(data: AppData, d: Derived, day: string = d.today): Readiness | null {
+  const { factors, missing } = readinessFactors(data, d, day);
   const total = factors.reduce((t, f) => t + f.weight, 0);
   if (factors.length < 2 || total < READINESS_MIN_WEIGHT) return null;
   let score = 0;
@@ -318,4 +333,27 @@ export function hillScore(data: AppData, todayDay: string): HillScore | null {
   const vamScore = best ? clamp(bestScore * 100, 0, 100) : null;
   const score = vamScore === null ? volume : 0.5 * volume + 0.5 * vamScore;
   return { score: Math.round(score), weeklyGain, volume: Math.round(volume), bestVam: best?.vam ?? null, vamScore: vamScore === null ? null : Math.round(vamScore), best };
+}
+
+// ------------------------------------------------------------------ courbes de capacité calculées par Apogée
+export interface CapacityPoint {
+  day: string;
+  vo2max: number | null;
+  /** Temps prévus (s) : 5 km, 10 km, semi, marathon. */
+  pred: Record<RaceDistance['key'], number | null>;
+}
+
+/** Une valeur toutes les semaines sur `weeks` semaines (la dernière : aujourd'hui), chaque point recalculé avec les seules séances connues ce jour-là. */
+export function capacityHistory(data: AppData, d: Derived, weeks = 12): CapacityPoint[] {
+  const out: CapacityPoint[] = [];
+  for (let k = weeks - 1; k >= 0; k--) {
+    const day = addDays(d.today, -7 * k);
+    const at = { ...d, today: day } as Derived;
+    const efforts = bestEfforts(data, day);
+    const v = vo2maxEstimate(data, at, efforts);
+    const p = racePredictions(data, v, efforts);
+    const pred = Object.fromEntries(p.rows.map((r) => [r.dist.key, r.riegelSec])) as CapacityPoint['pred'];
+    out.push({ day, vo2max: v.value, pred });
+  }
+  return out;
 }

@@ -9,7 +9,7 @@ import { Icon } from '../ui/icons';
 import { navigate } from '../ui/router';
 import { addDays } from '../domain/dates';
 import {
-  bestEfforts, energyReserve, enduranceScore, hillScore, racePredictions, readiness, trainingEffects, vo2maxEstimate,
+  bestEfforts, energyReserve, enduranceScore, hillScore, racePredictions, readiness, readinessFactors, trainingEffects, vo2maxEstimate,
   readinessLevel, type ReadinessKey, type ReadinessLevel,
 } from '../domain/capacity';
 import type { TeLevel } from '../domain/science';
@@ -71,6 +71,7 @@ function factorValue(k: ReadinessKey, v: number): string {
 export function ReadinessCard() {
   const { data, d } = useCalc();
   const r = useMemo(() => readiness(data, d), [data, d]);
+  const missingNow = useMemo(() => readinessFactors(data, d).missing, [data, d]);
   const week = useMemo(() => Array.from({ length: 7 }, (_, i) => { const day = addDays(d.today, i - 6); return { day, r: readiness(data, d, day) }; }), [data, d]);
   return (
     <InfoCard className="card g12" aria-label={$t("Disponibilité à l’entraînement")}>
@@ -100,7 +101,14 @@ export function ReadinessCard() {
           </div>
           {r.missing.length > 0 && <p className="t-legal c-moderate">{$t("Le poids des données manquantes est réparti sur les autres.")}</p>}
         </>
-      ) : <p className="t-caption c-moderate">{$t("Il faut au moins deux de ces éléments : sommeil, FC de repos, charge récente. Avec une montre lue par Health Connect, le score apparaît en quelques jours.")}</p>}
+      ) : (
+        <>
+          <p className="t-caption c-moderate">{$t("Il faut au moins deux de ces éléments pour calculer le score. Ce qu’Apogée a trouvé aujourd’hui :")}</p>
+          <ul className="stack-4">
+            {R_ORDER.map((k) => { const ok = !missingNow.includes(k); return <li key={k} className="between t-caption"><span>{R_FACTOR[k]}</span><span className={ok ? 'c-success' : 'c-moderate'}>{ok ? $t("trouvé") : $t("manquant")}</span></li>; })}
+          </ul>
+        </>
+      )}
       <Info>{$t("Méthode : on combine les facteurs que la littérature relie à la capacité de s’entraîner — sommeil (7 à 9 h recommandées, Hirshkowitz 2015), FC de repos au-dessus de ta base (Buchheit 2014), rapport de charge aiguë / chronique (Gabbett 2016) et fraîcheur du modèle de Banister. Les poids ci-dessus sont ceux d’Apogée. La variabilité cardiaque (HRV), qui entre dans l’indice de Garmin, n’est pas utilisée.")}</Info>
     </InfoCard>
   );
@@ -152,13 +160,11 @@ export function Vo2Card() {
           <div className="row" style={{ gap: 'var(--space-8)', alignItems: 'baseline' }}><span className="t-h2">{num(v.value, 0, 1)}</span><span className="t-caption c-moderate">ml/kg/min · {v.method === 'submax' ? $t("d’après tes sorties de course") : $t("d’après FC max / FC de repos")}</span></div>
           <dl className="kv">
             {v.submax && <><dt>{$t("Sorties de course (FC de réserve)")}</dt><dd>{num(v.submax.value, 0, 1)} <span className="t-legal c-moderate" style={{ fontWeight: 400 }}>({v.submax.n} {$t("séances")})</span></dd></>}
-            {v.uth !== null && <><dt>{$t("FC max / FC de repos (Uth)")}</dt><dd>{num(v.uth, 0, 1)}</dd></>}
-            {v.vdot && <><dt>{$t("Meilleur effort récent (VDOT)")}</dt><dd>{num(v.vdot.value, 0, 1)}</dd></>}
             {v.watch && <><dt>{$t("Ta montre (point du {0})", { 0: dayMonth(v.watch.week) })}</dt><dd>{num(v.watch.value, 0, 1)}</dd></>}
           </dl>
         </>
       ) : <p className="t-caption c-moderate">{$t("Il faut ta FC de repos (montre lue par Health Connect) et ta FC max pour estimer la VO₂max. Renseigne ta date de naissance dans Paramètres › Athlète si besoin.")}</p>}
-      <Info>{$t("Méthodes publiées : (1) sorties de course à allure stable — coût en oxygène de la course (ACSM) et équivalence entre % de la réserve de FC et % de la réserve de VO₂ (Swain et Leutholtz 1997) ; médiane des sorties à plat des 60 derniers jours, 3 sorties minimum. (2) Rapport FC max / FC de repos × 15,3 (Uth 2004). (3) VDOT de Daniels et Gilbert sur ton meilleur effort de 3 à 21 km : c’est une borne basse, un entraînement n’étant pas une course. L’erreur typique est de l’ordre de 10 %.")}{hrNote ? ' ' + $t("Ta FC max vient d’une formule : la mesurer (ou la laisser s’affiner avec tes efforts) améliore l’estimation.") : ''}</Info>
+      <Info>{$t("Méthode publiée : sorties de course à allure stable — coût en oxygène de la course (ACSM) et équivalence entre % de la réserve de FC et % de la réserve de VO₂ (Swain et Leutholtz 1997) ; médiane des sorties à plat des 60 derniers jours, 3 sorties minimum. Sans assez de sorties, repli sur le rapport FC max / FC de repos × 15,3 (Uth 2004). L’erreur typique est de l’ordre de 10 %.")}{hrNote ? ' ' + $t("Ta FC max vient d’une formule : la mesurer (ou la laisser s’affiner avec tes efforts) améliore l’estimation.") : ''}</Info>
     </InfoCard>
   );
 }
@@ -177,20 +183,20 @@ export function PredictionsCard() {
       {!any ? <p className="t-caption c-moderate">{$t("Pas encore de VO₂max estimée ni d’effort de course sur 90 jours : rien à prédire.")}</p> : (
         <div className="pred-grid" style={{ gridTemplateColumns: `auto repeat(${hasWatch ? 3 : 2}, 1fr)` }} role="table">
           <span className="t-legal c-moderate" role="columnheader">{$t("Distance")}</span>
-          <span className="t-legal c-moderate" role="columnheader" style={{ textAlign: 'right' }}>{$t("Selon ta VO₂max")}</span>
-          <span className="t-legal c-moderate" role="columnheader" style={{ textAlign: 'right' }}>{$t("Selon ton meilleur effort")}</span>
+          <span className="t-legal c-moderate" role="columnheader" style={{ textAlign: 'right' }}>{$t("Prédiction (ton meilleur effort)")}</span>
+          <span className="t-legal c-moderate" role="columnheader" style={{ textAlign: 'right' }}>{$t("Potentiel (VO₂max)")}</span>
           {hasWatch && <span className="t-legal c-moderate" role="columnheader" style={{ textAlign: 'right' }}>{$t("Ta montre")}</span>}
           {p.rows.map((r) => (
             <div key={r.dist.key} style={{ display: 'contents' }} role="row">
               <span className="t-caption-strong" role="cell">{r.dist.label}</span>
-              <span style={{ textAlign: 'right' }} role="cell"><strong>{clockOf(r.vdotSec)}</strong></span>
-              <span style={{ textAlign: 'right' }} role="cell"><strong>{clockOf(r.riegelSec)}</strong></span>
+              <span style={{ textAlign: 'right' }} role="cell"><strong>{clockOf(r.riegelSec)}{r.far && r.riegelSec !== null ? ' *' : ''}</strong></span>
+              <span style={{ textAlign: 'right' }} className="c-moderate" role="cell">{clockOf(r.vdotSec)}</span>
               {hasWatch && <span style={{ textAlign: 'right' }} role="cell">{clockOf(r.watchSec)}</span>}
             </div>
           ))}
         </div>
       )}
-      <Info>{$t("Méthodes publiées : « selon ta VO₂max » applique les équations de Daniels et Gilbert (1979) à la VO₂max estimée ci-dessus ; « selon ton meilleur effort » extrapole ton meilleur temps récent par la loi de Riegel (1981), T₂ = T₁ × (D₂ ÷ D₁)^1,06, jusqu’à 4 fois la distance. Les deux supposent une préparation spécifique à la distance : le marathon est souvent prédit trop optimiste sans grosses sorties longues. L’écart entre les deux colonnes est normal : la première suppose une course à fond, la seconde repart de tes sorties réelles, souvent plus tranquilles.")}</Info>
+      <Info>{$t("Méthodes publiées. « Prédiction » extrapole ton meilleur temps récent par une loi de puissance, T₂ = T₁ × (D₂ ÷ D₁)^1,12 : Riegel (1981) proposait 1,06 sur des records, mais les coureurs amateurs ralentissent plus vite quand la distance s’allonge (Vickers et Vertosick 2016, de l’ordre de 1,1 à 1,15). Un * signale une extrapolation lointaine (plus de 4 fois la distance de l’effort) : à lire avec prudence. « Potentiel » applique les équations de Daniels et Gilbert (1979) à ta VO₂max estimée : c’est le chrono d’une course à fond, après une préparation spécifique à la distance, donc nettement plus ambitieux que ce que tes sorties actuelles permettent.")}</Info>
     </InfoCard>
   );
 }
