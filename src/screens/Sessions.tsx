@@ -3,7 +3,7 @@
 // Modifier / Supprimer (avec « Annuler »), filtres en pastilles.
 import { $t } from '../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppHeader, ChipGroup, DatePicker, DiscIcon, DurationWheel, Empty, ErrorBanner, Fab, Hero, Sheet, SportPicker, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther, Info } from '../ui/kit';
+import { AppHeader, ChipGroup, DatePicker, DiscIcon, DurationWheel, Empty, ErrorBanner, Fab, Hero, Sheet, SportPicker, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { Donut, StepChart, WeekBars } from '../ui/charts';
 import { Icon } from '../ui/icons';
 import { useActualMenu } from '../ui/menu';
@@ -161,13 +161,14 @@ export function ReviewScreen({ id }: { id: string }) {
       <SubHeader title={$t("Bilan de séance")} fallback="/seances" right={<button type="button" className="icon-btn" aria-label={$t("Modifier la séance")} onClick={() => setEditing(true)}><Icon name="pencil" /></button>} />
       <main className="content dgrid">
         <div className="dmasonry">
-        <section className="card g16 dspan-7" aria-label={$t("Mesures")}>
+        <InfoCard className="card g16 dspan-7" aria-label={$t("Mesures")}>
           <div className="row" style={{ gap: 'var(--space-12)' }}>
             <DiscIcon d={s.discipline} sub={s.subSport} size={48} />
             <span className="stack grow" style={{ minWidth: 0 }}>
               <span className="t-h3">{sessionLabel(s)}</span>
               <span className="t-caption c-moderate">{dayTitle(day)} {day.slice(0, 4)}{s.source === 'health' ? ' · ' + timeOf(s.startAt, s.zoneOffsetMinutes) : ''} · {s.source === 'manual' ? $t("saisie à la main") : $t("montre · ") + exerciseLabel(s.rawExerciseType)}</span>
             </span>
+            <InfoToggle />
           </div>
           <div className="grid-3 kpi-grid">
             <Kpi label={$t("Durée")} value={duration(s.durationSec)} cls={mark('durationSec')} />
@@ -181,7 +182,7 @@ export function ReviewScreen({ id }: { id: string }) {
           </div>
           <Info>{$t("Charge")} {METHOD_LABEL[l.method]}{l.method === 'srpe' ? $t(" (RPE × minutes × {0}, coefficient appris sur {1})", { 0: num(d.ctx.srpeFactor, 2), 1: d.ctx.srpeCalibrationPairs >= 5 ? $t("tes séances") : $t("une valeur type") }) : ''}.{s.edited.length ? $t(" Valeurs soulignées : corrigées à la main.") : ''}{s.elevationGainM ? $t(" Dénivelé {0} m.", { 0: num(s.elevationGainM, 0) }) : ''}{s.activeCaloriesJ ? $t(" {0} kcal actives.", { 0: num(s.activeCaloriesJ / 4184, 0) }) : ''}</Info>
           <HrTrace id={s.id} />
-        </section>
+        </InfoCard>
 
         <TrainingEffectCard id={s.id} />
 

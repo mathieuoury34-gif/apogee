@@ -2,7 +2,7 @@
 // Tout ce qui vient d'une estimation Apogée ou d'une saisie est étiqueté comme tel ; Apogée ne recalcule pas les indices Garmin.
 import { $t } from '../i18n';
 import { useState } from 'react';
-import { Sheet, showToast, Info } from '../ui/kit';
+import { Sheet, showToast, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useLocalSheet } from '../ui/menu';
 import { useCalc } from '../data/store';
@@ -37,9 +37,9 @@ export function CaloriesCard() {
   const maxBar = Math.max(1, ...week.days.map((x) => Math.max(x.total ?? x.active ?? 0, x.intake)));
   const noEnergy = e.active === null && e.rest === null;
   return (
-    <section className="card g12" aria-label={$t("Calories")}>
+    <InfoCard className="card g12" aria-label={$t("Calories")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
-        <h2>{$t("Calories")}</h2>
+        <h2>{$t("Calories")}<InfoToggle /></h2>
         <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => sheet.show()}>{$t("Ajouter un repas")}</button>
       </div>
       <div className="between">
@@ -106,7 +106,7 @@ export function CaloriesCard() {
           </div>
         </Sheet>
       )}
-    </section>
+    </InfoCard>
   );
 }
 
@@ -166,9 +166,9 @@ export function CheckinCard() {
     </div>
   );
   return (
-    <section className="card g12" aria-label={$t("Point de la semaine")}>
+    <InfoCard className="card g12" aria-label={$t("Point de la semaine")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
-        <h2>{$t("Point de la semaine")}</h2>
+        <h2>{$t("Point de la semaine")}<InfoToggle /></h2>
         <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={open}>{s ? $t("Modifier") : $t("Remplir")}</button>
       </div>
       <Info>{$t("Une fois par semaine, recopie ce que ta montre affiche : VO₂max, seuil de lactate, prédictions de course, et ton ressenti. Apogée en trace les courbes. Un rappel te le propose le dimanche.")}</Info>
@@ -210,7 +210,7 @@ export function CheckinCard() {
           </div>
         </Sheet>
       )}
-    </section>
+    </InfoCard>
   );
 }
 
@@ -239,8 +239,8 @@ export function CapacitiesTrendsCard() {
   const { data } = useCalc();
   const rows = TRENDS.map((t) => ({ t, s: metricSeries(data, t.k) })).filter((r) => r.s.length > 0);
   return (
-    <section className="card g12" aria-label={$t("Courbes de capacité")}>
-      <h2>{$t("Courbes de capacité")}</h2>
+    <InfoCard className="card g12" aria-label={$t("Courbes de capacité")}>
+      <h2>{$t("Courbes de capacité")}<InfoToggle /></h2>
       {rows.length === 0 ? <p className="t-caption c-moderate">{$t("Les courbes apparaîtront dès que tu auras rempli ton point de la semaine, une ou deux fois.")}</p> : (
         <ul className="stack" style={{ gap: 'var(--space-16)' }}>
           {rows.map(({ t, s }) => {
@@ -260,6 +260,6 @@ export function CapacitiesTrendsCard() {
         </ul>
       )}
       <Info>{$t("Valeurs recopiées de ta montre (ou lues dans Health Connect quand elle les envoie) : Apogée ne les recalcule pas, elle en trace l’évolution.")}</Info>
-    </section>
+    </InfoCard>
   );
 }

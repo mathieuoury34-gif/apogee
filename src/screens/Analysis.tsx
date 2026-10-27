@@ -3,7 +3,7 @@
 // Chaque carte dit comment elle calcule : aucun nombre sans sa méthode.
 import { $t } from '../i18n';
 import { Fragment, useState } from 'react';
-import { AppHeader, Empty, ErrorBanner, OtherToggle, Segmented, Sheet, SubNav, showToast, useWithOther, Info } from '../ui/kit';
+import { AppHeader, Empty, ErrorBanner, OtherToggle, Segmented, Sheet, SubNav, showToast, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { useLocalSheet } from '../ui/menu';
 import { FITNESS_COLOR, FITNESS_LABEL, SplitBars, StackedFitness } from '../ui/charts2';
 import { navigate } from '../ui/router';
@@ -31,9 +31,9 @@ export function WeekCard({ data, d }: Props) {
   const w = weekSummary(data, d, start);
   const diff = w.previousLoad && w.previousLoad > 0 ? w.load / w.previousLoad - 1 : null;
   return (
-    <section className="card g12" aria-label={$t("Bilan de semaine")}>
+    <InfoCard className="card g12" aria-label={$t("Bilan de semaine")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
-        <h2>{$t("Bilan de semaine")}</h2>
+        <h2>{$t("Bilan de semaine")}<InfoToggle /></h2>
         <Segmented label={$t("Semaine")} value={which} onChange={setWhich} options={[['this', $t("En cours")], ['last', $t("Dernière")]]} />
       </div>
       <p className="t-caption c-moderate">{$t("Du {0} au {1}", { 0: dateFr(w.start), 1: dateFr(w.end) })}{w.partial ? $t(" · semaine en cours") : ''}{w.interruption ? ` · ${w.interruption}` : ''}</p>
@@ -50,7 +50,7 @@ export function WeekCard({ data, d }: Props) {
           <Info>{$t("Les durées sont « réalisé / prévu » ; le prévu n’est compté que pour les séances dont la durée est connue.")}</Info>
         </>
       )}
-    </section>
+    </InfoCard>
   );
 }
 
@@ -86,8 +86,8 @@ export function ComplianceCard({ d, data }: Props) {
   const rows: Compliance[] = wanted.map((k) => pool.find((c) => c.key === k) ?? { key: k, planned: 0, done: 0, plannedSec: 0, doneSec: 0 });
   const tot = rows.reduce((t, c) => ({ planned: t.planned + c.planned, done: t.done + c.done, plannedSec: t.plannedSec + c.plannedSec, doneSec: t.doneSec + c.doneSec }), { planned: 0, done: 0, plannedSec: 0, doneSec: 0 });
   return (
-    <section className="card g12" aria-label={$t("Respect du plan")}>
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Respect du plan")}</h2><Segmented label={$t("Regroupement")} value={by} onChange={setBy} options={[['week', $t("3 sem.")], ['month', $t("3 mois")]]} /></div>
+    <InfoCard className="card g12" aria-label={$t("Respect du plan")}>
+      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Respect du plan")}<InfoToggle /></h2><Segmented label={$t("Regroupement")} value={by} onChange={setBy} options={[['week', $t("3 sem.")], ['month', $t("3 mois")]]} /></div>
       {tot.planned > 0 && (
         <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}>
           <span className="t-h2" style={{ color: `var(--${rateTone(tot.done / tot.planned)}-text)` }}>{pct(tot.done / tot.planned)}</span>
@@ -101,7 +101,7 @@ export function ComplianceCard({ d, data }: Props) {
         <span><span className="dot s10" style={{ background: 'var(--critical)' }} /> {$t("moins de 50 %")}</span>
       </div>
       <Info>{$t("Une séance prévue compte comme faite quand une séance réalisée lui est rattachée. Les jours couverts par une interruption ne comptent pas comme manqués. Le temps ne porte que sur les séances dont la durée prévue est connue. Le mois et la semaine en cours ne comptent que les jours déjà passés.")}</Info>
-    </section>
+    </InfoCard>
   );
 }
 
@@ -115,9 +115,9 @@ export function ZonesCard({ d, data }: Props) {
   const edges = HR_ZONE_EDGES.map((e) => (hrMax ? Math.round(e * hrMax) : null));
   const range = [`< ${edges[0]}`, `${edges[0]}–${edges[1]}`, `${edges[1]}–${edges[2]}`, `${edges[2]}–${edges[3]}`, `≥ ${edges[3]}`];
   return (
-    <section className="card g12" aria-label={$t("Temps par zone de FC")}>
+    <InfoCard className="card g12" aria-label={$t("Temps par zone de FC")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
-        <h2>{$t("Temps par zone de FC")}</h2>
+        <h2>{$t("Temps par zone de FC")}<InfoToggle /></h2>
         <Segmented label={$t("Période")} value={n} onChange={setN} options={[['4', $t("4 sem.")], ['8', $t("8 sem.")], ['12', $t("12 sem.")]]} />
       </div>
       <OtherToggle />
@@ -148,7 +148,7 @@ export function ZonesCard({ d, data }: Props) {
         </>
       )}
       <Info>{$t("Zones en % de ta FC max retenue ({0} bpm) : Z1 < 60 %, Z2 60–70 %, Z3 70–80 %, Z4 80–90 %, Z5 ≥ 90 %. Course, vélo et natation seulement (le renforcement est exclu). Le repère « 80/20 » est générique : sans test de seuil, la vraie frontière varie d’un sportif à l’autre. Les séances sans courbe cardiaque ne sont pas comptées{1}.", { 0: hrMax ? num(hrMax, 0) : '—', 1: rep.withoutHr ? $t(" ({0} sur la période)", { 0: rep.withoutHr }) : '' })}</Info>
-    </section>
+    </InfoCard>
   );
 }
 
@@ -163,8 +163,8 @@ export function FitnessCard({ d, data }: Props) {
   const tot = keys.reduce((t, k) => t + last.byKey[k], 0);
   const totBefore = before ? keys.reduce((t, k) => t + before.byKey[k], 0) : null;
   return (
-    <section className="card g12" aria-label={$t("Forme de fond par discipline")}>
-      <h2>{$t("Forme de fond par discipline")}</h2>
+    <InfoCard className="card g12" aria-label={$t("Forme de fond par discipline")}>
+      <h2>{$t("Forme de fond par discipline")}<InfoToggle /></h2>
       <Info>{$t("Ta forme de fond est ton niveau d’entraînement des dernières semaines : une moyenne de ta charge sur 6 semaines, sans unité. Plus elle est haute, plus tu t’entraînes régulièrement.")}</Info>
       <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}>
         <span className="t-h2">{num(tot, 0)}</span>
@@ -182,7 +182,7 @@ export function FitnessCard({ d, data }: Props) {
         })}
       </ul>
       <Info>{$t("Pour chaque discipline : sa part de la forme de fond actuelle, puis son évolution depuis 4 semaines. « Interruption (forfait) » est la charge forfaitaire comptée pendant une blessure ou un voyage déclaré. Même calcul que la forme de fond de l’onglet Charge (moyenne exponentielle sur 42 jours) : la somme des disciplines redonne la forme de fond totale. Un point par semaine, sur 6 mois.")}</Info>
-    </section>
+    </InfoCard>
   );
 }
 
@@ -204,9 +204,9 @@ export function EfficiencyCard({ d, data }: Props) {
   const climb = disc === 'BIKE' ? EF_MAX_CLIMB_BIKE : EF_MAX_CLIMB;
   const recent = ef.points.slice(-5).reverse();
   return (
-    <section className="card g12" aria-label={$t("Tendance d’efficacité")}>
+    <InfoCard className="card g12" aria-label={$t("Tendance d’efficacité")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
-        <h2>{$t("Tendance d’efficacité")}</h2>
+        <h2>{$t("Tendance d’efficacité")}<InfoToggle /></h2>
         <Segmented label={$t("Discipline")} value={disc} onChange={setDisc} options={[['RUN', DISCIPLINE_LABEL.RUN], ['BIKE', DISCIPLINE_LABEL.BIKE]]} />
       </div>
       {ef.points.length < 2 ? (
@@ -248,7 +248,7 @@ export function EfficiencyCard({ d, data }: Props) {
         </>
       )}
       <Info>{disc === 'RUN' ? $t("Efficacité = mètres parcourus par battement (vitesse ÷ FC moyenne). On compare des séances à effort égal : FC moyenne entre 65 et 85 % de ta FC max, 20 min minimum, dénivelé inférieur à 2 %. La colonne de droite ramène chaque séance à la même FC (la FC habituelle de ces séances) pour qu’elles soient comparables. Chaleur, fatigue, vent ou revêtement la font varier : lis une tendance, pas une séance.") : $t("Efficacité = mètres parcourus par battement (vitesse ÷ FC moyenne). À vélo : FC moyenne entre 55 et 85 % de ta FC max, 20 min minimum, dénivelé inférieur à 3 %. La colonne de droite ramène chaque sortie à la même FC (la FC habituelle de ces sorties) pour qu’elles soient comparables. Vent, relief, arrêts et groupe la font varier : lis une tendance, pas une sortie.")}</Info>
-    </section>
+    </InfoCard>
   );
 }
 
@@ -269,11 +269,11 @@ export function RecordsCard({ data }: Props) {
     );
   };
   return (
-    <section className="card g12" aria-label={$t("Records personnels")}>
-      <h2>{$t("Records personnels")}</h2>
+    <InfoCard className="card g12" aria-label={$t("Records personnels")}>
+      <h2>{$t("Records personnels")}<InfoToggle /></h2>
       <ul>{recs.map(line)}</ul>
       <Info>{$t("Meilleur segment de la distance, lu dans la courbe de vitesse de la montre et recalé sur la distance enregistrée de la séance. Le temps est le temps de déplacement : les arrêts (pause automatique de la montre) ne comptent pas, comme dans Garmin. « Séance entière » : pas de courbe exploitable, et la distance de la séance est à 3 % près celle du record. Une vitesse physiquement impossible est écartée. Cliquer ouvre la séance.")}</Info>
-    </section>
+    </InfoCard>
   );
 }
 
@@ -291,9 +291,9 @@ export function WeightCard({ data, d }: Props) {
     showToast($t("Pesée enregistrée"), { undo: () => restore(snap) });
   };
   return (
-    <section className="card g12" aria-label={$t("Poids")}>
+    <InfoCard className="card g12" aria-label={$t("Poids")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
-        <h2>{$t("Poids")}</h2>
+        <h2>{$t("Poids")}<InfoToggle /></h2>
         <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => { setVal(t.latest ? String(t.latest.kg).replace('.', ',') : ''); sheet.show(); }}>{$t("Saisir une pesée")}</button>
       </div>
       {!t.latest ? <p className="t-caption c-moderate">{$t("Aucune pesée. Saisis-la à la main ; elle vient aussi de Health Connect si une balance connectée l’y dépose (Garmin ne l’envoie pas).")}</p> : (
@@ -316,7 +316,7 @@ export function WeightCard({ data, d }: Props) {
           </div>
         </Sheet>
       )}
-    </section>
+    </InfoCard>
   );
 }
 
@@ -328,8 +328,8 @@ export function SleepCard({ data, d }: Props) {
   const clock = (m: number) => { const x = Math.round(m) % 1440; return String(Math.floor(x / 60)).padStart(2, '0') + NBSP + 'h' + String(x % 60).padStart(2, '0'); };
   const diff = st.avg7 !== null && st.avgBefore !== null ? st.avg7 - st.avgBefore : null;
   return (
-    <section className="card g12" aria-label={$t("Sommeil")}>
-      <h2>{$t("Sommeil")}</h2>
+    <InfoCard className="card g12" aria-label={$t("Sommeil")}>
+      <h2>{$t("Sommeil")}<InfoToggle /></h2>
       <dl className="kv">
         <dt>{$t("Durée moyenne, 7 dernières nuits")}</dt><dd>{st.avg7 === null ? '—' : hh(st.avg7)}</dd>
         <dt>{$t("Écart avec les 3 semaines précédentes")}</dt><dd>{diff === null ? '—' : (diff >= 0 ? '+' : '−') + Math.round(Math.abs(diff) / 60) + NBSP + 'min'}</dd>
@@ -338,7 +338,7 @@ export function SleepCard({ data, d }: Props) {
       </dl>
       {st.staged14 < st.nights14 && <div className="note"><Icon name="info" size={20} /><span>{st.staged14 === 0 ? $t("Ces durées sont le temps passé au lit, éveils compris : Health Connect ne donne pas (encore) les étapes du sommeil. Avec la dernière version de l’APK, l’app compte le temps réellement endormi, comme Garmin Connect.") : $t("{0} nuit(s) sur {1} sont comptées en temps passé au lit (étapes du sommeil indisponibles), les autres en temps réellement endormi.", { 0: st.nights14 - st.staged14, 1: st.nights14 })}</span></div>}
       <Info>{$t("Lecture seule, sans objectif de sommeil imposé : on compare ta semaine à tes propres habitudes. La durée est le temps réellement endormi (éveils exclus) quand Health Connect donne les étapes du sommeil, comme dans Garmin Connect. Le coucher est l’heure de début de la nuit lue par Health Connect, sur les 14 dernières nuits (5 minimum). Plus l’écart-type est petit, plus tes nuits sont régulières. La durée de la nuit compte déjà dans la forme du jour.")}</Info>
-    </section>
+    </InfoCard>
   );
 }
 
@@ -348,8 +348,8 @@ export function BricksCard({ d, data }: Props) {
   if (!rows.length) return null;
   const pace = (v: number | null) => (v === null ? '—' : mmss(v) + NBSP + '/km');
   return (
-    <section className="card g12" aria-label={$t("Enchaînements vélo → course")}>
-      <h2>{$t("Enchaînements vélo → course")}</h2>
+    <InfoCard className="card g12" aria-label={$t("Enchaînements vélo → course")}>
+      <h2>{$t("Enchaînements vélo → course")}<InfoToggle /></h2>
       <ul>
         {rows.map((r) => (
           <li key={r.runId} className="rec-row">
@@ -361,6 +361,6 @@ export function BricksCard({ d, data }: Props) {
         ))}
       </ul>
       <Info>{$t("Pour chaque enchaînement confirmé ou rattaché à un BRICK prévu : durée de transition (fin du vélo → début de la course, au plus 45 min) et allure de la course comparée à la médiane de tes autres courses de 10 min ou plus des 90 jours précédents. Un écart positif signifie plus lent que d’habitude.")}</Info>
-    </section>
+    </InfoCard>
   );
 }

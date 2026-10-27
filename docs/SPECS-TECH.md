@@ -350,7 +350,7 @@ Tout est recalculé (rien n'est stocké), étiqueté « estimation Apogée » ; 
 - Point hebdomadaire : champs `hrvMs` / `hrvStatus` conservés dans le type (données existantes) mais plus saisis ni tracés ; plus de pré-remplissage HRV.
 - Tests : `science du sport…` (tables de Daniels : 5 km 20:00 → VDOT 49,8, marathon 3:00 → 53,5), disponibilité, VO₂max/prédictions sur un historique synthétique, côtes (41 tests).
 
-- Convention UI (27/10) : toute explication de méthode, d'équation ou de lecture de graphique s'écrit `<Info>…</Info>` (`ui/kit.tsx`, icône « i », `aria-expanded`, masquée par défaut). Les états vides, avertissements (`.note`) et valeurs restent en clair.
+- Convention UI (27/10) : toute explication de méthode, d'équation ou de lecture de graphique s'écrit `<Info>…</Info>` (`ui/kit.tsx`, icône « i », `aria-expanded`, masquée par défaut). Dans une carte, la section s'écrit `<InfoCard>` et l'icône se place à côté du titre avec `<InfoToggle />` : tous les `<Info>` de la carte apparaissent au même endroit, à l'appui. Hors carte, `<Info>` garde sa propre icône. Les états vides, avertissements (`.note`) et valeurs restent en clair.
 
 ### 5.12 Fichier .FIT d'entraînement (`fit.ts`, `data/exportFit.ts`)
 En-tête 14 octets (protocole 2.0, profil 21.32), messages `file_id` (type 5, fabricant 255), `workout` (sport, nombre

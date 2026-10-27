@@ -4,7 +4,7 @@
 import { $t } from '../i18n';
 import { useMemo } from 'react';
 import { useCalc } from '../data/store';
-import { Info } from '../ui/kit';
+import { Info, InfoCard, InfoToggle } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { navigate } from '../ui/router';
 import { addDays } from '../domain/dates';
@@ -39,12 +39,12 @@ export function TrainingEffectCard({ id }: { id: string }) {
     </div>
   );
   return (
-    <section className="card g12 dspan-5" aria-label={$t("Effet de la séance")}>
-      <div className="between"><h2>{$t("Effet de la séance")}</h2><Est /></div>
+    <InfoCard className="card g12 dspan-5" aria-label={$t("Effet de la séance")}>
+      <div className="between"><h2>{$t("Effet de la séance")}<InfoToggle /></h2><Est /></div>
       {row($t("Aérobie"), e.aerobic, e.level)}
       {row($t("Anaérobie"), e.anaerobic, e.anaerobicLevel)}
       <Info>{$t("Échelle de 0 à 5 comme sur les montres. Aérobie : charge de la séance (TRIMP de Banister, qui suit la dépense d’oxygène après l’effort) comparée à une séance solide de tes 90 derniers jours ({0}).", { 0: e.refIsDefault ? $t("valeur type : historique trop court") : num(e.refLoad, 0) })}{e.anaerobic === null ? '' : $t(" Anaérobie : temps passé à 90 % de la FC max ou plus ({0}), approximation d’Apogée.", { 0: Math.round((e.zone5Sec ?? 0) / 60) + NBSP + 'min' })}</Info>
-    </section>
+    </InfoCard>
   );
 }
 
@@ -73,8 +73,8 @@ export function ReadinessCard() {
   const r = useMemo(() => readiness(data, d), [data, d]);
   const week = useMemo(() => Array.from({ length: 7 }, (_, i) => { const day = addDays(d.today, i - 6); return { day, r: readiness(data, d, day) }; }), [data, d]);
   return (
-    <section className="card g12" aria-label={$t("Disponibilité à l’entraînement")}>
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Disponibilité à l’entraînement")}</h2><Est /></div>
+    <InfoCard className="card g12" aria-label={$t("Disponibilité à l’entraînement")}>
+      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Disponibilité à l’entraînement")}<InfoToggle /></h2><Est /></div>
       {r ? (
         <>
           <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2">{r.score}</span><span className="t-strong" style={{ color: R_COLOR[r.level] }}>{R_LABEL[r.level]}</span></div>
@@ -102,7 +102,7 @@ export function ReadinessCard() {
         </>
       ) : <p className="t-caption c-moderate">{$t("Il faut au moins deux de ces éléments : sommeil, FC de repos, charge récente. Avec une montre lue par Health Connect, le score apparaît en quelques jours.")}</p>}
       <Info>{$t("Méthode : on combine les facteurs que la littérature relie à la capacité de s’entraîner — sommeil (7 à 9 h recommandées, Hirshkowitz 2015), FC de repos au-dessus de ta base (Buchheit 2014), rapport de charge aiguë / chronique (Gabbett 2016) et fraîcheur du modèle de Banister. Les poids ci-dessus sont ceux d’Apogée. La variabilité cardiaque (HRV), qui entre dans l’indice de Garmin, n’est pas utilisée.")}</Info>
-    </section>
+    </InfoCard>
   );
 }
 
@@ -114,8 +114,8 @@ export function ReserveCard() {
   const W = 300, H = 80, gap = 4, bw = (W - gap * (pts.length - 1)) / pts.length;
   const Y = (v: number) => H - (v / 100) * H;
   return (
-    <section className="card g12" aria-label={$t("Réserve d’énergie")}>
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Réserve d’énergie")}</h2><Est /></div>
+    <InfoCard className="card g12" aria-label={$t("Réserve d’énergie")}>
+      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Réserve d’énergie")}<InfoToggle /></h2><Est /></div>
       {!last || pts.every((p) => p.sleepAssumed) ? <p className="t-caption c-moderate">{$t("Il faut des nuits de sommeil (montre lue par Health Connect) pour estimer la réserve.")}</p> : (
         <>
           <div className="row wrap" style={{ gap: 'var(--space-24)', alignItems: 'baseline' }}>
@@ -134,7 +134,7 @@ export function ReserveCard() {
         </>
       )}
       <Info>{$t("Méthode simplifiée : le Body Battery de Garmin repose sur la HRV et le stress, que la montre ne transmet pas. Ici : recharge = jusqu’à 80 points selon la durée de sommeil (besoin 8 h) et la FC de repos ; dépense = 35 points par jour plus 40 points par séance à ta charge habituelle. Ces paramètres sont ceux d’Apogée : c’est une lecture de tendance, pas une mesure.")}</Info>
-    </section>
+    </InfoCard>
   );
 }
 
@@ -145,8 +145,8 @@ export function Vo2Card() {
   const v = useMemo(() => vo2maxEstimate(data, d, efforts), [data, d, efforts]);
   const hrNote = d.ctx.hrMax.origin === 'tanaka';
   return (
-    <section className="card g12" aria-label={$t("VO₂max estimée")}>
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("VO₂max")}</h2><Est /></div>
+    <InfoCard className="card g12" aria-label={$t("VO₂max estimée")}>
+      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("VO₂max")}<InfoToggle /></h2><Est /></div>
       {v.value !== null ? (
         <>
           <div className="row" style={{ gap: 'var(--space-8)', alignItems: 'baseline' }}><span className="t-h2">{num(v.value, 0, 1)}</span><span className="t-caption c-moderate">ml/kg/min · {v.method === 'submax' ? $t("d’après tes sorties de course") : $t("d’après FC max / FC de repos")}</span></div>
@@ -159,7 +159,7 @@ export function Vo2Card() {
         </>
       ) : <p className="t-caption c-moderate">{$t("Il faut ta FC de repos (montre lue par Health Connect) et ta FC max pour estimer la VO₂max. Renseigne ta date de naissance dans Paramètres › Athlète si besoin.")}</p>}
       <Info>{$t("Méthodes publiées : (1) sorties de course à allure stable — coût en oxygène de la course (ACSM) et équivalence entre % de la réserve de FC et % de la réserve de VO₂ (Swain et Leutholtz 1997) ; médiane des sorties à plat des 60 derniers jours, 3 sorties minimum. (2) Rapport FC max / FC de repos × 15,3 (Uth 2004). (3) VDOT de Daniels et Gilbert sur ton meilleur effort de 3 à 21 km : c’est une borne basse, un entraînement n’étant pas une course. L’erreur typique est de l’ordre de 10 %.")}{hrNote ? ' ' + $t("Ta FC max vient d’une formule : la mesurer (ou la laisser s’affiner avec tes efforts) améliore l’estimation.") : ''}</Info>
-    </section>
+    </InfoCard>
   );
 }
 
@@ -172,8 +172,8 @@ export function PredictionsCard() {
   const any = p.rows.some((r) => r.vdotSec !== null || r.riegelSec !== null || r.watchSec !== null);
   const hasWatch = p.rows.some((r) => r.watchSec !== null);
   return (
-    <section className="card g12" aria-label={$t("Prédictions de course")}>
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Prédictions de course")}</h2><Est /></div>
+    <InfoCard className="card g12" aria-label={$t("Prédictions de course")}>
+      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Prédictions de course")}<InfoToggle /></h2><Est /></div>
       {!any ? <p className="t-caption c-moderate">{$t("Pas encore de VO₂max estimée ni d’effort de course sur 90 jours : rien à prédire.")}</p> : (
         <div className="pred-grid" style={{ gridTemplateColumns: `auto repeat(${hasWatch ? 3 : 2}, 1fr)` }} role="table">
           <span className="t-legal c-moderate" role="columnheader">{$t("Distance")}</span>
@@ -191,7 +191,7 @@ export function PredictionsCard() {
         </div>
       )}
       <Info>{$t("Méthodes publiées : « selon ta VO₂max » applique les équations de Daniels et Gilbert (1979) à la VO₂max estimée ci-dessus ; « selon ton meilleur effort » extrapole ton meilleur temps récent par la loi de Riegel (1981), T₂ = T₁ × (D₂ ÷ D₁)^1,06, jusqu’à 4 fois la distance. Les deux supposent une préparation spécifique à la distance : le marathon est souvent prédit trop optimiste sans grosses sorties longues. L’écart entre les deux colonnes est normal : la première suppose une course à fond, la seconde repart de tes sorties réelles, souvent plus tranquilles.")}</Info>
-    </section>
+    </InfoCard>
   );
 }
 
@@ -206,8 +206,8 @@ export function EnduranceHillCard() {
     <div className="stack-4"><div className="between t-caption"><span className="t-caption-strong">{label}</span><span className="c-neutral">{value}</span></div><div className="meter"><span style={{ width: `${pctv}%`, background: 'var(--form-ready)' }} /></div></div>
   );
   return (
-    <section className="card g16" aria-label={$t("Endurance et côtes")}>
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Endurance et côtes")}</h2><Est /></div>
+    <InfoCard className="card g16" aria-label={$t("Endurance et côtes")}>
+      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Endurance et côtes")}<InfoToggle /></h2><Est /></div>
       <div className="stack" style={{ gap: 'var(--space-10)' }}>
         <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2">{en ? en.score : '—'}</span><span className="t-strong">{$t("Indice d’endurance")}</span></div>
         {en ? (
@@ -232,6 +232,6 @@ export function EnduranceHillCard() {
         ) : <p className="t-caption c-moderate">{$t("Aucun dénivelé enregistré en course ou à vélo sur 28 jours.")}</p>}
       </div>
       <Info>{$t("Méthode : l’endurance combine les déterminants publiés de la performance (VO₂max, Joyner et Coyle 2008) et la « durabilité » (volume et durée des sorties longues, Maunder 2021) ; les côtes combinent le dénivelé hebdomadaire et la vitesse ascensionnelle moyenne des sorties vallonnées (VAM). Les entrées sont mesurées ; les échelles de 0 à 100 (VO₂max 30 → 0 et 60 → 100, 10 h par semaine, 3 h de sortie, 1 200 m de D+ par semaine, 600 m/h à pied ou 700 m/h à vélo) sont celles d’Apogée.")}</Info>
-    </section>
+    </InfoCard>
   );
 }

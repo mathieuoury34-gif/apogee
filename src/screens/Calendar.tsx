@@ -4,7 +4,7 @@
 // séance se fait depuis sa fiche avec le calendrier, l'interruption en cours est marquée sur les jours.
 import { $t } from '../i18n';
 import { useEffect, useMemo, useState } from 'react';
-import { AppHeader, DatePicker, DiscIcon, ErrorBanner, Fab, Sheet, SubHeader, SubNav, showToast, useSwipe, Info } from '../ui/kit';
+import { AppHeader, DatePicker, DiscIcon, ErrorBanner, Fab, Sheet, SubHeader, SubNav, showToast, useSwipe, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { back, closeSheet, navigate, openSheet, useRoute } from '../ui/router';
 import { useCalc } from '../data/store';
@@ -300,8 +300,8 @@ export function PlannedDetailScreen({ id }: { id: string }) {
           <BlockList p={p} />
         </section>
         {p.blocks.length > 0 && (
-          <section className="card g8 dspan-12" aria-label={$t("Montre")}>
-            <h2>{$t("Sur la montre")}</h2>
+          <InfoCard className="card g8 dspan-12" aria-label={$t("Montre")}>
+            <h2>{$t("Sur la montre")}<InfoToggle /></h2>
             <Info>{$t("Exporte la séance en entraînement structuré (.FIT) : étapes, durées ou distances, cibles d’allure, de puissance ou de FC, répétitions. Où l’envoyer : branche la montre en USB à un ordinateur et copie le fichier dans GARMIN/NewFiles, puis débranche-la ; la séance apparaît dans Entraînement › Séances. Pas par « Importer des données » de Garmin Connect : cette page n’accepte que des séances déjà faites.")}</Info>
             <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={async () => {
               try {
@@ -312,7 +312,7 @@ export function PlannedDetailScreen({ id }: { id: string }) {
             }}><Icon name="download" size={18} />{$t("Exporter pour la montre (.FIT)")}</button>
             {fitWarn.length > 0 && <div className="note note-warning"><Icon name="alert" size={20} /><span>{[...new Set(fitWarn)].join(' ; ')}.</span></div>}
             {p.discipline === 'BRICK' && <Info>{$t("Une montre ne lit qu’un sport par entraînement : un enchaînement donne un fichier par discipline.")}</Info>}
-          </section>
+          </InfoCard>
         )}
         <section className="card g8 dspan-12" aria-label={$t("Réalisation")}>
           <h2>{$t("Réalisation")}</h2>

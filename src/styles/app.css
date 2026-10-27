@@ -668,3 +668,4 @@ input, textarea, select, [contenteditable="true"], pre, code, .help-f, .help-cod
 .info-btn:focus-visible { outline: 2px solid var(--focus-indicator); }
 .info-text { align-self: stretch; padding: var(--space-12); border-radius: var(--radius-12); background: var(--bg-surface-minimal); color: var(--text-neutral); font: var(--type-caption); display: flex; flex-direction: column; gap: var(--space-8); }
 .info-text p { margin: 0; }
+.info-btn.inline { margin: -4px 0 -4px var(--space-4); width: 28px; height: 28px; vertical-align: middle; }

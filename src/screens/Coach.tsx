@@ -4,7 +4,7 @@
 //   3. journal des échanges.
 import { $t } from '../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppHeader, ChipGroup, DiscIcon, Empty, ErrorBanner, Sheet, showToast, Info } from '../ui/kit';
+import { AppHeader, ChipGroup, DiscIcon, Empty, ErrorBanner, Sheet, showToast, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { navigate, useRoute } from '../ui/router';
 import { getData, useCalc } from '../data/store';
@@ -51,9 +51,9 @@ export function CoachScreen() {
         {valid !== null && <div className={'note dspan-12' + (valid < d.today ? ' note-warning' : '')}><Icon name="calendar" size={20} /><span>{valid < d.today ? $t("Le dernier plan a expiré le {0}. Il est temps de redemander un plan.", { 0: dateFr(valid) }) : $t("Plan en cours valable jusqu’au {0}.", { 0: dateFr(valid) })}</span></div>}
 
         <div className="dmasonry">
-        <section className="card g12 dspan-7" aria-labelledby="h-export">
+        <InfoCard className="card g12 dspan-7" aria-labelledby="h-export">
           <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
-            <h2 id="h-export">{$t("1. Envoyer le dossier")}</h2>
+            <h2 id="h-export">{$t("1. Envoyer le dossier")}<InfoToggle /></h2>
             <ChipGroup label={$t("Séances jointes")} value={weeks} onChange={(v) => { setWeeks(v); setExcluded(new Set()); }} options={[['1', $t("1 sem.")], ['2', $t("2 sem.")], ['4', $t("4 sem.")], ['8', $t("8 sem.")]]} />
           </div>
           <Info>{$t("Profil, course, indicateurs, périodisation, charge, séances prévues passées et à venir (telles que tu les as modifiées) et les séances cochées ci-dessous, avec la consigne de réponse au format apogee/1.")}</Info>
@@ -66,13 +66,13 @@ export function CoachScreen() {
             <button type="button" className="btn btn-primary" onClick={exportFile}><Icon name="download" size={18} />{$t("Exporter le fichier (")}{selected.length})</button>
             <button type="button" className="btn btn-secondary" onClick={copy}><Icon name="copy" size={18} />{$t("Copier")}</button>
           </div>
-        </section>
+        </InfoCard>
 
-        <section className="card g12 dspan-7" aria-labelledby="h-import">
-          <h2 id="h-import">{$t("2. Importer le plan")}</h2>
+        <InfoCard className="card g12 dspan-7" aria-labelledby="h-import">
+          <h2 id="h-import">{$t("2. Importer le plan")}<InfoToggle /></h2>
           <Info>{$t("Colle la réponse du coach ou ouvre le fichier qu’il a produit. Rien n’est modifié avant ta validation de l’aperçu.")}</Info>
           <button type="button" className="btn btn-primary" style={{ alignSelf: 'flex-start' }} onClick={() => setImportOpen(true)}><Icon name="upload" size={18} />{$t("Importer un plan")}</button>
-        </section>
+        </InfoCard>
 
         <section className="card g8 dspan-5" aria-labelledby="h-journal">
           <h2 id="h-journal">{$t("Journal des échanges")}</h2>

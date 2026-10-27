@@ -20,6 +20,8 @@ declare module 'react' {
   export function useRef<T>(initial: T | null): { current: T | null };
   export function useSyncExternalStore<T>(sub: (cb: () => void) => () => void, get: () => T, getServer?: () => T): T;
   export function useId(): string;
+  export function createContext<T>(def: T): { Provider: any; _t?: T };
+  export function useContext<T>(ctx: { Provider: any; _t?: T }): T;
   export const Fragment: any;
   const React: any;
   export default React;

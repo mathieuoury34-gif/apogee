@@ -1,5 +1,5 @@
 // Composants partagés (planche Système de PEAnalyze, adaptés à Apogée)
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { $t } from '../i18n';
 import { Icon, Logo } from './icons';
 import { back, closeSheet, navigate, tabOf, useRoute, type Tab } from './router';
@@ -478,13 +478,35 @@ export function DurationWheel({ value, onChange, label, hours = true, seconds = 
 }
 
 // ------------------------------------------------------------------ explication repliable (icône « i »)
-/** Texte d'explication (méthode, lecture d'un graphique…) masqué par défaut : un appui sur l'icône l'affiche, un second le masque. */
-export function Info({ children, label }: { children: ReactNode; label?: string }) {
+// `InfoCard` est une carte (section) qui porte l'état ; `InfoToggle` met l'icône « i » à côté du titre ; chaque `Info` est un texte
+// masqué par défaut qui s'affiche là où il est écrit quand on appuie sur l'icône. Hors d'une `InfoCard`, `Info` porte sa propre icône.
+const InfoCtx = createContext<{ open: boolean; toggle: () => void } | null>(null);
+
+export function InfoCard({ children, ...rest }: { children?: ReactNode; [k: string]: any }) {
   const [open, setOpen] = useState(false);
+  const v = useMemo(() => ({ open, toggle: () => setOpen((o) => !o) }), [open]);
+  return <InfoCtx.Provider value={v}><section {...rest}>{children}</section></InfoCtx.Provider>;
+}
+
+function InfoButton({ open, onClick, inline }: { open: boolean; onClick: () => void; inline?: boolean }) {
+  return <button type="button" className={'info-btn' + (inline ? ' inline' : '')} aria-expanded={open} aria-label={$t("Explication")} title={$t("Explication")} onClick={onClick}><Icon name="info" size={18} /></button>;
+}
+
+/** Icône « i » à placer dans le titre d'une `InfoCard`. */
+export function InfoToggle() {
+  const c = useContext(InfoCtx);
+  return c ? <InfoButton open={c.open} onClick={c.toggle} inline /> : null;
+}
+
+/** Texte d'explication (méthode, lecture d'un graphique…) masqué par défaut. */
+export function Info({ children }: { children: ReactNode }) {
+  const c = useContext(InfoCtx);
+  const [own, setOwn] = useState(false);
+  if (c) return c.open ? <div className="info-text" role="note">{children}</div> : null;
   return (
     <div className="info">
-      <button type="button" className="info-btn" aria-expanded={open} aria-label={label ?? $t("Explication")} title={label ?? $t("Explication")} onClick={() => setOpen(!open)}><Icon name="info" size={18} /></button>
-      {open && <div className="info-text" role="note">{children}</div>}
+      <InfoButton open={own} onClick={() => setOwn(!own)} />
+      {own && <div className="info-text" role="note">{children}</div>}
     </div>
   );
 }

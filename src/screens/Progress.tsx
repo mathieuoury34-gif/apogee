@@ -3,7 +3,7 @@
 // (décision du 31/08) : l'écran juxtapose les chiffres.
 import { $t } from '../i18n';
 import { useState } from 'react';
-import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast, OtherToggle, useWithOther, Info } from '../ui/kit';
+import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast, OtherToggle, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { FormChart, LoadPanels, StackedWeeks, StepChart } from '../ui/charts';
 import { ComplianceCard, FitnessCard, SleepCard, WeightCard } from './Analysis';
 import { CaloriesCard, CapacitiesTrendsCard, CheckinCard } from './Wellness';
@@ -67,19 +67,19 @@ export function LoadScreen() {
           </div>
         </Hero>
 
-        <section className="card g12 dspan-7" aria-label={$t("Statut d’entraînement")}>
-          <div className="between"><h2>{$t("Statut d’entraînement")}</h2><span className="t-legal c-moderate">{$t("estimation Apogée")}</span></div>
+        <InfoCard className="card g12 dspan-7" aria-label={$t("Statut d’entraînement")}>
+          <div className="between"><h2>{$t("Statut d’entraînement")}<InfoToggle /></h2><span className="t-legal c-moderate">{$t("estimation Apogée")}</span></div>
           {curStatus ? (
             <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2" style={{ color: STATUS_INFO[curStatus].color }}>{STATUS_INFO[curStatus].label}</span><span className="t-caption c-neutral">{STATUS_INFO[curStatus].text}</span></div>
           ) : <p className="t-caption c-moderate">{$t("Disponible après 28 jours d’historique")}{d.series.firstDay ? $t(" (dès le {0})", { 0: dateFr(addDays(d.series.firstDay, 28)) }) : ''}.</p>}
           <StatusStrip weeks={weekStatus} />
           <Info>{$t("Chaque case est une semaine. Le statut croise ta charge des 7 jours avec ta charge habituelle (4 semaines) et la tendance de ta forme de fond. Touche une case pour le détail.")}</Info>
-        </section>
+        </InfoCard>
         </div>
 
-        <section className="card g12 dspan-12" aria-label={$t("Charge aiguë")}>
+        <InfoCard className="card g12 dspan-12" aria-label={$t("Charge aiguë")}>
           <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
-            <h2>{$t("Charge aiguë et zone optimale")}</h2>
+            <h2>{$t("Charge aiguë et zone optimale")}<InfoToggle /></h2>
             {acwr !== null && <span className={'var-chip' + (acwrZone === 'ok' ? '' : acwrZone === 'low' ? ' flat' : ' warn')}>{$t("rapport")} {num(acwr, 2)}</span>}
           </div>
           <Info>{$t("Le trait noir est ta charge des 7 derniers jours. La bande verte est la zone où elle progresse sans excès : entre 0,8 et 1,3 fois ta charge hebdomadaire habituelle. Dans la bande orange, c’est élevé ; au-delà, le risque de blessure monte.")}</Info>
@@ -96,16 +96,16 @@ export function LoadScreen() {
           )}
           {c.heaviestDay && c.heaviestDay.share >= 0.2 && <div className="note"><Icon name="info" size={20} /><span>{$t("Une seule journée pèse beaucoup dans les 28 derniers jours : le {0} ({1}, soit {2} du total). Si cette charge est surévaluée, le rapport est écrasé. Vérifie-la dans le bilan de la séance (ressenti ou FC).", { 0: dayTitle(c.heaviestDay.day), 1: num(c.heaviestDay.load, 0), 2: pct(c.heaviestDay.share) })}</span></div>}
           {d.series.isPriming && <div className="note"><Icon name="info" size={20} /><span>{$t("Historique court : forme et fatigue sont amorcées sur ta charge habituelle des 14 premiers jours, et se stabilisent vers le")} {dateFr(d.series.primingEndsOn!)}.</span></div>}
-        </section>
+        </InfoCard>
 
-        <section className="card g12 dspan-12" aria-label={$t("Répartition de la charge")}>
-          <h2>{$t("Répartition de la charge")}</h2>
+        <InfoCard className="card g12 dspan-12" aria-label={$t("Répartition de la charge")}>
+          <h2>{$t("Répartition de la charge")}<InfoToggle /></h2>
           <Info>{$t("D’où vient ta charge des 4 dernières semaines : sorties tranquilles, efforts soutenus ou intensité maximale, d’après ta fréquence cardiaque.")}</Info>
           <FocusBars focus={focus} />
-        </section>
+        </InfoCard>
 
-        <section className="card g12 dspan-12" aria-label={$t("Évolution")}>
-          <h2>{$t("Forme de fond, fatigue et fraîcheur")}</h2>
+        <InfoCard className="card g12 dspan-12" aria-label={$t("Évolution")}>
+          <h2>{$t("Forme de fond, fatigue et fraîcheur")}<InfoToggle /></h2>
           <Segmented label={$t("Courbe")} value={view} onChange={setView} options={[['charge', $t("Charge")], ['forme', $t("Forme du jour")]]} />
           <Info>{$t("Même période que le graphique de charge aiguë, plus haut.")}</Info>
           {view === 'charge' ? <LoadPanels days={days} /> : (
@@ -114,7 +114,7 @@ export function LoadScreen() {
               <Info>{$t("Score sur 100, calculé chaque matin à partir de ta nuit, de ta FC de repos, de ta fraîcheur au réveil et du ressenti de la veille, comparés à tes 14 jours précédents.")}</Info>
             </>
           )}
-        </section>
+        </InfoCard>
 
         <ForecastCard />
 
@@ -122,11 +122,11 @@ export function LoadScreen() {
         <FitnessCard data={data} d={d} />
         </div>
 
-        <section className="card g8 dspan-12" aria-label={$t("Méthode")}>
-          <h2>{$t("Comment la charge est calculée")}</h2>
+        <InfoCard className="card g8 dspan-12" aria-label={$t("Méthode")}>
+          <h2>{$t("Comment la charge est calculée")}<InfoToggle /></h2>
           <Info><p>{$t("Chaque séance reçoit une charge, de la plus fiable à la moins fiable : TRIMP sur la courbe cardiaque de la montre ; TRIMP sur la FC moyenne ; ressenti × durée recalé sur l’échelle du TRIMP (coefficient")} {num(d.ctx.srpeFactor, 2)}, {d.ctx.srpeCalibrationPairs >= 5 ? $t("appris sur {0} de tes séances", { 0: d.ctx.srpeCalibrationPairs }) : $t("valeur type tant qu’il y a moins de 5 séances avec FC et ressenti")}{$t(") ; à défaut, une charge provisoire tirée de tes habitudes. Forme de fond = moyenne exponentielle sur 42 jours, fatigue = sur 7 jours, fraîcheur = forme − fatigue.")}</p>
           <p>{$t("FC max retenue :")} {d.ctx.hrMax.bpm ? $t("{0} bpm ({1})", { 0: num(d.ctx.hrMax.bpm, 0), 1: d.ctx.hrMax.origin === 'observed' ? $t("pic soutenu observé") : d.ctx.hrMax.origin === 'tanaka' ? $t("formule de Tanaka, faute de mieux") : $t("valeur déclarée") }) : $t("inconnue — renseigne ta date de naissance ou une FC max")}{$t(". FC de repos de référence :")} {d.ctx.resting.at(d.today) ? $t("{0} bpm", { 0: num(d.ctx.resting.at(d.today)!, 0) }) : '—'}.</p></Info>
-        </section>
+        </InfoCard>
       </main>
     </div>
   );
@@ -446,9 +446,9 @@ function ForecastCard() {
   const past = d.series.days.slice(-15, -1);
   const days: DayLoad[] = [...past, ...f.days.map((x) => ({ day: x.day, load: x.load, estimated: true, interruptionFill: false, fitness: x.fitness, fatigue: x.fatigue, freshness: x.freshness }))];
   return (
-    <section className="card g12 dspan-12" aria-label={$t("Prévisionnel de charge")}>
+    <InfoCard className="card g12 dspan-12" aria-label={$t("Prévisionnel de charge")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
-        <h2>{$t("Prévisionnel de charge")}</h2>
+        <h2>{$t("Prévisionnel de charge")}<InfoToggle /></h2>
         <ChipGroup label={$t("Horizon")} value={h} onChange={setH} options={[['14', $t("2 sem.")], ['28', $t("4 sem.")], ['plan', $t("Tout le plan")]]} />
       </div>
       {!hasPlan || d.series.days.length < 2 ? <p className="t-caption c-moderate">{$t("Aucune séance prévue à venir : importe un plan du coach ou ajoute des séances au calendrier pour voir la projection.")}</p> : (
@@ -468,7 +468,7 @@ function ForecastCard() {
           <Info>{$t("Méthode : charge d’une séance prévue = durée estimée de ses blocs × ta charge par minute habituelle dans la discipline (médiane des 90 derniers jours). L’intensité prévue n’est pas modélisée : une séance de seuil et un footing de même durée valent pareil. Les valeurs sont celles du modèle (forme 42 jours, fatigue 7 jours) ; une projection sert à comparer des semaines, pas à prédire ta forme le jour J.")}</Info>
         </>
       )}
-    </section>
+    </InfoCard>
   );
 }
 
@@ -479,8 +479,8 @@ function ZoneSuggestions() {
   if (!sugg.length) return null;
   const show = (k: 'vma' | 'css', v: number) => (k === 'vma' ? num(v * 3.6, 1) + NBSP + $t("km/h") : mmss(100 / v) + NBSP + '/100' + NBSP + 'm');
   return (
-    <section className="card g12 dspan-12" aria-label={$t("Estimations suggérées")}>
-      <h2>{$t("Estimations suggérées")}</h2>
+    <InfoCard className="card g12 dspan-12" aria-label={$t("Estimations suggérées")}>
+      <h2>{$t("Estimations suggérées")}<InfoToggle /></h2>
       {sugg.map((s) => (
         <div key={s.kind} className="between wrap" style={{ gap: 'var(--space-8)' }}>
           <span className="stack-4 grow">
@@ -491,6 +491,6 @@ function ZoneSuggestions() {
         </div>
       ))}
       <Info>{$t("Une estimation n’est jamais appliquée seule : tu l’adoptes, elle est enregistrée avec la source « estimation » et reste modifiable. Un effort de 6 minutes ne prouve qu’une VMA au moins égale ; elle n’est proposée que si elle dépasse ta valeur actuelle. Pour la CSS, il faut deux vrais efforts maximaux (200 m et 400 m) dans la même séance.")}</Info>
-    </section>
+    </InfoCard>
   );
 }
