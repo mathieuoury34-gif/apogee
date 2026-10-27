@@ -71,6 +71,7 @@ copier dans `GARMIN/NewFiles` (ou `GARMIN/Workouts`) de la Fenix 7S Pro et véri
 
 | E | Fenêtres « à la Garmin » à **méthodes publiées** (étiquetées *estimation Apogée*, méthode citée sur chaque carte) : Training Effect aérobie/anaérobie par séance, VO₂max estimée, prédictions 5 km–marathon, disponibilité à l'entraînement, réserve d'énergie, indice d'endurance, indice de côtes ; statut HRV retiré du point hebdomadaire | `f4af884` | non |
 | E bis | Éditeur de bloc : **roulettes** (comme la durée de séance) pour le temps, la distance (pas de 25 m en natation, 10 m sinon), les répétitions et toutes les intensités (zone, allure, vitesse, puissance, FC, charge, RPE, pourcentages) ; borne haute facultative (bouton) | commit suivant `f4af884` | non |
+| E ter | Textes d'explication (méthodes, lecture des graphes, modèles) **repliés par défaut** derrière une icône « i » (composant `Info` de `ui/kit.tsx`) : un appui les affiche, un second les masque. Les messages d'état et avertissements restent visibles | commit suivant | non |
 
 **Réponse de fond (27/10)** — les indices de Garmin (Firstbeat) sont propriétaires et ne sont pas dans Health Connect ; Apogée calcule ses **propres
 équivalents** avec des méthodes de la littérature (voir SPECS-TECH §5.11 ter), étiquetés comme tels et non comparables un à un. Mathieu a confirmé

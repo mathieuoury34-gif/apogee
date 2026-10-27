@@ -2,7 +2,7 @@
 // et info-bulle sombre au survol / au toucher, largeur fluide.
 import { $t } from '../i18n';
 import { useState, type ReactNode } from 'react';
-import { useWidth } from './kit';
+import { Info, useWidth } from './kit';
 import { dateShort, dayMonth, DISCIPLINE_LABEL, duration, hm, num, NBSP, monthShort, signed } from './format';
 import type { DayLoad } from '../domain/load';
 import type { DailyForm } from '../domain/form';
@@ -150,7 +150,7 @@ export function LoadPanels({ days, today }: { days: DayLoad[]; today?: string })
 
       <section className="lp" aria-label={$t("Forme de fond et fatigue")}>
         <h3 className="t-strong">{$t("Forme de fond et fatigue")}</h3>
-        <p className="t-caption c-neutral">{$t("La forme de fond (trait plein) est ce que tu as construit depuis 6 semaines ; elle monte doucement. La fatigue (pointillés) est ce que tu as encaissé cette semaine ; elle bouge vite.")}</p>
+        <Info>{$t("La forme de fond (trait plein) est ce que tu as construit depuis 6 semaines ; elle monte doucement. La fatigue (pointillés) est ce que tu as encaissé cette semaine ; elle bouge vite.")}</Info>
         <div className="chart" style={{ height: T + H1 + 4 }}>
           <svg viewBox={`0 0 ${cw} ${T + H1 + 4}`} width={cw} height={T + H1 + 4} role="img" aria-label={$t("Forme de fond {0}, fatigue {1}", { 0: num(days[n - 1].fitness, 0), 1: num(days[n - 1].fatigue, 0) })}>
             <path d={grid} fill="none" strokeWidth="1" style={{ stroke: 'var(--chart-grid)' }} />
@@ -166,7 +166,7 @@ export function LoadPanels({ days, today }: { days: DayLoad[]; today?: string })
 
       <section className="lp" aria-label={$t("Charge du jour")}>
         <h3 className="t-strong">{$t("Charge du jour")}</h3>
-        <p className="t-caption c-neutral">{$t("L’effort de chaque journée : plus la barre est haute, plus elle a été dure. Une barre pâle est une charge estimée, sans mesure précise.")}{maxLoad > cap ? $t(" Une journée hors norme est coupée (chevron) ; sa vraie valeur apparaît en haut.") : ''}</p>
+        <Info>{$t("L’effort de chaque journée : plus la barre est haute, plus elle a été dure. Une barre pâle est une charge estimée, sans mesure précise.")}{maxLoad > cap ? $t(" Une journée hors norme est coupée (chevron) ; sa vraie valeur apparaît en haut.") : ''}</Info>
         <div className="chart" style={{ height: T + H2 + 4 }}>
           <svg viewBox={`0 0 ${cw} ${T + H2 + 4}`} width={cw} height={T + H2 + 4} aria-hidden="true">
             <line x1="0" x2={W} y1={T + H2} y2={T + H2} strokeWidth="1" style={{ stroke: 'var(--border-moderate)' }} />
@@ -182,7 +182,7 @@ export function LoadPanels({ days, today }: { days: DayLoad[]; today?: string })
 
       <section className="lp" aria-label={$t("Fraîcheur")}>
         <h3 className="t-strong">{$t("Fraîcheur")}</h3>
-        <p className="t-caption c-neutral">{$t("Forme de fond moins fatigue. Au-dessus de zéro : tu es reposé, c’est le bon moment pour une séance clé ou une course. En dessous : tu es dans le dur.")}</p>
+        <Info>{$t("Forme de fond moins fatigue. Au-dessus de zéro : tu es reposé, c’est le bon moment pour une séance clé ou une course. En dessous : tu es dans le dur.")}</Info>
         <div className="chart" style={{ height: T + H3 + 26 }}>
           <svg viewBox={`0 0 ${cw} ${T + H3 + 26}`} width={cw} height={T + H3 + 26} aria-hidden="true">
             <line x1="0" x2={W} y1={mid} y2={mid} strokeWidth="1" style={{ stroke: 'var(--border-moderate)' }} />

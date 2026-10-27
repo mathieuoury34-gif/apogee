@@ -2,7 +2,7 @@
 // répartition de la charge. Valeurs estimées par Apogée (voir domain/loadStatus.ts).
 import { $t } from '../i18n';
 import { useState, type ReactNode } from 'react';
-import { useWidth } from './kit';
+import { Info, useWidth } from './kit';
 import { hoverIndex, niceStep } from './charts';
 import { dateShort, dayMonth, num, pct } from './format';
 import { FOCUS_REF, RATIO_HIGH, RATIO_LOW, RATIO_OPT_HIGH, STATUS_ORDER, type AcutePoint, type LoadFocus, type StatusKey, type WeekStatus } from '../domain/loadStatus';
@@ -161,7 +161,7 @@ export function FocusBars({ focus }: { focus: LoadFocus }) {
           </div>
         );
       })}
-      <p className="t-legal c-moderate">{$t("Bande claire = repère courant d’une semaine équilibrée (indicatif, pas une prescription). Calcul sur 28 jours, séances de course, vélo et natation avec FC{0}.", { 0: focus.skipped ? $t(" ; {0} séance(s) sans FC non comptée(s)", { 0: focus.skipped }) : '' })}</p>
+      <Info>{$t("Bande claire = repère courant d’une semaine équilibrée (indicatif, pas une prescription). Calcul sur 28 jours, séances de course, vélo et natation avec FC{0}.", { 0: focus.skipped ? $t(" ; {0} séance(s) sans FC non comptée(s)", { 0: focus.skipped }) : '' })}</Info>
     </div>
   );
 }

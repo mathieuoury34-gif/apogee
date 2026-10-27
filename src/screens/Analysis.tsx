@@ -3,7 +3,7 @@
 // Chaque carte dit comment elle calcule : aucun nombre sans sa méthode.
 import { $t } from '../i18n';
 import { Fragment, useState } from 'react';
-import { AppHeader, Empty, ErrorBanner, OtherToggle, Segmented, Sheet, SubNav, showToast, useWithOther } from '../ui/kit';
+import { AppHeader, Empty, ErrorBanner, OtherToggle, Segmented, Sheet, SubNav, showToast, useWithOther, Info } from '../ui/kit';
 import { useLocalSheet } from '../ui/menu';
 import { FITNESS_COLOR, FITNESS_LABEL, SplitBars, StackedFitness } from '../ui/charts2';
 import { navigate } from '../ui/router';
@@ -47,7 +47,7 @@ export function WeekCard({ data, d }: Props) {
             {w.freshness !== null && <><dt>{$t("Fraîcheur")}</dt><dd>{signed(w.freshness, 0)}</dd></>}
             {w.acwr !== null && <><dt>{$t("Aigu / chronique")}</dt><dd>{num(w.acwr, 2)}</dd></>}
           </dl>
-          <p className="t-legal c-moderate">{$t("Les durées sont « réalisé / prévu » ; le prévu n’est compté que pour les séances dont la durée est connue.")}</p>
+          <Info>{$t("Les durées sont « réalisé / prévu » ; le prévu n’est compté que pour les séances dont la durée est connue.")}</Info>
         </>
       )}
     </section>
@@ -100,7 +100,7 @@ export function ComplianceCard({ d, data }: Props) {
         <span><span className="dot s10" style={{ background: 'var(--warning)' }} /> {$t("50 à 79 %")}</span>
         <span><span className="dot s10" style={{ background: 'var(--critical)' }} /> {$t("moins de 50 %")}</span>
       </div>
-      <p className="t-legal c-moderate">{$t("Une séance prévue compte comme faite quand une séance réalisée lui est rattachée. Les jours couverts par une interruption ne comptent pas comme manqués. Le temps ne porte que sur les séances dont la durée prévue est connue. Le mois et la semaine en cours ne comptent que les jours déjà passés.")}</p>
+      <Info>{$t("Une séance prévue compte comme faite quand une séance réalisée lui est rattachée. Les jours couverts par une interruption ne comptent pas comme manqués. Le temps ne porte que sur les séances dont la durée prévue est connue. Le mois et la semaine en cours ne comptent que les jours déjà passés.")}</Info>
     </section>
   );
 }
@@ -147,7 +147,7 @@ export function ZonesCard({ d, data }: Props) {
           </ul>
         </>
       )}
-      <p className="t-legal c-moderate">{$t("Zones en % de ta FC max retenue ({0} bpm) : Z1 < 60 %, Z2 60–70 %, Z3 70–80 %, Z4 80–90 %, Z5 ≥ 90 %. Course, vélo et natation seulement (le renforcement est exclu). Le repère « 80/20 » est générique : sans test de seuil, la vraie frontière varie d’un sportif à l’autre. Les séances sans courbe cardiaque ne sont pas comptées{1}.", { 0: hrMax ? num(hrMax, 0) : '—', 1: rep.withoutHr ? $t(" ({0} sur la période)", { 0: rep.withoutHr }) : '' })}</p>
+      <Info>{$t("Zones en % de ta FC max retenue ({0} bpm) : Z1 < 60 %, Z2 60–70 %, Z3 70–80 %, Z4 80–90 %, Z5 ≥ 90 %. Course, vélo et natation seulement (le renforcement est exclu). Le repère « 80/20 » est générique : sans test de seuil, la vraie frontière varie d’un sportif à l’autre. Les séances sans courbe cardiaque ne sont pas comptées{1}.", { 0: hrMax ? num(hrMax, 0) : '—', 1: rep.withoutHr ? $t(" ({0} sur la période)", { 0: rep.withoutHr }) : '' })}</Info>
     </section>
   );
 }
@@ -165,13 +165,13 @@ export function FitnessCard({ d, data }: Props) {
   return (
     <section className="card g12" aria-label={$t("Forme de fond par discipline")}>
       <h2>{$t("Forme de fond par discipline")}</h2>
-      <p className="t-caption c-neutral">{$t("Ta forme de fond est ton niveau d’entraînement des dernières semaines : une moyenne de ta charge sur 6 semaines, sans unité. Plus elle est haute, plus tu t’entraînes régulièrement.")}</p>
+      <Info>{$t("Ta forme de fond est ton niveau d’entraînement des dernières semaines : une moyenne de ta charge sur 6 semaines, sans unité. Plus elle est haute, plus tu t’entraînes régulièrement.")}</Info>
       <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}>
         <span className="t-h2">{num(tot, 0)}</span>
         <span className="t-caption c-neutral">{totBefore !== null ? $t("aujourd’hui, contre {0} il y a 4 semaines ({1})", { 0: num(totBefore, 0), 1: signed(tot - totBefore, 0) }) : $t("aujourd’hui")}</span>
       </div>
       <OtherToggle />
-      <p className="t-caption c-moderate">{$t("Chaque barre est une semaine : sa hauteur est ta forme de fond ce jour-là, et ses couleurs montrent la part de chaque discipline.")}</p>
+      <Info>{$t("Chaque barre est une semaine : sa hauteur est ta forme de fond ce jour-là, et ses couleurs montrent la part de chaque discipline.")}</Info>
       <StackedFitness slices={all} keys={keys} />
       <ul>
         {keys.map((k) => {
@@ -181,7 +181,7 @@ export function FitnessCard({ d, data }: Props) {
           );
         })}
       </ul>
-      <p className="t-legal c-moderate">{$t("Pour chaque discipline : sa part de la forme de fond actuelle, puis son évolution depuis 4 semaines. « Interruption (forfait) » est la charge forfaitaire comptée pendant une blessure ou un voyage déclaré. Même calcul que la forme de fond de l’onglet Charge (moyenne exponentielle sur 42 jours) : la somme des disciplines redonne la forme de fond totale. Un point par semaine, sur 6 mois.")}</p>
+      <Info>{$t("Pour chaque discipline : sa part de la forme de fond actuelle, puis son évolution depuis 4 semaines. « Interruption (forfait) » est la charge forfaitaire comptée pendant une blessure ou un voyage déclaré. Même calcul que la forme de fond de l’onglet Charge (moyenne exponentielle sur 42 jours) : la somme des disciplines redonne la forme de fond totale. Un point par semaine, sur 6 mois.")}</Info>
     </section>
   );
 }
@@ -247,7 +247,7 @@ export function EfficiencyCard({ d, data }: Props) {
           </ul>
         </>
       )}
-      <p className="t-legal c-moderate">{disc === 'RUN' ? $t("Efficacité = mètres parcourus par battement (vitesse ÷ FC moyenne). On compare des séances à effort égal : FC moyenne entre 65 et 85 % de ta FC max, 20 min minimum, dénivelé inférieur à 2 %. La colonne de droite ramène chaque séance à la même FC (la FC habituelle de ces séances) pour qu’elles soient comparables. Chaleur, fatigue, vent ou revêtement la font varier : lis une tendance, pas une séance.") : $t("Efficacité = mètres parcourus par battement (vitesse ÷ FC moyenne). À vélo : FC moyenne entre 55 et 85 % de ta FC max, 20 min minimum, dénivelé inférieur à 3 %. La colonne de droite ramène chaque sortie à la même FC (la FC habituelle de ces sorties) pour qu’elles soient comparables. Vent, relief, arrêts et groupe la font varier : lis une tendance, pas une sortie.")}</p>
+      <Info>{disc === 'RUN' ? $t("Efficacité = mètres parcourus par battement (vitesse ÷ FC moyenne). On compare des séances à effort égal : FC moyenne entre 65 et 85 % de ta FC max, 20 min minimum, dénivelé inférieur à 2 %. La colonne de droite ramène chaque séance à la même FC (la FC habituelle de ces séances) pour qu’elles soient comparables. Chaleur, fatigue, vent ou revêtement la font varier : lis une tendance, pas une séance.") : $t("Efficacité = mètres parcourus par battement (vitesse ÷ FC moyenne). À vélo : FC moyenne entre 55 et 85 % de ta FC max, 20 min minimum, dénivelé inférieur à 3 %. La colonne de droite ramène chaque sortie à la même FC (la FC habituelle de ces sorties) pour qu’elles soient comparables. Vent, relief, arrêts et groupe la font varier : lis une tendance, pas une sortie.")}</Info>
     </section>
   );
 }
@@ -272,7 +272,7 @@ export function RecordsCard({ data }: Props) {
     <section className="card g12" aria-label={$t("Records personnels")}>
       <h2>{$t("Records personnels")}</h2>
       <ul>{recs.map(line)}</ul>
-      <p className="t-legal c-moderate">{$t("Meilleur segment de la distance, lu dans la courbe de vitesse de la montre et recalé sur la distance enregistrée de la séance. Le temps est le temps de déplacement : les arrêts (pause automatique de la montre) ne comptent pas, comme dans Garmin. « Séance entière » : pas de courbe exploitable, et la distance de la séance est à 3 % près celle du record. Une vitesse physiquement impossible est écartée. Cliquer ouvre la séance.")}</p>
+      <Info>{$t("Meilleur segment de la distance, lu dans la courbe de vitesse de la montre et recalé sur la distance enregistrée de la séance. Le temps est le temps de déplacement : les arrêts (pause automatique de la montre) ne comptent pas, comme dans Garmin. « Séance entière » : pas de courbe exploitable, et la distance de la séance est à 3 % près celle du record. Une vitesse physiquement impossible est écartée. Cliquer ouvre la séance.")}</Info>
     </section>
   );
 }
@@ -307,7 +307,7 @@ export function WeightCard({ data, d }: Props) {
           <div className="between t-legal c-moderate"><span>{t.points.length ? dateShort(t.points[0].day) : ''}</span><span>{$t("{0} pesées sur 90 jours", { 0: t.points.length })}</span><span>{t.points.length ? dateShort(t.points[t.points.length - 1].day) : ''}</span></div>
         </>
       )}
-      <p className="t-legal c-moderate">{$t("La moyenne sur 7 jours lisse les variations d’hydratation d’un jour à l’autre. Le poids est un simple suivi : il ne modifie aucune charge. Une pesée saisie à la main n’est jamais écrasée par Health Connect.")}</p>
+      <Info>{$t("La moyenne sur 7 jours lisse les variations d’hydratation d’un jour à l’autre. Le poids est un simple suivi : il ne modifie aucune charge. Une pesée saisie à la main n’est jamais écrasée par Health Connect.")}</Info>
       {sheet.open && (
         <Sheet title={$t("Saisir une pesée")} onClose={sheet.hide} footer={<button type="button" className="btn btn-primary block" disabled={!ok} onClick={save}>{$t("Enregistrer")}</button>}>
           <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
@@ -337,7 +337,7 @@ export function SleepCard({ data, d }: Props) {
         <dt>{$t("Régularité du coucher (écart-type)")}</dt><dd>{st.bedtimeSd === null ? '—' : '± ' + Math.round(st.bedtimeSd) + NBSP + 'min'}</dd>
       </dl>
       {st.staged14 < st.nights14 && <div className="note"><Icon name="info" size={20} /><span>{st.staged14 === 0 ? $t("Ces durées sont le temps passé au lit, éveils compris : Health Connect ne donne pas (encore) les étapes du sommeil. Avec la dernière version de l’APK, l’app compte le temps réellement endormi, comme Garmin Connect.") : $t("{0} nuit(s) sur {1} sont comptées en temps passé au lit (étapes du sommeil indisponibles), les autres en temps réellement endormi.", { 0: st.nights14 - st.staged14, 1: st.nights14 })}</span></div>}
-      <p className="t-legal c-moderate">{$t("Lecture seule, sans objectif de sommeil imposé : on compare ta semaine à tes propres habitudes. La durée est le temps réellement endormi (éveils exclus) quand Health Connect donne les étapes du sommeil, comme dans Garmin Connect. Le coucher est l’heure de début de la nuit lue par Health Connect, sur les 14 dernières nuits (5 minimum). Plus l’écart-type est petit, plus tes nuits sont régulières. La durée de la nuit compte déjà dans la forme du jour.")}</p>
+      <Info>{$t("Lecture seule, sans objectif de sommeil imposé : on compare ta semaine à tes propres habitudes. La durée est le temps réellement endormi (éveils exclus) quand Health Connect donne les étapes du sommeil, comme dans Garmin Connect. Le coucher est l’heure de début de la nuit lue par Health Connect, sur les 14 dernières nuits (5 minimum). Plus l’écart-type est petit, plus tes nuits sont régulières. La durée de la nuit compte déjà dans la forme du jour.")}</Info>
     </section>
   );
 }
@@ -360,7 +360,7 @@ export function BricksCard({ d, data }: Props) {
           </li>
         ))}
       </ul>
-      <p className="t-legal c-moderate">{$t("Pour chaque enchaînement confirmé ou rattaché à un BRICK prévu : durée de transition (fin du vélo → début de la course, au plus 45 min) et allure de la course comparée à la médiane de tes autres courses de 10 min ou plus des 90 jours précédents. Un écart positif signifie plus lent que d’habitude.")}</p>
+      <Info>{$t("Pour chaque enchaînement confirmé ou rattaché à un BRICK prévu : durée de transition (fin du vélo → début de la course, au plus 45 min) et allure de la course comparée à la médiane de tes autres courses de 10 min ou plus des 90 jours précédents. Un écart positif signifie plus lent que d’habitude.")}</Info>
     </section>
   );
 }

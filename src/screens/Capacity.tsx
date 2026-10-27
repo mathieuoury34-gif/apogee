@@ -4,6 +4,7 @@
 import { $t } from '../i18n';
 import { useMemo } from 'react';
 import { useCalc } from '../data/store';
+import { Info } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { navigate } from '../ui/router';
 import { addDays } from '../domain/dates';
@@ -42,7 +43,7 @@ export function TrainingEffectCard({ id }: { id: string }) {
       <div className="between"><h2>{$t("Effet de la séance")}</h2><Est /></div>
       {row($t("Aérobie"), e.aerobic, e.level)}
       {row($t("Anaérobie"), e.anaerobic, e.anaerobicLevel)}
-      <p className="t-legal c-moderate">{$t("Échelle de 0 à 5 comme sur les montres. Aérobie : charge de la séance (TRIMP de Banister, qui suit la dépense d’oxygène après l’effort) comparée à une séance solide de tes 90 derniers jours ({0}).", { 0: e.refIsDefault ? $t("valeur type : historique trop court") : num(e.refLoad, 0) })}{e.anaerobic === null ? '' : $t(" Anaérobie : temps passé à 90 % de la FC max ou plus ({0}), approximation d’Apogée.", { 0: Math.round((e.zone5Sec ?? 0) / 60) + NBSP + 'min' })}</p>
+      <Info>{$t("Échelle de 0 à 5 comme sur les montres. Aérobie : charge de la séance (TRIMP de Banister, qui suit la dépense d’oxygène après l’effort) comparée à une séance solide de tes 90 derniers jours ({0}).", { 0: e.refIsDefault ? $t("valeur type : historique trop court") : num(e.refLoad, 0) })}{e.anaerobic === null ? '' : $t(" Anaérobie : temps passé à 90 % de la FC max ou plus ({0}), approximation d’Apogée.", { 0: Math.round((e.zone5Sec ?? 0) / 60) + NBSP + 'min' })}</Info>
     </section>
   );
 }
@@ -100,7 +101,7 @@ export function ReadinessCard() {
           {r.missing.length > 0 && <p className="t-legal c-moderate">{$t("Le poids des données manquantes est réparti sur les autres.")}</p>}
         </>
       ) : <p className="t-caption c-moderate">{$t("Il faut au moins deux de ces éléments : sommeil, FC de repos, charge récente. Avec une montre lue par Health Connect, le score apparaît en quelques jours.")}</p>}
-      <p className="t-legal c-moderate">{$t("Méthode : on combine les facteurs que la littérature relie à la capacité de s’entraîner — sommeil (7 à 9 h recommandées, Hirshkowitz 2015), FC de repos au-dessus de ta base (Buchheit 2014), rapport de charge aiguë / chronique (Gabbett 2016) et fraîcheur du modèle de Banister. Les poids ci-dessus sont ceux d’Apogée. La variabilité cardiaque (HRV), qui entre dans l’indice de Garmin, n’est pas utilisée.")}</p>
+      <Info>{$t("Méthode : on combine les facteurs que la littérature relie à la capacité de s’entraîner — sommeil (7 à 9 h recommandées, Hirshkowitz 2015), FC de repos au-dessus de ta base (Buchheit 2014), rapport de charge aiguë / chronique (Gabbett 2016) et fraîcheur du modèle de Banister. Les poids ci-dessus sont ceux d’Apogée. La variabilité cardiaque (HRV), qui entre dans l’indice de Garmin, n’est pas utilisée.")}</Info>
     </section>
   );
 }
@@ -129,10 +130,10 @@ export function ReserveCard() {
               </g>
             ))}
           </svg>
-          <p className="t-legal c-moderate">{$t("Chaque barre va du niveau du réveil (haut) à celui du soir (bas). Une courte nuit ou plusieurs grosses journées de suite abaissent le réveil suivant. Les jours en gris n’ont pas de nuit enregistrée (sommeil supposé égal à ta moyenne).")}</p>
+          <Info>{$t("Chaque barre va du niveau du réveil (haut) à celui du soir (bas). Une courte nuit ou plusieurs grosses journées de suite abaissent le réveil suivant. Les jours en gris n’ont pas de nuit enregistrée (sommeil supposé égal à ta moyenne).")}</Info>
         </>
       )}
-      <p className="t-legal c-moderate">{$t("Méthode simplifiée : le Body Battery de Garmin repose sur la HRV et le stress, que la montre ne transmet pas. Ici : recharge = jusqu’à 80 points selon la durée de sommeil (besoin 8 h) et la FC de repos ; dépense = 35 points par jour plus 40 points par séance à ta charge habituelle. Ces paramètres sont ceux d’Apogée : c’est une lecture de tendance, pas une mesure.")}</p>
+      <Info>{$t("Méthode simplifiée : le Body Battery de Garmin repose sur la HRV et le stress, que la montre ne transmet pas. Ici : recharge = jusqu’à 80 points selon la durée de sommeil (besoin 8 h) et la FC de repos ; dépense = 35 points par jour plus 40 points par séance à ta charge habituelle. Ces paramètres sont ceux d’Apogée : c’est une lecture de tendance, pas une mesure.")}</Info>
     </section>
   );
 }
@@ -157,7 +158,7 @@ export function Vo2Card() {
           </dl>
         </>
       ) : <p className="t-caption c-moderate">{$t("Il faut ta FC de repos (montre lue par Health Connect) et ta FC max pour estimer la VO₂max. Renseigne ta date de naissance dans Paramètres › Athlète si besoin.")}</p>}
-      <p className="t-legal c-moderate">{$t("Méthodes publiées : (1) sorties de course à allure stable — coût en oxygène de la course (ACSM) et équivalence entre % de la réserve de FC et % de la réserve de VO₂ (Swain et Leutholtz 1997) ; médiane des sorties à plat des 60 derniers jours, 3 sorties minimum. (2) Rapport FC max / FC de repos × 15,3 (Uth 2004). (3) VDOT de Daniels et Gilbert sur ton meilleur effort de 3 à 21 km : c’est une borne basse, un entraînement n’étant pas une course. L’erreur typique est de l’ordre de 10 %.")}{hrNote ? ' ' + $t("Ta FC max vient d’une formule : la mesurer (ou la laisser s’affiner avec tes efforts) améliore l’estimation.") : ''}</p>
+      <Info>{$t("Méthodes publiées : (1) sorties de course à allure stable — coût en oxygène de la course (ACSM) et équivalence entre % de la réserve de FC et % de la réserve de VO₂ (Swain et Leutholtz 1997) ; médiane des sorties à plat des 60 derniers jours, 3 sorties minimum. (2) Rapport FC max / FC de repos × 15,3 (Uth 2004). (3) VDOT de Daniels et Gilbert sur ton meilleur effort de 3 à 21 km : c’est une borne basse, un entraînement n’étant pas une course. L’erreur typique est de l’ordre de 10 %.")}{hrNote ? ' ' + $t("Ta FC max vient d’une formule : la mesurer (ou la laisser s’affiner avec tes efforts) améliore l’estimation.") : ''}</Info>
     </section>
   );
 }
@@ -189,7 +190,7 @@ export function PredictionsCard() {
           ))}
         </div>
       )}
-      <p className="t-legal c-moderate">{$t("Méthodes publiées : « selon ta VO₂max » applique les équations de Daniels et Gilbert (1979) à la VO₂max estimée ci-dessus ; « selon ton meilleur effort » extrapole ton meilleur temps récent par la loi de Riegel (1981), T₂ = T₁ × (D₂ ÷ D₁)^1,06, jusqu’à 4 fois la distance. Les deux supposent une préparation spécifique à la distance : le marathon est souvent prédit trop optimiste sans grosses sorties longues. L’écart entre les deux colonnes est normal : la première suppose une course à fond, la seconde repart de tes sorties réelles, souvent plus tranquilles.")}</p>
+      <Info>{$t("Méthodes publiées : « selon ta VO₂max » applique les équations de Daniels et Gilbert (1979) à la VO₂max estimée ci-dessus ; « selon ton meilleur effort » extrapole ton meilleur temps récent par la loi de Riegel (1981), T₂ = T₁ × (D₂ ÷ D₁)^1,06, jusqu’à 4 fois la distance. Les deux supposent une préparation spécifique à la distance : le marathon est souvent prédit trop optimiste sans grosses sorties longues. L’écart entre les deux colonnes est normal : la première suppose une course à fond, la seconde repart de tes sorties réelles, souvent plus tranquilles.")}</Info>
     </section>
   );
 }
@@ -230,7 +231,7 @@ export function EnduranceHillCard() {
           </>
         ) : <p className="t-caption c-moderate">{$t("Aucun dénivelé enregistré en course ou à vélo sur 28 jours.")}</p>}
       </div>
-      <p className="t-legal c-moderate">{$t("Méthode : l’endurance combine les déterminants publiés de la performance (VO₂max, Joyner et Coyle 2008) et la « durabilité » (volume et durée des sorties longues, Maunder 2021) ; les côtes combinent le dénivelé hebdomadaire et la vitesse ascensionnelle moyenne des sorties vallonnées (VAM). Les entrées sont mesurées ; les échelles de 0 à 100 (VO₂max 30 → 0 et 60 → 100, 10 h par semaine, 3 h de sortie, 1 200 m de D+ par semaine, 600 m/h à pied ou 700 m/h à vélo) sont celles d’Apogée.")}</p>
+      <Info>{$t("Méthode : l’endurance combine les déterminants publiés de la performance (VO₂max, Joyner et Coyle 2008) et la « durabilité » (volume et durée des sorties longues, Maunder 2021) ; les côtes combinent le dénivelé hebdomadaire et la vitesse ascensionnelle moyenne des sorties vallonnées (VAM). Les entrées sont mesurées ; les échelles de 0 à 100 (VO₂max 30 → 0 et 60 → 100, 10 h par semaine, 3 h de sortie, 1 200 m de D+ par semaine, 600 m/h à pied ou 700 m/h à vélo) sont celles d’Apogée.")}</Info>
     </section>
   );
 }

@@ -1321,4 +1321,5 @@ export const EN: Record<string, string> = {
   "Ajouter une borne haute (fourchette)": "Add an upper bound (range)",
   "Retirer la borne haute": "Remove the upper bound",
   "zone": "zone",
+  "Explication": "Explanation",
 };

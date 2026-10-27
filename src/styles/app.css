@@ -660,3 +660,11 @@ input, textarea, select, [contenteditable="true"], pre, code, .help-f, .help-cod
 
 /* prédictions de course : distance + une colonne par méthode */
 .pred-grid { display: grid; column-gap: var(--space-12); row-gap: var(--space-10); align-items: baseline; }
+
+/* explication repliable : icône « i », texte masqué par défaut */
+.info { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); }
+.info-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin: -4px 0 -4px -6px; border: 0; border-radius: var(--radius-full); background: none; color: var(--text-moderate); cursor: pointer; }
+.info-btn[aria-expanded="true"] { color: var(--info-text); background: var(--info-bg); }
+.info-btn:focus-visible { outline: 2px solid var(--focus-indicator); }
+.info-text { align-self: stretch; padding: var(--space-12); border-radius: var(--radius-12); background: var(--bg-surface-minimal); color: var(--text-neutral); font: var(--type-caption); display: flex; flex-direction: column; gap: var(--space-8); }
+.info-text p { margin: 0; }

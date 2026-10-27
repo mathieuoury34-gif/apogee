@@ -2,7 +2,7 @@
 // peuvent remplacer la charge mesurée par un forfait quotidien.
 import { $t } from '../i18n';
 import { useState } from 'react';
-import { DatePicker, Empty, Sheet, SubHeader, Switch, showToast } from '../ui/kit';
+import { DatePicker, Empty, Sheet, SubHeader, Switch, showToast, Info } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { navigate, useRoute } from '../ui/router';
 import { useCalc } from '../data/store';
@@ -26,7 +26,7 @@ export function InterruptionsScreen() {
     <div className="screen" data-screen="interruptions">
       <SubHeader title={$t("Interruptions")} fallback="/calendrier" right={<button type="button" className="icon-btn" aria-label={$t("Nouvelle interruption")} onClick={() => setEdit('new')}><Icon name="plus" /></button>} />
       <main className="content stack-16 form-narrow-d">
-        <p className="t-caption c-neutral">{$t("Une interruption (blessure, voyage, charge externe comme un déménagement) suspend les rappels et les alertes de séances manquées. Une charge forfaitaire quotidienne peut remplacer la charge mesurée, pour que la forme de fond reflète la réalité.")}</p>
+        <Info>{$t("Une interruption (blessure, voyage, charge externe comme un déménagement) suspend les rappels et les alertes de séances manquées. Une charge forfaitaire quotidienne peut remplacer la charge mesurée, pour que la forme de fond reflète la réalité.")}</Info>
         {!list.length ? <Empty icon="pause" title={$t("Aucune interruption")} text={$t("Ajoute une période avec le bouton +.")} /> : (
           <ul className="tile-list divided card" style={{ padding: '0 var(--space-16)' }}>
             {list.map((i) => {

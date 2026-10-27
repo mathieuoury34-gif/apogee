@@ -3,7 +3,7 @@
 // (décision du 31/08) : l'écran juxtapose les chiffres.
 import { $t } from '../i18n';
 import { useState } from 'react';
-import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast, OtherToggle, useWithOther } from '../ui/kit';
+import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast, OtherToggle, useWithOther, Info } from '../ui/kit';
 import { FormChart, LoadPanels, StackedWeeks, StepChart } from '../ui/charts';
 import { ComplianceCard, FitnessCard, SleepCard, WeightCard } from './Analysis';
 import { CaloriesCard, CapacitiesTrendsCard, CheckinCard } from './Wellness';
@@ -73,7 +73,7 @@ export function LoadScreen() {
             <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2" style={{ color: STATUS_INFO[curStatus].color }}>{STATUS_INFO[curStatus].label}</span><span className="t-caption c-neutral">{STATUS_INFO[curStatus].text}</span></div>
           ) : <p className="t-caption c-moderate">{$t("Disponible après 28 jours d’historique")}{d.series.firstDay ? $t(" (dès le {0})", { 0: dateFr(addDays(d.series.firstDay, 28)) }) : ''}.</p>}
           <StatusStrip weeks={weekStatus} />
-          <p className="t-legal c-moderate">{$t("Chaque case est une semaine. Le statut croise ta charge des 7 jours avec ta charge habituelle (4 semaines) et la tendance de ta forme de fond. Touche une case pour le détail.")}</p>
+          <Info>{$t("Chaque case est une semaine. Le statut croise ta charge des 7 jours avec ta charge habituelle (4 semaines) et la tendance de ta forme de fond. Touche une case pour le détail.")}</Info>
         </section>
         </div>
 
@@ -82,11 +82,11 @@ export function LoadScreen() {
             <h2>{$t("Charge aiguë et zone optimale")}</h2>
             {acwr !== null && <span className={'var-chip' + (acwrZone === 'ok' ? '' : acwrZone === 'low' ? ' flat' : ' warn')}>{$t("rapport")} {num(acwr, 2)}</span>}
           </div>
-          <p className="t-caption c-neutral">{$t("Le trait noir est ta charge des 7 derniers jours. La bande verte est la zone où elle progresse sans excès : entre 0,8 et 1,3 fois ta charge hebdomadaire habituelle. Dans la bande orange, c’est élevé ; au-delà, le risque de blessure monte.")}</p>
+          <Info>{$t("Le trait noir est ta charge des 7 derniers jours. La bande verte est la zone où elle progresse sans excès : entre 0,8 et 1,3 fois ta charge hebdomadaire habituelle. Dans la bande orange, c’est élevé ; au-delà, le risque de blessure monte.")}</Info>
           <ChipGroup label={$t("Période")} value={period} onChange={setPeriod} options={[['7', $t("1 sem.")], ['14', $t("2 sem.")], ['30', $t("1 mois")], ['90', $t("3 mois")], ['180', $t("6 mois")], ['365', $t("1 an")]]} />
           <AcuteLoadChart points={acutePts.slice(-Math.max(n, 8))} today={d.today} />
           <h3 className="t-strong">{$t("Rapport de charge")}</h3>
-          <p className="t-caption c-neutral">{$t("Charge des 7 jours divisée par ta charge hebdomadaire habituelle. Entre 0,8 et 1,3 (vert) : tu progresses sans te griller. Sous 0,8 (bleu) : semaine légère. Au-dessus de 1,3 : tu montes trop vite.")}</p>
+          <Info>{$t("Charge des 7 jours divisée par ta charge hebdomadaire habituelle. Entre 0,8 et 1,3 (vert) : tu progresses sans te griller. Sous 0,8 (bleu) : semaine légère. Au-dessus de 1,3 : tu montes trop vite.")}</Info>
           <RatioChart points={acutePts.slice(-Math.max(n, 8))} />
           {acwr !== null && (
             <dl className="kv">
@@ -100,18 +100,18 @@ export function LoadScreen() {
 
         <section className="card g12 dspan-12" aria-label={$t("Répartition de la charge")}>
           <h2>{$t("Répartition de la charge")}</h2>
-          <p className="t-caption c-neutral">{$t("D’où vient ta charge des 4 dernières semaines : sorties tranquilles, efforts soutenus ou intensité maximale, d’après ta fréquence cardiaque.")}</p>
+          <Info>{$t("D’où vient ta charge des 4 dernières semaines : sorties tranquilles, efforts soutenus ou intensité maximale, d’après ta fréquence cardiaque.")}</Info>
           <FocusBars focus={focus} />
         </section>
 
         <section className="card g12 dspan-12" aria-label={$t("Évolution")}>
           <h2>{$t("Forme de fond, fatigue et fraîcheur")}</h2>
           <Segmented label={$t("Courbe")} value={view} onChange={setView} options={[['charge', $t("Charge")], ['forme', $t("Forme du jour")]]} />
-          <p className="t-legal c-moderate">{$t("Même période que le graphique de charge aiguë, plus haut.")}</p>
+          <Info>{$t("Même période que le graphique de charge aiguë, plus haut.")}</Info>
           {view === 'charge' ? <LoadPanels days={days} /> : (
             <>
               <FormChart days={formDays} forms={d.formByDay} />
-              <p className="t-caption c-moderate">{$t("Score sur 100, calculé chaque matin à partir de ta nuit, de ta FC de repos, de ta fraîcheur au réveil et du ressenti de la veille, comparés à tes 14 jours précédents.")}</p>
+              <Info>{$t("Score sur 100, calculé chaque matin à partir de ta nuit, de ta FC de repos, de ta fraîcheur au réveil et du ressenti de la veille, comparés à tes 14 jours précédents.")}</Info>
             </>
           )}
         </section>
@@ -124,8 +124,8 @@ export function LoadScreen() {
 
         <section className="card g8 dspan-12" aria-label={$t("Méthode")}>
           <h2>{$t("Comment la charge est calculée")}</h2>
-          <p className="t-caption c-neutral">{$t("Chaque séance reçoit une charge, de la plus fiable à la moins fiable : TRIMP sur la courbe cardiaque de la montre ; TRIMP sur la FC moyenne ; ressenti × durée recalé sur l’échelle du TRIMP (coefficient")} {num(d.ctx.srpeFactor, 2)}, {d.ctx.srpeCalibrationPairs >= 5 ? $t("appris sur {0} de tes séances", { 0: d.ctx.srpeCalibrationPairs }) : $t("valeur type tant qu’il y a moins de 5 séances avec FC et ressenti")}{$t(") ; à défaut, une charge provisoire tirée de tes habitudes. Forme de fond = moyenne exponentielle sur 42 jours, fatigue = sur 7 jours, fraîcheur = forme − fatigue.")}</p>
-          <p className="t-caption c-moderate">{$t("FC max retenue :")} {d.ctx.hrMax.bpm ? $t("{0} bpm ({1})", { 0: num(d.ctx.hrMax.bpm, 0), 1: d.ctx.hrMax.origin === 'observed' ? $t("pic soutenu observé") : d.ctx.hrMax.origin === 'tanaka' ? $t("formule de Tanaka, faute de mieux") : $t("valeur déclarée") }) : $t("inconnue — renseigne ta date de naissance ou une FC max")}{$t(". FC de repos de référence :")} {d.ctx.resting.at(d.today) ? $t("{0} bpm", { 0: num(d.ctx.resting.at(d.today)!, 0) }) : '—'}.</p>
+          <Info><p>{$t("Chaque séance reçoit une charge, de la plus fiable à la moins fiable : TRIMP sur la courbe cardiaque de la montre ; TRIMP sur la FC moyenne ; ressenti × durée recalé sur l’échelle du TRIMP (coefficient")} {num(d.ctx.srpeFactor, 2)}, {d.ctx.srpeCalibrationPairs >= 5 ? $t("appris sur {0} de tes séances", { 0: d.ctx.srpeCalibrationPairs }) : $t("valeur type tant qu’il y a moins de 5 séances avec FC et ressenti")}{$t(") ; à défaut, une charge provisoire tirée de tes habitudes. Forme de fond = moyenne exponentielle sur 42 jours, fatigue = sur 7 jours, fraîcheur = forme − fatigue.")}</p>
+          <p>{$t("FC max retenue :")} {d.ctx.hrMax.bpm ? $t("{0} bpm ({1})", { 0: num(d.ctx.hrMax.bpm, 0), 1: d.ctx.hrMax.origin === 'observed' ? $t("pic soutenu observé") : d.ctx.hrMax.origin === 'tanaka' ? $t("formule de Tanaka, faute de mieux") : $t("valeur déclarée") }) : $t("inconnue — renseigne ta date de naissance ou une FC max")}{$t(". FC de repos de référence :")} {d.ctx.resting.at(d.today) ? $t("{0} bpm", { 0: num(d.ctx.resting.at(d.today)!, 0) }) : '—'}.</p></Info>
         </section>
       </main>
     </div>
@@ -238,7 +238,7 @@ export function ObjectiveScreen() {
           <PaceCard p={rp.bike} />
           <PaceCard p={rp.run} />
         </div>
-        <p className="t-caption c-moderate dspan-12">{$t("Les allures requises et tes indicateurs sont mis côte à côte, sans jugement de faisabilité : c’est au coach d’en tirer un plan.")}</p>
+        <Info>{$t("Les allures requises et tes indicateurs sont mis côte à côte, sans jugement de faisabilité : c’est au coach d’en tirer un plan.")}</Info>
         <div className="dspan-12"><ComplianceCard data={data} d={d} /></div>
       </main>
       {editing && <RaceSheet onClose={() => setEditing(false)} />}
@@ -374,7 +374,7 @@ export function ZonesScreen() {
             </section>
           );
         })}
-        <p className="t-caption c-moderate dspan-12">{$t("Chaque valeur est historisée, jamais écrasée. La plus récente sert aux cibles relatives des séances (% VMA, % FTP, % CSS) et au calcul de la charge.")}</p>
+        <Info>{$t("Chaque valeur est historisée, jamais écrasée. La plus récente sert aux cibles relatives des séances (% VMA, % FTP, % CSS) et au calcul de la charge.")}</Info>
       </main>
       {adding && <ZoneSheet kind={adding} onClose={() => { setAdding(null); if (ask) navigate('/progression/capacites', { replace: true }); }} />}
     </div>
@@ -453,7 +453,7 @@ function ForecastCard() {
       </div>
       {!hasPlan || d.series.days.length < 2 ? <p className="t-caption c-moderate">{$t("Aucune séance prévue à venir : importe un plan du coach ou ajoute des séances au calendrier pour voir la projection.")}</p> : (
         <>
-          <p className="t-caption c-neutral">{$t("Ce que deviendraient ta forme de fond, ta fatigue et ta fraîcheur si tu réalisais tout le plan prévu. Les barres pâles à droite sont projetées ; celles de gauche sont réelles.")}</p>
+          <Info>{$t("Ce que deviendraient ta forme de fond, ta fatigue et ta fraîcheur si tu réalisais tout le plan prévu. Les barres pâles à droite sont projetées ; celles de gauche sont réelles.")}</Info>
           <LoadPanels days={days} today={d.today} />
           <h3 className="t-strong">{$t("Semaine par semaine")}</h3>
           <ul>
@@ -465,7 +465,7 @@ function ForecastCard() {
             ))}
           </ul>
           {f.skipped > 0 && <div className="note"><Icon name="info" size={20} /><span>{$t("{0} séance(s) prévue(s) ne sont pas comptées : durée ou habitude inconnue (blocs sans durée, ou aucune séance récente de cette discipline).", { 0: f.skipped })}</span></div>}
-          <p className="t-legal c-moderate">{$t("Méthode : charge d’une séance prévue = durée estimée de ses blocs × ta charge par minute habituelle dans la discipline (médiane des 90 derniers jours). L’intensité prévue n’est pas modélisée : une séance de seuil et un footing de même durée valent pareil. Les valeurs sont celles du modèle (forme 42 jours, fatigue 7 jours) ; une projection sert à comparer des semaines, pas à prédire ta forme le jour J.")}</p>
+          <Info>{$t("Méthode : charge d’une séance prévue = durée estimée de ses blocs × ta charge par minute habituelle dans la discipline (médiane des 90 derniers jours). L’intensité prévue n’est pas modélisée : une séance de seuil et un footing de même durée valent pareil. Les valeurs sont celles du modèle (forme 42 jours, fatigue 7 jours) ; une projection sert à comparer des semaines, pas à prédire ta forme le jour J.")}</Info>
         </>
       )}
     </section>
@@ -490,7 +490,7 @@ function ZoneSuggestions() {
           <button type="button" className="btn btn-secondary" onClick={() => { addZone({ kind: s.kind, value: s.value, measuredAt: new Date().toISOString(), source: 'estimation', notes: s.kind === 'vma' ? 'Meilleur effort de 6 minutes (90 j)' : 'Méthode 200/400 m' }); showToast($t("Estimation enregistrée")); }}>{$t("Adopter")}</button>
         </div>
       ))}
-      <p className="t-legal c-moderate">{$t("Une estimation n’est jamais appliquée seule : tu l’adoptes, elle est enregistrée avec la source « estimation » et reste modifiable. Un effort de 6 minutes ne prouve qu’une VMA au moins égale ; elle n’est proposée que si elle dépasse ta valeur actuelle. Pour la CSS, il faut deux vrais efforts maximaux (200 m et 400 m) dans la même séance.")}</p>
+      <Info>{$t("Une estimation n’est jamais appliquée seule : tu l’adoptes, elle est enregistrée avec la source « estimation » et reste modifiable. Un effort de 6 minutes ne prouve qu’une VMA au moins égale ; elle n’est proposée que si elle dépasse ta valeur actuelle. Pour la CSS, il faut deux vrais efforts maximaux (200 m et 400 m) dans la même séance.")}</Info>
     </section>
   );
 }

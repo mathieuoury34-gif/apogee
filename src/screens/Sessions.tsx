@@ -3,7 +3,7 @@
 // Modifier / Supprimer (avec « Annuler »), filtres en pastilles.
 import { $t } from '../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppHeader, ChipGroup, DatePicker, DiscIcon, DurationWheel, Empty, ErrorBanner, Fab, Hero, Sheet, SportPicker, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther } from '../ui/kit';
+import { AppHeader, ChipGroup, DatePicker, DiscIcon, DurationWheel, Empty, ErrorBanner, Fab, Hero, Sheet, SportPicker, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther, Info } from '../ui/kit';
 import { Donut, StepChart, WeekBars } from '../ui/charts';
 import { Icon } from '../ui/icons';
 import { useActualMenu } from '../ui/menu';
@@ -179,7 +179,7 @@ export function ReviewScreen({ id }: { id: string }) {
             {(s.discipline === 'RUN' || s.discipline === 'BIKE' || s.elevationGainM) ? <Kpi label={$t("Dénivelé +")} value={s.elevationGainM ? elevation(s.elevationGainM) : '—'} cls={mark('elevationGainM')} /> : null}
             {s.activeCaloriesJ ? <Kpi label={$t("Calories actives")} value={kcal(s.activeCaloriesJ / KCAL_J)} /> : null}
           </div>
-          <p className="t-caption c-moderate">{$t("Charge")} {METHOD_LABEL[l.method]}{l.method === 'srpe' ? $t(" (RPE × minutes × {0}, coefficient appris sur {1})", { 0: num(d.ctx.srpeFactor, 2), 1: d.ctx.srpeCalibrationPairs >= 5 ? $t("tes séances") : $t("une valeur type") }) : ''}.{s.edited.length ? $t(" Valeurs soulignées : corrigées à la main.") : ''}{s.elevationGainM ? $t(" Dénivelé {0} m.", { 0: num(s.elevationGainM, 0) }) : ''}{s.activeCaloriesJ ? $t(" {0} kcal actives.", { 0: num(s.activeCaloriesJ / 4184, 0) }) : ''}</p>
+          <Info>{$t("Charge")} {METHOD_LABEL[l.method]}{l.method === 'srpe' ? $t(" (RPE × minutes × {0}, coefficient appris sur {1})", { 0: num(d.ctx.srpeFactor, 2), 1: d.ctx.srpeCalibrationPairs >= 5 ? $t("tes séances") : $t("une valeur type") }) : ''}.{s.edited.length ? $t(" Valeurs soulignées : corrigées à la main.") : ''}{s.elevationGainM ? $t(" Dénivelé {0} m.", { 0: num(s.elevationGainM, 0) }) : ''}{s.activeCaloriesJ ? $t(" {0} kcal actives.", { 0: num(s.activeCaloriesJ / 4184, 0) }) : ''}</Info>
           <HrTrace id={s.id} />
         </section>
 
@@ -339,7 +339,7 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
   return (
     <Sheet title={$t("Modifier la séance")} onClose={onClose} full footer={<button type="button" className="btn btn-primary block" disabled={'error' in r} onClick={save}>{$t("Enregistrer")}</button>}>
       <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
-        {s.source === 'health' && <div className="note"><Icon name="info" size={20} /><span>{$t("Une valeur mesurée par la montre que tu corriges passe en « saisie », pour de bon. La séance reste la même (aucun doublon à la prochaine lecture).")}</span></div>}
+        {s.source === 'health' && <Info>{$t("Une valeur mesurée par la montre que tu corriges passe en « saisie », pour de bon. La séance reste la même (aucun doublon à la prochaine lecture).")}</Info>}
         <div className="field"><span className="lbl">{$t("Date")}</span>
           <button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setCal(!cal)}><span>{dayTitle(date)} {date.slice(0, 4)}</span><Icon name="calendar" size={20} /></button>
           {cal && <DatePicker value={date} onChange={(v) => { setDate(v); setCal(false); }} />}

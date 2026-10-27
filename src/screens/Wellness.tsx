@@ -2,7 +2,7 @@
 // Tout ce qui vient d'une estimation Apogée ou d'une saisie est étiqueté comme tel ; Apogée ne recalcule pas les indices Garmin.
 import { $t } from '../i18n';
 import { useState } from 'react';
-import { Sheet, showToast } from '../ui/kit';
+import { Sheet, showToast, Info } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useLocalSheet } from '../ui/menu';
 import { useCalc } from '../data/store';
@@ -93,7 +93,7 @@ export function CaloriesCard() {
         <span><span style={{ width: 14, height: 3, background: 'var(--text)', borderRadius: 2 }} />{$t("Mangées")}</span>
       </div>
       <p className="t-legal c-moderate">{$t("Semaine : {0} actives, {1} de repos, {2} mangées sur {3} jour(s) saisi(s).", { 0: KCAL(week.active), 1: KCAL(week.rest), 2: week.mealDays ? KCAL(week.intake) : '—', 3: week.mealDays })}</p>
-      <p className="t-legal c-moderate">{$t("Le repos vient de Health Connect quand la montre donne le total ; sinon c’est une estimation (formule de Mifflin-St Jeor, avec ta taille, ton poids, ton âge et ton sexe). Le journal de repas est un simple compteur : tu entres les kcal toi-même, il n’y a pas de base d’aliments. Une estimation reste une estimation : ne la prends pas pour une mesure.")}</p>
+      <Info>{$t("Le repos vient de Health Connect quand la montre donne le total ; sinon c’est une estimation (formule de Mifflin-St Jeor, avec ta taille, ton poids, ton âge et ton sexe). Le journal de repas est un simple compteur : tu entres les kcal toi-même, il n’y a pas de base d’aliments. Une estimation reste une estimation : ne la prends pas pour une mesure.")}</Info>
       {sheet.open && (
         <Sheet title={$t("Ajouter un repas")} onClose={sheet.hide} footer={<button type="button" className="btn btn-primary block" disabled={!ok} onClick={save}>{$t("Enregistrer")}</button>}>
           <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
@@ -171,7 +171,7 @@ export function CheckinCard() {
         <h2>{$t("Point de la semaine")}</h2>
         <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={open}>{s ? $t("Modifier") : $t("Remplir")}</button>
       </div>
-      <p className="t-caption c-neutral">{$t("Une fois par semaine, recopie ce que ta montre affiche : VO₂max, seuil de lactate, prédictions de course, et ton ressenti. Apogée en trace les courbes. Un rappel te le propose le dimanche.")}</p>
+      <Info>{$t("Une fois par semaine, recopie ce que ta montre affiche : VO₂max, seuil de lactate, prédictions de course, et ton ressenti. Apogée en trace les courbes. Un rappel te le propose le dimanche.")}</Info>
       {s ? (
         <dl className="kv">
           {s.vo2max !== null && <><dt>{$t("VO₂max")}</dt><dd>{num(s.vo2max, 0, 1)}</dd></>}
@@ -259,7 +259,7 @@ export function CapacitiesTrendsCard() {
           })}
         </ul>
       )}
-      <p className="t-legal c-moderate">{$t("Valeurs recopiées de ta montre (ou lues dans Health Connect quand elle les envoie) : Apogée ne les recalcule pas, elle en trace l’évolution.")}</p>
+      <Info>{$t("Valeurs recopiées de ta montre (ou lues dans Health Connect quand elle les envoie) : Apogée ne les recalcule pas, elle en trace l’évolution.")}</Info>
     </section>
   );
 }

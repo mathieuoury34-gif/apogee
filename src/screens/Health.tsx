@@ -7,7 +7,7 @@ import { $t } from '../i18n';
 import { useState } from 'react';
 import { Icon } from '../ui/icons';
 import { navigate } from '../ui/router';
-import { showToast } from '../ui/kit';
+import { showToast, Info } from '../ui/kit';
 import { useCalc, usePrefs } from '../data/store';
 import { native } from '../native/bridge';
 import { openHealthSettings, requestHealthPermissions, runHealthSync, useHealth } from '../native/healthSync';
@@ -133,7 +133,7 @@ export function HealthCard({ compact = false }: { compact?: boolean }) {
           : level !== 'module' && level !== 'unavailable' && level !== 'bridge' && <button type="button" className="btn btn-tertiary" onClick={() => openHealthSettings()}>{$t("Ouvrir Health Connect")}</button>}
       </div>
       {!compact && (level === 'bridge' || level === 'module' || level === 'error') && <span className="t-legal c-moderate">{$t("Diagnostic :")} {native.diagnostic()}</span>}
-      {!compact && <span className="t-legal c-moderate">{$t("La montre est relue à chaque ouverture de l’app (au plus toutes les 10 min) et avec le bouton ↻ de l’en-tête. Garmin Connect doit lui-même être relié à Health Connect (Garmin Connect › Paramètres › Health Connect).")}</span>}
+      {!compact && <Info>{$t("La montre est relue à chaque ouverture de l’app (au plus toutes les 10 min) et avec le bouton ↻ de l’en-tête. Garmin Connect doit lui-même être relié à Health Connect (Garmin Connect › Paramètres › Health Connect).")}</Info>}
     </div>
   );
 }

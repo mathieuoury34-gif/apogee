@@ -476,3 +476,15 @@ export function DurationWheel({ value, onChange, label, hours = true, seconds = 
     </div>
   );
 }
+
+// ------------------------------------------------------------------ explication repliable (icône « i »)
+/** Texte d'explication (méthode, lecture d'un graphique…) masqué par défaut : un appui sur l'icône l'affiche, un second le masque. */
+export function Info({ children, label }: { children: ReactNode; label?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="info">
+      <button type="button" className="info-btn" aria-expanded={open} aria-label={label ?? $t("Explication")} title={label ?? $t("Explication")} onClick={() => setOpen(!open)}><Icon name="info" size={18} /></button>
+      {open && <div className="info-text" role="note">{children}</div>}
+    </div>
+  );
+}

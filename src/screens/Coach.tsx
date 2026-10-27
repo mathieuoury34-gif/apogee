@@ -4,7 +4,7 @@
 //   3. journal des échanges.
 import { $t } from '../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppHeader, ChipGroup, DiscIcon, Empty, ErrorBanner, Sheet, showToast } from '../ui/kit';
+import { AppHeader, ChipGroup, DiscIcon, Empty, ErrorBanner, Sheet, showToast, Info } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { navigate, useRoute } from '../ui/router';
 import { getData, useCalc } from '../data/store';
@@ -56,7 +56,7 @@ export function CoachScreen() {
             <h2 id="h-export">{$t("1. Envoyer le dossier")}</h2>
             <ChipGroup label={$t("Séances jointes")} value={weeks} onChange={(v) => { setWeeks(v); setExcluded(new Set()); }} options={[['1', $t("1 sem.")], ['2', $t("2 sem.")], ['4', $t("4 sem.")], ['8', $t("8 sem.")]]} />
           </div>
-          <p className="t-caption c-neutral">{$t("Profil, course, indicateurs, périodisation, charge, séances prévues passées et à venir (telles que tu les as modifiées) et les séances cochées ci-dessous, avec la consigne de réponse au format apogee/1.")}</p>
+          <Info>{$t("Profil, course, indicateurs, périodisation, charge, séances prévues passées et à venir (telles que tu les as modifiées) et les séances cochées ci-dessous, avec la consigne de réponse au format apogee/1.")}</Info>
           {candidates.length ? (
             <ul className="check-list" aria-label={$t("Séances jointes")}>
               {candidates.map((s) => <SessionCheck key={s.id} s={s} on={!excluded.has(s.id)} onToggle={() => toggle(s.id)} load={d.loads.get(s.id)} />)}
@@ -70,7 +70,7 @@ export function CoachScreen() {
 
         <section className="card g12 dspan-7" aria-labelledby="h-import">
           <h2 id="h-import">{$t("2. Importer le plan")}</h2>
-          <p className="t-caption c-neutral">{$t("Colle la réponse du coach ou ouvre le fichier qu’il a produit. Rien n’est modifié avant ta validation de l’aperçu.")}</p>
+          <Info>{$t("Colle la réponse du coach ou ouvre le fichier qu’il a produit. Rien n’est modifié avant ta validation de l’aperçu.")}</Info>
           <button type="button" className="btn btn-primary" style={{ alignSelf: 'flex-start' }} onClick={() => setImportOpen(true)}><Icon name="upload" size={18} />{$t("Importer un plan")}</button>
         </section>
 
