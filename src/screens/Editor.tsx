@@ -13,6 +13,8 @@ import { estimateDistance, estimateDuration, ISSUE_TEXT, newBlock, validateSessi
 import { newId, nowIso } from '../domain/ids';
 import type { Block, BlockKind, PlannedDiscipline, PlannedSession } from '../domain/types';
 import { BLOCK_KINDS, PLANNED_DISCIPLINES, TARGET_TYPES } from '../domain/types';
+import { MeasureWheel, TargetWheel, defaultDisp, fromDisp, toDisp } from '../ui/wheels';
+import { DurationWheel } from '../ui/kit';
 import { blockDetail, blockHead, dayTitle, DISCIPLINE_LABEL, distanceFor, duration, KIND_LABEL, MEASURE_LABEL, mmss, parseMmss, parseNum, REL_LABEL, SETMODE_LABEL, TARGET_LABEL, toInput, DISCIPLINE_SHORT } from '../ui/format';
 
 const B = (o: Partial<Block>): Block => ({ ...newBlock(o.kind ?? 'WORK'), ...o });
@@ -354,37 +356,29 @@ function BlockSheet({ block, discipline, isChild, refs, onApply, onClose, onDele
   const [b, setB] = useState<Block>(structuredClone(block));
   const eff = b.discipline ?? discipline;
   const isSet = b.kind === 'SET';
-  const paceLike = b.targetType === 'PACE' && b.relativeTo === null;
-  const fmtTarget = (v: number | null) => (v === null ? '' : paceLike ? mmss(v) : b.targetType === 'SPEED' && b.relativeTo === null ? toInput(v * 3.6, 1) : toInput(v, b.targetType === 'LOAD' ? 1 : 0));
-  const [low, setLow] = useState(fmtTarget(b.targetLow));
-  const [high, setHigh] = useState(fmtTarget(b.targetHigh));
-  const [meas, setMeas] = useState(b.measureValue === null ? '' : b.measure === 'TIME' ? mmss(b.measureValue) : toInput(b.measureValue));
-  const [win, setWin] = useState(b.setWindowS === null ? '' : mmss(b.setWindowS));
-  const parseTarget = (s: string): number | null => {
-    if (!s.trim()) return null;
-    const v = paceLike ? parseMmss(s) : parseNum(s);
-    if (!isFinite(v)) return null;
-    return b.targetType === 'SPEED' && b.relativeTo === null ? v / 3.6 : v;
-  };
+  const [low, setLow] = useState<number>(b.targetLow !== null ? toDisp(b.targetType, b.relativeTo, b.targetLow) : defaultDisp(b.targetType, b.relativeTo, eff));
+  const [high, setHigh] = useState<number | null>(b.targetHigh !== null ? toDisp(b.targetType, b.relativeTo, b.targetHigh) : null);
+  const defaultMeas = (m: Block['measure']) => (m === 'TIME' ? 600 : m === 'DISTANCE' ? (eff === 'SWIM' ? 100 : 400) : 10);
+  const [meas, setMeas] = useState<number>(b.measureValue ?? defaultMeas(b.measure));
+  const [win, setWin] = useState<number>(b.setWindowS ?? 60);
+  /** Choisir un autre type (ou une autre référence) d'intensité : la roulette repart d'une valeur type. */
+  const retarget = (type: Block['targetType'], rel: Block['relativeTo']) => { setB({ ...b, targetType: type, relativeTo: rel }); setLow(defaultDisp(type, rel, eff)); setHigh(null); };
   const apply = () => {
     const next: Block = { ...b };
     if (!isSet) {
-      const m = !meas.trim() ? null : b.measure === 'TIME' ? parseMmss(meas) : parseNum(meas);
-      next.measureValue = b.measure === 'OPEN' || m === null || !isFinite(m) ? null : m;
+      next.measureValue = b.measure === 'OPEN' || b.measure === null ? null : meas;
     } else {
-      const w = win.trim() ? parseMmss(win) : NaN;
-      next.setWindowS = isFinite(w) ? w : null;
+      next.setWindowS = b.setMode === 'REPEAT' ? b.setWindowS : win;
       next.measure = null; next.measureValue = null;
     }
     if (isSet) { next.targetType = 'NONE'; next.relativeTo = null; }
-    next.targetLow = b.targetType === 'NONE' || isSet ? null : parseTarget(low);
-    next.targetHigh = b.targetType === 'NONE' || isSet ? null : parseTarget(high);
+    next.targetLow = b.targetType === 'NONE' || isSet ? null : fromDisp(b.targetType, b.relativeTo, low);
+    next.targetHigh = b.targetType === 'NONE' || isSet || high === null ? null : fromDisp(b.targetType, b.relativeTo, high);
     if (b.targetType === 'NONE') next.relativeTo = null;
     next.label = b.label?.trim() || null;
     next.notes = b.notes?.trim() || null;
     onApply(next);
   };
-  const measureHint = b.measure === 'TIME' ? $t("Minutes et secondes, ex. 10:00 (ou 10 pour 10 min)") : b.measure === 'DISTANCE' ? $t("En mètres, ex. 400") : b.measure === 'REPS' ? $t("Nombre de répétitions") : '';
   const targetHint = b.relativeTo !== null ? $t("Pourcentage de ta {0}", { 0: REL_LABEL[b.relativeTo] }) + (b.relativeTo === 'VMA' && refs.vma ? $t(" (VMA actuelle {0} km/h)", { 0: toInput(refs.vma * 3.6, 1) }) : b.relativeTo === 'CSS' && refs.css ? $t(" (CSS actuelle {0} /100 m)", { 0: mmss(100 / refs.css) }) : '')
     : b.targetType === 'PACE' ? (eff === 'SWIM' ? $t("Allure aux 100 m, ex. 1:45") : $t("Allure au km, ex. 4:30")) : b.targetType === 'SPEED' ? $t("En km/h") : b.targetType === 'ZONE' ? $t("Zone de 1 à 5") : b.targetType === 'RPE' ? $t("Ressenti de 1 à 10") : b.targetType === 'HR' ? $t("En bpm") : b.targetType === 'POWER' ? $t("En watts") : b.targetType === 'LOAD' ? $t("En kg") : '';
   return (
@@ -424,26 +418,27 @@ function BlockSheet({ block, discipline, isChild, refs, onApply, onClose, onDele
               </div>
             )}
             {b.setMode !== 'REPEAT' && (
-              <label className="field"><span className="lbl">{b.setMode === 'AMRAP' ? $t("Fenêtre AMRAP") : $t("Départ toutes les")}</span>
-                <input className="input num" inputMode="decimal" value={win} placeholder="1:00" onChange={(e) => setWin(e.target.value)} /><span className="hint">{$t("Minutes et secondes")}</span></label>
+              <div className="field"><span className="lbl">{b.setMode === 'AMRAP' ? $t("Fenêtre AMRAP") : $t("Départ toutes les")}</span>
+                <DurationWheel value={win} onChange={setWin} label={b.setMode === 'AMRAP' ? $t("Fenêtre AMRAP") : $t("Départ toutes les")} hours={false} />
+                <span className="hint">{$t("Minutes et secondes")}</span></div>
             )}
           </>
         ) : (
           <div className="field">
             <span className="lbl">{$t("Ce qui le termine")}</span>
-            <div className="seg" role="group">{(['TIME', 'DISTANCE', 'REPS', 'OPEN'] as const).map((m) => <button key={m} type="button" aria-pressed={b.measure === m} onClick={() => { setB({ ...b, measure: m }); setMeas(''); }}>{MEASURE_LABEL[m]}</button>)}</div>
-            {b.measure !== 'OPEN' && <input className="input num" inputMode="decimal" aria-label={measureHint} value={meas} placeholder={b.measure === 'TIME' ? '10:00' : b.measure === 'DISTANCE' ? '400' : '10'} onChange={(e) => setMeas(e.target.value)} />}
-            {measureHint && <span className="hint">{measureHint}</span>}
+            <div className="seg" role="group">{(['TIME', 'DISTANCE', 'REPS', 'OPEN'] as const).map((m) => <button key={m} type="button" aria-pressed={b.measure === m} onClick={() => { setB({ ...b, measure: m }); setMeas(defaultMeas(m)); }}>{MEASURE_LABEL[m]}</button>)}</div>
+            {b.measure !== 'OPEN' && b.measure !== null && <MeasureWheel measure={b.measure} value={meas} onChange={setMeas} discipline={eff} />}
+            {b.measure === 'DISTANCE' && <span className="hint">{$t("Kilomètres et mètres")}</span>}
           </div>
         )}
         {b.kind !== 'REST' && !isSet && (
           <div className="field">
             <span className="lbl">{$t("À quelle intensité")}</span>
             <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>
-              {TARGET_TYPES.map((t) => <button key={t} type="button" className="chip" aria-pressed={b.targetType === t} onClick={() => { setB({ ...b, targetType: t, relativeTo: t === 'PACE' || t === 'SPEED' || t === 'POWER' || t === 'HR' || t === 'LOAD' ? b.relativeTo : null }); setLow(''); setHigh(''); }}>{TARGET_LABEL[t]}</button>)}
+              {TARGET_TYPES.map((t) => <button key={t} type="button" className="chip" aria-pressed={b.targetType === t} onClick={() => retarget(t, t === 'PACE' || t === 'SPEED' || t === 'POWER' || t === 'HR' || t === 'LOAD' ? b.relativeTo : null)}>{TARGET_LABEL[t]}</button>)}
             </div>
             {(b.targetType === 'PACE' || b.targetType === 'SPEED' || b.targetType === 'POWER' || b.targetType === 'HR' || b.targetType === 'LOAD') && (
-              <select className="input" value={b.relativeTo ?? ''} onChange={(e) => { setB({ ...b, relativeTo: (e.target.value || null) as Block['relativeTo'] }); setLow(''); setHigh(''); }}>
+              <select className="input" value={b.relativeTo ?? ''} onChange={(e) => retarget(b.targetType, (e.target.value || null) as Block['relativeTo'])}>
                 <option value="">{$t("Valeur absolue")}</option>
                 {b.targetType === 'POWER' && <option value="FTP">{$t("% de la FTP")}</option>}
                 {(b.targetType === 'PACE' || b.targetType === 'SPEED') && <option value={eff === 'SWIM' ? 'CSS' : 'VMA'}>{eff === 'SWIM' ? $t("% de la CSS (vitesse)") : $t("% de la VMA")}</option>}
@@ -452,9 +447,12 @@ function BlockSheet({ block, discipline, isChild, refs, onApply, onClose, onDele
               </select>
             )}
             {b.targetType !== 'NONE' && (
-              <div className="grid-2" style={{ gap: 'var(--space-12)' }}>
-                <input className="input num" inputMode="decimal" aria-label={$t("Valeur ou borne basse")} placeholder={$t("Valeur")} value={low} onChange={(e) => setLow(e.target.value)} />
-                <input className="input num" inputMode="decimal" aria-label={$t("Borne haute (facultatif)")} placeholder={$t("Borne haute")} value={high} onChange={(e) => setHigh(e.target.value)} />
+              <div className="stack" style={{ gap: 'var(--space-12)' }}>
+                <div className="stack-4"><span className="t-caption-strong">{high === null ? $t("Valeur") : $t("Borne basse")}</span>
+                  <TargetWheel type={b.targetType} rel={b.relativeTo} value={low} onChange={setLow} label={$t("Valeur ou borne basse")} /></div>
+                {high !== null && <div className="stack-4"><span className="t-caption-strong">{$t("Borne haute")}</span>
+                  <TargetWheel type={b.targetType} rel={b.relativeTo} value={high} onChange={setHigh} label={$t("Borne haute (facultatif)")} /></div>}
+                <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start', height: 36 }} onClick={() => setHigh(high === null ? low : null)}>{high === null ? $t("Ajouter une borne haute (fourchette)") : $t("Retirer la borne haute")}</button>
               </div>
             )}
             {targetHint && <span className="hint">{targetHint}{$t(". Borne haute facultative (fourchette).")}</span>}

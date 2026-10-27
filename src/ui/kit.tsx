@@ -401,34 +401,64 @@ export function Hero({ label, value, chip, children, className = '' }: { label: 
 
 // ------------------------------------------------------------------ durée « qui roule » (comme sur la montre)
 const WHEEL_ITEM = 40;
-function WheelColumn({ count, value, onChange, unit, label }: { count: number; value: number; onChange: (v: number) => void; unit: string; label: string }) {
+export const wheelRange = (min: number, max: number, step = 1): number[] => Array.from({ length: Math.floor((max - min) / step + 1e-9) + 1 }, (_, i) => Math.round((min + i * step) * 1000) / 1000);
+/** Liste de la colonne : la valeur actuelle y figure toujours (même hors pas), pour qu'ouvrir la roulette ne change rien. */
+const withValue = (items: number[], v: number): number[] => (items.includes(v) ? items : [...items, v].sort((x, y) => x - y));
+
+export function WheelColumn({ items, value, onChange, unit, label, fmt }: { items: number[]; value: number; onChange: (v: number) => void; unit: string; label: string; fmt?: (v: number) => string }) {
+  const list = withValue(items, value);
+  const idx = Math.max(0, list.indexOf(value));
   const ref = useRef<HTMLDivElement>(null);
   const timer = useRef<number | undefined>(undefined);
   useLayoutEffect(() => {
     const el = ref.current;
-    if (el && Math.abs(el.scrollTop - value * WHEEL_ITEM) > 2) el.scrollTop = value * WHEEL_ITEM;
-  }, [value]);
+    if (el && Math.abs(el.scrollTop - idx * WHEEL_ITEM) > 2) el.scrollTop = idx * WHEEL_ITEM;
+  }, [idx]);
   useEffect(() => () => window.clearTimeout(timer.current), []);
   const settle = () => {
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
       const el = ref.current;
       if (!el) return;
-      const i = Math.min(count - 1, Math.max(0, Math.round(el.scrollTop / WHEEL_ITEM)));
-      if (i !== value) onChange(i);
+      const i = Math.min(list.length - 1, Math.max(0, Math.round(el.scrollTop / WHEEL_ITEM)));
+      if (i !== idx) onChange(list[i]);
     }, 90);
   };
-  const go = (i: number) => ref.current?.scrollTo({ top: Math.min(count - 1, Math.max(0, i)) * WHEEL_ITEM, behavior: 'smooth' });
+  const go = (i: number) => ref.current?.scrollTo({ top: Math.min(list.length - 1, Math.max(0, i)) * WHEEL_ITEM, behavior: 'smooth' });
   return (
     <div className="wheel-col">
-      <div ref={ref} className="wheel-list" role="spinbutton" tabIndex={0} aria-label={label} aria-valuemin={0} aria-valuemax={count - 1} aria-valuenow={value}
+      <div ref={ref} className="wheel-list" role="spinbutton" tabIndex={0} aria-label={label} aria-valuemin={list[0]} aria-valuemax={list[list.length - 1]} aria-valuenow={value}
         onScroll={settle}
-        onKeyDown={(e) => { if (e.key === 'ArrowUp') { e.preventDefault(); onChange(Math.max(0, value - 1)); } else if (e.key === 'ArrowDown') { e.preventDefault(); onChange(Math.min(count - 1, value + 1)); } }}>
-        {Array.from({ length: count }, (_, i) => (
-          <div key={i} className={'wheel-item' + (i === value ? ' on' : '')} onClick={() => go(i)} aria-hidden="true">{String(i).padStart(2, '0')}</div>
+        onKeyDown={(e) => { if (e.key === 'ArrowUp') { e.preventDefault(); onChange(list[Math.max(0, idx - 1)]); } else if (e.key === 'ArrowDown') { e.preventDefault(); onChange(list[Math.min(list.length - 1, idx + 1)]); } }}>
+        {list.map((v, i) => (
+          <div key={v} className={'wheel-item' + (i === idx ? ' on' : '')} onClick={() => go(i)} aria-hidden="true">{fmt ? fmt(v) : String(v).padStart(2, '0')}</div>
         ))}
       </div>
-      <span className="wheel-unit">{unit}</span>
+      {unit && <span className="wheel-unit">{unit}</span>}
+    </div>
+  );
+}
+
+/** Une colonne d'entiers (répétitions, zone, RPE, FC, %…). */
+export function IntWheel({ value, onChange, label, min, max, step = 1, unit = '', pad = 1 }: { value: number; onChange: (v: number) => void; label: string; min: number; max: number; step?: number; unit?: string; pad?: number }) {
+  return (
+    <div className="wheel" role="group" aria-label={label}>
+      <WheelColumn items={wheelRange(min, max, step)} value={Math.round(value)} unit={unit} label={label} fmt={(v) => String(v).padStart(pad, '0')} onChange={onChange} />
+    </div>
+  );
+}
+
+/**
+ * Deux colonnes : la valeur vaut haut × base + bas (km et mètres, min et secondes, centaines et dizaines de watts, unités et dixièmes…).
+ * `lowStep` : pas de la colonne du bas.
+ */
+export function SplitWheel({ value, onChange, label, base, hiMax, hiUnit = '', loUnit = '', loStep = 1, loPad = 2, hiPad = 1 }: { value: number; onChange: (v: number) => void; label: string; base: number; hiMax: number; hiUnit?: string; loUnit?: string; loStep?: number; loPad?: number; hiPad?: number }) {
+  const v = Math.max(0, Math.round(value));
+  const hi = Math.floor(v / base), lo = v % base;
+  return (
+    <div className="wheel" role="group" aria-label={label}>
+      <WheelColumn items={wheelRange(0, hiMax)} value={hi} unit={hiUnit} label={label + ' · ' + (hiUnit || '1')} fmt={(x) => String(x).padStart(hiPad, '0')} onChange={(x) => onChange(x * base + lo)} />
+      <WheelColumn items={wheelRange(0, base - 1, loStep)} value={lo} unit={loUnit} label={label + ' · ' + (loUnit || '2')} fmt={(x) => String(x).padStart(loPad, '0')} onChange={(x) => onChange(hi * base + x)} />
     </div>
   );
 }
@@ -440,9 +470,9 @@ export function DurationWheel({ value, onChange, label, hours = true, seconds = 
   const set = (nh: number, nm: number, ns: number) => onChange(nh * 3600 + nm * 60 + ns);
   return (
     <div className="wheel" role="group" aria-label={label}>
-      {hours && <WheelColumn count={24} value={h} unit="h" label={$t("Heures")} onChange={(x) => set(x, m, s)} />}
-      <WheelColumn count={60} value={m} unit="min" label={$t("Minutes")} onChange={(x) => set(h, x, s)} />
-      {seconds && <WheelColumn count={60} value={s} unit="s" label={$t("Secondes")} onChange={(x) => set(h, m, x)} />}
+      {hours && <WheelColumn items={wheelRange(0, 23)} value={h} unit="h" label={$t("Heures")} onChange={(x) => set(x, m, s)} />}
+      <WheelColumn items={wheelRange(0, 59)} value={m} unit="min" label={$t("Minutes")} onChange={(x) => set(h, x, s)} />
+      {seconds && <WheelColumn items={wheelRange(0, 59)} value={s} unit="s" label={$t("Secondes")} onChange={(x) => set(h, m, x)} />}
     </div>
   );
 }

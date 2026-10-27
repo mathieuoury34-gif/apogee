@@ -29,6 +29,7 @@ import type { DayLoad } from '../src/domain/load';
 import { applyPreview, buildDossier, parsePlan, preview } from '../src/domain/coach';
 import { RACE_DISTANCES, aerobicEffect, anaerobicEffect, riegel, teLevel, timeOfVdot, vdotOfPerformance, vo2OfRunning, vo2maxFromSubmax, vo2maxUth } from '../src/domain/science';
 import { acuteScore, bestEfforts, energyReserve, enduranceScore, hillScore, racePredictions, readiness, restingScore, sleepScore, trainingEffects, vo2maxEstimate } from '../src/domain/capacity';
+import { defaultDisp, fromDisp, toDisp } from '../src/ui/targetUnits';
 import type { ActualSession, AppData, Block } from '../src/domain/types';
 
 const SETTINGS = { provisionalLoad: true };
@@ -803,4 +804,13 @@ test('indice de côtes : la vitesse ascensionnelle ne compte que les séances vr
   assert.equal(h.vamScore, Math.round(450 / 700 * 100));
   assert.ok(Math.abs(h.weeklyGain - 237.5) < 1e-9);
   assert.equal(hillScore(emptyData(), '2026-10-27'), null);
+});
+
+test('roulettes de bloc : conversions d\'affichage (vitesse en dixièmes de km/h, charge en dixièmes de kg, % et allures inchangés)', () => {
+  assert.equal(toDisp('SPEED', null, 12.5 / 3.6), 125);
+  assert.ok(Math.abs(fromDisp('SPEED', null, 125) - 12.5 / 3.6) < 1e-12);
+  assert.equal(toDisp('LOAD', null, 22.5), 225); assert.equal(fromDisp('LOAD', null, 225), 22.5);
+  assert.equal(toDisp('PACE', null, 270), 270); assert.equal(fromDisp('PACE', null, 270), 270);
+  assert.equal(toDisp('SPEED', 'VMA', 85), 85); assert.equal(fromDisp('SPEED', 'VMA', 85), 85);
+  assert.equal(defaultDisp('PACE', null, 'SWIM'), 105); assert.equal(defaultDisp('ZONE', null, 'RUN'), 2); assert.equal(defaultDisp('POWER', 'FTP', 'BIKE'), 85);
 });

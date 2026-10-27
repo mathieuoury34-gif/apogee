@@ -1316,4 +1316,9 @@ export const EN: Record<string, string> = {
   "valeur type : historique trop court": "typical value: history too short",
   "Échelle de 0 à 5 comme sur les montres. Aérobie : charge de la séance (TRIMP de Banister, qui suit la dépense d’oxygène après l’effort) comparée à une séance solide de tes 90 derniers jours ({0}).": "Scale from 0 to 5 as on watches. Aerobic: session load (Banister's TRIMP, which tracks oxygen use after exercise) compared with a solid session from your last 90 days ({0}).",
   "Une fois par semaine, recopie ce que ta montre affiche : VO₂max, seuil de lactate, prédictions de course, et ton ressenti. Apogée en trace les courbes. Un rappel te le propose le dimanche.": "Once a week, copy what your watch shows: VO₂max, lactate threshold, race predictions, and how you feel. Apogée plots the curves. A reminder offers it on Sunday evening.",
+  "Kilomètres et mètres": "Kilometres and metres",
+  "Borne basse": "Lower bound",
+  "Ajouter une borne haute (fourchette)": "Add an upper bound (range)",
+  "Retirer la borne haute": "Remove the upper bound",
+  "zone": "zone",
 };
