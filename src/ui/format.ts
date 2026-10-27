@@ -50,8 +50,19 @@ export function hhmm(sec: number | null | undefined): string {
   const m = Math.round(sec / 60);
   return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
 }
-/** Heures décimales : « 12,4 h » */
-export function hours(sec: number): string { return num(sec / 3600, 1) + NBSP + 'h'; }
+/** « 38h12 » (heures et minutes, comme sur la montre) ; sous une heure : « 45 min » */
+export function hm(sec: number | null | undefined): string {
+  if (sec === null || sec === undefined || !isFinite(sec)) return '—';
+  const m = Math.round(sec / 60);
+  return m >= 60 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}` : duration(sec);
+}
+/** Volume en heures et minutes : « 38h12 » (toujours avec les heures, même sous une heure : « 0h45 ») */
+export function hours(sec: number): string { return hhmm(sec); }
+
+/** « 1 240 kcal » depuis des joules ou des kcal */
+export function kcal(v: number | null | undefined): string { return v === null || v === undefined || !isFinite(v) ? '—' : num(v, 0) + NBSP + 'kcal'; }
+/** « +320 m » */
+export function elevation(m: number | null | undefined): string { return m === null || m === undefined || !isFinite(m) ? '—' : '+' + num(m, 0) + NBSP + 'm'; }
 
 export function km(m: number | null | undefined, d = 1): string {
   if (m === null || m === undefined) return '—';

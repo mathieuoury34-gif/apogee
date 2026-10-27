@@ -398,3 +398,51 @@ export function Hero({ label, value, chip, children, className = '' }: { label: 
     </section>
   );
 }
+
+// ------------------------------------------------------------------ durée « qui roule » (comme sur la montre)
+const WHEEL_ITEM = 40;
+function WheelColumn({ count, value, onChange, unit, label }: { count: number; value: number; onChange: (v: number) => void; unit: string; label: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const timer = useRef<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && Math.abs(el.scrollTop - value * WHEEL_ITEM) > 2) el.scrollTop = value * WHEEL_ITEM;
+  }, [value]);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const settle = () => {
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      const el = ref.current;
+      if (!el) return;
+      const i = Math.min(count - 1, Math.max(0, Math.round(el.scrollTop / WHEEL_ITEM)));
+      if (i !== value) onChange(i);
+    }, 90);
+  };
+  const go = (i: number) => ref.current?.scrollTo({ top: Math.min(count - 1, Math.max(0, i)) * WHEEL_ITEM, behavior: 'smooth' });
+  return (
+    <div className="wheel-col">
+      <div ref={ref} className="wheel-list" role="spinbutton" tabIndex={0} aria-label={label} aria-valuemin={0} aria-valuemax={count - 1} aria-valuenow={value}
+        onScroll={settle}
+        onKeyDown={(e) => { if (e.key === 'ArrowUp') { e.preventDefault(); onChange(Math.max(0, value - 1)); } else if (e.key === 'ArrowDown') { e.preventDefault(); onChange(Math.min(count - 1, value + 1)); } }}>
+        {Array.from({ length: count }, (_, i) => (
+          <div key={i} className={'wheel-item' + (i === value ? ' on' : '')} onClick={() => go(i)} aria-hidden="true">{String(i).padStart(2, '0')}</div>
+        ))}
+      </div>
+      <span className="wheel-unit">{unit}</span>
+    </div>
+  );
+}
+
+/** Heures / minutes / secondes à faire rouler du doigt (ou à la molette, ou aux flèches). Valeur en secondes. */
+export function DurationWheel({ value, onChange, label, hours = true, seconds = true }: { value: number; onChange: (sec: number) => void; label: string; hours?: boolean; seconds?: boolean }) {
+  const v = Math.max(0, Math.round(value));
+  const h = Math.min(23, Math.floor(v / 3600)), m = Math.floor((v % 3600) / 60), s = v % 60;
+  const set = (nh: number, nm: number, ns: number) => onChange(nh * 3600 + nm * 60 + ns);
+  return (
+    <div className="wheel" role="group" aria-label={label}>
+      {hours && <WheelColumn count={24} value={h} unit="h" label={$t("Heures")} onChange={(x) => set(x, m, s)} />}
+      <WheelColumn count={60} value={m} unit="min" label={$t("Minutes")} onChange={(x) => set(h, x, s)} />
+      {seconds && <WheelColumn count={60} value={s} unit="s" label={$t("Secondes")} onChange={(x) => set(h, m, x)} />}
+    </div>
+  );
+}

@@ -1106,4 +1106,12 @@ export const EN: Record<string, string> = {
   "Ces durées sont le temps passé au lit, éveils compris : Health Connect ne donne pas (encore) les étapes du sommeil. Avec la dernière version de l’APK, l’app compte le temps réellement endormi, comme Garmin Connect.": "These durations are time spent in bed, awake time included: Health Connect does not (yet) give the sleep stages. With the latest APK, the app counts time actually asleep, like Garmin Connect.",
   "{0} nuit(s) sur {1} sont comptées en temps passé au lit (étapes du sommeil indisponibles), les autres en temps réellement endormi.": "{0} night(s) out of {1} are counted as time in bed (sleep stages unavailable), the others as time actually asleep.",
   "Lecture seule, sans objectif de sommeil imposé : on compare ta semaine à tes propres habitudes. La durée est le temps réellement endormi (éveils exclus) quand Health Connect donne les étapes du sommeil, comme dans Garmin Connect. Le coucher est l’heure de début de la nuit lue par Health Connect, sur les 14 dernières nuits (5 minimum). Plus l’écart-type est petit, plus tes nuits sont régulières. La durée de la nuit compte déjà dans la forme du jour.": "Read-only, with no imposed sleep target: your week is compared with your own habits. The duration is time actually asleep (awake time excluded) when Health Connect provides the sleep stages, as in Garmin Connect. Bedtime is the start of the night as read by Health Connect, over the last 14 nights (5 minimum). The smaller the standard deviation, the more regular your nights. Night length already counts in the daily form.",
+  "Heures": "Hours",
+  "Minutes": "Minutes",
+  "Secondes": "Seconds",
+  "Dénivelé +": "Elevation gain",
+  "Dénivelé + (m)": "Elevation gain (m)",
+  "Calories actives": "Active calories",
+  "actives": "active",
+  "dénivelé invalide : « {0} »": "invalid elevation: “{0}”",
 };

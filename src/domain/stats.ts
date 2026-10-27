@@ -6,6 +6,7 @@ import { latestZone, liveRecords, sessionDay, zoneHistory } from './load';
 import type { ActualSession, AppData, CoreDiscipline, PlannedDiscipline, ZoneKind, ZoneReading } from './types';
 import { DISCIPLINES } from './types';
 
+export const KCAL_J = 4184;
 export const WEEK_BARS = 12;
 export const MIN_PACE_SEC = 20 * 60;
 export const REFERENCE_OF: Record<PlannedDiscipline, ZoneKind | null> = { RUN: 'vma', BIKE: 'ftp', SWIM: 'css', STRENGTH: null, BRICK: null };
@@ -15,7 +16,7 @@ export interface WeekBar { start: string; seconds: number; sessions: number; met
 export interface DisciplineStats {
   discipline: PlannedDiscipline;
   sessions: ActualSession[];
-  totals: { sessions: number; seconds: number; metres: number; elevation: number };
+  totals: { sessions: number; seconds: number; metres: number; elevation: number; activeKcal: number };
   avgPaceSec: number | null;
   bestPaceSec: number | null;
   avgHr: number | null;
@@ -46,7 +47,7 @@ export function disciplineStats(data: AppData, loads: Map<string, SessionLoad>, 
     sessions = liveRecords(data.actual).filter((s) => ids.has(s.id));
   } else sessions = liveRecords(data.actual).filter((s) => s.discipline === discipline);
   sessions.sort((a, b) => (a.startAt < b.startAt ? 1 : -1));
-  const totals = { sessions: sessions.length, seconds: 0, metres: 0, elevation: 0 };
+  const totals = { sessions: sessions.length, seconds: 0, metres: 0, elevation: 0, activeKcal: 0 };
   let pacedSec = 0, pacedM = 0, hrSec = 0, hrW = 0, weekLoad: number | null = null;
   let best: number | null = null, longM: number | null = null, longS: number | null = null;
   for (const s of sessions) {
@@ -54,6 +55,7 @@ export function disciplineStats(data: AppData, loads: Map<string, SessionLoad>, 
     totals.seconds += s.durationSec;
     if (s.distanceM) totals.metres += s.distanceM;
     if (s.elevationGainM) totals.elevation += s.elevationGainM;
+    if (s.activeCaloriesJ) totals.activeKcal += s.activeCaloriesJ / KCAL_J;
     const pace = discipline === 'BRICK' ? null : paceOf(s);
     if (pace !== null && s.distanceM) {
       pacedSec += s.durationSec; pacedM += s.distanceM;
@@ -80,13 +82,13 @@ export function disciplineStats(data: AppData, loads: Map<string, SessionLoad>, 
   };
 }
 
-export interface Overview { firstDay: string | null; weeks: number; sessions: number; seconds: number; metres: number }
+export interface Overview { firstDay: string | null; weeks: number; sessions: number; seconds: number; metres: number; elevation: number; activeKcal: number }
 export function overview(data: AppData, todayDay: string): Overview {
   const rows = liveRecords(data.actual).filter((s) => s.discipline !== 'OTHER');
-  if (!rows.length) return { firstDay: null, weeks: 0, sessions: 0, seconds: 0, metres: 0 };
-  let first = '9999', seconds = 0, metres = 0;
-  for (const s of rows) { const d = sessionDay(s); if (d < first) first = d; seconds += s.durationSec; metres += s.distanceM ?? 0; }
-  return { firstDay: first, weeks: Math.max(1, Math.ceil((daysBetween(first, todayDay) + 1) / 7)), sessions: rows.length, seconds, metres };
+  if (!rows.length) return { firstDay: null, weeks: 0, sessions: 0, seconds: 0, metres: 0, elevation: 0, activeKcal: 0 };
+  let first = '9999', seconds = 0, metres = 0, elevation = 0, activeJ = 0;
+  for (const s of rows) { const d = sessionDay(s); if (d < first) first = d; seconds += s.durationSec; metres += s.distanceM ?? 0; elevation += s.elevationGainM ?? 0; activeJ += s.activeCaloriesJ ?? 0; }
+  return { firstDay: first, weeks: Math.max(1, Math.ceil((daysBetween(first, todayDay) + 1) / 7)), sessions: rows.length, seconds, metres, elevation, activeKcal: activeJ / KCAL_J };
 }
 
 /** Volume (secondes) par semaine et par discipline, pour les N dernières semaines. */

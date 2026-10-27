@@ -22,7 +22,7 @@ import { dateFr, dateTimeFr, dayTitle, DISCIPLINE_LABEL, sessionLabel, duration,
 export function CoachScreen() {
   const route = useRoute();
   const { data, d } = useCalc();
-  const [weeks, setWeeks] = useState<'1' | '2' | '4' | '8'>('2');
+  const [weeks, setWeeks] = useState<'1' | '2' | '4' | '8'>('1');
   const [importOpen, setImportOpen] = useState(route.query.get('importer') === '1');
   const from = addDays(d.today, -7 * +weeks + 1);
   const candidates = useMemo(() => liveRecords(data.actual).filter((s) => sessionDay(s) >= from).sort((a, b) => (a.startAt < b.startAt ? 1 : -1)), [data.actual, from]);

@@ -136,6 +136,7 @@ export function editActual(id: string, input: ManualInput): Snapshot {
   if (durationSec !== cur.durationSec) { edited.add('durationSec'); next.durationSec = durationSec; }
   if ((distanceM ?? null) !== (cur.distanceM ?? null) && !(distanceM && cur.distanceM && Math.abs(distanceM - cur.distanceM) < 1)) { edited.add('distanceM'); next.distanceM = distanceM; }
   if ((input.avgHrBpm ?? null) !== (cur.avgHrBpm === null ? null : Math.round(cur.avgHrBpm))) { edited.add('avgHrBpm'); next.avgHrBpm = input.avgHrBpm; }
+  if (input.elevationM !== undefined && (input.elevationM ?? null) !== (cur.elevationGainM === null || cur.elevationGainM === undefined ? null : Math.round(cur.elevationGainM))) { edited.add('elevationGainM'); next.elevationGainM = input.elevationM; }
   next.endAt = new Date(Date.parse(next.startAt) + next.durationSec * 1000).toISOString();
   next.avgSpeedMs = next.distanceM && next.durationSec ? next.distanceM / next.durationSec : null;
   next.edited = cur.source === 'manual' ? [] : [...edited];

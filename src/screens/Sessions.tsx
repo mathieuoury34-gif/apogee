@@ -3,7 +3,7 @@
 // Modifier / Supprimer (avec « Annuler »), filtres en pastilles.
 import { $t } from '../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppHeader, ChipGroup, DatePicker, DiscIcon, Empty, ErrorBanner, Fab, Hero, Sheet, SportPicker, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther } from '../ui/kit';
+import { AppHeader, ChipGroup, DatePicker, DiscIcon, DurationWheel, Empty, ErrorBanner, Fab, Hero, Sheet, SportPicker, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther } from '../ui/kit';
 import { Donut, StepChart, WeekBars } from '../ui/charts';
 import { Icon } from '../ui/icons';
 import { useActualMenu } from '../ui/menu';
@@ -16,10 +16,10 @@ import { linkCandidates, findBrickSibling } from '../domain/links';
 import { liveRecords, METHOD_LABEL, sessionDay } from '../domain/load';
 import { parseBulkActual, parseBulkPlanned, parseManualFields, type ManualInput } from '../domain/manual';
 import { DRIFT_REASON_TEXT, reviewSession, VERDICT_TEXT } from '../domain/review';
-import { disciplineStats, overview, paceOf, weeklyVolume } from '../domain/stats';
+import { KCAL_J, disciplineStats, overview, paceOf, weeklyVolume } from '../domain/stats';
 import type { ActualDiscipline, ActualSession, PlannedDiscipline } from '../domain/types';
 import { ACTUAL_DISCIPLINES } from '../domain/types';
-import { DISCIPLINE_SHORT, bpm, dateFr, dateTimeFr, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, hours, km, mmss, monthLong, num, paceFor, parseNum, pct, pctSigned, signed, speedKmh, timeOf, toInput, NBSP } from '../ui/format';
+import { DISCIPLINE_SHORT, bpm, dateFr, dateTimeFr, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, elevation, hm, hours, kcal, km, mmss, monthLong, num, paceFor, parseNum, pct, pctSigned, signed, speedKmh, timeOf, toInput, NBSP } from '../ui/format';
 import { cleanHr } from '../domain/hr';
 import { polarSplit, zoneTimes } from '../domain/zones';
 import { SplitBars } from '../ui/charts2';
@@ -120,7 +120,7 @@ function SessionItem({ s, load, swiped, confirming, onSwipe, onOpen, onEdit, onD
         <DiscIcon d={s.discipline} sub={s.subSport} />
         <span className="stack" style={{ minWidth: 0 }}>
           <span className="t-strong ellipsis">{sessionLabel(s)} · {dayTitle(sessionDay(s))}</span>
-          <span className="t-caption c-moderate ellipsis">{[s.distanceM && s.discipline !== 'STRENGTH' ? distanceFor(s.distanceM, s.discipline) : null, pace ? paceFor(pace, s.discipline) : null, s.avgHrBpm ? num(s.avgHrBpm, 0) + NBSP + 'bpm' : null, s.source === 'manual' ? 'saisie' : null].filter(Boolean).join(' · ') || exerciseLabel(s.rawExerciseType)}</span>
+          <span className="t-caption c-moderate ellipsis">{[s.distanceM && s.discipline !== 'STRENGTH' ? distanceFor(s.distanceM, s.discipline) : null, pace ? paceFor(pace, s.discipline) : null, s.avgHrBpm ? num(s.avgHrBpm, 0) + NBSP + 'bpm' : null, s.elevationGainM && (s.discipline === 'RUN' || s.discipline === 'BIKE') ? elevation(s.elevationGainM) : null, s.source === 'manual' ? 'saisie' : null].filter(Boolean).join(' · ') || exerciseLabel(s.rawExerciseType)}</span>
           {!s.rpe && <span className="t-legal" style={{ color: 'var(--warning-text)' }}>{$t("Ressenti à noter")}</span>}
         </span>
         <span className="stack" style={{ alignItems: 'flex-end' }}>
@@ -174,6 +174,8 @@ export function ReviewScreen({ id }: { id: string }) {
             <Kpi label={$t("FC moyenne")} value={bpm(s.avgHrBpm)} cls={mark('avgHrBpm')} />
             <Kpi label={$t("FC max")} value={bpm(s.maxHrBpm)} />
             <Kpi label={$t("Charge")} value={l.load === null ? '—' : num(l.load, 0)} cls={l.assise === 'estimated' ? $t(" est") : ''} />
+            {(s.discipline === 'RUN' || s.discipline === 'BIKE' || s.elevationGainM) ? <Kpi label={$t("Dénivelé +")} value={s.elevationGainM ? elevation(s.elevationGainM) : '—'} cls={mark('elevationGainM')} /> : null}
+            {s.activeCaloriesJ ? <Kpi label={$t("Calories actives")} value={kcal(s.activeCaloriesJ / KCAL_J)} /> : null}
           </div>
           <p className="t-caption c-moderate">{$t("Charge")} {METHOD_LABEL[l.method]}{l.method === 'srpe' ? $t(" (RPE × minutes × {0}, coefficient appris sur {1})", { 0: num(d.ctx.srpeFactor, 2), 1: d.ctx.srpeCalibrationPairs >= 5 ? $t("tes séances") : $t("une valeur type") }) : ''}.{s.edited.length ? $t(" Valeurs soulignées : corrigées à la main.") : ''}{s.elevationGainM ? $t(" Dénivelé {0} m.", { 0: num(s.elevationGainM, 0) }) : ''}{s.activeCaloriesJ ? $t(" {0} kcal actives.", { 0: num(s.activeCaloriesJ / 4184, 0) }) : ''}</p>
           <HrTrace id={s.id} />
@@ -317,11 +319,13 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
   const [disc, setDisc] = useState<ActualDiscipline>(s.discipline);
   const [title, setTitle] = useState(s.title ?? '');
   const [sub, setSub] = useState<string | null>(s.subSport ?? null);
-  const [dur, setDur] = useState(toInput(s.durationSec / 60, 1).replace(/,0$/, ''));
+  const [durSec, setDurSec] = useState(s.durationSec);
   const [dist, setDist] = useState(s.distanceM ? toInput(s.distanceM / 1000, 2) : '');
   const [hr, setHr] = useState(s.avgHrBpm ? String(Math.round(s.avgHrBpm)) : '');
+  const [elev, setElev] = useState(s.elevationGainM ? String(Math.round(s.elevationGainM)) : '');
   const [cal, setCal] = useState(false);
-  const r = parseManualFields({ date, discipline: disc, durationMin: dur, distanceKm: dist, avgHrBpm: hr });
+  const withElev = disc === 'RUN' || disc === 'BIKE' || disc === 'OTHER';
+  const r = parseManualFields({ date, discipline: disc, durationMin: durSec > 0 ? String(durSec / 60) : '', distanceKm: dist, avgHrBpm: hr, elevationM: withElev ? elev : '' });
   const save = () => {
     if ('error' in r) return;
     const snap = editActual(s.id, { ...r.input, rpe: s.rpe, comment: s.comment, subSport: disc === 'OTHER' ? sub : null, title });
@@ -343,9 +347,10 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
         <label className="field"><span className="lbl">{$t("Titre")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>
           <input className="input" value={title} maxLength={80} placeholder={disc === 'OTHER' ? $t("Nom de l’activité : GR20 étape 3, kayak, balade…") : $t("Sortie avec Paul, vélo de nuit…")} onChange={(e) => setTitle(e.target.value)} />
           <span className="hint">{$t("Remplace le nom de la discipline dans les listes. Ne change aucun calcul.")}</span></label>
+        <div className="field"><span className="lbl">{$t("Durée")}</span><DurationWheel value={durSec} onChange={setDurSec} label={$t("Durée")} /></div>
         <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
-          <label className="field"><span className="lbl">{$t("Durée (min)")}</span><input className="input num" inputMode="decimal" value={dur} onChange={(e) => setDur(e.target.value)} /></label>
           <label className="field"><span className="lbl">{$t("Distance (km)")}</span><input className="input num" inputMode="decimal" value={dist} onChange={(e) => setDist(e.target.value)} /></label>
+          {withElev && <label className="field"><span className="lbl">{$t("Dénivelé + (m)")}</span><input className="input num" inputMode="numeric" value={elev} onChange={(e) => setElev(e.target.value)} /></label>}
           <label className="field"><span className="lbl">{$t("FC moy.")}</span><input className="input num" inputMode="numeric" value={hr} onChange={(e) => setHr(e.target.value)} /></label>
         </div>
         {'error' in r && <span className="err t-caption-strong c-critical">{r.error}</span>}
@@ -396,15 +401,17 @@ export function ManualEntryScreen() {
   const [disc, setDisc] = useState<ActualDiscipline>('RUN');
   const [title, setTitle] = useState('');
   const [sub, setSub] = useState<string | null>(null);
-  const [dur, setDur] = useState('');
+  const [durSec, setDurSec] = useState(0);
   const [dist, setDist] = useState('');
   const [hr, setHr] = useState('');
+  const [elev, setElev] = useState('');
   const [rpe, setRpe] = useState<number | null>(null);
   const [comment, setComment] = useState('');
   const [text, setText] = useState('');
-  const r = parseManualFields({ date, discipline: disc, durationMin: dur.replace(/^(\d+)h(\d+)$/, (_m, h, m) => String(+h * 60 + +m)), distanceKm: dist, avgHrBpm: hr });
+  const withElev = disc === 'RUN' || disc === 'BIKE' || disc === 'OTHER';
+  const r = parseManualFields({ date, discipline: disc, durationMin: durSec > 0 ? String(durSec / 60) : '', distanceKm: dist, avgHrBpm: hr, elevationM: withElev ? elev : '' });
   const parsed = useMemo(() => (mode === 'bulk' ? parseBulkActual(text) : mode === 'planned' ? parseBulkPlanned(text) : null), [mode, text]);
-  const durMin = parseNum(dur), distKm = parseNum(dist);
+  const durMin = durSec > 0 ? durSec / 60 : NaN, distKm = parseNum(dist);
   const submitSingle = () => {
     if ('error' in r) return;
     const input: ManualInput = { ...r.input, rpe, comment: comment.trim() || null, title: title.trim() || null, subSport: disc === 'OTHER' ? sub : null };
@@ -451,9 +458,10 @@ export function ManualEntryScreen() {
         <label className="field"><span className="lbl">{$t("Titre")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>
           <input className="input" value={title} maxLength={80} placeholder={disc === 'OTHER' ? $t("Nom de l’activité : GR20 étape 3, kayak, balade…") : $t("Sortie avec Paul, vélo de nuit…")} onChange={(e) => setTitle(e.target.value)} />
           <span className="hint">{$t("Remplace le nom de la discipline dans les listes. Ne change aucun calcul.")}</span></label>
+              <div className="field"><span className="lbl">{$t("Durée")}</span><DurationWheel value={durSec} onChange={setDurSec} label={$t("Durée")} /></div>
               <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
-                <label className="field"><span className="lbl">{$t("Durée (min)")}</span><input className="input num" inputMode="decimal" value={dur} placeholder="45" onChange={(e) => setDur(e.target.value)} /></label>
                 <label className="field"><span className="lbl">{$t("Distance (km)")}</span><input className="input num" inputMode="decimal" value={dist} placeholder="—" onChange={(e) => setDist(e.target.value)} /></label>
+                {withElev && <label className="field"><span className="lbl">{$t("Dénivelé + (m)")}</span><input className="input num" inputMode="numeric" value={elev} placeholder="—" onChange={(e) => setElev(e.target.value)} /></label>}
                 <label className="field"><span className="lbl">{$t("FC moy.")}</span><input className="input num" inputMode="numeric" value={hr} placeholder="—" onChange={(e) => setHr(e.target.value)} /></label>
               </div>
               <div className="field"><span className="lbl">{$t("Ressenti")}</span><RpeScale value={rpe} onChange={setRpe} /></div>
@@ -516,8 +524,10 @@ export function StatsScreen() {
         <div className="dmasonry">
         <Hero className="dspan-5" label={ov.firstDay ? $t("Bilan depuis le ") + dateFr(ov.firstDay) : $t("Bilan global")} value={hours(ov.seconds)} chip={$t("{0} séances · {1} semaines · {2}", { 0: ov.sessions, 1: ov.weeks, 2: km(ov.metres, 0) })}>
           <div className="foot">
-            <span><strong>{ov.weeks ? duration(ov.seconds / ov.weeks) : '—'}</strong> {$t("par semaine")}</span>
+            <span><strong>{ov.weeks ? hm(ov.seconds / ov.weeks) : '—'}</strong> {$t("par semaine")}</span>
             <span><strong>{ov.weeks ? num(ov.sessions / ov.weeks, 1) : '—'}</strong> {$t("séances / sem.")}</span>
+            {ov.activeKcal > 0 && <span><strong>{kcal(ov.activeKcal)}</strong> {$t("actives")}</span>}
+            {ov.elevation > 0 && <span><strong>{elevation(ov.elevation)}</strong></span>}
             <span>{$t("hors « Autre »")}</span>
           </div>
         </Hero>
@@ -527,7 +537,7 @@ export function StatsScreen() {
           <OtherToggle />
           <div className="row" style={{ gap: 'var(--space-16)', alignItems: 'center' }}>
             <Donut size={136} ring={20} label={$t("Répartition du temps par discipline")} slices={order.map((k) => ({ value: totals[k], color: dvar(k as ActualDiscipline) }))}>
-              <span className="t-caption c-moderate">{$t("Total")}</span><span className="t-amount-s">{duration(sum)}</span>
+              <span className="t-caption c-moderate">{$t("Total")}</span><span className="t-amount-s">{hm(sum)}</span>
             </Donut>
             <ul className="grow stack t-caption" style={{ gap: 'var(--space-6)' }}>
               {order.map((k) => <li key={k} className="legend-row" style={{ padding: 0, border: 0 }}><span className="dot s10" style={{ background: dvar(k as ActualDiscipline) }} /><span>{DISCIPLINE_LABEL[k as ActualDiscipline]}</span><span className="t-strong right">{pct(totals[k] / (sum || 1))}</span></li>)}
@@ -561,9 +571,10 @@ export function StatsScreen() {
                 {disc !== 'STRENGTH' && disc !== 'BRICK' && <><dt>{disc === 'BIKE' ? $t("Vitesse moyenne") : $t("Allure moyenne")}</dt><dd>{paceFor(st.avgPaceSec, disc)}</dd>
                   <dt>{disc === 'BIKE' ? $t("Meilleure vitesse") : $t("Meilleure allure")} <span className="t-legal c-moderate">{$t("(≥ 20 min)")}</span></dt><dd>{paceFor(st.bestPaceSec, disc)}</dd>
                   <dt>{$t("Plus longue")}</dt><dd>{st.longestMetres ? distanceFor(st.longestMetres, disc) : '—'}</dd></>}
-                <dt>{$t("Séance la plus longue")}</dt><dd>{duration(st.longestSeconds)}</dd>
+                <dt>{$t("Séance la plus longue")}</dt><dd>{hm(st.longestSeconds)}</dd>
                 <dt>{$t("FC moyenne")}</dt><dd>{bpm(st.avgHr)}</dd>
-                {st.totals.elevation > 0 && <><dt>{$t("Dénivelé cumulé")}</dt><dd>{num(st.totals.elevation, 0)} m</dd></>}
+                {st.totals.elevation > 0 && <><dt>{$t("Dénivelé cumulé")}</dt><dd>{elevation(st.totals.elevation)}</dd></>}
+                {st.totals.activeKcal > 0 && <><dt>{$t("Calories actives")}</dt><dd>{kcal(st.totals.activeKcal)}</dd></>}
                 <dt>{$t("Charge de la semaine")}</dt><dd>{st.weekLoad === null ? '—' : num(st.weekLoad, 0)}</dd>
               </dl>
             </section>

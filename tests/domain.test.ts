@@ -19,7 +19,8 @@ import { sleepStats, weightTrend } from '../src/domain/body';
 import { analyzeHr, cleanHr, hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
 import { importLegacyDb, emptyData } from '../src/domain/legacy';
 import { buildLoadSeries, computeSessionLoads, resolveHrMax } from '../src/domain/load';
-import { buildManualSession, parseBulkActual, parseBulkPlanned } from '../src/domain/manual';
+import { buildManualSession, parseBulkActual, parseBulkPlanned, parseManualFields } from '../src/domain/manual';
+import { hm } from '../src/ui/format';
 import { applyPreview, buildDossier, parsePlan, preview } from '../src/domain/coach';
 import type { ActualSession, AppData, Block } from '../src/domain/types';
 
@@ -597,4 +598,14 @@ test('fichier .FIT : structure valide, cibles converties, répétitions, BRICK e
   assert.equal(sm[1].f[4], 10); assert.equal(sm[1].f[11], 20);
   assert.equal(sm[2].f[0], 'Squat'); assert.equal(sm[2].f[1], 29); assert.equal(sm[2].f[2], 12);
   assert.equal(fitFileName('Fractionné 6×3 — vélo', '2026-10-20'), '2026-10-20-Fractionne-6-3-velo.fit');
+});
+
+test('saisie manuelle : dénivelé enregistré et borné ; durées longues en 2h05', () => {
+  const ok = parseManualFields({ date: '2026-10-20', discipline: 'BIKE', durationMin: '125', distanceKm: '50', elevationM: '830' });
+  assert.ok('input' in ok);
+  if ('input' in ok) assert.equal(buildManualSession(ok.input, 'e1').elevationGainM, 830);
+  assert.ok('error' in parseManualFields({ date: '2026-10-20', discipline: 'RUN', durationMin: '30', elevationM: '-5' }));
+  assert.ok('error' in parseManualFields({ date: '2026-10-20', discipline: 'RUN', durationMin: '30', elevationM: '99999' }));
+  assert.equal(hm(125 * 60), '2h05');
+  assert.equal(hm(41 * 60).replace(/\s/g, ' '), '41 min');
 });

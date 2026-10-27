@@ -13,6 +13,7 @@ import { liveRecords } from './load';
 import { sameActivity } from './dossier';
 import { EXERCISE_TO_SUBSPORT } from './subsports';
 import type { ActualDiscipline, ActualSession, AppData, RestingHr, SessionSeries, SleepNight, WeightReading } from './types';
+import { KCAL_J } from './stats';
 
 export const EXERCISE_TO_DISCIPLINE: Record<number, ActualDiscipline> = {
   8: 'BIKE', 9: 'BIKE', 56: 'RUN', 57: 'RUN', 73: 'SWIM', 74: 'SWIM', 70: 'STRENGTH', 81: 'STRENGTH', 13: 'STRENGTH', 36: 'STRENGTH', 10: 'STRENGTH',
@@ -45,8 +46,6 @@ export interface NativeWeight { id: string; time: string; zoneOffsetSeconds: num
 export interface IngestOps { actual: ActualSession[]; series: SessionSeries[]; sleep: SleepNight[]; resting: RestingHr[]; weight: WeightReading[] }
 export interface NativeExtras { weight?: NativeWeight[] }
 export interface IngestReport { found: number; inserted: number; updated: number; known: number; nights: number; restingDays: number; weights?: number; unmapped: number[] }
-
-const KCAL_J = 4184;
 
 export function ingest(data: AppData, sessions: NativeSession[], nights: NativeSleep[], resting: NativeResting[], extras: NativeExtras = {}): { ops: IngestOps; report: IngestReport } {
   const now = nowIso();

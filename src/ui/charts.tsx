@@ -3,7 +3,7 @@
 import { $t } from '../i18n';
 import { useState, type ReactNode } from 'react';
 import { useWidth } from './kit';
-import { dateShort, dayMonth, DISCIPLINE_LABEL, duration, num, NBSP, monthShort, signed } from './format';
+import { dateShort, dayMonth, DISCIPLINE_LABEL, duration, hm, num, NBSP, monthShort, signed } from './format';
 import type { DayLoad } from '../domain/load';
 import type { DailyForm } from '../domain/form';
 import { formStep, FORM_STEP_LABEL } from '../domain/form';
@@ -271,7 +271,7 @@ export function WeekBars({ weeks, color = 'var(--brand-primary)', label }: { wee
       {hover !== null && (
         <div role="status" className="tip" style={{ minWidth: 120, left: Math.min(Math.max(X(h) - 60, 0), W - 120), top: 4 }}>
           <span className="t-caption c-reverse-muted">{$t("Semaine du")} {dateShort(weeks[h].start)}</span>
-          <span className="t-amount-s" style={{ color: 'var(--text-reverse)' }}>{duration(weeks[h].seconds)} · {weeks[h].sessions} {$t("séance")}{weeks[h].sessions > 1 ? 's' : ''}</span>
+          <span className="t-amount-s" style={{ color: 'var(--text-reverse)' }}>{hm(weeks[h].seconds)} · {weeks[h].sessions} {$t("séance")}{weeks[h].sessions > 1 ? 's' : ''}</span>
         </div>
       )}
     </div>
@@ -312,8 +312,8 @@ export function StackedWeeks({ weeks, order }: { weeks: { start: string; byDisci
       <div className="hit" style={{ width: W, height: B }} onPointerMove={(e) => setHover(hoverIndex(e, n))} onPointerDown={(e) => setHover(hoverIndex(e, n))} onPointerLeave={() => setHover(null)} />
       {hover !== null && (
         <div role="status" className="tip" style={{ minWidth: 140, left: Math.min(Math.max(X(h) - 70, 0), W - 140), top: 4 }}>
-          <span className="t-caption-strong" style={{ color: 'var(--text-reverse)' }}>{$t("Semaine du")} {dateShort(weeks[h].start)} · {duration(weeks[h].total)}</span>
-          {order.filter((d) => weeks[h].byDiscipline[d]).map((d) => <span key={d} className="t-caption c-reverse-muted">{DISCIPLINE_LABEL[d as 'RUN']} {duration(weeks[h].byDiscipline[d])}</span>)}
+          <span className="t-caption-strong" style={{ color: 'var(--text-reverse)' }}>{$t("Semaine du")} {dateShort(weeks[h].start)} · {hm(weeks[h].total)}</span>
+          {order.filter((d) => weeks[h].byDiscipline[d]).map((d) => <span key={d} className="t-caption c-reverse-muted">{DISCIPLINE_LABEL[d as 'RUN']} {hm(weeks[h].byDiscipline[d])}</span>)}
         </div>
       )}
     </div>

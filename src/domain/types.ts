@@ -126,7 +126,7 @@ export interface PlannedSession extends Rec {
 }
 
 /** Champs d'une séance réalisée qu'une édition manuelle peut écraser (leur assise passe à « saisie »). */
-export type EditableField = 'date' | 'discipline' | 'durationSec' | 'distanceM' | 'avgHrBpm';
+export type EditableField = 'date' | 'discipline' | 'durationSec' | 'distanceM' | 'avgHrBpm' | 'elevationGainM';
 
 export interface ActualSession extends Rec {
   /** Identifiant d'origine : `clientRecordId` Garmin (Health Connect) ou `manual:<empreinte>`. Immuable. */

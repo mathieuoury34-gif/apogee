@@ -10,7 +10,7 @@ import { liveRecords } from './load';
 import type { ActualDiscipline, ActualSession, AppData, PlannedDiscipline, PlannedSession } from './types';
 import { ACTUAL_DISCIPLINES, PLANNED_DISCIPLINES } from './types';
 
-export interface ManualInput { date: string; discipline: ActualDiscipline; durationMin: number; distanceKm: number | null; avgHrBpm: number | null; rpe: number | null; comment?: string | null; subSport?: string | null; title?: string | null }
+export interface ManualInput { date: string; discipline: ActualDiscipline; durationMin: number; distanceKm: number | null; avgHrBpm: number | null; elevationM?: number | null; rpe: number | null; comment?: string | null; subSport?: string | null; title?: string | null }
 
 export const ALIASES: Record<string, string> = {
   COURSE: 'RUN', CAP: 'RUN', VELO: 'BIKE', VÉLO: 'BIKE', NATATION: 'SWIM', NAT: 'SWIM', RENFO: 'STRENGTH', RENFORCEMENT: 'STRENGTH', MUSCU: 'STRENGTH', AUTRE: 'OTHER', ENCHAINEMENT: 'BRICK', ENCHAÎNEMENT: 'BRICK',
@@ -30,7 +30,7 @@ const num = (raw: string | undefined): number | null => {
   return Number.isFinite(v) ? v : NaN;
 };
 
-export function parseManualFields(f: { date: string; discipline: string; durationMin: string; distanceKm?: string; avgHrBpm?: string; rpe?: string }): { input: ManualInput } | { error: string } {
+export function parseManualFields(f: { date: string; discipline: string; durationMin: string; distanceKm?: string; avgHrBpm?: string; elevationM?: string; rpe?: string }): { input: ManualInput } | { error: string } {
   const date = parseDate(f.date);
   if (!date) return { error: $t("date invalide : « {0} »", { 0: f.date }) };
   const up = f.discipline.trim().toUpperCase();
@@ -42,9 +42,11 @@ export function parseManualFields(f: { date: string; discipline: string; duratio
   if (Number.isNaN(dist)) return { error: $t("distance invalide : « {0} »", { 0: f.distanceKm }) };
   const hr = num(f.avgHrBpm);
   if (Number.isNaN(hr) || (hr !== null && (hr < 30 || hr > 230))) return { error: $t("FC moyenne invalide : « {0} »", { 0: f.avgHrBpm }) };
+  const elev = num(f.elevationM);
+  if (Number.isNaN(elev) || (elev !== null && (elev < 0 || elev > 20000))) return { error: $t("dénivelé invalide : « {0} »", { 0: f.elevationM }) };
   const rpe = num(f.rpe);
   if (Number.isNaN(rpe) || (rpe !== null && (rpe < 1 || rpe > 10))) return { error: $t("RPE invalide (1 à 10) : « {0} »", { 0: f.rpe }) };
-  return { input: { date, discipline: disc as ActualDiscipline, durationMin: dur, distanceKm: dist, avgHrBpm: hr, rpe: rpe === null ? null : Math.round(rpe) } };
+  return { input: { date, discipline: disc as ActualDiscipline, durationMin: dur, distanceKm: dist, avgHrBpm: hr, elevationM: elev, rpe: rpe === null ? null : Math.round(rpe) } };
 }
 
 export function parseBulkActual(text: string): { valid: ManualInput[]; issues: { line: number; message: string }[] } {
@@ -73,7 +75,7 @@ export function buildManualSession(i: ManualInput, id = newId()): ActualSession 
   return {
     id, updatedAt: now, sourceId: manualSourceId(i), source: 'manual', discipline: i.discipline, subSport: i.discipline === 'OTHER' ? i.subSport ?? null : null, title: i.title?.trim() || null, rawExerciseType: 'manual',
     startAt, endAt: new Date(Date.parse(startAt) + durationSec * 1000).toISOString(), zoneOffsetMinutes: 0, durationSec, distanceM,
-    activeCaloriesJ: null, totalCaloriesJ: null, elevationGainM: null, avgHrBpm: i.avgHrBpm, maxHrBpm: null, minHrBpm: null,
+    activeCaloriesJ: null, totalCaloriesJ: null, elevationGainM: i.elevationM ?? null, avgHrBpm: i.avgHrBpm, maxHrBpm: null, minHrBpm: null,
     hrCoverageRatio: null, hrSampleCount: null, avgSpeedMs: distanceM && durationSec ? distanceM / durationSec : null, maxSpeedMs: null,
     hasSeries: false, edited: [], rpe: i.rpe, comment: i.comment ?? null, ingestedAt: now,
   };
