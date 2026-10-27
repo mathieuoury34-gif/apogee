@@ -22,7 +22,7 @@ Drizzle) est archivée dans `HISTORIQUE-RN.md` et **ne s'applique plus**.
 | Stockage local | IndexedDB base `apogee` (stores `records` et `meta`) ; préférences d'appareil dans `localStorage` (`apogee:*`) |
 | Synchronisation | Firebase (offre Spark) : Authentication Google + Firestore ; SDK chargé à l'exécution depuis `www.gstatic.com/firebasejs/10.14.1/` (pas dans le bundle) |
 | Calcul | Fonctions pures dans `src/domain/`, sans interface ; **rien de calculé n'est stocké** |
-| Tests | `node --import tsx --test tests/*.test.ts` : **32 tests** verts ; `tsc --noEmit -p .` limité à `src/` |
+| Tests | `node --import tsx --test tests/*.test.ts` : **36 tests** verts ; `tsc --noEmit -p .` limité à `src/` |
 | Coût | 0 € (Pages, Actions, Spark). Aucun secret dans le dépôt |
 | Identifiants | Android `com.mathieu.apogee` ; schéma de lien `apogee://auth` ; plugin Capacitor `ApogeeHealth` ; formats `apogee/1` et `apogee-backup/1` ; base `apogee` ; clés `apogee:*` ; caches `apogee-shell-<hash>` et `apogee-runtime` |
 
@@ -65,11 +65,11 @@ Une seule source de vérité : `AppData`, gardée en mémoire, persistée par en
 par enregistrement avec Firestore. Tout enregistrement : `{ id: string, updatedAt: ISO, deleted?: true, … }`.
 **Suppression = pierre tombale** (`{id, updatedAt, deleted:true}`) pour que la suppression se propage.
 
-### 3.1 Les 15 collections
+### 3.1 Les 18 collections
 
 | Collection | Contenu (champs principaux) | Clé |
 |---|---|---|
-| `athlete` | `displayName, birthDate, sex ('M'/'F'), availability (Weekday[]), equipment (string[]), injuries (InjuryEntry[])` | `main` |
+| `athlete` | `displayName, birthDate, sex ('M'/'F'), heightCm (facultatif, estimation de la dépense de repos), availability (Weekday[]), equipment (string[]), injuries (InjuryEntry[])` | `main` |
 | `race` | `name, raceDate, swim/bike/runDistanceM, targetTotalSeconds, targetSwim/Bike/Run/TransitionSeconds, targetRevisedAt, notes` | `main` |
 | `zones` | relevé historisé : `kind ('vma'|'ftp'|'css'|'hr_max'), value (SI), measuredAt, source ('test'|'estimation'|'manual'), notes` | id numérique |
 | `phases` | bloc de périodisation : `label, phase, startDate, endDate, intent, objective, notes, idempotencyKey, coachExchangeId` | id numérique |
@@ -82,6 +82,10 @@ par enregistrement avec Firestore. Tout enregistrement : `{ id: string, updatedA
 | `resting` | FC de repos du jour : `day, bpm` | = day |
 | `weight` | pesée du jour : `day, kg, source ('health'|'manual')` ; une saisie manuelle n'est jamais écrasée, une pesée supprimée n'est pas ré-importée | = day |
 | `templates` | séance favorite ou semaine type : `name, kind ('session'|'week'), items ({offset, discipline, title, notes, blocks}[]), createdAt` | id |
+| `energy` | dépense du jour lue dans Health Connect : `day, activeKcal, totalKcal (repos compris), source 'health'` (agrégat Health Connect, doublons entre applications écartés par Android) | = day |
+| `meals` | journal de repas : `day, kcal, label` (aucune base d'aliments) | id |
+| `vitals` | VO₂max et HRV du jour **si la montre les dépose** dans Health Connect : `day, vo2max, hrvMs` (HRV = moyenne des RMSSD du jour) | = day |
+| `checkins` | point hebdomadaire : `week (lundi), vo2max, lthrBpm, lthPaceSecKm, hrvMs, hrvStatus, sleepFelt, recoveryFelt (1 à 5), pred5k/10k/Half/MarathonSec, note` | = week |
 | `exchanges` | journal coach : `direction ('export'|'import'), schemaVersion, occurredAt, status (applied|rejected|cancelled), operationCount, payloadHash, planValidUntil, exportSessions, importSummary, error` | id |
 
 Règles de champs :
@@ -137,7 +141,7 @@ supprimer les bases `quadra` puis `ironapp` si elles existent (migration sans pe
   un enregistrement local `dirty` plus récent ou égal.
 - Envoi : `push()` par lots de 400 (`writeBatch`), planifié 1,2 s après un changement local, relancé à 5 s en cas
   d'échec ; `syncNow()` marque tout comme sale et renvoie tout.
-- Écoute : `onSnapshot` sur chacune des 15 collections ; au premier instantané de chaque collection, ce qui n'existe
+- Écoute : `onSnapshot` sur chacune des 18 collections ; au premier instantané de chaque collection, ce qui n'existe
   que localement part vers le cloud ; quand les 12 sont reçues → `syncedUid` enregistré, état `ok`.
 - Persistance hors ligne Firestore : `persistentLocalCache()` (repli `getFirestore`).
 - Connexion web : `signInWithPopup` (Google, `prompt: select_account`), repli `signInWithRedirect` si popup bloquée.
@@ -306,6 +310,27 @@ poids sont renormalisés sur les composantes présentes. Paliers : `<25 Épuisé
   posée seulement quand l'APK renvoie `asleepSec`) — **nécessite l'APK à jour**.
 - `summary.ts` : bilan de semaine ; `review.ts` : alerte `INJURY_LOAD` (blessure déclarée non résolue + ACWR ≥ **1,3** ou
   semaine ≥ **25 %** au-dessus de la précédente).
+
+### 5.11 bis Charge « à la Garmin », calories, point hebdomadaire (27/10/2026)
+- `loadStatus.ts` (estimations Apogée, jamais présentées comme celles de Garmin) : `acuteSeries` = charge des 7 jours ; chronique =
+  charge des 28 jours ÷ 4 (disponible dès 28 jours) ; **entonnoir** = chronique × **0,8** (bas), × **1,3** (haut de la zone optimale), × **1,5**
+  (seuil « élevé ») ; rapport = aiguë ÷ chronique. `statusOf(rapport, variation de la forme sur 7 j)` : > 1,5 *Surcharge* ; > 1,3 *Charge élevée* ;
+  0,8–1,3 : forme ≥ +1 *Productif*, ≤ −1 *Peu productif*, sinon *Maintien* ; < 0,8 *Récupération*, ou *Désentraînement* si < 0,5 et forme ≤ −1.
+  `weeklyStatus` évalue chaque semaine (lundi → dimanche) à son dernier jour (ou aujourd'hui). `loadFocus` : charge des 28 derniers
+  jours répartie en faible aérobie (Z1–Z3) / aérobie élevée (Z4) / anaérobie (Z5) selon le temps par zone de la courbe cardiaque
+  (à défaut, FC moyenne de la séance) ; repères indicatifs `FOCUS_REF`. UI : `ui/loadkit.tsx` (AcuteLoadChart, RatioChart, StatusStrip, FocusBars).
+- `energy.ts` : `bmrKcal` (Mifflin-St Jeor : 10 × kg + 6,25 × cm − 5 × âge ± 5/161, exige sexe, taille, naissance, poids) ; `dayEnergy` :
+  actives = Health Connect, sinon somme des séances ; repos = total − actives (Health Connect) sinon BMR estimé (étiqueté) ; apport = journal ;
+  bilan = apport − dépense (seulement avec un repas saisi). `weekEnergy` : 7 jours.
+- `healthExtra.ts` : `ingestEnergy` / `ingestVitals` (n'écrivent que ce qui a changé). Plugin Kotlin : `readDailyEnergy` (agrégat par jour local,
+  `aggregateGroupByPeriod`), `readVo2Max`, `readHrv` ; permissions `READ_VO2_MAX`, `READ_HEART_RATE_VARIABILITY` (à ré-autoriser après
+  réinstallation de l'APK). La carte Montre affiche combien de valeurs de chaque sorte ont été lues. **Sonde** : Garmin n'envoie peut-être
+  ni VO₂max ni HRV ; le formulaire hebdomadaire reste alors la seule source.
+- `checkin.ts` : une fiche par semaine (id = lundi), pré-remplie par `vitals` ; rappel local le dimanche à 18 h si la fiche manque (`notify.ts`).
+- Menus (27/10) : Séances = Journal | Statistiques (+ bilan de semaine, zones de FC, records, efficacité, enchaînements) ; Progression = Charge | Santé |
+  Capacités | Objectif (routes `/progression`, `/sante`, `/capacites[/vma|ftp|css|fcmax]`, `/objectif` ; `/progression/zones` reste un alias) ;
+  Calendrier › Interruptions (`/calendrier/interruptions`) ; Paramètres › Athlète = Profil seul. L'écran Analyse n'existe plus : ses cartes
+  (`screens/Analysis.tsx`) sont réparties.
 
 ### 5.12 Fichier .FIT d'entraînement (`fit.ts`, `data/exportFit.ts`)
 En-tête 14 octets (protocole 2.0, profil 21.32), messages `file_id` (type 5, fabricant 255), `workout` (sport, nombre

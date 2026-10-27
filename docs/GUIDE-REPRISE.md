@@ -48,7 +48,7 @@ GitHub ou l'archive `.zip` ; (3) le reste se reconstruit avec ce guide.
    ensemble ; il faut **republier l'APK** (le nouveau charge la nouvelle adresse), puis ajouter le nouveau domaine dans
    Firebase › Authentication › Domaines autorisés si le compte GitHub change.
 
-Poste de travail : Node 22. `npm install`, `npm test` (32 tests), `npm run typecheck`, `npm run build`,
+Poste de travail : Node 22. `npm install`, `npm test` (36 tests), `npm run typecheck`, `npm run build`,
 `npm run dev` (http://127.0.0.1:5173).
 
 ## 3. Reconstruire Firebase (≈ 20 min, gratuit, sans carte bancaire)
@@ -112,11 +112,11 @@ accorder les nouvelles autorisations.
 
 Chaque étape est testable seule. Les constantes sont dans `SPECS-TECH.md` §5.
 
-1. **Domaine pur** (`src/domain/`) : types (15 collections, vocabulaire de blocs) → dates (jour civil local avec
+1. **Domaine pur** (`src/domain/`) : types (18 collections, vocabulaire de blocs) → dates (jour civil local avec
    décalage de la montre) → `hr.ts` (nettoyage, TRIMP, dérive, pic soutenu) → `load.ts` (FC max, repos, charge, Banister)
    → `form.ts` → `blocks.ts` (estimation) → `links.ts` → `review.ts` → `stats.ts`, `objective.ts` → `engine.ts`
    (`derive`) → analyses (`zones`, `compliance`, `forecast`, `records`, `body`,
-   `loadByDiscipline`, `summary`) → `fit.ts`. Écrire les 32 tests au fur et à mesure (liste dans `SPECS-TECH.md` §12).
+   `loadByDiscipline`, `summary`) → `fit.ts`. Écrire les 36 tests au fur et à mesure (liste dans `SPECS-TECH.md` §12).
 2. **Données** : `idb.ts` → `store.ts` (`commit`, `dirty`) → `actions.ts` (avec `Snapshot`/annuler) → `backup.ts` →
    `sync.ts` (Firestore) → `dedupe.ts`.
 3. **Échanges** : `coach.ts` (export/import `apogee/1`, voir `docs/coach-context-apogee-1.md`), `manual.ts`,

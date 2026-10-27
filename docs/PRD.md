@@ -173,10 +173,10 @@ Thèmes clair et sombre. Annuler proposé après toute suppression, modification
    détaillée ; **objectif** (décomposition manuelle du chrono cible par discipline, confrontée à VMA/CSS/FTP,
    **aucun verdict de faisabilité**, vélo non comparable à la FTP et dit en toutes lettres) ; **zones** et journal
    des relevés ; **prévisionnel de charge** (forme, fatigue, fraîcheur, ACWR projetés si tout le plan est fait) ;
-   **estimations suggérées** de VMA, CSS, FTP (jamais appliquées sans « Adopter ») ; onglet **Analyse** (voir 13).
+   **estimations suggérées** de VMA, CSS, FTP (jamais appliquées sans « Adopter »). Depuis le 27/10 l'onglet **Analyse** n'existe plus : Progression = Charge (statut d'entraînement avec bande colorée par semaine, charge aiguë et zone optimale, rapport de charge, répartition de la charge, forme/fatigue, prévisionnel), Santé (forme du jour, sommeil, poids, calories), Capacités (point de la semaine, courbes, indicateurs VMA/FTP/CSS/FC max) et Objectif (course, respect du plan) ; les bilans de ce qui a été fait sont dans Séances › Statistiques (voir 13 et 15).
 5. **Coach** — export (sélection de séances), import avec aperçu, journal des échanges.
 6. **Paramètres** (ordre) — Compte et synchronisation, Montre (Health Connect : état, autorisations, diagnostic,
-   lecture), Thème, Langue, Athlète (profil, indicateurs, course objectif, périodisation, interruptions), Données (export Excel,
+   lecture), Thème, Langue, Athlète (profil seul : indicateurs → Progression › Capacités, course → Progression › Objectif, périodisation et interruptions → Calendrier), Données (export Excel,
    sauvegarde `.json`, restauration/complément `.json`), À propos (suppression des données en deux étapes : recopier le
    nombre de séances, puis confirmer), Aide,
    Calculs (charge provisoire, heure des rappels). La reprise de l'ancienne base `.db` se fait depuis la
@@ -197,7 +197,7 @@ Thèmes clair et sombre. Annuler proposé après toute suppression, modification
     réelles à ce jour.**
 12. **Démarrage** — écran de lancement animé (trois lunes), minimum 1,7 s, identique PC / téléphone, écran natif
     de l'APK maintenu jusqu'au premier dessin de la page.
-13. **Analyse** (Progression › Analyse, ajout du 17/10/2026 sur sélection de Mathieu) — bilan de semaine (sans bouton de
+13. **Analyse** (ajout du 17/10/2026 ; depuis le 27/10 ses cartes sont réparties entre Séances › Statistiques, Progression › Charge / Santé / Objectif ; sur sélection de Mathieu) — bilan de semaine (sans bouton de
     copie : le coach s'en charge) ; respect du plan (3 dernières semaines et 3 derniers mois, colorés ; temps réalisé / prévu) ; temps par zone de FC et répartition
     facile / soutenue / intense (repère 80/20) ; forme de fond par discipline ; tendance d'efficacité (course et vélo, dès 2 séances
     comparables) ; records de course, vélo, natation ; **poids** (moyenne 7 jours, saisie manuelle ;
@@ -208,6 +208,17 @@ Thèmes clair et sombre. Annuler proposé après toute suppression, modification
     dans Health Connect ne contient ni puissance, ni variabilité, ni poids, et l'app a constaté qu'aucun tracé n'y était
     déposé pour la séance testée. Ces fonctions n'avaient donc rien à lire et ont été supprimées. Restent : le poids
     (saisie à la main) et le sommeil (lecture).
+
+15. **Charge « à la Garmin », calories, point hebdomadaire (27/10/2026, demande de Mathieu)** — graphes de charge : charge aiguë avec zone
+    optimale (entonnoir 0,8–1,3 × charge habituelle), rapport de charge, statut d'entraînement par semaine en bande colorée, répartition de
+    la charge (faible aérobie / aérobie élevée / anaérobie), tous expliqués en une phrase et étiquetés **estimations Apogée** ; **dénivelé**
+    (course, vélo) et **calories actives** dans les séances et statistiques ; durées au format 2h05 ; saisie de durée par sélecteur qui
+    roule (h / min / s) ; export coach sur 1 semaine par défaut ; **calories** : actives, repos (Health Connect ou estimation Mifflin-St Jeor avec
+    la taille du profil), journal de repas simple (kcal saisies, pas de base d'aliments) et bilan du jour ; **point de la semaine** notifié le
+    dimanche : VO₂max, seuil de lactate (FC, allure), HRV, ressenti sommeil/récupération, prédictions 5 km/10 km/semi/marathon, avec courbes.
+    **Hors MVP initial, validé par Mathieu le 27/10** : le journal de repas (nutrition). Les indices propriétaires de Garmin (Body Battery,
+    Training Readiness, Endurance Score, Hill Score, Training Effect, statut HRV…) ne sont **pas** calculables : ils sont recopiés via le point de
+    la semaine ou lus dans Health Connect quand la montre les envoie (à vérifier avec l'APK à jour). Interruptions : saisies depuis le Calendrier.
 
 ### Écartés (définitivement, ne pas reproposer)
 Import de fichiers `.FIT` / `.GPX` d'une sortie (puissance, tracé GPS) — refusé le 17/10/2026 ; Écran de connexion au premier lancement (retiré : la connexion Google se fait depuis Paramètres › Compte ou la
@@ -220,7 +231,7 @@ existe aujourd'hui dans le Calendrier d'Apogée, c'est une autre construction).
 
 Réseau social façon Strava ; multi-utilisateur ; application iOS native ; envoi **automatique** vers la montre
 (l'export `.FIT` existe depuis le 17/10, mais le fichier se copie à la main) ; carte avec fond de plan (aucun service
-de cartographie) ; coach conversationnel embarqué ; nutrition, hydratation, plan de pacing du jour J ;
+de cartographie) ; coach conversationnel embarqué ; nutrition au-delà du compteur de calories (base d'aliments, macros), hydratation, plan de pacing du jour J ;
 résolution de `ONE_RM` en kilos (aucun 1RM stocké) ; lecture de la montre sur iPhone.
 
 ## 9. Marque et design

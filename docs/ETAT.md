@@ -1,11 +1,11 @@
 # ETAT — Apogée
 
-**Dernière mise à jour** 17 octobre 2026
+**Dernière mise à jour** 27 octobre 2026
 **Phase** Application **livrée et en usage** (web + APK), en finition. Dossier de documentation remis à plat le
 16/10/2026 pour pouvoir refaire l'application de zéro : `PRD.md` (quoi / pourquoi), `SPECS-TECH.md` (comment),
 `GUIDE-REPRISE.md` (par où recommencer), `HISTORIQUE-RN.md` (archive de l'ancienne version React Native),
 `claude/BRIEF-DESIGN.md` (brief nom et logo).
-**Dernier commit** `0bf8c1d` (Analyse : respect du plan coloré, records en temps de déplacement, efficacité vélo, sommeil endormi) — CI : voir l'onglet Actions.
+**Dernier commit** `ac25a82` (menus réorganisés, calories, point hebdomadaire ; lots du 27/10, voir §2 ter) — CI : voir l'onglet Actions.
 
 ---
 
@@ -20,7 +20,7 @@
 | Données | IndexedDB sur l'appareil + Firestore (projet `apogee-d171c`, Europe `eur3`), connexion Google |
 | Montre | Garmin Fenix 7S Pro → Health Connect → APK (Android seulement) |
 | Stack | React 19 + esbuild (PWA), Capacitor 7 + Kotlin pour l'APK, Firebase Spark. 0 €/mois |
-| Qualité | `npm test` : 32 tests verts ; `npm run typecheck` propre |
+| Qualité | `npm test` : 36 tests verts ; `npm run typecheck` propre |
 | Appareils de Mathieu | PC (Chrome) et téléphone Android (APK) connectés au même compte Google ; synchronisation en service depuis le 16/10 |
 
 ## 2. Ce qui est fait (fonctionnel)
@@ -59,6 +59,21 @@ La collection `hrv` n'existe plus ; une sauvegarde qui en contient une est lue s
 
 À valider par Mathieu sur appareil : exporter une séance simple en `.FIT` (course, vélo, natation ou renforcement), la
 copier dans `GARMIN/NewFiles` (ou `GARMIN/Workouts`) de la Fenix 7S Pro et vérifier qu'elle apparaît.
+
+## 2 ter. Lots du 27/10/2026 (demande de Mathieu, captures Garmin Connect)
+
+| Lot | Contenu | Commit | Nécessite l'APK ? |
+|---|---|---|---|
+| A | Dénivelé (course, vélo) et calories actives ; durées « 2h05 » ; sélecteur de durée qui roule ; export coach sur 1 semaine par défaut | `2b33cb4` | non |
+| B | Charge à la Garmin : charge aiguë + entonnoir, rapport, statut par semaine en bande colorée, répartition de la charge | `44930d5` | non |
+| C | Menus : Séances = Journal / Statistiques (+ bilans) ; Progression = Charge / Santé / Capacités / Objectif ; Analyse supprimée ; Paramètres › Athlète = profil ; interruptions depuis le Calendrier | `ac25a82` | non |
+| D | Calories (actives, repos estimé ou Health Connect, journal de repas), point hebdomadaire notifié (VO₂max, seuil de lactate, HRV, ressenti, prédictions), taille dans le profil, 4 nouvelles collections (`energy`, `meals`, `vitals`, `checkins`) ; lecture Health Connect de la dépense du jour, du VO₂max et de la HRV (**sonde**) | `ac25a82` | **oui** (dépense du jour, VO₂max, HRV) |
+
+**Réponse de fond (27/10)** — reproduire fidèlement les écrans Garmin n'est pas possible : Body Battery, Training Readiness, Training Status, Endurance
+Score, Hill Score, Training Effect, statut HRV et prédictions de course sont des calculs propriétaires de Garmin et ne sont pas dans Health Connect.
+Apogée calcule ses **propres estimations** à partir de la FC et des durées (étiquetées comme telles) et complète avec le point de la semaine saisi à la main.
+
+À valider par Mathieu avec l'APK à jour : la carte Montre doit dire combien de jours de dépense, de VO₂max et de HRV ont été lus.
 
 ## 3. Journal condensé (Iron App 2 et suites)
 
