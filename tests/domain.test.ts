@@ -27,6 +27,8 @@ import { currentCheckin, metricSeries } from '../src/domain/checkin';
 import { acuteSeries, statusOf, weeklyStatus } from '../src/domain/loadStatus';
 import type { DayLoad } from '../src/domain/load';
 import { applyPreview, buildDossier, parsePlan, preview } from '../src/domain/coach';
+import { RACE_DISTANCES, aerobicEffect, anaerobicEffect, riegel, teLevel, timeOfVdot, vdotOfPerformance, vo2OfRunning, vo2maxFromSubmax, vo2maxUth } from '../src/domain/science';
+import { acuteScore, bestEfforts, energyReserve, enduranceScore, hillScore, racePredictions, readiness, restingScore, sleepScore, trainingEffects, vo2maxEstimate } from '../src/domain/capacity';
 import type { ActualSession, AppData, Block } from '../src/domain/types';
 
 const SETTINGS = { provisionalLoad: true };
@@ -676,8 +678,129 @@ test('Health Connect annexes : dépense du jour, VO₂max et HRV, sans réécrir
   d.vitals['2026-10-20'] = v[0];
   const c = currentCheckin(d, '2026-10-22');
   assert.equal(c.week, '2026-10-19'); assert.equal(c.saved, null);
-  assert.equal(c.draft.vo2max, 51); assert.equal(c.draft.hrvMs, 65);
+  assert.equal(c.draft.vo2max, 51);
   d.checkins['2026-10-19'] = { ...c.draft, updatedAt: 'x', pred5kSec: 1500 } as never;
   assert.deepEqual(metricSeries(d, 'pred5kSec'), [{ week: '2026-10-19', v: 1500 }]);
   assert.equal(currentCheckin(d, '2026-10-22').saved?.pred5kSec, 1500);
+});
+
+test('science du sport : VDOT de Daniels, Riegel, Uth, VO₂max sous-maximale, Training Effect', () => {
+  // tables de Daniels : 5 km en 20:00 -> VDOT ≈ 49,8 ; marathon en 3:00 -> ≈ 53,5
+  assert.ok(Math.abs(vdotOfPerformance(5000, 1200)! - 49.8) < 0.15);
+  assert.ok(Math.abs(vdotOfPerformance(42195, 10800)! - 53.5) < 0.15);
+  assert.equal(vdotOfPerformance(100, 15), null, 'trop court : formule hors de son domaine');
+  // VDOT 50 : 5 km ≈ 19:57, marathon ≈ 3:10:49 (à une minute près)
+  assert.ok(Math.abs(timeOfVdot(50, 5000)! - 1197) < 8);
+  assert.ok(Math.abs(timeOfVdot(50, 42195)! - 11449) < 90);
+  // aller-retour : le temps rend le VDOT d'origine
+  assert.ok(Math.abs(vdotOfPerformance(10000, timeOfVdot(47, 10000)!)! - 47) < 0.01);
+  // Riegel : 20:00 au 5 km -> 41:42 au 10 km
+  assert.ok(Math.abs(riegel(1200, 5000, 10000) - 2502) < 1);
+  assert.equal(RACE_DISTANCES.length, 4);
+  // Uth : 190 / 50 -> 58,1
+  assert.ok(Math.abs(vo2maxUth(190, 50)! - 58.14) < 0.01);
+  assert.equal(vo2maxUth(190, 10), null);
+  // ACSM : 3,33 m/s (12 km/h) à plat = 0,2 × 200 + 3,5 = 43,5
+  assert.ok(Math.abs(vo2OfRunning(200 / 60) - 43.5) < 1e-9);
+  // à 75 % de la réserve de FC, VO₂ de 43,5 -> VO₂max = 3,5 + 40 / 0,75
+  assert.ok(Math.abs(vo2maxFromSubmax(43.5, 50 + 0.75 * 130, 50, 180)! - (3.5 + 40 / 0.75)) < 1e-9);
+  assert.equal(vo2maxFromSubmax(43.5, 90, 50, 180), null, 'intensité trop basse');
+  // Training Effect : séance à la charge de référence ≈ 3,3 ; croît et sature vers 5
+  assert.ok(Math.abs(aerobicEffect(70, 70) - 3.34) < 0.05);
+  assert.ok(aerobicEffect(35, 70) < aerobicEffect(70, 70) && aerobicEffect(70, 70) < aerobicEffect(250, 70) && aerobicEffect(250, 70) < 5);
+  assert.equal(aerobicEffect(0, 70), 0);
+  assert.equal(teLevel(0.5), 'none'); assert.equal(teLevel(2.4), 'maintain'); assert.equal(teLevel(3.3), 'improve'); assert.equal(teLevel(4.2), 'high'); assert.equal(teLevel(4.9), 'over');
+  assert.ok(Math.abs(anaerobicEffect(600) - 2.83) < 0.05);
+  assert.equal(anaerobicEffect(0), 0);
+});
+
+test('disponibilité : échelles de sommeil, FC de repos et charge aiguë', () => {
+  assert.equal(sleepScore(8 * 3600), 100); assert.equal(sleepScore(6 * 3600), 50); assert.equal(sleepScore(3 * 3600), 0);
+  assert.equal(restingScore(-2), 100); assert.equal(restingScore(4), 50); assert.equal(restingScore(12), 0);
+  assert.equal(acuteScore(0.6), 100); assert.ok(Math.abs(acuteScore(1.3) - 75) < 1e-9); assert.ok(Math.abs(acuteScore(1.5) - 45) < 1e-9); assert.equal(acuteScore(2.2), 0);
+});
+
+/** Six semaines d'un coureur : sorties régulières avec séries de FC et de vitesse, nuits et FC de repos. */
+function runnerData(): AppData {
+  const data = emptyData();
+  data.athlete.main = { id: 'main', updatedAt: 'x', displayName: 'T', birthDate: '1990-01-01', sex: 'M', availability: [], equipment: [], injuries: [] } as never;
+  data.zones.hr = { id: 'hr', updatedAt: 'x', kind: 'hr_max', value: 190, measuredAt: '2026-01-01T00:00:00Z', source: 'manual', notes: null } as never;
+  const start = '2026-09-14';
+  for (let i = 0; i < 44; i++) {
+    const day = addDays(start, i);
+    data.resting[day] = { id: day, updatedAt: 'x', day, bpm: i === 43 ? 58 : 52 } as never;
+    data.sleep[day] = { id: day, updatedAt: 'x', nightDate: day, startAt: day + 'T00:00:00Z', endAt: day + 'T07:00:00Z', zoneOffsetMinutes: 0, durationSec: (i === 43 ? 5.5 : 7.5) * 3600, sourceId: null } as never;
+    if (i % 2 === 0 && i < 43) {
+      const id = 'r' + i, dur = 3000, speed = 3.3 + (i % 4) * 0.03; // ≈ 12 km/h
+      const hr: [number, number][] = [], sp: [number, number][] = [];
+      const t0 = Date.parse(day + 'T07:00:00Z') / 1000;
+      for (let k = 0; k < dur; k += 5) { hr.push([t0 + k, 150 + (k > 2400 ? 12 : 0)]); sp.push([t0 + k, speed]); }
+      data.actual[id] = { id, updatedAt: 'x', sourceId: id, source: 'health', discipline: 'RUN', rawExerciseType: '56', startAt: day + 'T07:00:00.000Z', endAt: day + 'T07:50:00.000Z', zoneOffsetMinutes: 0, durationSec: dur, distanceM: speed * dur, activeCaloriesJ: null, totalCaloriesJ: null, elevationGainM: 20, avgHrBpm: 152, maxHrBpm: 175, minHrBpm: 100, hrCoverageRatio: 1, hrSampleCount: hr.length, avgSpeedMs: speed, maxSpeedMs: speed, hasSeries: true, edited: [], rpe: null, comment: null, ingestedAt: '' } as never;
+      data.series[id] = { id, updatedAt: 'x', hr, speed: sp } as never;
+    }
+  }
+  return data;
+}
+
+test('Training Effect, VO₂max estimée, prédictions : cohérents sur un historique régulier', () => {
+  const data = runnerData();
+  const d = derive(data, SETTINGS, new Date('2026-10-27T12:00:00Z'));
+  const fx = trainingEffects(data, d);
+  const e = fx.get('r40')!;
+  assert.ok(e.aerobic > 2 && e.aerobic < 4.5, 'séance habituelle : effet aérobie moyen à bon');
+  assert.equal(e.refIsDefault, false);
+  assert.ok(e.zone5Sec === 0 && e.anaerobic === 0, 'FC à 79–86 % : pas de zone 5');
+  assert.equal(fx, trainingEffects(data, d), 'résultat en cache');
+  // VO₂max : FC de réserve ≈ (152-52)/(190-52) = 72 % ; VO₂ ≈ 0,2 × 192 + 3,5 = 41,9 -> ≈ 56
+  const efforts = bestEfforts(data, d.today);
+  assert.ok(efforts.some((x) => x.distanceM === 5000) && efforts.some((x) => x.distanceM === 10000));
+  const v = vo2maxEstimate(data, d, efforts);
+  assert.equal(v.method, 'submax');
+  assert.ok(v.value! > 50 && v.value! < 62, 'VO₂max ' + v.value);
+  assert.ok(v.uth !== null && Math.abs(v.uth - 15.3 * 190 / 52) < 3);
+  assert.ok(v.vdot!.value > 30 && v.vdot!.value < v.value! + 1, 'le VDOT d\'un entraînement reste une borne basse');
+  const pr = racePredictions(data, v, efforts);
+  assert.equal(pr.rows.length, 4); assert.equal(pr.basis, 'estimate');
+  const r10 = pr.rows[1];
+  assert.ok(r10.vdotSec! > 1800 && r10.vdotSec! < 3300);
+  assert.ok(r10.riegelSec! > 2800 && r10.riegelSec! < 4200 && r10.riegelFrom!.distanceM <= 10000 * 2);
+  assert.ok(pr.rows[0].vdotSec! < r10.vdotSec! && r10.vdotSec! < pr.rows[2].vdotSec! && pr.rows[2].vdotSec! < pr.rows[3].vdotSec!);
+  // prédiction de la montre recopiée
+  data.checkins['2026-10-26'] = { id: '2026-10-26', week: '2026-10-26', updatedAt: 'x', vo2max: 55, pred5kSec: 1500 } as never;
+  assert.equal(racePredictions(data, vo2maxEstimate(data, d, efforts), efforts).rows[0].watchSec, 1500);
+  // endurance et côtes
+  const en = enduranceScore(data, d.today, v.value)!;
+  assert.ok(en.score > 0 && en.score <= 100 && en.aerobic !== null);
+  assert.equal(enduranceScore(emptyData(), d.today, null), null);
+  const hs = hillScore(data, d.today)!;
+  assert.equal(hs.bestVam, null, 'séances à plat : pas de VAM');
+  assert.ok(hs.score >= 0);
+});
+
+test('disponibilité et réserve d\'énergie : une mauvaise nuit et une FC de repos élevée font baisser le score', () => {
+  const data = runnerData();
+  const d = derive(data, SETTINGS, new Date('2026-10-27T12:00:00Z'));
+  const bad = readiness(data, d, '2026-10-27')!;   // nuit de 5 h 30 et FC de repos à 58
+  const good = readiness(data, d, '2026-10-24')!;
+  assert.ok(bad.score < good.score, bad.score + ' < ' + good.score);
+  assert.ok(bad.factors.find((f) => f.key === 'restingHr')!.score < 50);
+  assert.ok(Math.abs(bad.factors.reduce((t, f) => t + f.effectiveWeight, 0) - 1) < 1e-9);
+  assert.equal(readiness(emptyData(), derive(emptyData(), SETTINGS, new Date('2026-10-27T12:00:00Z'))), null);
+  const res = energyReserve(data, d, 10);
+  assert.equal(res.length, 10);
+  assert.ok(res.every((p) => p.wake <= 100 && p.evening >= 5 && p.evening <= p.wake));
+  assert.ok(res[9].wake < res[8].wake, 'courte nuit : réveil plus bas');
+});
+
+test('indice de côtes : la vitesse ascensionnelle ne compte que les séances vraiment vallonnées', () => {
+  const data = emptyData();
+  const mk = (id: string, day: string, gain: number, dist: number, dur: number, disc: 'RUN' | 'BIKE') => ({ id, updatedAt: 'x', sourceId: id, source: 'health', discipline: disc, rawExerciseType: '', startAt: day + 'T07:00:00.000Z', endAt: day + 'T09:00:00.000Z', zoneOffsetMinutes: 0, durationSec: dur, distanceM: dist, elevationGainM: gain, avgHrBpm: null, edited: [], rpe: null, comment: null }) as never;
+  data.actual.a = mk('a', '2026-10-20', 900, 30000, 3600 * 2, 'BIKE'); // 3 % ; 450 m/h
+  data.actual.b = mk('b', '2026-10-22', 50, 10000, 3000, 'RUN');       // trop plat
+  const h = hillScore(data, '2026-10-27')!;
+  assert.equal(h.best!.sessionId, 'a');
+  assert.ok(Math.abs(h.bestVam! - 450) < 1e-9);
+  assert.equal(h.vamScore, Math.round(450 / 700 * 100));
+  assert.ok(Math.abs(h.weeklyGain - 237.5) < 1e-9);
+  assert.equal(hillScore(emptyData(), '2026-10-27'), null);
 });

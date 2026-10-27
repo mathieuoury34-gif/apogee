@@ -7,6 +7,7 @@ import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, 
 import { FormChart, LoadPanels, StackedWeeks, StepChart } from '../ui/charts';
 import { ComplianceCard, FitnessCard, SleepCard, WeightCard } from './Analysis';
 import { CaloriesCard, CapacitiesTrendsCard, CheckinCard } from './Wellness';
+import { EnduranceHillCard, PredictionsCard, ReadinessCard, ReserveCard, Vo2Card } from './Capacity';
 import { AcuteLoadChart, FocusBars, RatioChart, STATUS_INFO, StatusStrip } from '../ui/loadkit';
 import { acuteSeries, loadFocus, statusOf, weeklyStatus } from '../domain/loadStatus';
 import { Icon } from '../ui/icons';
@@ -167,6 +168,8 @@ export function HealthScreen() {
       <SubNav items={NAV} label={$t("Sections Progression")} />
       <main className="content dgrid">
         <div className="dmasonry">
+          <ReadinessCard />
+          <ReserveCard />
           <FormDetailCard />
           <SleepCard data={data} d={d} />
           <WeightCard data={data} d={d} />
@@ -336,6 +339,9 @@ export function ZonesScreen() {
       <SubNav items={NAV} label={$t("Sections Progression")} />
       <main className="content dgrid">
         <div className="dmasonry">
+          <Vo2Card />
+          <PredictionsCard />
+          <EnduranceHillCard />
           <CheckinCard />
           <CapacitiesTrendsCard />
         </div>

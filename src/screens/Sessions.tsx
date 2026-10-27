@@ -14,6 +14,7 @@ import { addDays, daysBetween, mondayOf, monthOf } from '../domain/dates';
 import { exerciseLabel } from '../domain/health';
 import { linkCandidates, findBrickSibling } from '../domain/links';
 import { liveRecords, METHOD_LABEL, sessionDay } from '../domain/load';
+import { TrainingEffectCard } from './Capacity';
 import { parseBulkActual, parseBulkPlanned, parseManualFields, type ManualInput } from '../domain/manual';
 import { DRIFT_REASON_TEXT, reviewSession, VERDICT_TEXT } from '../domain/review';
 import { KCAL_J, disciplineStats, overview, paceOf, weeklyVolume } from '../domain/stats';
@@ -181,6 +182,8 @@ export function ReviewScreen({ id }: { id: string }) {
           <p className="t-caption c-moderate">{$t("Charge")} {METHOD_LABEL[l.method]}{l.method === 'srpe' ? $t(" (RPE × minutes × {0}, coefficient appris sur {1})", { 0: num(d.ctx.srpeFactor, 2), 1: d.ctx.srpeCalibrationPairs >= 5 ? $t("tes séances") : $t("une valeur type") }) : ''}.{s.edited.length ? $t(" Valeurs soulignées : corrigées à la main.") : ''}{s.elevationGainM ? $t(" Dénivelé {0} m.", { 0: num(s.elevationGainM, 0) }) : ''}{s.activeCaloriesJ ? $t(" {0} kcal actives.", { 0: num(s.activeCaloriesJ / 4184, 0) }) : ''}</p>
           <HrTrace id={s.id} />
         </section>
+
+        <TrainingEffectCard id={s.id} />
 
         <section className="card g12 dspan-5" aria-label={$t("Verdict")}>
           <h2>{$t("Verdict")}</h2>

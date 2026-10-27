@@ -1,0 +1,321 @@
+// Fenêtres « à la Garmin » calculées par Apogée à partir de méthodes publiées (voir science.ts) :
+// Training Effect par séance, VO₂max estimée, prédictions de course, disponibilité à l'entraînement,
+// réserve d'énergie, indice d'endurance et indice de côtes. Rien n'est stocké : tout est recalculé.
+// Les entrées de chaque calcul sont publiées ; les échelles de lecture (0–100, niveaux) sont propres à Apogée.
+import { addDays } from './dates';
+import type { Derived } from './engine';
+import { analyzeHr, mean, median, percentile } from './hr';
+import { liveRecords, sessionDay, type SessionLoad } from './load';
+import { acuteSeries } from './loadStatus';
+import { bestSegment, trackDistance } from './records';
+import {
+  RACE_DISTANCES, aerobicEffect, anaerobicEffect, clamp, riegel, teLevel, timeOfVdot, vdotOfPerformance, vo2OfRunning, vo2maxFromSubmax, vo2maxUth,
+  type RaceDistance, type TeLevel,
+} from './science';
+import { zoneTimes } from './zones';
+import type { ActualSession, AppData, Checkin } from './types';
+
+// ------------------------------------------------------------------ Training Effect par séance
+export const TE_WINDOW_DAYS = 90;
+export const TE_MIN_SESSIONS = 5;
+/** Charge de référence quand l'historique est trop court (≈ une séance soutenue d'une heure). */
+export const TE_DEFAULT_REF = 70;
+
+export interface SessionEffect {
+  aerobic: number; level: TeLevel;
+  anaerobic: number | null; anaerobicLevel: TeLevel | null;
+  refLoad: number; refIsDefault: boolean; zone5Sec: number | null;
+}
+
+const effectCache = new WeakMap<Map<string, SessionLoad>, Map<string, SessionEffect>>();
+
+/** Training Effect de chaque séance : charge rapportée au 75ᵉ centile des séances des 90 jours qui précèdent (niveau de l'athlète). */
+export function trainingEffects(data: AppData, d: Derived): Map<string, SessionEffect> {
+  const hit = effectCache.get(d.loads);
+  if (hit) return hit;
+  const sessions = liveRecords(data.actual).sort((a, b) => (a.startAt < b.startAt ? -1 : 1));
+  const meas = sessions
+    .map((s) => ({ s, day: sessionDay(s), l: d.loads.get(s.id) }))
+    .filter((x) => x.l && x.l.load !== null && x.l.method !== 'provisional' && x.l.method !== 'pending' && x.s.durationSec >= 10 * 60);
+  const out = new Map<string, SessionEffect>();
+  for (const s of sessions) {
+    const l = d.loads.get(s.id);
+    if (!l || l.load === null) continue;
+    const day = sessionDay(s), from = addDays(day, -TE_WINDOW_DAYS);
+    const pool = meas.filter((x) => x.day >= from && x.day <= day && x.s.id !== s.id).map((x) => x.l!.load!);
+    const p75 = pool.length >= TE_MIN_SESSIONS ? percentile(pool, 0.75) : null;
+    const refLoad = Math.max(20, p75 ?? TE_DEFAULT_REF);
+    const aerobic = Math.round(aerobicEffect(l.load, refLoad) * 10) / 10;
+    let zone5Sec: number | null = null;
+    const ser = data.series[s.id];
+    const hr = ser && !ser.deleted ? analyzeHr(ser.hr).clean : [];
+    if (hr.length >= 10 && d.ctx.hrMax.bpm && s.discipline !== 'STRENGTH') zone5Sec = zoneTimes(hr, d.ctx.hrMax.bpm)[4];
+    const an = zone5Sec === null ? null : Math.round(anaerobicEffect(zone5Sec) * 10) / 10;
+    out.set(s.id, { aerobic, level: teLevel(aerobic), anaerobic: an, anaerobicLevel: an === null ? null : teLevel(an), refLoad, refIsDefault: p75 === null, zone5Sec });
+  }
+  effectCache.set(d.loads, out);
+  return out;
+}
+
+// ------------------------------------------------------------------ meilleurs efforts de course (pour VDOT et Riegel)
+export const EFFORT_DISTANCES = [3000, 5000, 10000, 21097.5];
+export const EFFORT_WINDOW_DAYS = 90;
+export interface Effort { distanceM: number; timeSec: number; day: string; sessionId: string }
+
+/** Meilleur temps de déplacement sur chaque distance, sur les 90 derniers jours (mêmes garde-fous que les records). */
+export function bestEfforts(data: AppData, todayDay: string): Effort[] {
+  const from = addDays(todayDay, -EFFORT_WINDOW_DAYS);
+  const best = new Map<number, Effort>();
+  for (const s of liveRecords(data.actual)) {
+    if (s.discipline !== 'RUN' || !s.distanceM) continue;
+    const day = sessionDay(s);
+    if (day < from || day > todayDay) continue;
+    const ser = data.series[s.id];
+    const curve = ser && !ser.deleted ? ser.speed : [];
+    const total = trackDistance(curve);
+    const ratio = total > 0 ? s.distanceM / total : 0;
+    for (const dist of EFFORT_DISTANCES) {
+      if (s.distanceM < dist) continue;
+      let t: number | null = null;
+      if (ratio >= 0.85 && ratio <= 1.15) t = bestSegment(curve, dist, ratio);
+      if (t === null && Math.abs(s.distanceM - dist) / dist <= 0.03 && s.durationSec > 0) t = s.durationSec * (dist / s.distanceM);
+      if (t === null || dist / t > 7.5) continue;
+      const cur = best.get(dist);
+      if (!cur || t < cur.timeSec) best.set(dist, { distanceM: dist, timeSec: t, day, sessionId: s.id });
+    }
+  }
+  return [...best.values()].sort((a, b) => a.distanceM - b.distanceM);
+}
+
+// ------------------------------------------------------------------ VO₂max
+export const VO2_WINDOW_DAYS = 60;
+export const VO2_MIN_SESSIONS = 3;
+export const VO2_MIN_SEC = 20 * 60;
+export const VO2_MAX_CLIMB = 0.02;
+export const VO2_MAX_DRIFT = 0.08;
+
+export interface Vo2Estimate {
+  value: number | null;
+  method: 'submax' | 'uth' | null;
+  /** Courses à allure stable : FC de réserve ↔ VO₂ de réserve. */
+  submax: { value: number; n: number } | null;
+  /** FCmax / FCrepos (Uth). */
+  uth: number | null;
+  /** Meilleur effort récent converti en VDOT (borne basse : un entraînement n'est pas une course). */
+  vdot: { value: number; effort: Effort } | null;
+  /** Valeur recopiée de la montre dans le point hebdomadaire. */
+  watch: { value: number; week: string } | null;
+}
+
+export function latestWatchVo2(data: AppData): { value: number; week: string } | null {
+  const c = liveRecords(data.checkins).filter((x): x is Checkin & { vo2max: number } => x.vo2max !== null).sort((a, b) => (a.week < b.week ? 1 : -1))[0];
+  return c ? { value: c.vo2max, week: c.week } : null;
+}
+
+export function vo2maxEstimate(data: AppData, d: Derived, efforts: Effort[]): Vo2Estimate {
+  const day = d.today, from = addDays(day, -VO2_WINDOW_DAYS);
+  const hrMax = d.ctx.hrMax.bpm;
+  const vals: number[] = [];
+  if (hrMax) {
+    for (const s of liveRecords(data.actual)) {
+      if (s.discipline !== 'RUN' || s.durationSec < VO2_MIN_SEC || !s.distanceM || !s.avgHrBpm) continue;
+      const sd = sessionDay(s);
+      if (sd < from || sd > day) continue;
+      if (s.elevationGainM && s.elevationGainM / s.distanceM > VO2_MAX_CLIMB) continue;
+      const drift = d.loads.get(s.id)?.drift;
+      if (drift !== null && drift !== undefined && Math.abs(drift) > VO2_MAX_DRIFT) continue;
+      const rest = d.ctx.resting.at(sd);
+      if (rest === null) continue;
+      const speed = s.avgSpeedMs && s.avgSpeedMs > 1 ? s.avgSpeedMs : s.distanceM / s.durationSec;
+      const v = vo2maxFromSubmax(vo2OfRunning(speed), s.avgHrBpm, rest, hrMax);
+      if (v !== null && v > 25 && v < 85) vals.push(v);
+    }
+  }
+  const submax = vals.length >= VO2_MIN_SESSIONS ? { value: median(vals)!, n: vals.length } : null;
+  const restNow = d.ctx.resting.at(day);
+  const uth = hrMax && restNow ? vo2maxUth(hrMax, restNow) : null;
+  let vdot: Vo2Estimate['vdot'] = null;
+  for (const e of efforts) {
+    const v = vdotOfPerformance(e.distanceM, e.timeSec);
+    if (v !== null && (!vdot || v > vdot.value)) vdot = { value: v, effort: e };
+  }
+  const value = submax ? submax.value : uth;
+  return { value, method: submax ? 'submax' : uth !== null ? 'uth' : null, submax, uth, vdot, watch: latestWatchVo2(data) };
+}
+
+// ------------------------------------------------------------------ prédictions de course
+export interface RacePrediction {
+  dist: RaceDistance;
+  /** Temps prévu à partir de la VO₂max (VDOT de Daniels). */
+  vdotSec: number | null;
+  /** Temps prévu par Riegel à partir du meilleur effort récent, et cet effort. */
+  riegelSec: number | null; riegelFrom: Effort | null;
+  /** Prédiction recopiée de la montre. */
+  watchSec: number | null;
+}
+export const RIEGEL_MAX_RATIO = 4.3;
+
+export function racePredictions(data: AppData, vo2: Vo2Estimate, efforts: Effort[]): { rows: RacePrediction[]; vdot: number | null; basis: 'estimate' | 'watch' | null } {
+  const last = liveRecords(data.checkins).sort((a, b) => (a.week < b.week ? 1 : -1));
+  const watch = (k: 'pred5kSec' | 'pred10kSec' | 'predHalfSec' | 'predMarathonSec') => last.find((c) => c[k] !== null)?.[k] ?? null;
+  const vdot = vo2.value ?? vo2.watch?.value ?? null;
+  const basis = vo2.value !== null ? 'estimate' : vo2.watch ? 'watch' : null;
+  const rows = RACE_DISTANCES.map((dist): RacePrediction => {
+    let best: { t: number; e: Effort } | null = null;
+    for (const e of efforts) {
+      const ratio = dist.meters / e.distanceM;
+      if (ratio < 0.5 || ratio > RIEGEL_MAX_RATIO) continue;
+      const t = riegel(e.timeSec, e.distanceM, dist.meters);
+      if (!best || t < best.t) best = { t, e };
+    }
+    const key = dist.key === '5k' ? 'pred5kSec' : dist.key === '10k' ? 'pred10kSec' : dist.key === 'half' ? 'predHalfSec' : 'predMarathonSec';
+    return { dist, vdotSec: vdot === null ? null : timeOfVdot(vdot, dist.meters), riegelSec: best ? best.t : null, riegelFrom: best ? best.e : null, watchSec: watch(key) };
+  });
+  return { rows, vdot, basis };
+}
+
+// ------------------------------------------------------------------ disponibilité à l'entraînement (Training Readiness)
+export type ReadinessKey = 'sleep' | 'sleepHistory' | 'restingHr' | 'acuteLoad' | 'freshness';
+export const READINESS_WEIGHTS: Record<ReadinessKey, number> = { sleep: 0.25, sleepHistory: 0.1, restingHr: 0.2, acuteLoad: 0.25, freshness: 0.2 };
+export type ReadinessLevel = 'prime' | 'high' | 'moderate' | 'low' | 'poor';
+export const READINESS_LEVELS: ReadinessLevel[] = ['poor', 'low', 'moderate', 'high', 'prime'];
+export function readinessLevel(score: number): ReadinessLevel {
+  return score >= 85 ? 'prime' : score >= 70 ? 'high' : score >= 50 ? 'moderate' : score >= 30 ? 'low' : 'poor';
+}
+export interface ReadinessFactor { key: ReadinessKey; score: number; value: number; weight: number; effectiveWeight: number }
+export interface Readiness { day: string; score: number; level: ReadinessLevel; factors: ReadinessFactor[]; missing: ReadinessKey[] }
+export const SLEEP_NEED_SEC = 8 * 3600;
+export const READINESS_MIN_WEIGHT = 0.45;
+
+/** 8 h et plus = 100 ; 4 h = 0 (recommandation 7–9 h, Hirshkowitz 2015). */
+export const sleepScore = (sec: number): number => clamp(((sec - 4 * 3600) / (SLEEP_NEED_SEC - 4 * 3600)) * 100, 0, 100);
+/** Écart de FC de repos au-dessus de la base : chaque battement perd 12,5 points (Buchheit 2014). */
+export const restingScore = (delta: number): number => (delta <= 0 ? 100 : clamp(100 - 12.5 * delta, 0, 100));
+/** Rapport aigu/chronique : 100 sous 1,0, 75 à 1,3, 45 à 1,5, 0 à 2,0 (Gabbett 2016). */
+export function acuteScore(r: number): number {
+  if (r <= 1) return 100;
+  if (r <= 1.3) return 100 - (r - 1) * (25 / 0.3);
+  if (r <= 1.5) return 75 - (r - 1.3) * (30 / 0.2);
+  return clamp(45 - (r - 1.5) * 90, 0, 100);
+}
+
+export function readiness(data: AppData, d: Derived, day: string = d.today): Readiness | null {
+  const factors: ReadinessFactor[] = [];
+  const missing: ReadinessKey[] = [];
+  const add = (key: ReadinessKey, value: number | null, score: (v: number) => number) => {
+    if (value === null) { missing.push(key); return; }
+    factors.push({ key, value, score: score(value), weight: READINESS_WEIGHTS[key], effectiveWeight: 0 });
+  };
+  const night = data.sleep[day];
+  add('sleep', night && !night.deleted ? night.durationSec : null, sleepScore);
+  const last3 = [0, 1, 2].map((k) => data.sleep[addDays(day, -k)]).filter((n) => n && !n.deleted).map((n) => n.durationSec);
+  add('sleepHistory', last3.length >= 2 ? mean(last3) : null, sleepScore);
+  const rhr = d.ctx.resting.raw.get(day);
+  const base: number[] = [];
+  for (let k = 1; k <= 14; k++) { const v = d.ctx.resting.raw.get(addDays(day, -k)); if (v !== undefined) base.push(v); }
+  add('restingHr', rhr !== undefined && base.length >= 3 ? rhr - median(base)! : null, restingScore);
+  const pts = acuteSeries(d.series.days);
+  const pt = pts.find((p) => p.day === addDays(day, -1)) ?? pts[pts.length - 1];
+  add('acuteLoad', pt && pt.ratio !== null ? pt.ratio : null, acuteScore);
+  const fr = (day === d.today ? d.form : d.formByDay.get(day))?.components.find((c) => c.key === 'freshness');
+  add('freshness', fr ? fr.value : null, () => fr!.score);
+  const total = factors.reduce((t, f) => t + f.weight, 0);
+  if (factors.length < 2 || total < READINESS_MIN_WEIGHT) return null;
+  let score = 0;
+  for (const f of factors) { f.effectiveWeight = f.weight / total; score += f.score * f.effectiveWeight; }
+  score = Math.round(score);
+  return { day, score, level: readinessLevel(score), factors, missing };
+}
+
+// ------------------------------------------------------------------ réserve d'énergie (type Body Battery, version simplifiée)
+/** Recharge d'une nuit complète (8 h, FC de repos normale) et dépense d'une journée sans entraînement, en points sur 100. */
+export const RESERVE_RECHARGE = 80;
+export const RESERVE_BASE_DRAIN = 35;
+/** Une séance à la charge de référence vide la réserve de 40 points. */
+export const RESERVE_TRAIN_DRAIN = 40;
+export const RESERVE_FLOOR = 5;
+export interface ReservePoint { day: string; wake: number; evening: number; sleepSec: number | null; sleepAssumed: boolean; load: number }
+
+/**
+ * Modèle journalier : réveil = min(100, soir de la veille + recharge du sommeil) ; soir = réveil − dépense de base − dépense des séances.
+ * Les paramètres sont propres à Apogée (Firstbeat s'appuie sur la HRV, absente ici) : c'est une lecture de tendance, pas une mesure.
+ */
+export function energyReserve(data: AppData, d: Derived, spanDays = 14): ReservePoint[] {
+  const first = addDays(d.today, -(spanDays - 1) - 7);
+  const ref = Math.max(20, percentile(
+    liveRecords(data.actual).map((s) => d.loads.get(s.id)).filter((l): l is SessionLoad => !!l && l.load !== null && l.method !== 'provisional' && l.method !== 'pending').map((l) => l.load!), 0.75) ?? TE_DEFAULT_REF);
+  const out: ReservePoint[] = [];
+  let evening = 65;
+  const recentSleep: number[] = [];
+  for (let day = first; day <= d.today; day = addDays(day, 1)) {
+    const n = data.sleep[day];
+    let sec = n && !n.deleted ? n.durationSec : null;
+    const assumed = sec === null;
+    if (sec === null) sec = recentSleep.length ? mean(recentSleep.slice(-7))! : 7 * 3600;
+    else recentSleep.push(sec);
+    const rhr = d.ctx.resting.raw.get(day);
+    const base: number[] = [];
+    for (let k = 1; k <= 14; k++) { const v = d.ctx.resting.raw.get(addDays(day, -k)); if (v !== undefined) base.push(v); }
+    const rhrFactor = rhr !== undefined && base.length >= 3 ? clamp(1 - 0.03 * Math.max(0, rhr - median(base)!), 0.6, 1) : 1;
+    const recharge = RESERVE_RECHARGE * clamp(sec / SLEEP_NEED_SEC, 0, 1) * rhrFactor;
+    const wake = Math.min(100, evening + recharge);
+    const load = d.series.byDay.get(day)?.load ?? 0;
+    evening = Math.max(RESERVE_FLOOR, wake - RESERVE_BASE_DRAIN - RESERVE_TRAIN_DRAIN * (load / ref));
+    out.push({ day, wake: Math.round(wake), evening: Math.round(evening), sleepSec: assumed ? null : sec, sleepAssumed: assumed, load });
+  }
+  return out.slice(-spanDays);
+}
+
+// ------------------------------------------------------------------ indice d'endurance
+export const ENDURANCE_WINDOW_DAYS = 28;
+export const ENDURANCE_REF_HOURS_WEEK = 10;
+export const ENDURANCE_REF_LONGEST_SEC = 3 * 3600;
+export interface EnduranceScore { score: number; aerobic: number | null; volume: number; longest: number; vo2: number | null; weeklyHours: number; longestSec: number; partial: boolean }
+
+const ENDURANCE_DISCIPLINES = ['RUN', 'BIKE', 'SWIM'];
+/** VO₂max 30 → 0 ; 60 → 100 (échelle Apogée). Volume : 10 h/semaine = 100. Sortie la plus longue : 3 h = 100. */
+export function enduranceScore(data: AppData, todayDay: string, vo2: number | null): EnduranceScore | null {
+  const from = addDays(todayDay, -ENDURANCE_WINDOW_DAYS);
+  const list = liveRecords(data.actual).filter((s) => ENDURANCE_DISCIPLINES.includes(s.discipline) && sessionDay(s) > from && sessionDay(s) <= todayDay);
+  if (!list.length) return null;
+  const weeklyHours = list.reduce((t, s) => t + s.durationSec, 0) / 3600 / (ENDURANCE_WINDOW_DAYS / 7);
+  const longestSec = Math.max(...list.map((s) => s.durationSec));
+  const volume = clamp((weeklyHours / ENDURANCE_REF_HOURS_WEEK) * 100, 0, 100);
+  const longest = clamp((longestSec / ENDURANCE_REF_LONGEST_SEC) * 100, 0, 100);
+  const aerobic = vo2 === null ? null : clamp(((vo2 - 30) / 30) * 100, 0, 100);
+  const score = aerobic === null ? (volume + longest) / 2 : 0.4 * aerobic + 0.3 * volume + 0.3 * longest;
+  return { score: Math.round(score), aerobic, volume: Math.round(volume), longest: Math.round(longest), vo2, weeklyHours, longestSec, partial: aerobic === null };
+}
+
+// ------------------------------------------------------------------ indice de côtes
+export const HILL_WINDOW_DAYS = 28;
+export const HILL_REF_GAIN_WEEK = 1200;
+export const HILL_MIN_GRADE = 0.025;
+export const HILL_MIN_GAIN = 100;
+export const HILL_REF_VAM: Record<'RUN' | 'BIKE', number> = { RUN: 600, BIKE: 700 };
+export interface HillScore {
+  score: number; weeklyGain: number; volume: number;
+  bestVam: number | null; vamScore: number | null;
+  best: { sessionId: string; day: string; discipline: 'RUN' | 'BIKE'; vam: number; gain: number } | null;
+}
+
+/** Dénivelé positif par semaine (volume) et vitesse ascensionnelle moyenne des séances vallonnées (VAM, m/h). Échelles Apogée. */
+export function hillScore(data: AppData, todayDay: string): HillScore | null {
+  const from = addDays(todayDay, -HILL_WINDOW_DAYS);
+  const list = liveRecords(data.actual).filter((s): s is ActualSession & { discipline: 'RUN' | 'BIKE' } => (s.discipline === 'RUN' || s.discipline === 'BIKE') && sessionDay(s) > from && sessionDay(s) <= todayDay);
+  const gain = list.reduce((t, s) => t + (s.elevationGainM ?? 0), 0);
+  if (!list.some((s) => s.elevationGainM)) return null;
+  const weeklyGain = gain / (HILL_WINDOW_DAYS / 7);
+  const volume = clamp((weeklyGain / HILL_REF_GAIN_WEEK) * 100, 0, 100);
+  let best: HillScore['best'] = null, bestScore = -1;
+  for (const s of list) {
+    if (!s.elevationGainM || s.elevationGainM < HILL_MIN_GAIN || !s.distanceM || s.durationSec < 20 * 60) continue;
+    if (s.elevationGainM / s.distanceM < HILL_MIN_GRADE) continue;
+    const vam = s.elevationGainM / (s.durationSec / 3600);
+    const sc = vam / HILL_REF_VAM[s.discipline];
+    if (sc > bestScore) { bestScore = sc; best = { sessionId: s.id, day: sessionDay(s), discipline: s.discipline, vam, gain: s.elevationGainM }; }
+  }
+  const vamScore = best ? clamp(bestScore * 100, 0, 100) : null;
+  const score = vamScore === null ? volume : 0.5 * volume + 0.5 * vamScore;
+  return { score: Math.round(score), weeklyGain, volume: Math.round(volume), bestVam: best?.vam ?? null, vamScore: vamScore === null ? null : Math.round(vamScore), best };
+}

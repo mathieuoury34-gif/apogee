@@ -657,3 +657,6 @@ input, textarea, select, [contenteditable="true"], pre, code, .help-f, .help-cod
 .kcal-week .stack-bar .rest { background: var(--chart-other); opacity: .7; display: block; }
 .kcal-week .stack-bar .act { background: var(--chart-1); display: block; border-radius: var(--radius-4) var(--radius-4) 0 0; }
 .kcal-week .intake { position: absolute; left: 8%; right: 8%; height: 3px; margin-bottom: -1px; border-radius: 2px; background: var(--text); }
+
+/* prédictions de course : distance + une colonne par méthode */
+.pred-grid { display: grid; column-gap: var(--space-12); row-gap: var(--space-10); align-items: baseline; }

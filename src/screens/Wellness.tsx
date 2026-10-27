@@ -1,4 +1,4 @@
-// Santé et capacités : calories (dépense / apport) et point hebdomadaire (VO₂max, seuil de lactate, HRV, ressenti, prédictions).
+// Santé et capacités : calories (dépense / apport) et point hebdomadaire (VO₂max, seuil de lactate, ressenti, prédictions).
 // Tout ce qui vient d'une estimation Apogée ou d'une saisie est étiqueté comme tel ; Apogée ne recalcule pas les indices Garmin.
 import { $t } from '../i18n';
 import { useState } from 'react';
@@ -9,9 +9,9 @@ import { useCalc } from '../data/store';
 import { addMeal, deleteMeal, restore, saveCheckin } from '../data/actions';
 import { addDays, mondayOf } from '../domain/dates';
 import { dayEnergy, weekEnergy } from '../domain/energy';
-import { currentCheckin, HRV_LABEL, hasContent, metricSeries, type CheckinMetric } from '../domain/checkin';
+import { currentCheckin, hasContent, metricSeries, type CheckinMetric } from '../domain/checkin';
 import { liveRecords } from '../domain/load';
-import type { Checkin, HrvStatus } from '../domain/types';
+import type { Checkin } from '../domain/types';
 import { dateFr, dayMonth, dayTitle, NBSP, num, signed, weekdayShort } from '../ui/format';
 
 const KCAL = (v: number | null) => (v === null ? '—' : num(v, 0) + NBSP + 'kcal');
@@ -131,24 +131,23 @@ export function CheckinCard() {
   const sheet = useLocalSheet();
   const cur = currentCheckin(data, d.today);
   const [f, setF] = useState<Record<string, string>>({});
-  const [hrvS, setHrvS] = useState<HrvStatus | null>(null);
   const [sleepF, setSleepF] = useState<number | null>(null);
   const [recF, setRecF] = useState<number | null>(null);
   const open = () => {
     const c = cur.draft;
     setF({
-      vo2max: c.vo2max?.toString().replace('.', ',') ?? '', lthrBpm: c.lthrBpm?.toString() ?? '', lthPace: clock(c.lthPaceSecKm), hrvMs: c.hrvMs?.toString() ?? '',
+      vo2max: c.vo2max?.toString().replace('.', ',') ?? '', lthrBpm: c.lthrBpm?.toString() ?? '', lthPace: clock(c.lthPaceSecKm),
       p5: clock(c.pred5kSec), p10: clock(c.pred10kSec), ph: clock(c.predHalfSec), pm: clock(c.predMarathonSec), note: c.note ?? '',
     });
-    setHrvS(c.hrvStatus); setSleepF(c.sleepFelt); setRecF(c.recoveryFelt);
+    setSleepF(c.sleepFelt); setRecF(c.recoveryFelt);
     sheet.show();
   };
-  const vo2 = numOrNull(f.vo2max ?? ''), lthr = numOrNull(f.lthrBpm ?? ''), hrv = numOrNull(f.hrvMs ?? '');
+  const vo2 = numOrNull(f.vo2max ?? ''), lthr = numOrNull(f.lthrBpm ?? '');
   const lthp = parseClock(f.lthPace ?? ''), p5 = parseClock(f.p5 ?? ''), p10 = parseClock(f.p10 ?? ''), ph = parseClock(f.ph ?? ''), pm = parseClock(f.pm ?? '');
-  const bad = [vo2, lthr, hrv, lthp, p5, p10, ph, pm].some((x) => Number.isNaN(x))
-    || (vo2 !== null && (vo2 < 15 || vo2 > 90)) || (lthr !== null && (lthr < 80 || lthr > 230)) || (hrv !== null && (hrv < 5 || hrv > 300));
+  const bad = [vo2, lthr, lthp, p5, p10, ph, pm].some((x) => Number.isNaN(x))
+    || (vo2 !== null && (vo2 < 15 || vo2 > 90)) || (lthr !== null && (lthr < 80 || lthr > 230));
   const next: Omit<Checkin, 'updatedAt'> = {
-    id: cur.week, week: cur.week, vo2max: vo2, lthrBpm: lthr, lthPaceSecKm: lthp, hrvMs: hrv, hrvStatus: hrvS, sleepFelt: sleepF, recoveryFelt: recF,
+    id: cur.week, week: cur.week, vo2max: vo2, lthrBpm: lthr, lthPaceSecKm: lthp, hrvMs: cur.saved?.hrvMs ?? null, hrvStatus: cur.saved?.hrvStatus ?? null, sleepFelt: sleepF, recoveryFelt: recF,
     pred5kSec: p5, pred10kSec: p10, predHalfSec: ph, predMarathonSec: pm, note: (f.note ?? '').trim() || null,
   };
   const save = () => {
@@ -172,14 +171,12 @@ export function CheckinCard() {
         <h2>{$t("Point de la semaine")}</h2>
         <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={open}>{s ? $t("Modifier") : $t("Remplir")}</button>
       </div>
-      <p className="t-caption c-neutral">{$t("Une fois par semaine, recopie ce que ta montre affiche : VO₂max, seuil de lactate, HRV, prédictions de course, et ton ressenti. Apogée en trace les courbes. Un rappel te le propose le dimanche.")}</p>
+      <p className="t-caption c-neutral">{$t("Une fois par semaine, recopie ce que ta montre affiche : VO₂max, seuil de lactate, prédictions de course, et ton ressenti. Apogée en trace les courbes. Un rappel te le propose le dimanche.")}</p>
       {s ? (
         <dl className="kv">
           {s.vo2max !== null && <><dt>{$t("VO₂max")}</dt><dd>{num(s.vo2max, 0, 1)}</dd></>}
           {s.lthrBpm !== null && <><dt>{$t("Seuil de lactate : FC")}</dt><dd>{s.lthrBpm}{NBSP}bpm</dd></>}
           {s.lthPaceSecKm !== null && <><dt>{$t("Seuil de lactate : allure")}</dt><dd>{clock(s.lthPaceSecKm)}{NBSP}/km</dd></>}
-          {s.hrvMs !== null && <><dt>{$t("HRV (moyenne 7 j)")}</dt><dd>{s.hrvMs}{NBSP}ms{s.hrvStatus ? ' · ' + $t(HRV_LABEL[s.hrvStatus]) : ''}</dd></>}
-          {s.hrvMs === null && s.hrvStatus && <><dt>{$t("Statut HRV")}</dt><dd>{$t(HRV_LABEL[s.hrvStatus])}</dd></>}
           {s.sleepFelt !== null && <><dt>{$t("Sommeil ressenti")}</dt><dd>{s.sleepFelt}{NBSP}/{NBSP}5</dd></>}
           {s.recoveryFelt !== null && <><dt>{$t("Récupération ressentie")}</dt><dd>{s.recoveryFelt}{NBSP}/{NBSP}5</dd></>}
           {s.pred5kSec !== null && <><dt>{$t("Prédiction 5 km")}</dt><dd>{clock(s.pred5kSec)}</dd></>}
@@ -198,11 +195,6 @@ export function CheckinCard() {
               <label className="field"><span className="lbl">{$t("Seuil : FC (bpm)")}</span><input className="input num" inputMode="numeric" value={f.lthrBpm ?? ''} onChange={set('lthrBpm')} /></label>
             </div>
             <label className="field"><span className="lbl">{$t("Seuil : allure (min:s /km)")}</span><input className="input num" inputMode="text" placeholder="4:35" value={f.lthPace ?? ''} onChange={set('lthPace')} /></label>
-            <h3 className="t-strong">{$t("Variabilité cardiaque (HRV)")}</h3>
-            <label className="field"><span className="lbl">{$t("Moyenne sur 7 nuits (ms)")}</span><input className="input num" inputMode="numeric" value={f.hrvMs ?? ''} onChange={set('hrvMs')} /></label>
-            <div className="row wrap" style={{ gap: 'var(--space-6)' }} role="group" aria-label={$t("Statut HRV")}>
-              {(['balanced', 'unbalanced', 'low', 'poor'] as HrvStatus[]).map((k) => <button key={k} type="button" className="chip" aria-pressed={hrvS === k} onClick={() => setHrvS(hrvS === k ? null : k)}>{$t(HRV_LABEL[k])}</button>)}
-            </div>
             <h3 className="t-strong">{$t("Ressenti de la semaine")}</h3>
             {scale(sleepF, setSleepF, $t("Sommeil"))}
             {scale(recF, setRecF, $t("Récupération"))}
@@ -227,7 +219,6 @@ const TRENDS: { k: CheckinMetric; label: string; fmt: (v: number) => string; bet
   { k: 'vo2max', label: $t("VO₂max"), fmt: (v) => num(v, 0, 1), better: 'up' },
   { k: 'lthrBpm', label: $t("Seuil de lactate : FC"), fmt: (v) => num(v, 0) + NBSP + 'bpm', better: null },
   { k: 'lthPaceSecKm', label: $t("Seuil de lactate : allure"), fmt: (v) => clock(v) + NBSP + '/km', better: 'down' },
-  { k: 'hrvMs', label: $t("HRV (7 nuits)"), fmt: (v) => num(v, 0) + NBSP + 'ms', better: 'up' },
   { k: 'sleepFelt', label: $t("Sommeil ressenti"), fmt: (v) => num(v, 0) + NBSP + '/' + NBSP + '5', better: 'up' },
   { k: 'recoveryFelt', label: $t("Récupération ressentie"), fmt: (v) => num(v, 0) + NBSP + '/' + NBSP + '5', better: 'up' },
   { k: 'pred5kSec', label: $t("Prédiction 5 km"), fmt: clock as (v: number) => string, better: 'down' },

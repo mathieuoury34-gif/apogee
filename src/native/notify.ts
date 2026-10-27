@@ -51,7 +51,7 @@ export async function scheduleReminders(data: AppData, d: Derived): Promise<void
     const when = new Date(y, m - 1, dd, 18, 0, 0, 0);
     const c = data.checkins[mondayOf(sunday)];
     if (when <= now || (c && !c.deleted) || suspended(data, sunday)) continue;
-    list.push({ id: id++, title: $t("Point de la semaine"), body: $t("Deux minutes pour noter VO₂max, HRV, ressenti et prédictions : tes courbes se complètent."), schedule: { at: when, allowWhileIdle: true } });
+    list.push({ id: id++, title: $t("Point de la semaine"), body: $t("Deux minutes pour noter VO₂max, ressenti et prédictions : tes courbes se complètent."), schedule: { at: when, allowWhileIdle: true } });
   }
   const key = JSON.stringify(list.map((x) => [x.title, x.body, x.schedule.at.getTime()]));
   if (key === last) return;
