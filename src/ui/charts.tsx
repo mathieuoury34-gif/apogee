@@ -17,7 +17,7 @@ export function niceStep(raw: number): number {
   return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p;
 }
 
-function hoverIndex(ev: React.PointerEvent<HTMLDivElement>, n: number): number {
+export function hoverIndex(ev: React.PointerEvent<HTMLDivElement>, n: number): number {
   const r = ev.currentTarget.getBoundingClientRect();
   return Math.round(Math.min(Math.max((ev.clientX - r.left) / r.width, 0), 1) * (n - 1));
 }

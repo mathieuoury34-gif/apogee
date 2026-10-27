@@ -5,6 +5,8 @@ import { $t } from '../i18n';
 import { useState } from 'react';
 import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast, OtherToggle, useWithOther } from '../ui/kit';
 import { FormChart, LoadPanels, StackedWeeks, StepChart } from '../ui/charts';
+import { AcuteLoadChart, FocusBars, RatioChart, STATUS_INFO, StatusStrip } from '../ui/loadkit';
+import { acuteSeries, loadFocus, statusOf, weeklyStatus } from '../domain/loadStatus';
 import { Icon } from '../ui/icons';
 import { navigate, useRoute } from '../ui/router';
 import { useCalc } from '../data/store';
@@ -36,6 +38,10 @@ export function LoadScreen() {
   const [withOther] = useWithOther();
   const form = d.form ?? d.lastForm;
   const acwr = c.acuteChronicRatio;
+  const acutePts = acuteSeries(d.series.days);
+  const weekStatus = weeklyStatus(d.series.days, d.today, 12);
+  const curStatus = statusOf(acwr, c.fitnessDelta);
+  const focus = loadFocus(data, d.loads, d.ctx.hrMax.bpm, d.today);
   const acwrZone = acwr === null ? null : acwr > 1.5 ? 'critical' : acwr > 1.3 ? 'warning' : acwr < 0.8 ? 'low' : 'ok';
   if (!d.series.days.length) {
     return (
@@ -58,32 +64,47 @@ export function LoadScreen() {
           </div>
         </Hero>
 
-        <section className="card g12 dspan-7" aria-label={$t("Rapport aigu / chronique")}>
-          <div className="between"><h2>{$t("Charge aiguë / chronique")}</h2>{acwr !== null && <span className={'var-chip' + (acwrZone === 'ok' ? '' : acwrZone === 'low' ? ' flat' : ' warn')}>{num(acwr, 2)}</span>}</div>
-          {acwr === null ? <p className="t-caption c-moderate">{$t("Disponible après 28 jours d’historique")}{d.series.firstDay ? $t(" (dès le {0})", { 0: dateFr(addDays(d.series.firstDay, 28)) }) : ''}.</p> : (
-            <>
-              <div className="acwr-bar" aria-hidden="true">
-                <span className="seg low" /><span className="seg ok" /><span className="seg warn" /><span className="seg crit" />
-                <span className="cursor" style={{ left: `${Math.min(100, Math.max(0, ((acwr - 0.5) / 1.5) * 100))}%` }} />
-              </div>
-              <div className="between t-legal c-moderate">{[0.5, 0.8, 1.3, 1.5, 2].map((v) => <span key={v}>{num(v, 1)}</span>)}</div>
-              <dl className="kv">
-                <dt>{$t("Aiguë (7 derniers jours)")}</dt><dd>{c.acuteLoad === null ? '—' : num(c.acuteLoad, 0)}</dd>
-                <dt>{$t("Chronique (moyenne par semaine, 28 j)")}</dt><dd>{c.chronicWeeklyLoad === null ? '—' : num(c.chronicWeeklyLoad, 0)}</dd>
-              </dl>
-              {c.heaviestDay && c.heaviestDay.share >= 0.2 && <div className="note"><Icon name="info" size={20} /><span>{$t("Une seule journée pèse beaucoup dans les 28 derniers jours : le {0} ({1}, soit {2} du total). Si cette charge est surévaluée, le rapport est écrasé. Vérifie-la dans le bilan de la séance (ressenti ou FC).", { 0: dayTitle(c.heaviestDay.day), 1: num(c.heaviestDay.load, 0), 2: pct(c.heaviestDay.share) })}</span></div>}
-              <p className="t-caption c-neutral">{acwrZone === 'ok' ? $t("La charge des 7 derniers jours est dans la ligne des 4 dernières semaines.") : acwrZone === 'low' ? $t("Semaine nettement plus légère que d’habitude : récupération ou baisse de régime.") : acwrZone === 'warning' ? $t("Hausse marquée de la charge récente. À surveiller.") : $t("Hausse brutale de la charge récente (au-delà de 1,5) : le risque de blessure augmente.")}</p>
-            </>
-          )}
-          {d.series.isPriming && <div className="note"><Icon name="info" size={20} /><span>{$t("Historique court : forme et fatigue sont amorcées sur ta charge habituelle des 14 premiers jours, et se stabilisent vers le")} {dateFr(d.series.primingEndsOn!)}.</span></div>}
+        <section className="card g12 dspan-7" aria-label={$t("Statut d’entraînement")}>
+          <div className="between"><h2>{$t("Statut d’entraînement")}</h2><span className="t-legal c-moderate">{$t("estimation Apogée")}</span></div>
+          {curStatus ? (
+            <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2" style={{ color: STATUS_INFO[curStatus].color }}>{STATUS_INFO[curStatus].label}</span><span className="t-caption c-neutral">{STATUS_INFO[curStatus].text}</span></div>
+          ) : <p className="t-caption c-moderate">{$t("Disponible après 28 jours d’historique")}{d.series.firstDay ? $t(" (dès le {0})", { 0: dateFr(addDays(d.series.firstDay, 28)) }) : ''}.</p>}
+          <StatusStrip weeks={weekStatus} />
+          <p className="t-legal c-moderate">{$t("Chaque case est une semaine. Le statut croise ta charge des 7 jours avec ta charge habituelle (4 semaines) et la tendance de ta forme de fond. Touche une case pour le détail.")}</p>
         </section>
         </div>
 
-        <section className="card g12 dspan-12" aria-label={$t("Évolution")}>
+        <section className="card g12 dspan-12" aria-label={$t("Charge aiguë")}>
           <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
-            <Segmented label={$t("Courbe")} value={view} onChange={setView} options={[['charge', $t("Charge")], ['forme', $t("Forme du jour")]]} />
-            <ChipGroup label={$t("Période")} value={period} onChange={setPeriod} options={[['7', $t("1 sem.")], ['14', $t("2 sem.")], ['30', $t("1 mois")], ['90', $t("3 mois")], ['180', $t("6 mois")], ['365', $t("1 an")]]} />
+            <h2>{$t("Charge aiguë et zone optimale")}</h2>
+            {acwr !== null && <span className={'var-chip' + (acwrZone === 'ok' ? '' : acwrZone === 'low' ? ' flat' : ' warn')}>{$t("rapport")} {num(acwr, 2)}</span>}
           </div>
+          <p className="t-caption c-neutral">{$t("Le trait noir est ta charge des 7 derniers jours. La bande verte est la zone où elle progresse sans excès : entre 0,8 et 1,3 fois ta charge hebdomadaire habituelle. Dans la bande orange, c’est élevé ; au-delà, le risque de blessure monte.")}</p>
+          <ChipGroup label={$t("Période")} value={period} onChange={setPeriod} options={[['7', $t("1 sem.")], ['14', $t("2 sem.")], ['30', $t("1 mois")], ['90', $t("3 mois")], ['180', $t("6 mois")], ['365', $t("1 an")]]} />
+          <AcuteLoadChart points={acutePts.slice(-Math.max(n, 8))} today={d.today} />
+          <h3 className="t-strong">{$t("Rapport de charge")}</h3>
+          <p className="t-caption c-neutral">{$t("Charge des 7 jours divisée par ta charge hebdomadaire habituelle. Entre 0,8 et 1,3 (vert) : tu progresses sans te griller. Sous 0,8 (bleu) : semaine légère. Au-dessus de 1,3 : tu montes trop vite.")}</p>
+          <RatioChart points={acutePts.slice(-Math.max(n, 8))} />
+          {acwr !== null && (
+            <dl className="kv">
+              <dt>{$t("Aiguë (7 derniers jours)")}</dt><dd>{c.acuteLoad === null ? '—' : num(c.acuteLoad, 0)}</dd>
+              <dt>{$t("Chronique (moyenne par semaine, 28 j)")}</dt><dd>{c.chronicWeeklyLoad === null ? '—' : num(c.chronicWeeklyLoad, 0)}</dd>
+            </dl>
+          )}
+          {c.heaviestDay && c.heaviestDay.share >= 0.2 && <div className="note"><Icon name="info" size={20} /><span>{$t("Une seule journée pèse beaucoup dans les 28 derniers jours : le {0} ({1}, soit {2} du total). Si cette charge est surévaluée, le rapport est écrasé. Vérifie-la dans le bilan de la séance (ressenti ou FC).", { 0: dayTitle(c.heaviestDay.day), 1: num(c.heaviestDay.load, 0), 2: pct(c.heaviestDay.share) })}</span></div>}
+          {d.series.isPriming && <div className="note"><Icon name="info" size={20} /><span>{$t("Historique court : forme et fatigue sont amorcées sur ta charge habituelle des 14 premiers jours, et se stabilisent vers le")} {dateFr(d.series.primingEndsOn!)}.</span></div>}
+        </section>
+
+        <section className="card g12 dspan-12" aria-label={$t("Répartition de la charge")}>
+          <h2>{$t("Répartition de la charge")}</h2>
+          <p className="t-caption c-neutral">{$t("D’où vient ta charge des 4 dernières semaines : sorties tranquilles, efforts soutenus ou intensité maximale, d’après ta fréquence cardiaque.")}</p>
+          <FocusBars focus={focus} />
+        </section>
+
+        <section className="card g12 dspan-12" aria-label={$t("Évolution")}>
+          <h2>{$t("Forme de fond, fatigue et fraîcheur")}</h2>
+          <Segmented label={$t("Courbe")} value={view} onChange={setView} options={[['charge', $t("Charge")], ['forme', $t("Forme du jour")]]} />
+          <p className="t-legal c-moderate">{$t("Même période que le graphique de charge aiguë, plus haut.")}</p>
           {view === 'charge' ? <LoadPanels days={days} /> : (
             <>
               <FormChart days={formDays} forms={d.formByDay} />

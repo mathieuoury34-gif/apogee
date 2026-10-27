@@ -636,3 +636,14 @@ input, textarea, select, [contenteditable="true"], pre, code, .help-f, .help-cod
 .wheel-item { height: 40px; scroll-snap-align: center; display: flex; align-items: center; justify-content: center; font: var(--type-amount-l); font-variant-numeric: tabular-nums; color: var(--text-moderate); cursor: pointer; user-select: none; }
 .wheel-item.on { color: var(--text); font-size: 22px; }
 .wheel-unit { font: var(--type-caption-strong); color: var(--text-moderate); min-width: 24px; }
+
+/* Charge à la Garmin : bande de statut, répartition */
+.status-strip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; height: 34px; }
+.status-strip .seg { border: 0; padding: 0; min-height: 0; border-radius: var(--radius-4); cursor: pointer; opacity: .9; }
+.status-strip .seg.partial { opacity: .65; }
+.status-strip .seg.on { opacity: 1; outline: 2px solid var(--text); outline-offset: 2px; }
+.status-detail { padding: var(--space-12) var(--space-16); border-radius: var(--radius-12); background: var(--bg-surface-minimal); display: flex; flex-direction: column; gap: var(--space-4); }
+.status-detail p { margin: 0; }
+.focus-bar { position: relative; height: 14px; border-radius: var(--radius-4); background: var(--bg-surface-minimal); overflow: hidden; }
+.focus-bar .ref { position: absolute; top: 0; bottom: 0; background: var(--text); opacity: .14; }
+.focus-bar .val { position: absolute; left: 0; top: 3px; bottom: 3px; border-radius: var(--radius-4); }

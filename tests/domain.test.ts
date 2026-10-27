@@ -21,6 +21,8 @@ import { importLegacyDb, emptyData } from '../src/domain/legacy';
 import { buildLoadSeries, computeSessionLoads, resolveHrMax } from '../src/domain/load';
 import { buildManualSession, parseBulkActual, parseBulkPlanned, parseManualFields } from '../src/domain/manual';
 import { hm } from '../src/ui/format';
+import { acuteSeries, statusOf, weeklyStatus } from '../src/domain/loadStatus';
+import type { DayLoad } from '../src/domain/load';
 import { applyPreview, buildDossier, parsePlan, preview } from '../src/domain/coach';
 import type { ActualSession, AppData, Block } from '../src/domain/types';
 
@@ -608,4 +610,28 @@ test('saisie manuelle : dénivelé enregistré et borné ; durées longues en 2h
   assert.ok('error' in parseManualFields({ date: '2026-10-20', discipline: 'RUN', durationMin: '30', elevationM: '99999' }));
   assert.equal(hm(125 * 60), '2h05');
   assert.equal(hm(41 * 60).replace(/\s/g, ' '), '41 min');
+});
+
+test('charge aiguë : entonnoir 0,8–1,3 × charge habituelle, statuts et bande hebdomadaire', () => {
+  const mk = (n: number, f: (i: number) => number): DayLoad[] => Array.from({ length: n }, (_, i) => ({ day: addDays('2026-08-03', i), load: f(i), estimated: false, interruptionFill: false, fitness: 40 + i * 0.1, fatigue: 40, freshness: 0 }));
+  const flat = acuteSeries(mk(40, () => 50));
+  assert.equal(flat[26].chronic, null); // moins de 28 jours : pas d'entonnoir
+  assert.equal(flat[39].acute, 350);
+  assert.equal(flat[39].chronic, 350);
+  assert.equal(flat[39].lo, 280);
+  assert.equal(flat[39].hi, 455);
+  assert.ok(Math.abs(flat[39].ratio! - 1) < 1e-9);
+  assert.equal(statusOf(1, 2), 'productive');
+  assert.equal(statusOf(1, 0), 'maintaining');
+  assert.equal(statusOf(1, -3), 'unproductive');
+  assert.equal(statusOf(0.6, 0), 'recovery');
+  assert.equal(statusOf(0.3, -3), 'detraining');
+  assert.equal(statusOf(1.4, 0), 'high');
+  assert.equal(statusOf(1.8, 0), 'overreaching');
+  assert.equal(statusOf(null, 0), null);
+  // semaine très chargée après 5 semaines régulières : surcharge sur la dernière semaine
+  const days = mk(42, (i) => (i >= 35 ? 150 : 50));
+  const w = weeklyStatus(days, days[41].day, 3);
+  assert.equal(w.length, 3);
+  assert.equal(w[2].status, 'overreaching');
 });
