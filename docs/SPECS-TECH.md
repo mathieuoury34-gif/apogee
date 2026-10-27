@@ -332,6 +332,24 @@ poids sont renormalisés sur les composantes présentes. Paliers : `<25 Épuisé
   Calendrier › Interruptions (`/calendrier/interruptions`) ; Paramètres › Athlète = Profil seul. L'écran Analyse n'existe plus : ses cartes
   (`screens/Analysis.tsx`) sont réparties.
 
+### 5.11 ter Fenêtres à méthodes publiées (27/10/2026, `science.ts` + `capacity.ts` + `screens/Capacity.tsx`)
+Tout est recalculé (rien n'est stocké), étiqueté « estimation Apogée » ; les **entrées** viennent de formules publiées, les **échelles de lecture** (0–100, niveaux, poids) sont propres à Apogée.
+- **Training Effect** (par séance, `trainingEffects`) : aérobie = 5 × (1 − e^(−1,1 × charge ÷ référence)), charge = TRIMP de Banister (proxy de l'EPOC, Firstbeat 2014),
+  référence = 75ᵉ centile des charges des séances de 10 min et plus des 90 jours précédents (70 par défaut sous 5 séances) ; une séance à la référence ≈ 3,3. Niveaux :
+  < 1 aucun, 1–2 léger, 2–3 maintien, 3–4 amélioration, 4–4,8 forte amélioration, ≥ 4,8 surcharge. Anaérobie = 5 × (1 − e^(−t₅ ÷ 12 min)), t₅ = temps ≥ 90 % de la FC max (approximation).
+- **VDOT / prédictions** : Daniels et Gilbert (VO₂ = −4,60 + 0,182258 v + 0,000104 v² ; fraction soutenue 0,8 + 0,1894393 e^(−0,012778 t) + 0,2989558 e^(−0,1932605 t)) ; temps prévu par dichotomie ;
+  Riegel T₂ = T₁ × (D₂/D₁)^1,06 (rapport de distances 0,5–4,3, meilleur effort récent de 3, 5, 10 ou 21,1 km sur 90 jours, segment glissant de `records.ts`). Colonne « montre » = point hebdomadaire.
+- **VO₂max** (`vo2maxEstimate`) : (1) sorties de course ≥ 20 min, pente ≤ 2 %, dérive cardiaque ≤ 8 %, 60 derniers jours : VO₂ = 0,2 v(m/min) + 3,5 (ACSM), VO₂max = 3,5 + (VO₂ − 3,5) ÷ %FC de réserve (Swain et Leutholtz 1997, %FCR entre 60 et 98 %), médiane d'au moins 3 sorties ;
+  (2) Uth 2004 : 15,3 × FC max ÷ FC de repos ; (3) VDOT du meilleur effort (borne basse). Valeur retenue = (1) sinon (2). Course à pied uniquement.
+- **Disponibilité** (`readiness`) : score 0–100 = moyenne pondérée de sommeil de la nuit (0,25 ; 8 h = 100, 4 h = 0, Hirshkowitz 2015), sommeil des 3 nuits (0,10), FC de repos au-dessus de la médiane 14 j
+  (0,20 ; −12,5 points par bpm, Buchheit 2014), rapport aigu/chronique de la veille (0,25 ; 100 sous 1,0, 75 à 1,3, 45 à 1,5, 0 à 2,0, Gabbett 2016), fraîcheur (0,20, composante de la forme du jour).
+  Poids des manquants répartis ; il faut ≥ 2 facteurs et 0,45 de poids. Niveaux : ≥ 85 au top, ≥ 70 élevée, ≥ 50 moyenne, ≥ 30 faible, sinon très faible. **HRV non utilisée.**
+- **Réserve d'énergie** (`energyReserve`, version simplifiée du Body Battery) : réveil = min(100, soir de la veille + 80 × min(1, sommeil ÷ 8 h) × facteur FC de repos) ; soir = max(5, réveil − 35 − 40 × charge du jour ÷ référence). Paramètres propres à Apogée, tendance seulement.
+- **Endurance** : 0,4 × VO₂max (30 → 0, 60 → 100) + 0,3 × volume 28 j (10 h/semaine = 100) + 0,3 × sortie la plus longue (3 h = 100) ; sans VO₂max, moyenne des deux autres (Joyner et Coyle 2008 ; Maunder 2021).
+  **Côtes** : 0,5 × D+ hebdomadaire 28 j (1 200 m = 100) + 0,5 × meilleure VAM d'une sortie vallonnée (pente moyenne ≥ 2,5 %, ≥ 20 min, ≥ 100 m ; 600 m/h à pied, 700 m/h à vélo = 100).
+- Point hebdomadaire : champs `hrvMs` / `hrvStatus` conservés dans le type (données existantes) mais plus saisis ni tracés ; plus de pré-remplissage HRV.
+- Tests : `science du sport…` (tables de Daniels : 5 km 20:00 → VDOT 49,8, marathon 3:00 → 53,5), disponibilité, VO₂max/prédictions sur un historique synthétique, côtes (41 tests).
+
 ### 5.12 Fichier .FIT d'entraînement (`fit.ts`, `data/exportFit.ts`)
 En-tête 14 octets (protocole 2.0, profil 21.32), messages `file_id` (type 5, fabricant 255), `workout` (sport, nombre
 d'étapes, nom 32 octets, sous-sport) et `workout_step` (nom 20 octets, durée temps en ms / distance en cm / répétitions /

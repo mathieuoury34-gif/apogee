@@ -215,10 +215,15 @@ Thèmes clair et sombre. Annuler proposé après toute suppression, modification
     (course, vélo) et **calories actives** dans les séances et statistiques ; durées au format 2h05 ; saisie de durée par sélecteur qui
     roule (h / min / s) ; export coach sur 1 semaine par défaut ; **calories** : actives, repos (Health Connect ou estimation Mifflin-St Jeor avec
     la taille du profil), journal de repas simple (kcal saisies, pas de base d'aliments) et bilan du jour ; **point de la semaine** notifié le
-    dimanche : VO₂max, seuil de lactate (FC, allure), HRV, ressenti sommeil/récupération, prédictions 5 km/10 km/semi/marathon, avec courbes.
+    dimanche : VO₂max, seuil de lactate (FC, allure), ressenti sommeil/récupération, prédictions 5 km/10 km/semi/marathon, avec courbes.
     **Hors MVP initial, validé par Mathieu le 27/10** : le journal de repas (nutrition). Les indices propriétaires de Garmin (Body Battery,
-    Training Readiness, Endurance Score, Hill Score, Training Effect, statut HRV…) ne sont **pas** calculables : ils sont recopiés via le point de
-    la semaine ou lus dans Health Connect quand la montre les envoie (à vérifier avec l'APK à jour). Interruptions : saisies depuis le Calendrier.
+    Training Readiness, Endurance Score, Hill Score, Training Effect, statut HRV…) ne sont **pas** reproductibles à l'identique : Apogée en calcule des équivalents (item 16) et les valeurs de la montre se recopient via le point de
+    la semaine (Health Connect ne les envoie pas, constaté le 27/10). Interruptions : saisies depuis le Calendrier.
+
+16. **Fenêtres à méthodes publiées (27/10/2026, demande de Mathieu)** — Training Effect par séance, VO₂max estimée, prédictions de course (5 km → marathon),
+    disponibilité à l'entraînement, réserve d'énergie, indice d'endurance, indice de côtes : calculés par Apogée à partir de formules de la littérature
+    (méthode citée sur chaque carte, étiquetés « estimation Apogée », non comparables à Garmin). **Pas de statut HRV** (décision de Mathieu) ; Health Connect ne transmet
+    ni VO₂max ni HRV chez lui, le point hebdomadaire manuel reste la source des valeurs de la montre.
 
 ### Écartés (définitivement, ne pas reproposer)
 Import de fichiers `.FIT` / `.GPX` d'une sortie (puissance, tracé GPS) — refusé le 17/10/2026 ; Écran de connexion au premier lancement (retiré : la connexion Google se fait depuis Paramètres › Compte ou la

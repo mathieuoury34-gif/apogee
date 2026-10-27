@@ -5,7 +5,7 @@
 16/10/2026 pour pouvoir refaire l'application de zéro : `PRD.md` (quoi / pourquoi), `SPECS-TECH.md` (comment),
 `GUIDE-REPRISE.md` (par où recommencer), `HISTORIQUE-RN.md` (archive de l'ancienne version React Native),
 `claude/BRIEF-DESIGN.md` (brief nom et logo).
-**Dernier commit** `ac25a82` (menus réorganisés, calories, point hebdomadaire ; lots du 27/10, voir §2 ter) — CI : voir l'onglet Actions.
+**Dernier commit** `f4af884` (fenêtres à méthodes publiées : Training Effect, VO₂max, prédictions, disponibilité… ; lots du 27/10, voir §2 ter) — CI : voir l'onglet Actions.
 
 ---
 
@@ -69,9 +69,12 @@ copier dans `GARMIN/NewFiles` (ou `GARMIN/Workouts`) de la Fenix 7S Pro et véri
 | C | Menus : Séances = Journal / Statistiques (+ bilans) ; Progression = Charge / Santé / Capacités / Objectif ; Analyse supprimée ; Paramètres › Athlète = profil ; interruptions depuis le Calendrier | `ac25a82` | non |
 | D | Calories (actives, repos estimé ou Health Connect, journal de repas), point hebdomadaire notifié (VO₂max, seuil de lactate, HRV, ressenti, prédictions), taille dans le profil, 4 nouvelles collections (`energy`, `meals`, `vitals`, `checkins`) ; lecture Health Connect de la dépense du jour, du VO₂max et de la HRV (**sonde**) | `ac25a82` | **oui** (dépense du jour, VO₂max, HRV) |
 
-**Réponse de fond (27/10)** — reproduire fidèlement les écrans Garmin n'est pas possible : Body Battery, Training Readiness, Training Status, Endurance
-Score, Hill Score, Training Effect, statut HRV et prédictions de course sont des calculs propriétaires de Garmin et ne sont pas dans Health Connect.
-Apogée calcule ses **propres estimations** à partir de la FC et des durées (étiquetées comme telles) et complète avec le point de la semaine saisi à la main.
+| E | Fenêtres « à la Garmin » à **méthodes publiées** (étiquetées *estimation Apogée*, méthode citée sur chaque carte) : Training Effect aérobie/anaérobie par séance, VO₂max estimée, prédictions 5 km–marathon, disponibilité à l'entraînement, réserve d'énergie, indice d'endurance, indice de côtes ; statut HRV retiré du point hebdomadaire | `f4af884` | non |
+
+**Réponse de fond (27/10)** — les indices de Garmin (Firstbeat) sont propriétaires et ne sont pas dans Health Connect ; Apogée calcule ses **propres
+équivalents** avec des méthodes de la littérature (voir SPECS-TECH §5.11 ter), étiquetés comme tels et non comparables un à un. Mathieu a confirmé
+(27/10) que **Health Connect ne remplit ni VO₂max ni HRV** malgré l'autorisation : le point hebdomadaire saisi à la main et les estimations restent les sources.
+Décision de Mathieu : **pas de statut HRV** (ni dans les fenêtres ni dans le formulaire).
 
 À valider par Mathieu avec l'APK à jour : la carte Montre doit dire combien de jours de dépense, de VO₂max et de HRV ont été lus.
 
