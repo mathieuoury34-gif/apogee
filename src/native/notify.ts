@@ -2,7 +2,7 @@
 // entier à chaque changement : rappel de séance (3 jours glissants), plan bientôt à échéance, plan échu
 // (relance hebdomadaire), suspension pendant une interruption. Ton neutre, jamais culpabilisant.
 import { $t } from '../i18n';
-import { addDays, today } from '../domain/dates';
+import { addDays, mondayOf, today } from '../domain/dates';
 import { lastPlanValidity } from '../domain/coach';
 import { liveRecords } from '../domain/load';
 import type { Derived } from '../domain/engine';
@@ -43,6 +43,15 @@ export async function scheduleReminders(data: AppData, d: Derived): Promise<void
     let o = addDays(valid, OVERDUE_AFTER);
     while (o < t) o = addDays(o, OVERDUE_REPEAT);
     overdue(o);
+  }
+  // point hebdomadaire : dimanche à 18 h, seulement s'il n'est pas déjà rempli pour la semaine
+  for (let k = 0; k < 2; k++) {
+    const sunday = addDays(mondayOf(addDays(t, 7 * k)), 6);
+    const [y, m, dd] = sunday.split('-').map(Number);
+    const when = new Date(y, m - 1, dd, 18, 0, 0, 0);
+    const c = data.checkins[mondayOf(sunday)];
+    if (when <= now || (c && !c.deleted) || suspended(data, sunday)) continue;
+    list.push({ id: id++, title: $t("Point de la semaine"), body: $t("Deux minutes pour noter VO₂max, HRV, ressenti et prédictions : tes courbes se complètent."), schedule: { at: when, allowWhileIdle: true } });
   }
   const key = JSON.stringify(list.map((x) => [x.title, x.body, x.schedule.at.getTime()]));
   if (key === last) return;

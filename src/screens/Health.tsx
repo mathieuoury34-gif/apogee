@@ -38,7 +38,10 @@ function useWatchStats() {
   const nights = liveRecords(data.sleep);
   const resting = liveRecords(data.resting);
   const weights = liveRecords(data.weight).filter((w) => w.source === 'health');
+  const energy = liveRecords(data.energy), vitals = liveRecords(data.vitals);
   return {
+    energy: energy.length, lastEnergy: energy.map((e) => e.day).sort().pop() ?? null,
+    vo2: vitals.filter((v) => v.vo2max !== null).length, hrv: vitals.filter((v) => v.hrvMs !== null).length,
     weights: weights.length,
     lastWeight: weights.map((r) => r.day).sort().pop() ?? null,
     sessions: health.length,
@@ -143,6 +146,9 @@ function WatchKv({ st }: { st: ReturnType<typeof useWatchStats> }) {
       <dt>{$t("Nuits")}</dt><dd className="t-caption">{st.nights ? $t("{0} · dernière {1}", { 0: num(st.nights), 1: dateFr(st.lastNight) }) : none}</dd>
       <dt>{$t("FC de repos")}</dt><dd className="t-caption">{st.resting ? $t("{0} jour(s) · dernier {1}", { 0: num(st.resting), 1: dateFr(st.lastResting) }) : none}</dd>
       <dt>{$t("Poids")}</dt><dd className="t-caption">{st.weights ? $t("{0} pesée(s) · dernière {1}", { 0: num(st.weights), 1: dateFr(st.lastWeight) }) : none}</dd>
+      <dt>{$t("Dépense du jour")}</dt><dd className="t-caption">{st.energy ? $t("{0} jour(s) · dernier {1}", { 0: num(st.energy), 1: dateFr(st.lastEnergy) }) : none}</dd>
+      <dt>{$t("VO₂max")}</dt><dd className="t-caption">{st.vo2 ? $t("{0} valeur(s)", { 0: num(st.vo2) }) : $t("aucune pour l’instant")}</dd>
+      <dt>{$t("Variabilité cardiaque")}</dt><dd className="t-caption">{st.hrv ? $t("{0} valeur(s)", { 0: num(st.hrv) }) : $t("aucune pour l’instant")}</dd>
     </dl>
   );
 }

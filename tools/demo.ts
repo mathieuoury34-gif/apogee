@@ -16,7 +16,7 @@ const now = TODAY + 'T06:00:00.000Z';
 let idc = 1000;
 const id = () => String(++idc);
 
-d.athlete.main = { id: 'main', updatedAt: now, displayName: 'Mathieu', birthDate: '1991-04-18', sex: 'M', availability: ['mon', 'tue', 'wed', 'thu', 'sat', 'sun'], equipment: ['Home trainer', 'Piscine 25 m', 'Capteur de puissance'], injuries: [{ id: 'inj1', label: 'Gêne tendon d’Achille droit', date: '2026-08-02', notes: null, resolved: true }] };
+d.athlete.main = { id: 'main', updatedAt: now, displayName: 'Mathieu', birthDate: '1991-04-18', sex: 'M', heightCm: 178, availability: ['mon', 'tue', 'wed', 'thu', 'sat', 'sun'], equipment: ['Home trainer', 'Piscine 25 m', 'Capteur de puissance'], injuries: [{ id: 'inj1', label: 'Gêne tendon d’Achille droit', date: '2026-08-02', notes: null, resolved: true }] };
 d.race.main = { id: 'main', updatedAt: now, name: 'Ironman 70.3 Aix-en-Provence', raceDate: '2027-05-23', swimDistanceM: 1900, bikeDistanceM: 90000, runDistanceM: 21097, targetTotalSeconds: 5 * 3600 + 45 * 60, targetSwimSeconds: 38 * 60, targetBikeSeconds: 3 * 3600, targetRunSeconds: 1 * 3600 + 55 * 60, targetTransitionSeconds: 10 * 60, targetRevisedAt: '2026-09-01T10:00:00.000Z', notes: null };
 const zone = (kind: 'vma' | 'ftp' | 'css' | 'hr_max', value: number, day: string, source: 'test' | 'estimation' | 'manual' = 'test') => { const i = id(); d.zones[i] = { id: i, updatedAt: now, kind, value, measuredAt: day + 'T10:00:00.000Z', source, notes: null }; };
 zone('vma', 16.8 / 3.6, '2026-06-20'); zone('vma', 17.4 / 3.6, '2026-09-12');
@@ -98,6 +98,20 @@ for (const day of days) {
   if (day <= TODAY) {
     // poids (déterministe)
     if (wd % 2 === 0) d.weight[day] = { id: day, updatedAt: now, day, kg: Math.round((75.2 - w * 0.06 + 0.35 * Math.sin(wd + w)) * 10) / 10, source: 'health' };
+  }
+  if (day <= TODAY && day >= addDays(TODAY, -30)) {
+    // dépense du jour (Health Connect), journal de repas des derniers jours, point hebdomadaire
+    const active = Math.round(420 + 260 * Math.abs(Math.sin(wd * 1.7 + w)));
+    d.energy[day] = { id: day, updatedAt: now, day, activeKcal: active, totalKcal: active + 1780, source: 'health' };
+    if (day >= addDays(TODAY, -6) && day < TODAY) {
+      d.meals[day + 'a'] = { id: day + 'a', updatedAt: now, day, kcal: 650, label: 'Petit-déjeuner' };
+      d.meals[day + 'b'] = { id: day + 'b', updatedAt: now, day, kcal: 900 + wd * 40, label: 'Déjeuner' };
+      d.meals[day + 'c'] = { id: day + 'c', updatedAt: now, day, kcal: 1050, label: 'Dîner' };
+    }
+    if (wd === 0 && day >= addDays(TODAY, -42)) {
+      const k = Math.round((day.localeCompare(TODAY) + 1000) % 7);
+      d.checkins[day] = { id: day, updatedAt: now, week: day, vo2max: Math.round((53 + w * 0.15) * 10) / 10, lthrBpm: 168, lthPaceSecKm: 285 - Math.min(10, w), hrvMs: 62 + (k % 5), hrvStatus: 'balanced', sleepFelt: 3 + (k % 2), recoveryFelt: 3 + ((k + 1) % 3), pred5kSec: 1440 - w * 2, pred10kSec: 3000 - w * 5, predHalfSec: 6700 - w * 10, predMarathonSec: 14100 - w * 25, note: null };
+    }
   }
   if (inTravel) { if (past && wd === 3) session(day, 'RUN', 40, { km: 7.2, hr: 141, rpe: 4, comment: 'Footing en bord de mer' }); continue; }
   const plan: [PlannedDiscipline, string, Block[], () => void][] = [];

@@ -103,7 +103,10 @@ export function CalendarWeekScreen() {
             <div className="kpi"><span className="label">{$t("Charge")}</span><span className="value">{num(load, 0)}</span></div>
           </div>
         </div>
-        <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'center', minHeight: 32 }} onClick={wk.show}><Icon name="layers" size={18} /> {$t("Actions de la semaine")}</button>
+        <div className="row wrap" style={{ justifyContent: 'center', gap: 'var(--space-8)' }}>
+          <button type="button" className="btn btn-tertiary" style={{ minHeight: 32 }} onClick={wk.show}><Icon name="layers" size={18} /> {$t("Actions de la semaine")}</button>
+          <button type="button" className="btn btn-tertiary" style={{ minHeight: 32 }} onClick={() => navigate('/calendrier/interruptions')}><Icon name="pause" size={18} /> {$t("Interruptions")}{ints.length ? ' (' + ints.length + ')' : ''}</button>
+        </div>
         {wk.open && <WeekActionsSheet monday={monday} sh={wk} />}
         {!isThisWeek && <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'center', minHeight: 32 }} onClick={() => setMonday(mondayOf(d.today))}>{$t("Revenir à cette semaine")}</button>}
         <div className="stack dcols-days" style={{ gap: 0 }}>
@@ -117,7 +120,7 @@ export function CalendarWeekScreen() {
                   <span>{day === d.today ? $t("Aujourd’hui · ") : ''}{dayLong(day)}</span>
                   <button type="button" className="icon-btn" aria-label={$t("Ajouter une séance le ") + dayLong(day)} onClick={() => openSheet('ajouter', { date: day })}><Icon name="plus" size={20} /></button>
                 </h2>
-                {intr && <div className="intr-chip"><Icon name="pause" size={14} /> {intr.label}</div>}
+                {intr && <button type="button" className="intr-chip" style={{ border: 0, cursor: 'pointer' }} onClick={() => navigate('/calendrier/interruptions')}><Icon name="pause" size={14} /> {intr.label}</button>}
                 {it.done.length + openPlanned.length === 0 ? (
                   <p className="t-caption c-moderate day-empty">{day < d.today ? $t("Repos") : $t("Rien de prévu")}</p>
                 ) : (
@@ -246,6 +249,7 @@ export function CalendarMonthScreen() {
             </ul>
           )}
           <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/calendrier?jour=' + sel)}>{$t("Voir la semaine")}<Icon name="next" size={18} /></button>
+          <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/calendrier/interruptions')}><Icon name="pause" size={18} />{$t("Interruptions")}{ints.length ? ' (' + ints.length + ')' : ''}</button>
         </section>
       </main>
       <Fab onClick={() => openSheet('ajouter', { date: sel })} />
@@ -391,7 +395,7 @@ export function AddSheet() {
           <SheetRow icon="bookmark" title={$t("Mes séances favorites")} sub={$t("Réutilise une séance enregistrée")} onClick={() => navigate(route.path + '?sheet=favoris&date=' + date, { replace: true })} />
           <SheetRow icon="clipboard" title={$t("Coller un lot de séances faites")} sub={$t("Une ligne par séance, depuis tes notes")} onClick={() => go('/seances/saisie?mode=lot')} />
           <SheetRow icon="clipboard" title={$t("Coller un lot de séances prévues")} sub={$t("Date ; discipline ; durée ; titre")} onClick={() => go('/seances/saisie?mode=prevues')} />
-          <SheetRow icon="pause" title={$t("Déclarer une interruption")} sub={$t("Blessure, déplacement, bivouac…")} onClick={() => go('/parametres/interruptions?nouvelle=' + date)} />
+          <SheetRow icon="pause" title={$t("Déclarer une interruption")} sub={$t("Blessure, déplacement, bivouac…")} onClick={() => go('/calendrier/interruptions?nouvelle=' + date)} />
           <SheetRow icon="coach" title={$t("Importer un plan du coach")} sub={$t("Fichier JSON apogee/1")} onClick={() => go('/coach?importer=1')} />
         </ul>
       </div>

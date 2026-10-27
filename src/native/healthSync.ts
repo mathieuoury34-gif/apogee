@@ -3,6 +3,7 @@
 // Health Connect le permet (permission « historique ») : tout ce que Garmin y a déposé est récupéré.
 import { useSyncExternalStore } from 'react';
 import { ingest, type IngestReport, type NativeResting, type NativeSession, type NativeSleep, type NativeWeight } from '../domain/health';
+import { ingestEnergy, ingestVitals, type NativeEnergyDay, type NativeHrv, type NativeVo2 } from '../domain/healthExtra';
 import { commit, getData, getPrefs, setPrefs } from '../data/store';
 import { native } from './bridge';
 
@@ -72,6 +73,15 @@ export async function runHealthSync(): Promise<IngestReport | null> {
       // poids : un APK ou une autorisation en retard ne bloque rien
       (h.readWeight?.(range) as Promise<{ records: NativeWeight[] }> | undefined)?.catch(() => ({ records: [] })) ?? Promise.resolve({ records: [] as NativeWeight[] }),
     ]);
+    // dépense du jour, VO₂max, HRV : un APK plus ancien ou une autorisation refusée ne bloque rien
+    const [en, vo2, hrv] = await Promise.all([
+      (h.readDailyEnergy?.(range) as Promise<{ days: NativeEnergyDay[] }> | undefined)?.catch(() => ({ days: [] as NativeEnergyDay[] })) ?? Promise.resolve({ days: [] as NativeEnergyDay[] }),
+      (h.readVo2Max?.(range) as Promise<{ records: NativeVo2[] }> | undefined)?.catch(() => ({ records: [] as NativeVo2[] })) ?? Promise.resolve({ records: [] as NativeVo2[] }),
+      (h.readHrv?.(range) as Promise<{ records: NativeHrv[] }> | undefined)?.catch(() => ({ records: [] as NativeHrv[] })) ?? Promise.resolve({ records: [] as NativeHrv[] }),
+    ]);
+    const energyOps = ingestEnergy(getData(), en.days ?? []);
+    const vitalsOps = ingestVitals(getData(), vo2.records ?? [], hrv.records ?? []);
+    setPrefs({ healthProbe: JSON.stringify({ at: range.end, energyDays: (en.days ?? []).length, vo2: (vo2.records ?? []).length, hrv: (hrv.records ?? []).length }) });
     const { ops, report } = ingest(getData(), s.sessions ?? [], n.nights ?? [], r.records ?? [], { weight: wt.records ?? [] });
     commit((tx) => {
       ops.actual.forEach((x) => tx.put('actual', x));
@@ -79,6 +89,8 @@ export async function runHealthSync(): Promise<IngestReport | null> {
       ops.sleep.forEach((x) => tx.put('sleep', x));
       ops.resting.forEach((x) => tx.put('resting', x));
       ops.weight.forEach((x) => tx.put('weight', x));
+      energyOps.forEach((x) => tx.put('energy', x));
+      vitalsOps.forEach((x) => tx.put('vitals', x));
     });
     if (rescanSleep && (n.nights ?? []).some((x) => 'asleepSec' in x)) setPrefs({ healthSleepAsleep: true });
     setPrefs({ healthSyncedUntil: range.end, healthLastRun: range.end, healthLastError: '', healthLastReport: JSON.stringify(report) });

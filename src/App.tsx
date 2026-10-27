@@ -5,12 +5,12 @@ import { HomeScreen } from './screens/Home';
 import { AddSheet, CalendarMonthScreen, CalendarWeekScreen, PlannedDetailScreen } from './screens/Calendar';
 import { PlannedEditorScreen } from './screens/Editor';
 import { JournalScreen, ManualEntryScreen, ReviewScreen, StatsScreen } from './screens/Sessions';
-import { LoadScreen, ObjectiveScreen, ZoneHistoryScreen, ZonesScreen } from './screens/Progress';
+import { HealthScreen, LoadScreen, ObjectiveScreen, ZoneHistoryScreen, ZonesScreen } from './screens/Progress';
 import { FavoritesSheet } from './screens/Templates';
-import { AnalysisScreen } from './screens/Analysis';
 import { CoachScreen } from './screens/Coach';
 import { PeriodizationScreen } from './screens/Periodization';
-import { InterruptionsScreen, LoadingScreen, ProfileScreen, SettingsScreen } from './screens/Settings';
+import { LoadingScreen, ProfileScreen, SettingsScreen } from './screens/Settings';
+import { InterruptionsScreen } from './screens/Interruptions';
 import { HelpScreen } from './screens/Help';
 import { useReady } from './data/store';
 
@@ -23,6 +23,7 @@ function Screen() {
     case 'calendrier':
       if (b === 'mois') return <CalendarMonthScreen />;
       if (b === 'periodisation') return <PeriodizationScreen />;
+      if (b === 'interruptions') return <InterruptionsScreen key={route.query.get('nouvelle') ?? ''} />;
       if (b === 'prevue' && c) return <PlannedDetailScreen key={c} id={c} />;
       if (b === 'editer' && c) return <PlannedEditorScreen key={route.key} id={c} />;
       return <CalendarWeekScreen />;
@@ -32,17 +33,16 @@ function Screen() {
       if (b) return <ReviewScreen key={b} id={b} />;
       return <JournalScreen key={route.query.get('filtre') ?? ''} />;
     case 'progression':
-      if (b === 'analyse') return <AnalysisScreen />;
+      if (b === 'sante') return <HealthScreen />;
       if (b === 'objectif') return <ObjectiveScreen />;
-      if (b === 'zones' && c) return <ZoneHistoryScreen kind={c} />;
-      if (b === 'zones') return <ZonesScreen key={route.query.get('ajout') ?? ''} />;
+      if ((b === 'capacites' || b === 'zones') && c) return <ZoneHistoryScreen kind={c} />;
+      if (b === 'capacites' || b === 'zones') return <ZonesScreen key={route.query.get('ajout') ?? ''} />;
       return <LoadScreen />;
     case 'coach':
       return <CoachScreen key={route.query.get('importer') ?? ''} />;
     case 'parametres':
       if (b === 'profil') return <ProfileScreen />;
       if (b === 'aide') return <HelpScreen />;
-      if (b === 'interruptions') return <InterruptionsScreen key={route.query.get('nouvelle') ?? ''} />;
       return <SettingsScreen />;
     default:
       return <HomeScreen />;

@@ -8,14 +8,14 @@ import { navigate, useRoute } from '../ui/router';
 import { getData, getPrefs, setPrefs, useCalc, usePrefs } from '../data/store';
 import { deleteCloud, signIn, signOut, syncNow, useSync } from '../data/sync';
 import { backupBlob, dossierMessage, importDossier, readJsonFile, restoreBackup } from '../data/backup';
-import { deleteEverything, deleteInterruption, restore, saveAthlete, saveInterruption } from '../data/actions';
+import { deleteEverything, restore, saveAthlete } from '../data/actions';
 import { native } from '../native/bridge';
 import { HealthCard } from './Health';
 import { openHealthSettings, requestHealthPermissions, runHealthSync, useHealth } from '../native/healthSync';
 import { addDays, ageAt } from '../domain/dates';
 import { newId } from '../domain/ids';
 import { liveRecords } from '../domain/load';
-import type { InjuryEntry, Interruption, InterruptionReason, Weekday } from '../domain/types';
+import type { InjuryEntry, Weekday } from '../domain/types';
 import { WEEKDAYS } from '../domain/types';
 import { dateFr, dateTimeFr, dayTitle, num, parseNum, toInput } from '../ui/format';
 import { setThemePref, themePref, type ThemePref } from '../theme';
@@ -167,10 +167,6 @@ export function SettingsScreen() {
         <Section id="p-athlete" title={$t("Athlète")}>
           <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
             <Row icon="user" title={$t("Profil")} sub={a ? [a.displayName, a.birthDate ? $t("{0} ans", { 0: ageAt(a.birthDate) }) : null, a.availability.length ? $t("{0} jour(s) dispo.", { 0: a.availability.length }) : null].filter(Boolean).join(' · ') || $t("À compléter") : $t("Date de naissance, sexe, disponibilités, blessures")} onClick={() => navigate('/parametres/profil')} />
-            <Row icon="gauge" title={$t("Indicateurs (VMA, FTP, CSS, FC max)")} sub={$t("Historique des tests et estimations")} onClick={() => navigate('/progression/zones')} />
-            <Row icon="flag" title={$t("Course objectif")} sub={data.race.main && !data.race.main.deleted ? `${data.race.main.name} · ${dateFr(data.race.main.raceDate)}` : $t("À renseigner")} onClick={() => navigate('/progression/objectif')} />
-            <Row icon="layers" title={$t("Périodisation")} sub={$t("{0} bloc(s)", { 0: liveRecords(data.phases).length })} onClick={() => navigate('/calendrier/periodisation')} />
-            <Row icon="pause" title={$t("Interruptions")} sub={running ? $t("En cours : {0}", { 0: running.label }) : $t("{0} enregistrée(s) · blessure, voyage, charge externe", { 0: interruptions.length })} onClick={() => navigate('/parametres/interruptions')} />
           </ul>
         </Section>
 
@@ -247,12 +243,13 @@ export function ProfileScreen() {
   const [birth, setBirth] = useState(a?.birthDate ?? '');
   const [cal, setCal] = useState(false);
   const [sex, setSex] = useState<'M' | 'F' | null>(a?.sex ?? null);
+  const [height, setHeight] = useState(a?.heightCm ? String(a.heightCm) : '');
   const [avail, setAvail] = useState<Weekday[]>(a?.availability ?? []);
   const [equip, setEquip] = useState((a?.equipment ?? []).join(', '));
   const [injuries, setInjuries] = useState<InjuryEntry[]>(a?.injuries ?? []);
   const [newInjury, setNewInjury] = useState('');
   const save = () => {
-    saveAthlete({ displayName: name.trim() || null, birthDate: birth || null, sex, availability: WEEKDAYS.filter((w) => avail.includes(w)), equipment: equip.split(',').map((x) => x.trim()).filter(Boolean), injuries });
+    saveAthlete({ displayName: name.trim() || null, birthDate: birth || null, sex, heightCm: (() => { const h = Number(height.replace(',', '.')); return Number.isFinite(h) && h >= 100 && h <= 250 ? Math.round(h) : null; })(), availability: WEEKDAYS.filter((w) => avail.includes(w)), equipment: equip.split(',').map((x) => x.trim()).filter(Boolean), injuries });
     showToast($t("Profil enregistré"));
     navigate('/parametres', { replace: true });
   };
@@ -271,6 +268,7 @@ export function ProfileScreen() {
             <div className="seg" role="group" aria-label={$t("Sexe")}><button type="button" aria-pressed={sex === 'M'} onClick={() => setSex('M')}>{$t("Homme")}</button><button type="button" aria-pressed={sex === 'F'} onClick={() => setSex('F')}>{$t("Femme")}</button></div>
             <span className="hint">{$t("Le TRIMP de Banister utilise un coefficient différent selon le sexe.")}</span>
           </div>
+          <label className="field"><span className="lbl">{$t("Taille (cm)")}</span><input className="input num" inputMode="numeric" value={height} onChange={(e) => setHeight(e.target.value)} /><span className="hint">{$t("Sert à estimer ta dépense de repos (calories), avec ton poids, ton âge et ton sexe.")}</span></label>
           <div className="field"><span className="lbl">{$t("Jours disponibles pour s’entraîner")}</span>
             <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>
               {WEEKDAYS.map((w) => <button key={w} type="button" className="chip" aria-pressed={avail.includes(w)} onClick={() => setAvail(avail.includes(w) ? avail.filter((x) => x !== w) : [...avail, w])}>{WD_LABEL[w]}</button>)}
@@ -298,80 +296,6 @@ export function ProfileScreen() {
         <div className="sticky-foot"><div className="form-narrow"><button type="button" className="btn btn-primary block" onClick={save}>{$t("Enregistrer")}</button></div></div>
       </div>
     </div>
-  );
-}
-
-// ------------------------------------------------------------------ Interruptions
-const REASON_LABEL: Record<InterruptionReason, string> = { injury: $t("Blessure"), travel: $t("Voyage"), external_load: $t("Charge externe"), other: $t("Autre") };
-
-export function InterruptionsScreen() {
-  const route = useRoute();
-  const { data, d } = useCalc();
-  const ask = route.query.get('nouvelle');
-  const [edit, setEdit] = useState<Interruption | 'new' | null>(ask !== null ? 'new' : null);
-  const list = liveRecords(data.interruptions).sort((a, b) => (a.startDate < b.startDate ? 1 : -1));
-  const remove = (i: Interruption) => { const snap = deleteInterruption(i.id); showToast($t("Interruption supprimée"), { undo: () => restore(snap) }); };
-  return (
-    <div className="screen" data-screen="interruptions">
-      <SubHeader title={$t("Interruptions")} fallback="/parametres" right={<button type="button" className="icon-btn" aria-label={$t("Nouvelle interruption")} onClick={() => setEdit('new')}><Icon name="plus" /></button>} />
-      <main className="content stack-16 form-narrow-d">
-        <p className="t-caption c-neutral">{$t("Une interruption (blessure, voyage, charge externe comme un déménagement) suspend les rappels et les alertes de séances manquées. Une charge forfaitaire quotidienne peut remplacer la charge mesurée, pour que la forme de fond reflète la réalité.")}</p>
-        {!list.length ? <Empty icon="pause" title={$t("Aucune interruption")} text={$t("Ajoute une période avec le bouton +.")} /> : (
-          <ul className="tile-list divided card" style={{ padding: '0 var(--space-16)' }}>
-            {list.map((i) => {
-              const now = i.startDate <= d.today && d.today <= i.endDate;
-              return (
-                <li key={i.id}>
-                  <button type="button" className="settings-row" onClick={() => setEdit(i)}>
-                    <Icon name="pause" style={{ color: now ? 'var(--warning-text)' : 'var(--text-neutral)' }} />
-                    <span className="stack"><span className="t-strong">{i.label}{now ? <span className="var-chip warn" style={{ marginLeft: 8 }}>{$t("en cours")}</span> : null}</span><span className="t-caption c-moderate">{REASON_LABEL[i.reason]} {$t("· du")} {dateFr(i.startDate)} {$t("au")} {dateFr(i.endDate)}{i.dailyLoadOverride !== null ? $t(" · forfait {0}/j", { 0: num(i.dailyLoadOverride, 0) }) : ''}</span></span>
-                    <Icon name="next" size={20} style={{ color: 'var(--text-moderate)' }} />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </main>
-      {edit && <InterruptionSheet value={edit === 'new' ? null : edit} defaultStart={d.today} onDelete={edit !== 'new' ? () => { remove(edit); setEdit(null); } : undefined} onClose={() => { setEdit(null); if (ask !== null) navigate('/parametres/interruptions', { replace: true }); }} />}
-    </div>
-  );
-}
-
-function InterruptionSheet({ value, defaultStart, onClose, onDelete }: { value: Interruption | null; defaultStart: string; onClose: () => void; onDelete?: () => void }) {
-  const [label, setLabel] = useState(value?.label ?? '');
-  const [reason, setReason] = useState<InterruptionReason>(value?.reason ?? 'injury');
-  const [start, setStart] = useState(value?.startDate ?? defaultStart);
-  const [end, setEnd] = useState(value?.endDate ?? addDays(defaultStart, 6));
-  const [open, setOpen] = useState<'start' | 'end' | null>(null);
-  const [load, setLoad] = useState(value?.dailyLoadOverride !== null && value?.dailyLoadOverride !== undefined ? toInput(value.dailyLoadOverride, 0) : '');
-  const [suspends, setSuspends] = useState(value?.suspendsReminders ?? true);
-  const [notes, setNotes] = useState(value?.notes ?? '');
-  const lv = load.trim() ? parseNum(load) : null;
-  const bad = !label.trim() || end < start || (lv !== null && (!Number.isFinite(lv) || lv < 0));
-  const save = () => {
-    saveInterruption({ id: value?.id ?? newId(), updatedAt: '', label: label.trim(), reason, startDate: start, endDate: end, dailyLoadOverride: lv, suspendsReminders: suspends, notes: notes.trim() || null });
-    onClose(); showToast($t("Interruption enregistrée"));
-  };
-  return (
-    <Sheet title={value ? $t("Modifier l’interruption") : $t("Nouvelle interruption")} onClose={onClose} full footer={<button type="button" className="btn btn-primary block" disabled={bad} onClick={save}>{$t("Enregistrer")}</button>}>
-      <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
-        <label className="field"><span className="lbl">{$t("Nom")}</span><input className="input" value={label} placeholder={$t("Entorse cheville, vacances…")} onChange={(e) => setLabel(e.target.value)} /></label>
-        <div className="field"><span className="lbl">{$t("Motif")}</span>
-          <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>{(Object.keys(REASON_LABEL) as InterruptionReason[]).map((r) => <button key={r} type="button" className="chip" aria-pressed={reason === r} onClick={() => setReason(r)}>{REASON_LABEL[r]}</button>)}</div>
-        </div>
-        <div className="grid-2" style={{ gap: 'var(--space-12)' }}>
-          <div className="field"><span className="lbl">{$t("Du")}</span><button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setOpen(open === 'start' ? null : 'start')}><span>{dayTitle(start)}</span><Icon name="calendar" size={20} /></button></div>
-          <div className="field"><span className="lbl">{$t("Au")}</span><button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setOpen(open === 'end' ? null : 'end')}><span>{dayTitle(end)}</span><Icon name="calendar" size={20} /></button></div>
-        </div>
-        {open && <DatePicker value={open === 'start' ? start : end} onChange={(v) => { if (open === 'start') { setStart(v); if (end < v) setEnd(v); } else setEnd(v); setOpen(null); }} />}
-        {end < start && <span className="t-caption-strong c-critical">{$t("La fin précède le début.")}</span>}
-        <label className="field"><span className="lbl">{$t("Charge forfaitaire par jour")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><input className="input num" inputMode="numeric" value={load} placeholder={$t("vide = charge mesurée")} onChange={(e) => setLoad(e.target.value)} /><span className="hint">{$t("Remplace la charge des jours sans séance. 0 pour un arrêt complet ; une valeur pour un effort non mesuré (déménagement, randonnée).")}</span></label>
-        <div className="between" style={{ gap: 'var(--space-12)' }}><span className="t-strong" id="lbl-susp">{$t("Suspendre les rappels et alertes")}</span><Switch checked={suspends} labelledBy="lbl-susp" onChange={setSuspends} /></div>
-        <label className="field"><span className="lbl">{$t("Notes")}</span><textarea className="input textarea" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
-        {onDelete && <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start', color: 'var(--critical-text)' }} onClick={onDelete}><Icon name="trash" size={18} />{$t("Supprimer")}</button>}
-      </div>
-    </Sheet>
   );
 }
 

@@ -21,6 +21,9 @@ import { importLegacyDb, emptyData } from '../src/domain/legacy';
 import { buildLoadSeries, computeSessionLoads, resolveHrMax } from '../src/domain/load';
 import { buildManualSession, parseBulkActual, parseBulkPlanned, parseManualFields } from '../src/domain/manual';
 import { hm } from '../src/ui/format';
+import { bmrKcal, dayEnergy, weekEnergy } from '../src/domain/energy';
+import { ingestEnergy, ingestVitals } from '../src/domain/healthExtra';
+import { currentCheckin, metricSeries } from '../src/domain/checkin';
 import { acuteSeries, statusOf, weeklyStatus } from '../src/domain/loadStatus';
 import type { DayLoad } from '../src/domain/load';
 import { applyPreview, buildDossier, parsePlan, preview } from '../src/domain/coach';
@@ -634,4 +637,47 @@ test('charge aiguë : entonnoir 0,8–1,3 × charge habituelle, statuts et bande
   const w = weeklyStatus(days, days[41].day, 3);
   assert.equal(w.length, 3);
   assert.equal(w[2].status, 'overreaching');
+});
+
+test('calories : repos Health Connect ou estimé, actives de secours, bilan avec le journal', () => {
+  const d = emptyData();
+  d.athlete.main = { id: 'main', updatedAt: 'x', displayName: null, birthDate: '1990-01-01', sex: 'M', heightCm: 180, availability: [], equipment: [], injuries: [] };
+  d.weight['2026-10-01'] = { id: '2026-10-01', updatedAt: 'x', day: '2026-10-01', kg: 80, source: 'manual' };
+  assert.equal(Math.round(bmrKcal(d.athlete.main, 80, '2026-10-27')!), 1750);
+  assert.equal(bmrKcal({ sex: null, heightCm: 180, birthDate: '1990-01-01' }, 80, '2026-10-27'), null);
+  // sans total Health Connect : repos estimé ; actives issues des séances
+  d.actual['s1'] = session('s1', '2026-10-26', { activeCaloriesJ: 500 * 4184 });
+  const a = dayEnergy(d, '2026-10-26');
+  assert.equal(Math.round(a.active!), 500);
+  assert.equal(a.activeFrom, 'sessions');
+  assert.equal(a.restFrom, 'estimation');
+  assert.equal(Math.round(a.total!), 2250);
+  // total Health Connect : repos = total − actives
+  d.energy['2026-10-27'] = { id: '2026-10-27', updatedAt: 'x', day: '2026-10-27', activeKcal: 600, totalKcal: 2500, source: 'health' };
+  d.meals['m1'] = { id: 'm1', updatedAt: 'x', day: '2026-10-27', kcal: 700, label: 'Déjeuner' };
+  d.meals['m2'] = { id: 'm2', updatedAt: 'x', day: '2026-10-27', kcal: 1000, label: null };
+  d.meals['m3'] = { id: 'm3', updatedAt: 'x', day: '2026-10-27', kcal: 999, label: null, deleted: true };
+  const b = dayEnergy(d, '2026-10-27');
+  assert.equal(b.rest, 1900); assert.equal(b.restFrom, 'health'); assert.equal(b.total, 2500);
+  assert.equal(b.intake, 1700); assert.equal(b.balance, -800);
+  const w = weekEnergy(d, '2026-10-26');
+  assert.equal(w.days.length, 7); assert.equal(w.mealDays, 1); assert.equal(Math.round(w.active), 1100);
+});
+
+test('Health Connect annexes : dépense du jour, VO₂max et HRV, sans réécrire ce qui n’a pas changé', () => {
+  const d = emptyData();
+  const rows = [{ day: '2026-10-20', activeKcal: 612.4, totalKcal: 2510.2 }, { day: '2026-10-21', activeKcal: null, totalKcal: null }];
+  const ops = ingestEnergy(d, rows);
+  assert.equal(ops.length, 1); assert.equal(ops[0].activeKcal, 612); assert.equal(ops[0].totalKcal, 2510);
+  d.energy['2026-10-20'] = ops[0];
+  assert.equal(ingestEnergy(d, rows).length, 0);
+  const v = ingestVitals(d, [{ id: 'a', time: '2026-10-20T06:00:00Z', zoneOffsetSeconds: 3600, value: 52.46 }, { id: 'b', time: '2026-10-20T20:00:00Z', zoneOffsetSeconds: 3600, value: 51 }], [{ id: 'h1', time: '2026-10-20T03:00:00Z', zoneOffsetSeconds: 3600, ms: 60 }, { id: 'h2', time: '2026-10-20T04:00:00Z', zoneOffsetSeconds: 3600, ms: 70 }]);
+  assert.equal(v.length, 1); assert.equal(v[0].vo2max, 51); assert.equal(v[0].hrvMs, 65);
+  d.vitals['2026-10-20'] = v[0];
+  const c = currentCheckin(d, '2026-10-22');
+  assert.equal(c.week, '2026-10-19'); assert.equal(c.saved, null);
+  assert.equal(c.draft.vo2max, 51); assert.equal(c.draft.hrvMs, 65);
+  d.checkins['2026-10-19'] = { ...c.draft, updatedAt: 'x', pred5kSec: 1500 } as never;
+  assert.deepEqual(metricSeries(d, 'pred5kSec'), [{ week: '2026-10-19', v: 1500 }]);
+  assert.equal(currentCheckin(d, '2026-10-22').saved?.pred5kSec, 1500);
 });

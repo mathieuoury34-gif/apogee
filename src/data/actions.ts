@@ -5,7 +5,7 @@ import { newId, nowIso } from '../domain/ids';
 import { buildManualSession, existingSourceIds, manualSourceId, type ManualInput } from '../domain/manual';
 import { liveRecords, sessionDay } from '../domain/load';
 import { planDedupe } from '../domain/dedupe';
-import type { SessionTemplate, ActualSession, AppData, Athlete, CollectionName, Collections, EditableField, Interruption, WeightReading, PlannedSession, Race, TrainingPhase, ZoneReading } from '../domain/types';
+import type { SessionTemplate, ActualSession, AppData, Athlete, Checkin, CollectionName, Collections, EditableField, Interruption, WeightReading, PlannedSession, Race, TrainingPhase, ZoneReading } from '../domain/types';
 import { COLLECTIONS } from '../domain/types';
 import { applyPreview, type CoachPlan, type Preview } from '../domain/coach';
 import { commit, getData } from './store';
@@ -265,5 +265,30 @@ export function saveWeight(day: string, kg: number): Snapshot {
 export function deleteWeight(day: string): Snapshot {
   const s = snapshot([['weight', day]]);
   commit((tx) => tx.remove('weight', day));
+  return s;
+}
+
+// ------------------------------------------------------------------ calories : journal de repas
+export function addMeal(day: string, kcal: number, label: string | null): Snapshot {
+  const id = newId();
+  const s = snapshot([['meals', id]]);
+  commit((tx) => tx.put('meals', { id, updatedAt: '', day, kcal: Math.round(kcal), label: label && label.trim() ? label.trim() : null }));
+  return s;
+}
+export function deleteMeal(id: string): Snapshot {
+  const s = snapshot([['meals', id]]);
+  commit((tx) => tx.remove('meals', id));
+  return s;
+}
+
+// ------------------------------------------------------------------ point hebdomadaire
+export function saveCheckin(c: Omit<Checkin, 'updatedAt'>): Snapshot {
+  const s = snapshot([['checkins', c.week]]);
+  commit((tx) => tx.put('checkins', { ...c, id: c.week, updatedAt: '' }));
+  return s;
+}
+export function deleteCheckin(week: string): Snapshot {
+  const s = snapshot([['checkins', week]]);
+  commit((tx) => tx.remove('checkins', week));
   return s;
 }

@@ -1,4 +1,4 @@
-// Progression › Analyse — lectures dérivées des séances et du plan : bilan de semaine, respect du plan,
+// Cartes d'analyse — lectures dérivées des séances et du plan : bilan de semaine, respect du plan,
 // zones de FC (80/20), forme de fond par discipline, records, efficacité, enchaînements vélo → course.
 // Chaque carte dit comment elle calcule : aucun nombre sans sa méthode.
 import { $t } from '../i18n';
@@ -18,39 +18,14 @@ import { brickAnalysis, efficiency, EF_BAND, EF_BAND_BIKE, EF_MAX_CLIMB, EF_MAX_
 import { weekSummary, type WeekSummary } from '../domain/summary';
 import { HR_ZONE_EDGES, polarSplit, weeklyZones } from '../domain/zones';
 import { dateFr, dateShort, dayMonth, DISCIPLINE_LABEL, duration, mmss, monthLong, num, pct, signed, speedKmh, NBSP } from '../ui/format';
-import { NAV } from './Progress';
 
 type CalcCtx = ReturnType<typeof useCalc>;
-type Props = { data: CalcCtx['data']; d: CalcCtx['d'] };
-
-export function AnalysisScreen() {
-  const { data, d } = useCalc();
-  return (
-    <div className="screen" data-screen="analyse">
-      <AppHeader title={$t("Progression")} />
-      <ErrorBanner />
-      <SubNav items={NAV} label={$t("Sections Progression")} />
-      <main className="content dgrid">
-        <div className="dmasonry">
-          <WeekCard data={data} d={d} />
-          <ComplianceCard data={data} d={d} />
-          <ZonesCard data={data} d={d} />
-          <FitnessCard data={data} d={d} />
-          <EfficiencyCard data={data} d={d} />
-          <RecordsCard data={data} d={d} />
-          <WeightCard data={data} d={d} />
-          <SleepCard data={data} d={d} />
-          <BricksCard data={data} d={d} />
-        </div>
-      </main>
-    </div>
-  );
-}
+export type Props = { data: CalcCtx['data']; d: CalcCtx['d'] };
 
 const hms = (sec: number) => { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.round(sec % 60); return (h ? h + ':' + String(m).padStart(2, '0') : String(m)) + ':' + String(s).padStart(2, '0'); };
 
 // ------------------------------------------------------------------ bilan de semaine
-function WeekCard({ data, d }: Props) {
+export function WeekCard({ data, d }: Props) {
   const [which, setWhich] = useState<'this' | 'last'>('this');
   const start = which === 'this' ? mondayOf(d.today) : addDays(mondayOf(d.today), -7);
   const w = weekSummary(data, d, start);
@@ -97,7 +72,7 @@ function rateBar(c: Compliance) {
   );
 }
 
-function ComplianceCard({ d, data }: Props) {
+export function ComplianceCard({ d, data }: Props) {
   const [by, setBy] = useState<'week' | 'month'>('week');
   const rep = planCompliance(data, d.links, d.refs, d.today);
   if (!rep.weeks.length && !rep.months.length) {
@@ -131,7 +106,7 @@ function ComplianceCard({ d, data }: Props) {
 }
 
 // ------------------------------------------------------------------ zones de FC
-function ZonesCard({ d, data }: Props) {
+export function ZonesCard({ d, data }: Props) {
   const [n, setN] = useState<'4' | '8' | '12'>('4');
   const [withOther] = useWithOther();
   const hrMax = d.ctx.hrMax.bpm;
@@ -146,7 +121,7 @@ function ZonesCard({ d, data }: Props) {
         <Segmented label={$t("Période")} value={n} onChange={setN} options={[['4', $t("4 sem.")], ['8', $t("8 sem.")], ['12', $t("12 sem.")]]} />
       </div>
       <OtherToggle />
-      {!hrMax || !rep.sessions ? <p className="t-caption c-moderate">{!hrMax ? $t("Il faut une FC max (déclarée ou calculée) : renseigne ta date de naissance ou une FC max dans Progression › Zones.") : $t("Aucune séance de course, vélo ou natation avec une courbe cardiaque sur cette période.")}</p> : (
+      {!hrMax || !rep.sessions ? <p className="t-caption c-moderate">{!hrMax ? $t("Il faut une FC max (déclarée ou calculée) : renseigne ta date de naissance ou une FC max dans Progression › Capacités.") : $t("Aucune séance de course, vélo ou natation avec une courbe cardiaque sur cette période.")}</p> : (
         <>
           <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}>
             <span className="t-h2">{pct(p.total ? p.easy / p.total : 0)}</span>
@@ -178,7 +153,7 @@ function ZonesCard({ d, data }: Props) {
 }
 
 // ------------------------------------------------------------------ forme de fond par discipline
-function FitnessCard({ d, data }: Props) {
+export function FitnessCard({ d, data }: Props) {
   const [withOther] = useWithOther();
   const all = fitnessByDiscipline(data, d.loads, d.series).filter((s) => s.day >= addDays(d.today, -182));
   if (all.length < 2) return null;
@@ -220,7 +195,7 @@ function Spark({ values }: { values: number[] }) {
   return <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true"><polyline points={pts} fill="none" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" style={{ stroke: 'var(--chart-fitness)' }} /></svg>;
 }
 
-function EfficiencyCard({ d, data }: Props) {
+export function EfficiencyCard({ d, data }: Props) {
   const [disc, setDisc] = useState<'RUN' | 'BIKE'>('RUN');
   const hrMax = d.ctx.hrMax.bpm;
   const ef = efficiency(data, hrMax, disc, d.today);
@@ -278,7 +253,7 @@ function EfficiencyCard({ d, data }: Props) {
 }
 
 // ------------------------------------------------------------------ records
-function RecordsCard({ data }: Props) {
+export function RecordsCard({ data }: Props) {
   const recs = personalRecords(data);
   if (!recs.length) return null;
   const line = (r: PersonalRecord) => {
@@ -303,7 +278,7 @@ function RecordsCard({ data }: Props) {
 }
 
 // ------------------------------------------------------------------ poids
-function WeightCard({ data, d }: Props) {
+export function WeightCard({ data, d }: Props) {
   const t = weightTrend(data, d.today);
   const sheet = useLocalSheet();
   const [val, setVal] = useState('');
@@ -346,7 +321,7 @@ function WeightCard({ data, d }: Props) {
 }
 
 // ------------------------------------------------------------------ sommeil
-function SleepCard({ data, d }: Props) {
+export function SleepCard({ data, d }: Props) {
   const st = sleepStats(data, d.today);
   if (st.nights14 === 0) return null;
   const hh = (sec: number) => Math.floor(sec / 3600) + NBSP + 'h' + String(Math.round((sec % 3600) / 60)).padStart(2, '0');
@@ -368,7 +343,7 @@ function SleepCard({ data, d }: Props) {
 }
 
 // ------------------------------------------------------------------ enchaînements vélo → course
-function BricksCard({ d, data }: Props) {
+export function BricksCard({ d, data }: Props) {
   const rows = brickAnalysis(data, d.links, d.today).slice(0, 10);
   if (!rows.length) return null;
   const pace = (v: number | null) => (v === null ? '—' : mmss(v) + NBSP + '/km');

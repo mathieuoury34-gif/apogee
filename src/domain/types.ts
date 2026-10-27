@@ -65,6 +65,8 @@ export interface Athlete extends Rec {
   displayName: string | null;
   birthDate: string | null;
   sex: 'M' | 'F' | null;
+  /** Taille en cm : sert à estimer la dépense de repos (formule de Mifflin-St Jeor). */
+  heightCm?: number | null;
   availability: Weekday[];
   equipment: string[];
   injuries: InjuryEntry[];
@@ -247,6 +249,49 @@ export interface SessionTemplate extends Rec {
   createdAt: string;
 }
 
+/** Dépense énergétique du jour (id = day), lue dans Health Connect : calories actives et totales (repos compris). */
+export interface EnergyDay extends Rec {
+  day: string;
+  activeKcal: number | null;
+  totalKcal: number | null;
+  source: 'health';
+}
+
+/** Repas du journal : une ligne simple (libellé facultatif + kcal), sans base d'aliments. */
+export interface Meal extends Rec {
+  day: string;
+  label: string | null;
+  kcal: number;
+}
+
+/** Valeurs physiologiques du jour lues dans Health Connect, quand la montre les y dépose (id = day). */
+export interface Vitals extends Rec {
+  day: string;
+  vo2max: number | null;
+  hrvMs: number | null;
+}
+
+export type HrvStatus = 'poor' | 'low' | 'unbalanced' | 'balanced';
+/** Point hebdomadaire saisi (ou pré-rempli depuis Health Connect) : capacités et ressenti (id = lundi de la semaine). */
+export interface Checkin extends Rec {
+  week: string;
+  vo2max: number | null;
+  /** Seuil de lactate : FC (bpm) et allure (s/km). */
+  lthrBpm: number | null;
+  lthPaceSecKm: number | null;
+  hrvMs: number | null;
+  hrvStatus: HrvStatus | null;
+  /** Ressenti de la semaine, de 1 (très mauvais) à 5 (très bon). */
+  sleepFelt: number | null;
+  recoveryFelt: number | null;
+  /** Prédictions de course affichées par la montre (secondes). */
+  pred5kSec: number | null;
+  pred10kSec: number | null;
+  predHalfSec: number | null;
+  predMarathonSec: number | null;
+  note: string | null;
+}
+
 /** Collections synchronisées (une collection Firestore chacune). */
 export interface Collections {
   athlete: Athlete;
@@ -263,9 +308,13 @@ export interface Collections {
   weight: WeightReading;
   exchanges: CoachExchange;
   templates: SessionTemplate;
+  energy: EnergyDay;
+  meals: Meal;
+  vitals: Vitals;
+  checkins: Checkin;
 }
 export type CollectionName = keyof Collections;
-export const COLLECTIONS: CollectionName[] = ['athlete', 'race', 'zones', 'phases', 'planned', 'actual', 'series', 'bricks', 'interruptions', 'sleep', 'resting', 'weight', 'exchanges', 'templates'];
+export const COLLECTIONS: CollectionName[] = ['athlete', 'race', 'zones', 'phases', 'planned', 'actual', 'series', 'bricks', 'interruptions', 'sleep', 'resting', 'weight', 'exchanges', 'templates', 'energy', 'meals', 'vitals', 'checkins'];
 
 export type AppData = { [K in CollectionName]: Record<string, Collections[K]> } & { updatedAt: string };
 

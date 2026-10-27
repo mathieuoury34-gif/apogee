@@ -22,6 +22,7 @@ import { ACTUAL_DISCIPLINES } from '../domain/types';
 import { DISCIPLINE_SHORT, bpm, dateFr, dateTimeFr, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, elevation, hm, hours, kcal, km, mmss, monthLong, num, paceFor, parseNum, pct, pctSigned, signed, speedKmh, timeOf, toInput, NBSP } from '../ui/format';
 import { cleanHr } from '../domain/hr';
 import { polarSplit, zoneTimes } from '../domain/zones';
+import { BricksCard, EfficiencyCard, RecordsCard, WeekCard, ZonesCard } from './Analysis';
 import { SplitBars } from '../ui/charts2';
 
 const NAV = [{ to: '/seances', label: $t("Journal") }, { to: '/seances/stats', label: $t("Statistiques") }];
@@ -584,7 +585,7 @@ export function StatsScreen() {
             </section>
             {(disc === 'RUN' || disc === 'BIKE' || disc === 'SWIM') && (
               <section className="card g8 dspan-5" aria-label={$t("Indicateur de référence")}>
-                <div className="between"><h2>{disc === 'RUN' ? $t("VMA") : disc === 'BIKE' ? 'FTP' : 'CSS'}</h2><button type="button" className="icon-btn" aria-label={$t("Ajouter un relevé")} onClick={() => navigate('/progression/zones?ajout=' + (disc === 'RUN' ? 'vma' : disc === 'BIKE' ? 'ftp' : 'css'))}><Icon name="plusCircle" /></button></div>
+                <div className="between"><h2>{disc === 'RUN' ? $t("VMA") : disc === 'BIKE' ? 'FTP' : 'CSS'}</h2><button type="button" className="icon-btn" aria-label={$t("Ajouter un relevé")} onClick={() => navigate('/progression/capacites?ajout=' + (disc === 'RUN' ? 'vma' : disc === 'BIKE' ? 'ftp' : 'css'))}><Icon name="plusCircle" /></button></div>
                 {ref ? (<>
                   <span className="t-h2">{refText(ref.value)}</span>
                   <span className="t-caption c-moderate">{{ test: $t("Test"), estimation: $t("Estimation"), manual: $t("Saisie") }[ref.source]} {$t("du")} {dateFr(ref.measuredAt.slice(0, 10))}{st.referenceHistory[1] ? $t(" · {0}{1} depuis le {2}", { 0: signed(disc === 'SWIM' ? 100 / st.referenceHistory[1].value - 100 / ref.value : (ref.value - st.referenceHistory[1].value) * (disc === 'RUN' ? 3.6 : 1), disc === 'RUN' ? 1 : 0), 1: disc === 'SWIM' ? ' s/100 m' : disc === 'RUN' ? $t(" km/h") : ' W', 2: dateFr(st.referenceHistory[1].measuredAt.slice(0, 10)) }) : ''}</span>
@@ -610,6 +611,13 @@ export function StatsScreen() {
             </div>
           </>
         )}
+        <div className="dmasonry">
+          <WeekCard data={data} d={d} />
+          <ZonesCard data={data} d={d} />
+          <RecordsCard data={data} d={d} />
+          <EfficiencyCard data={data} d={d} />
+          <BricksCard data={data} d={d} />
+        </div>
       </main>
       <Fab onClick={() => openSheet('ajouter')} />
     </div>

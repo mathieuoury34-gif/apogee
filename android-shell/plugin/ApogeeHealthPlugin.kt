@@ -13,12 +13,15 @@ import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ElevationGainedRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.SpeedRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.getcapacitor.JSArray
@@ -51,6 +54,8 @@ class ApogeeHealthPlugin : Plugin() {
         "SleepSession" to SleepSessionRecord::class,
         "RestingHeartRate" to RestingHeartRateRecord::class,
         "Weight" to WeightRecord::class,
+        "Vo2Max" to Vo2MaxRecord::class,
+        "HeartRateVariability" to HeartRateVariabilityRmssdRecord::class,
     )
     private val readPermissions: Map<String, String> get() = types.mapValues { HealthPermission.getReadPermission(it.value) }
     private val historyPermission = "android.permission.health.READ_HEALTH_DATA_HISTORY"
@@ -224,6 +229,68 @@ class ApogeeHealthPlugin : Plugin() {
                 }
                 call.resolve(JSObject().put("records", records))
             } catch (e: Exception) { call.reject(e.message ?: "Lecture du poids impossible") }
+        }
+    }
+
+    /** Dépense du jour (calories actives et totales, repos compris), un total par jour local ; Health Connect écarte lui-même les doublons entre applications. */
+    @PluginMethod
+    fun readDailyEnergy(call: PluginCall) {
+        val c = client() ?: return call.reject("Health Connect indisponible")
+        val (start, end) = range(call) ?: return call.reject("Période invalide")
+        scope.launch {
+            try {
+                val zone = java.time.ZoneId.systemDefault()
+                val from = java.time.LocalDateTime.ofInstant(start, zone).toLocalDate().atStartOfDay()
+                val to = java.time.LocalDateTime.ofInstant(end, zone)
+                val groups = c.aggregateGroupByPeriod(
+                    AggregateGroupByPeriodRequest(
+                        setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL, TotalCaloriesBurnedRecord.ENERGY_TOTAL),
+                        TimeRangeFilter.between(from, to),
+                        java.time.Period.ofDays(1)
+                    )
+                )
+                val days = JSArray()
+                for (g in groups) {
+                    days.put(JSObject().put("day", g.startTime.toLocalDate().toString())
+                        .putN("activeKcal", g.result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories)
+                        .putN("totalKcal", g.result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories))
+                }
+                call.resolve(JSObject().put("days", days))
+            } catch (e: Exception) { call.reject(e.message ?: "Lecture de la dépense énergétique impossible") }
+        }
+    }
+
+    /** VO₂max déposé par la montre, s'il y en a (Garmin ne l'envoie pas toujours). */
+    @PluginMethod
+    fun readVo2Max(call: PluginCall) {
+        val c = client() ?: return call.reject("Health Connect indisponible")
+        val (start, end) = range(call) ?: return call.reject("Période invalide")
+        scope.launch {
+            try {
+                val records = JSArray()
+                for (r in readAll(c, Vo2MaxRecord::class, start, end)) {
+                    records.put(JSObject().put("id", r.metadata.id).put("time", r.time.toString())
+                        .putN("zoneOffsetSeconds", r.zoneOffset?.totalSeconds).put("value", r.vo2MillilitersPerMinuteKilogram))
+                }
+                call.resolve(JSObject().put("records", records))
+            } catch (e: Exception) { call.reject(e.message ?: "Lecture du VO2max impossible") }
+        }
+    }
+
+    /** Variabilité cardiaque (RMSSD, ms), si la montre la dépose. */
+    @PluginMethod
+    fun readHrv(call: PluginCall) {
+        val c = client() ?: return call.reject("Health Connect indisponible")
+        val (start, end) = range(call) ?: return call.reject("Période invalide")
+        scope.launch {
+            try {
+                val records = JSArray()
+                for (r in readAll(c, HeartRateVariabilityRmssdRecord::class, start, end)) {
+                    records.put(JSObject().put("id", r.metadata.id).put("time", r.time.toString())
+                        .putN("zoneOffsetSeconds", r.zoneOffset?.totalSeconds).put("ms", r.heartRateVariabilityMillis))
+                }
+                call.resolve(JSObject().put("records", records))
+            } catch (e: Exception) { call.reject(e.message ?: "Lecture de la HRV impossible") }
         }
     }
 

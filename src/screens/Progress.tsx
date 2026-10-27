@@ -5,6 +5,8 @@ import { $t } from '../i18n';
 import { useState } from 'react';
 import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast, OtherToggle, useWithOther } from '../ui/kit';
 import { FormChart, LoadPanels, StackedWeeks, StepChart } from '../ui/charts';
+import { ComplianceCard, FitnessCard, SleepCard, WeightCard } from './Analysis';
+import { CaloriesCard, CapacitiesTrendsCard, CheckinCard } from './Wellness';
 import { AcuteLoadChart, FocusBars, RatioChart, STATUS_INFO, StatusStrip } from '../ui/loadkit';
 import { acuteSeries, loadFocus, statusOf, weeklyStatus } from '../domain/loadStatus';
 import { Icon } from '../ui/icons';
@@ -22,7 +24,7 @@ import type { DayLoad } from '../domain/load';
 import type { ZoneKind, ZoneReading, ZoneSource } from '../domain/types';
 import { dateFr, dayMonth, dayTitle, DISCIPLINE_LABEL, duration, dvar, hhmm, km, mmss, num, parseMmss, parseNum, pct, signed, toInput, NBSP } from '../ui/format';
 
-export const NAV = [{ to: '/progression', label: $t("Charge") }, { to: '/progression/analyse', label: $t("Analyse") }, { to: '/progression/objectif', label: $t("Objectif") }, { to: '/progression/zones', label: $t("Zones") }];
+export const NAV = [{ to: '/progression', label: $t("Charge") }, { to: '/progression/sante', label: $t("Santé") }, { to: '/progression/capacites', label: $t("Capacités") }, { to: '/progression/objectif', label: $t("Objectif") }];
 
 // ------------------------------------------------------------------ Charge
 export function LoadScreen() {
@@ -116,7 +118,24 @@ export function LoadScreen() {
         <ForecastCard />
 
         <div className="dmasonry">
-        <section className="card g12 dspan-6" aria-label={$t("Forme du jour, détail")}>
+        <FitnessCard data={data} d={d} />
+        </div>
+
+        <section className="card g8 dspan-12" aria-label={$t("Méthode")}>
+          <h2>{$t("Comment la charge est calculée")}</h2>
+          <p className="t-caption c-neutral">{$t("Chaque séance reçoit une charge, de la plus fiable à la moins fiable : TRIMP sur la courbe cardiaque de la montre ; TRIMP sur la FC moyenne ; ressenti × durée recalé sur l’échelle du TRIMP (coefficient")} {num(d.ctx.srpeFactor, 2)}, {d.ctx.srpeCalibrationPairs >= 5 ? $t("appris sur {0} de tes séances", { 0: d.ctx.srpeCalibrationPairs }) : $t("valeur type tant qu’il y a moins de 5 séances avec FC et ressenti")}{$t(") ; à défaut, une charge provisoire tirée de tes habitudes. Forme de fond = moyenne exponentielle sur 42 jours, fatigue = sur 7 jours, fraîcheur = forme − fatigue.")}</p>
+          <p className="t-caption c-moderate">{$t("FC max retenue :")} {d.ctx.hrMax.bpm ? $t("{0} bpm ({1})", { 0: num(d.ctx.hrMax.bpm, 0), 1: d.ctx.hrMax.origin === 'observed' ? $t("pic soutenu observé") : d.ctx.hrMax.origin === 'tanaka' ? $t("formule de Tanaka, faute de mieux") : $t("valeur déclarée") }) : $t("inconnue — renseigne ta date de naissance ou une FC max")}{$t(". FC de repos de référence :")} {d.ctx.resting.at(d.today) ? $t("{0} bpm", { 0: num(d.ctx.resting.at(d.today)!, 0) }) : '—'}.</p>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+export function FormDetailCard() {
+  const { d } = useCalc();
+  const form = d.form ?? d.lastForm;
+  return (
+        <section className="card g12" aria-label={$t("Forme du jour, détail")}>
           <div className="between"><h2>{$t("Forme du jour, détail")}</h2>{form && <span className="t-caption c-moderate">{form.day === d.today ? $t("ce matin") : dayTitle(form.day)}</span>}</div>
           {form ? (
             <>
@@ -136,20 +155,23 @@ export function LoadScreen() {
             </>
           ) : <p className="t-caption c-moderate">{$t("Il faut au moins 3 jours de sommeil, de FC de repos ou de fraîcheur pour calculer un score. Avec une montre lue par Health Connect, il apparaît en quelques jours.")}</p>}
         </section>
+  );
+}
 
-        <section className="card g12 dspan-6" aria-label={$t("Volume par semaine")}>
-          <div className="between baseline"><h2>{$t("Volume — 12 semaines")}</h2><span className="t-caption c-moderate">{$t("heures")}</span></div>
-          <OtherToggle />
-          <StackedWeeks weeks={withOther ? weeks : weeks.map((w) => ({ ...w, total: w.total - (w.byDiscipline.OTHER ?? 0) }))} order={withOther ? ['SWIM', 'BIKE', 'RUN', 'STRENGTH', 'OTHER'] : ['SWIM', 'BIKE', 'RUN', 'STRENGTH']} />
-          <div className="legend">{(withOther ? ['SWIM', 'BIKE', 'RUN', 'STRENGTH', 'OTHER'] : ['SWIM', 'BIKE', 'RUN', 'STRENGTH']).map((k) => <span key={k}><span className="dot s10" style={{ background: dvar(k as never) }} />{DISCIPLINE_LABEL[k as never]}</span>)}</div>
-        </section>
+export function HealthScreen() {
+  const { data, d } = useCalc();
+  return (
+    <div className="screen" data-screen="sante">
+      <AppHeader title={$t("Progression")} />
+      <ErrorBanner />
+      <SubNav items={NAV} label={$t("Sections Progression")} />
+      <main className="content dgrid">
+        <div className="dmasonry">
+          <FormDetailCard />
+          <SleepCard data={data} d={d} />
+          <WeightCard data={data} d={d} />
+          <CaloriesCard />
         </div>
-
-        <section className="card g8 dspan-12" aria-label={$t("Méthode")}>
-          <h2>{$t("Comment la charge est calculée")}</h2>
-          <p className="t-caption c-neutral">{$t("Chaque séance reçoit une charge, de la plus fiable à la moins fiable : TRIMP sur la courbe cardiaque de la montre ; TRIMP sur la FC moyenne ; ressenti × durée recalé sur l’échelle du TRIMP (coefficient")} {num(d.ctx.srpeFactor, 2)}, {d.ctx.srpeCalibrationPairs >= 5 ? $t("appris sur {0} de tes séances", { 0: d.ctx.srpeCalibrationPairs }) : $t("valeur type tant qu’il y a moins de 5 séances avec FC et ressenti")}{$t(") ; à défaut, une charge provisoire tirée de tes habitudes. Forme de fond = moyenne exponentielle sur 42 jours, fatigue = sur 7 jours, fraîcheur = forme − fatigue.")}</p>
-          <p className="t-caption c-moderate">{$t("FC max retenue :")} {d.ctx.hrMax.bpm ? $t("{0} bpm ({1})", { 0: num(d.ctx.hrMax.bpm, 0), 1: d.ctx.hrMax.origin === 'observed' ? $t("pic soutenu observé") : d.ctx.hrMax.origin === 'tanaka' ? $t("formule de Tanaka, faute de mieux") : $t("valeur déclarée") }) : $t("inconnue — renseigne ta date de naissance ou une FC max")}{$t(". FC de repos de référence :")} {d.ctx.resting.at(d.today) ? $t("{0} bpm", { 0: num(d.ctx.resting.at(d.today)!, 0) }) : '—'}.</p>
-        </section>
       </main>
     </div>
   );
@@ -170,7 +192,7 @@ export function ObjectiveScreen() {
   if (!race) {
     return (
       <div className="screen" data-screen="objectif"><AppHeader title={$t("Progression")} /><ErrorBanner /><SubNav items={NAV} label={$t("Sections Progression")} />
-        <main className="content"><Empty icon="flag" title={$t("Aucune course objectif")} text={$t("Renseigne ta course : date, distances et chrono visé. L’écran décompose le chrono en allures et les met en face de tes indicateurs.")} action={<button type="button" className="btn btn-primary" onClick={() => setEditing(true)}>{$t("Renseigner ma course")}</button>} /></main>
+        <main className="content stack-16"><Empty icon="flag" title={$t("Aucune course objectif")} text={$t("Renseigne ta course : date, distances et chrono visé. L’écran décompose le chrono en allures et les met en face de tes indicateurs.")} action={<button type="button" className="btn btn-primary" onClick={() => setEditing(true)}>{$t("Renseigner ma course")}</button>} /><ComplianceCard data={data} d={d} /></main>
         {editing && <RaceSheet onClose={() => setEditing(false)} />}
       </div>
     );
@@ -214,6 +236,7 @@ export function ObjectiveScreen() {
           <PaceCard p={rp.run} />
         </div>
         <p className="t-caption c-moderate dspan-12">{$t("Les allures requises et tes indicateurs sont mis côte à côte, sans jugement de faisabilité : c’est au coach d’en tirer un plan.")}</p>
+        <div className="dspan-12"><ComplianceCard data={data} d={d} /></div>
       </main>
       {editing && <RaceSheet onClose={() => setEditing(false)} />}
     </div>
@@ -312,6 +335,10 @@ export function ZonesScreen() {
       <ErrorBanner />
       <SubNav items={NAV} label={$t("Sections Progression")} />
       <main className="content dgrid">
+        <div className="dmasonry">
+          <CheckinCard />
+          <CapacitiesTrendsCard />
+        </div>
         <ZoneSuggestions />
         {(['vma', 'ftp', 'css', 'hr_max'] as ZoneKind[]).map((k) => {
           const h = zoneHistory(data, k);
@@ -319,7 +346,7 @@ export function ZonesScreen() {
           return (
             <section key={k} className="card g8 dspan-6 list-card" aria-label={KIND_INFO[k].long}>
               <div className="between">
-                <button type="button" className="row-btn grow" style={{ padding: 0 }} onClick={() => navigate('/progression/zones/' + KIND_ROUTE[k])}>
+                <button type="button" className="row-btn grow" style={{ padding: 0 }} onClick={() => navigate('/progression/capacites/' + KIND_ROUTE[k])}>
                   <span className="stack grow"><span className="t-label">{KIND_INFO[k].label}</span><span className="t-caption c-moderate">{KIND_INFO[k].long}</span></span>
                   <Icon name="next" size={20} style={{ color: 'var(--text-moderate)' }} />
                 </button>
@@ -343,7 +370,7 @@ export function ZonesScreen() {
         })}
         <p className="t-caption c-moderate dspan-12">{$t("Chaque valeur est historisée, jamais écrasée. La plus récente sert aux cibles relatives des séances (% VMA, % FTP, % CSS) et au calcul de la charge.")}</p>
       </main>
-      {adding && <ZoneSheet kind={adding} onClose={() => { setAdding(null); if (ask) navigate('/progression/zones', { replace: true }); }} />}
+      {adding && <ZoneSheet kind={adding} onClose={() => { setAdding(null); if (ask) navigate('/progression/capacites', { replace: true }); }} />}
     </div>
   );
 }
@@ -356,7 +383,7 @@ export function ZoneHistoryScreen({ kind: routeKind }: { kind: string }) {
   const remove = (z: ZoneReading) => { const snap = deleteZone(z.id); showToast($t("Valeur supprimée"), { undo: () => restore(snap) }); };
   return (
     <div className="screen" data-screen="zone-historique">
-      <SubHeader title={KIND_INFO[kind].label} fallback="/progression/zones" right={<button type="button" className="icon-btn" aria-label={$t("Nouvelle valeur")} onClick={() => setAdding(true)}><Icon name="plus" /></button>} />
+      <SubHeader title={KIND_INFO[kind].label} fallback="/progression/capacites" right={<button type="button" className="icon-btn" aria-label={$t("Nouvelle valeur")} onClick={() => setAdding(true)}><Icon name="plus" /></button>} />
       <main className="content stack-16 form-narrow-d">
         <p className="c-neutral">{KIND_INFO[kind].long}</p>
         {h.length > 1 && <section className="card"><StepChart history={h} format={(v) => zoneText(kind, v)} color={KIND_INFO[kind].color} /></section>}

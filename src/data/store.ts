@@ -142,6 +142,8 @@ export interface Prefs {
   healthLastRun?: string;
   healthLastError?: string;
   healthLastReport?: string;
+  /** Dernière lecture de la dépense du jour, du VO₂max et de la HRV (JSON : combien de valeurs la montre a déposées). */
+  healthProbe?: string;
   /** Les nuits ont été relues avec le temps réellement endormi (APK avec les étapes du sommeil). */
   healthSleepAsleep?: boolean;
   /** Rappels de séance (APK) : heure locale. */
