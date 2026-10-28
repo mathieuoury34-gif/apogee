@@ -24,6 +24,8 @@ export interface DayEnergy {
   restFrom: 'health' | 'estimation' | null;
   /** Dépense totale = repos + actives. */
   total: number | null;
+  /** Valeurs brutes déposées par la montre dans Health Connect (avant tout calage), si elles existent. */
+  hcRaw: { active: number | null; total: number | null } | null;
   /** Apport du journal de repas. */
   intake: number;
   meals: number;
@@ -67,7 +69,7 @@ export function dayEnergy(data: AppData, day: string, nowMin: number = new Date(
   const meals = liveRecords(data.meals).filter((m) => m.day === day);
   const intake = meals.reduce((t, m) => t + m.kcal, 0);
   const total = totalOverride ?? (rest !== null ? rest + (active ?? 0) : null);
-  return { day, active, activeFrom, rest, restFrom, total, intake, meals: meals.length, balance: total !== null && meals.length ? intake - total : null };
+  return { day, active, activeFrom, rest, restFrom, total, hcRaw: hc ? { active: hc.activeKcal ?? null, total: hc.totalKcal ?? null } : null, intake, meals: meals.length, balance: total !== null && meals.length ? intake - total : null };
 }
 
 /** Les 7 jours de la semaine commençant le lundi `monday`. */

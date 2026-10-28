@@ -3,6 +3,7 @@
 import { $t } from '../i18n';
 import { useState, type ReactNode } from 'react';
 import { Info, useWidth, InfoCard, InfoToggle } from './kit';
+import { Readout } from './readout';
 import { dateShort, dayMonth, DISCIPLINE_LABEL, duration, hm, num, NBSP, monthShort, signed } from './format';
 import type { DayLoad } from '../domain/load';
 import type { DailyForm } from '../domain/form';
@@ -104,7 +105,8 @@ export function LoadPanels({ days, today }: { days: DayLoad[]; today?: string })
   const W = cw - AXIS, T = 8;
   const X = (i: number) => ((i + 0.5) / n) * W;
   const bw = Math.max(1.5, (W / n) * 0.62);
-  const todayIdx = today ? Math.max(0, days.findIndex((x) => x.day === today)) : n - 1;
+  const tIdx = today ? days.findIndex((x) => x.day === today) : -1;
+  const todayIdx = tIdx >= 0 ? tIdx : n - 1;
   const h = hover ?? todayIdx;
   const hd = days[h];
   const projected = !!today && hd.day > today;
@@ -137,16 +139,14 @@ export function LoadPanels({ days, today }: { days: DayLoad[]; today?: string })
   const YF = (v: number) => mid - (v / fr) * (H3 / 2);
   const picks = [0, Math.round((n - 1) / 2), n - 1];
   const hit = (H: number) => <div className="hit" style={{ width: W, height: H }} onPointerMove={(e) => setHover(hoverIndex(e, n))} onPointerDown={(e) => setHover(hoverIndex(e, n))} onPointerLeave={() => setHover(null)} />;
-  const sw = (c: string, dashed = false) => <span className="sw" style={dashed ? { borderTop: `2px dashed ${c}`, height: 0 } : { background: c }} />;
   return (
     <div ref={ref} className="load-panels" data-component="LoadPanels">
-      <div role="status" aria-live="polite" className="load-readout">
-        <span className="when t-caption-strong">{hover === null && h === todayIdx ? $t("Aujourd’hui") : dayMonth(hd.day)}{projected ? $t(" · projeté") : ''}{hd.interruptionFill ? $t(" · forfait") : ''}</span>
-        <span>{sw('var(--chart-load)')}<span className="c-neutral">{$t("Charge du jour")}</span><strong>{num(hd.load, 0)}</strong>{hd.estimated && hd.load ? <em>{$t("estimée")}</em> : null}</span>
-        <span>{sw('var(--chart-fitness)')}<span className="c-neutral">{$t("Forme de fond")}</span><strong>{num(hd.fitness, 0)}</strong></span>
-        <span>{sw('var(--chart-fatigue)', true)}<span className="c-neutral">{$t("Fatigue")}</span><strong>{num(hd.fatigue, 0)}</strong></span>
-        <span>{sw(hd.freshness >= 0 ? 'var(--chart-fresh-pos)' : 'var(--chart-fresh-neg)')}<span className="c-neutral">{$t("Fraîcheur")}</span><strong>{signed(hd.freshness, 0)}</strong></span>
-      </div>
+      <Readout when={<>{hover === null && h === todayIdx && tIdx >= 0 ? $t("Aujourd’hui") : dayMonth(hd.day)}{projected ? $t(" · projeté") : ''}{hd.interruptionFill ? $t(" · forfait") : ''}</>} cells={[
+        { label: $t("Charge du jour"), value: num(hd.load, 0), color: 'var(--chart-load)', note: hd.estimated && hd.load ? $t("estimée") : undefined },
+        { label: $t("Forme de fond"), value: num(hd.fitness, 0), color: 'var(--chart-fitness)' },
+        { label: $t("Fatigue"), value: num(hd.fatigue, 0), color: 'var(--chart-fatigue)', dashed: true },
+        { label: $t("Fraîcheur"), value: signed(hd.freshness, 0), color: hd.freshness >= 0 ? 'var(--chart-fresh-pos)' : 'var(--chart-fresh-neg)' },
+      ]} cols={undefined} />
 
       <InfoCard className="lp" aria-label={$t("Forme de fond et fatigue")}>
         <h3 className="t-strong">{$t("Forme de fond et fatigue")}<InfoToggle /></h3>

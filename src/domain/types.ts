@@ -209,6 +209,8 @@ export interface SleepNight extends Rec {
   durationSec: number;
   /** `true` : `durationSec` est le temps endormi (étapes connues). Absent : temps passé au lit, éveils compris. */
   fromStages?: boolean;
+  /** `true` : nuit validée ou corrigée à la main (début et fin) ; la synchronisation Health Connect ne l'écrase plus. */
+  edited?: boolean;
   sourceId: string | null;
 }
 
@@ -251,11 +253,14 @@ export interface SessionTemplate extends Rec {
   createdAt: string;
 }
 
-/** Dépense énergétique du jour (id = day), lue dans Health Connect : calories actives et totales (repos compris). */
+/** Activité du jour (id = day), lue dans Health Connect : calories actives et totales (repos compris), pas et étages. */
 export interface EnergyDay extends Rec {
   day: string;
   activeKcal: number | null;
   totalKcal: number | null;
+  /** Pas et étages montés du jour (Health Connect), si la montre les dépose. */
+  steps?: number | null;
+  floors?: number | null;
   source: 'health';
 }
 

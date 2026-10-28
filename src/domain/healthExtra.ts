@@ -10,16 +10,23 @@ export interface NativeHrv { id: string; time: string; zoneOffsetSeconds: number
 
 const r1 = (v: number | null | undefined) => (v == null || !Number.isFinite(v) ? null : Math.round(v));
 
-export function ingestEnergy(data: AppData, rows: NativeEnergyDay[]): EnergyDay[] {
+export interface NativeActivityDay { day: string; steps?: number | null; floors?: number | null }
+
+/** Jours à écrire : calories (actives, totales) puis pas et étages, fusionnés par jour ; un jour n'est réécrit que si une valeur a changé. */
+export function ingestEnergy(data: AppData, rows: NativeEnergyDay[], activity: NativeActivityDay[] = []): EnergyDay[] {
   const out: EnergyDay[] = [];
   const now = nowIso();
-  for (const r of rows) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(r.day) || r.day > today()) continue;
-    const active = r1(r.activeKcal), total = r1(r.totalKcal);
-    if (!active && !total) continue;
-    const cur = data.energy[r.day];
-    if (cur && !cur.deleted && cur.activeKcal === active && cur.totalKcal === total) continue;
-    out.push({ id: r.day, updatedAt: now, day: r.day, activeKcal: active, totalKcal: total, source: 'health' });
+  const days = new Map<string, { e?: NativeEnergyDay; a?: NativeActivityDay }>();
+  for (const r of rows) days.set(r.day, { ...days.get(r.day), e: r });
+  for (const a of activity) days.set(a.day, { ...days.get(a.day), a });
+  for (const [day, { e, a }] of days) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day > today()) continue;
+    const cur = data.energy[day] && !data.energy[day].deleted ? data.energy[day] : undefined;
+    const active = e ? r1(e.activeKcal) : cur?.activeKcal ?? null, total = e ? r1(e.totalKcal) : cur?.totalKcal ?? null;
+    const steps = a && a.steps !== undefined ? r1(a.steps) : cur?.steps ?? null, floors = a && a.floors !== undefined ? r1(a.floors) : cur?.floors ?? null;
+    if (!active && !total && !steps && !floors) continue;
+    if (cur && cur.activeKcal === active && cur.totalKcal === total && (cur.steps ?? null) === steps && (cur.floors ?? null) === floors) continue;
+    out.push({ id: day, updatedAt: now, day, activeKcal: active, totalKcal: total, steps, floors, source: 'health' });
   }
   return out;
 }

@@ -1,9 +1,9 @@
 // Lecture « à la Garmin » de la charge : charge aiguë (7 jours) avec son entonnoir optimal, rapport de charge,
 // statut d'entraînement par semaine et répartition de la charge (faible aérobie / aérobie élevée / anaérobie).
-// Ce sont des ESTIMATIONS d'Apogée calculées sur ta propre charge (TRIMP) : Garmin utilise d'autres données
+// Ce sont des ESTIMATIONS d'Apogée calculées sur ta propre charge (modèle d’effort de hr.ts) : Garmin utilise d'autres données
 // et d'autres seuils, les chiffres ne sont pas comparables un à un.
 import { addDays, mondayOf } from './dates';
-import { analyzeHr } from './hr';
+import { analyzeHr, epocRate } from './hr';
 import { liveRecords, sessionDay, type DayLoad, type SessionLoad } from './load';
 import { ZONE_DISCIPLINES, zoneTimes } from './zones';
 import type { AppData } from './types';
@@ -82,8 +82,8 @@ export interface LoadFocus { low: number; high: number; anaerobic: number; total
 /** Repères génériques (part de la charge) d'une semaine équilibrée. Ce n'est pas une prescription. */
 export const FOCUS_REF = { low: [0.5, 0.75], high: [0.2, 0.4], anaerobic: [0.02, 0.15] } as const;
 
-/** Poids de chaque zone dans la charge (Edwards 1993 : 1 à 5) : une minute en zone 5 pèse cinq fois une minute en zone 1. */
-export const ZONE_LOAD_WEIGHT = [1, 2, 3, 4, 5] as const;
+/** Poids de chaque zone dans la charge : la charge par minute du modèle d'effort (hr.ts) au centre de la zone. Une minute en zone 5 pèse ≈ 25 fois une minute en zone 1. */
+export const ZONE_LOAD_WEIGHT = [0.55, 0.65, 0.75, 0.85, 0.95].map(epocRate);
 
 /**
  * Répartition de la charge des `span` derniers jours. Endurance : la charge de chaque séance est partagée selon le temps passé dans chaque zone de FC,

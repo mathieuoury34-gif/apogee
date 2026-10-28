@@ -193,6 +193,18 @@ export function SettingsScreen() {
               <Switch checked={prefs.provisionalLoad} labelledBy="lbl-prov" onChange={(v) => setPrefs({ provisionalLoad: v })} />
             </div>
             {app && (
+              <div className="between" style={{ gap: 'var(--space-12)' }}>
+                <span className="stack"><span className="t-strong" id="lbl-sleeprem">{$t("Rappel du sommeil")}</span><span className="t-caption c-moderate">{$t("Chaque matin, une notification t’invite à valider tes heures de coucher et de lever, ou à les corriger.")}</span></span>
+                <Switch checked={prefs.sleepReminder !== false} labelledBy="lbl-sleeprem" onChange={(v) => setPrefs({ sleepReminder: v })} />
+              </div>
+            )}
+            {app && prefs.sleepReminder !== false && (
+              <div className="field">
+                <span className="lbl">{$t("Heure du rappel du sommeil")}</span>
+                <IntField label={$t("Heure du rappel du sommeil")} unit="h" value={prefs.sleepReminderHour ?? 8} onChange={(x) => setPrefs({ sleepReminderHour: x ?? 8 })} min={5} max={12} />
+              </div>
+            )}
+            {app && (
               <div className="field">
                 <span className="lbl">{$t("Heure des rappels de séance")}</span>
                 <IntField label={$t("Heure des rappels de séance")} unit="h" value={prefs.reminderHour} onChange={(x) => setPrefs({ reminderHour: x ?? 8 })} min={0} max={23} />
@@ -266,7 +278,7 @@ export function ProfileScreen() {
           </div>
           <div className="field"><span className="lbl">{$t("Sexe")}</span>
             <div className="seg" role="group" aria-label={$t("Sexe")}><button type="button" aria-pressed={sex === 'M'} onClick={() => setSex('M')}>{$t("Homme")}</button><button type="button" aria-pressed={sex === 'F'} onClick={() => setSex('F')}>{$t("Femme")}</button></div>
-            <span className="hint">{$t("Le TRIMP de Banister utilise un coefficient différent selon le sexe.")}</span>
+            <span className="hint">{$t("Le sexe sert à estimer les calories de repos.")}</span>
           </div>
           <div className="field"><span className="lbl">{$t("Taille (cm)")}</span><IntField label={$t("Taille (cm)")} unit="cm" value={numOf(height)} onChange={(x) => setHeight(x === null ? '' : String(x))} min={120} max={230} clearable initial={175} /><span className="hint">{$t("Sert à estimer ta dépense de repos (calories), avec ton poids, ton âge et ton sexe.")}</span></div>
           <div className="field"><span className="lbl">{$t("Calories de repos de ta montre (par jour)")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><IntField label={$t("Calories de repos de ta montre (par jour)")} unit="kcal" value={numOf(restKcal)} onChange={(x) => setRestKcal(x === null ? '' : String(x))} min={1000} max={4000} step={10} clearable initial={2000} />

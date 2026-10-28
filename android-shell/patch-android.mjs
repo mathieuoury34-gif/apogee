@@ -33,6 +33,8 @@ const PERMS = [
   'android.permission.health.READ_WEIGHT',
   'android.permission.health.READ_VO2_MAX',
   'android.permission.health.READ_HEART_RATE_VARIABILITY',
+  'android.permission.health.READ_STEPS',
+  'android.permission.health.READ_FLOORS_CLIMBED',
   'android.permission.health.READ_HEALTH_DATA_HISTORY',
   'android.permission.POST_NOTIFICATIONS',
 ];

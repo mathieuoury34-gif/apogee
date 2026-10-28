@@ -8,12 +8,16 @@ import { useLocalSheet } from '../ui/menu';
 import { FITNESS_COLOR, FITNESS_LABEL, SplitBars, StackedFitness } from '../ui/charts2';
 import { navigate } from '../ui/router';
 import { Icon } from '../ui/icons';
-import { DecField, numOf } from '../ui/wheels';
+import { ClockField, DecField, numOf } from '../ui/wheels';
+import { DayChart } from '../ui/daychart';
+import { PeriodBar, useDaySel, usePeriod, type SpanOption } from '../ui/period';
+import { Readout } from '../ui/readout';
+import { liveRecords } from '../domain/load';
 import { useCalc } from '../data/store';
-import { deleteWeight, restore, saveWeight } from '../data/actions';
+import { deleteWeight, resetSleepNight, restore, saveSleepNight, saveWeight } from '../data/actions';
 import { recentNights, sleepStats, weightTrend } from '../domain/body';
 import { planCompliance, type Compliance } from '../domain/compliance';
-import { addDays, mondayOf } from '../domain/dates';
+import { addDays, dayRange, mondayOf } from '../domain/dates';
 import { fitnessByDiscipline, type LoadKey } from '../domain/loadByDiscipline';
 import { brickAnalysis, efficiency, EF_BAND, EF_BAND_BIKE, EF_MAX_CLIMB, EF_MAX_CLIMB_BIKE, personalRecords, type PersonalRecord } from '../domain/records';
 import { weekSummary, type WeekSummary } from '../domain/summary';
@@ -156,11 +160,14 @@ export function ZonesCard({ d, data }: Props) {
 // ------------------------------------------------------------------ forme de fond par discipline
 export function FitnessCard({ d, data }: Props) {
   const [withOther] = useWithOther();
-  const all = fitnessByDiscipline(data, d.loads, d.series).filter((s) => s.day >= addDays(d.today, -182));
-  if (all.length < 2) return null;
+  const fp = usePeriod(182);
+  const full = fitnessByDiscipline(data, d.loads, d.series);
+  const fEnd = addDays(d.today, -fp.offset), fStart = addDays(fEnd, -fp.span);
+  const all = full.filter((s) => s.day > fStart && s.day <= fEnd);
+  if (full.length < 2 || all.length < 1) return null;
   const keys = (['SWIM', 'BIKE', 'RUN', 'STRENGTH', 'OTHER', 'FORFAIT'] as LoadKey[]).filter((k) => (k !== 'OTHER' || withOther) && all.some((s) => s.byKey[k] > 0.5));
   const last = all[all.length - 1];
-  const before = all.filter((s) => s.day <= addDays(last.day, -28)).pop() ?? null;
+  const before = full.filter((s) => s.day <= addDays(last.day, -28)).pop() ?? null;
   const tot = keys.reduce((t, k) => t + last.byKey[k], 0);
   const totBefore = before ? keys.reduce((t, k) => t + before.byKey[k], 0) : null;
   return (
@@ -173,6 +180,7 @@ export function FitnessCard({ d, data }: Props) {
       </div>
       <OtherToggle />
       <Info>{$t("Chaque barre est une semaine : sa hauteur est ta forme de fond ce jour-là, et ses couleurs montrent la part de chaque discipline.")}</Info>
+      <PeriodBar p={fp} options={[[56, $t("8 sem.")], [91, $t("3 mois")], [182, $t("6 mois")], [365, $t("1 an")]]} total={Math.max(365, d.series.days.length)} from={addDays(fStart, 1)} to={fEnd} />
       <StackedFitness slices={all} keys={keys} />
       <ul>
         {keys.map((k) => {
@@ -281,6 +289,15 @@ export function RecordsCard({ data }: Props) {
 // ------------------------------------------------------------------ poids
 export function WeightCard({ data, d }: Props) {
   const t = weightTrend(data, d.today);
+  const wAll = liveRecords(data.weight);
+  const wFirst = wAll.reduce((m, w) => (w.day < m ? w.day : m), d.today);
+  const wDays = dayRange(wFirst < addDays(d.today, -89) ? wFirst : addDays(d.today, -89), d.today);
+  const wp = usePeriod(90);
+  const wWin = wp.slice(wDays);
+  const [wsi, setWsi] = useDaySel(wWin, (x) => !!data.weight[x] && !data.weight[x].deleted);
+  const wDay = wWin[wsi] ?? d.today;
+  const wAt = (x: string) => { const r = data.weight[x]; return r && !r.deleted ? r.kg : null; };
+  const wAvg = (() => { const v = Array.from({ length: 7 }, (_, k) => wAt(addDays(wDay, -k))).filter((x): x is number => x !== null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; })();
   const sheet = useLocalSheet();
   const [val, setVal] = useState('');
   const kg = Number(val.replace(',', '.'));
@@ -304,8 +321,12 @@ export function WeightCard({ data, d }: Props) {
             <span className="t-caption c-neutral">{t.avg7 !== null ? $t("moyenne des 7 derniers jours") : $t("dernière pesée le {0}", { 0: dateFr(t.latest.day) })}</span>
           </div>
           {t.change !== null && <span className="t-caption c-neutral">{signed(t.change, 1)}{NBSP}kg {$t("par rapport à il y a 4 semaines")}</span>}
-          <Spark values={t.points.map((p) => p.kg)} />
-          <div className="between t-legal c-moderate"><span>{t.points.length ? dateShort(t.points[0].day) : ''}</span><span>{$t("{0} pesées sur 90 jours", { 0: t.points.length })}</span><span>{t.points.length ? dateShort(t.points[t.points.length - 1].day) : ''}</span></div>
+          <PeriodBar p={wp} options={[[30, $t("1 mois")], [90, $t("3 mois")], [180, $t("6 mois")], [365, $t("1 an")]]} total={wDays.length} from={wWin[0]} to={wWin[wWin.length - 1]} />
+          <Readout when={wDay === d.today ? $t("Aujourd’hui") : dayTitle(wDay)} cells={[
+            { label: $t("Pesée du jour"), value: wAt(wDay) === null ? '—' : num(wAt(wDay)!, 1) + NBSP + 'kg', color: 'var(--chart-value)', key: true },
+            { label: $t("Moyenne 7 jours"), value: wAvg === null ? '—' : num(wAvg, 1) + NBSP + 'kg' },
+          ]} />
+          <DayChart points={wWin.map((x) => ({ day: x, v: wAt(x) }))} kind="line" connect sel={wsi} onSel={setWsi} height={110} fmtTick={(v) => num(v, 1)} label={$t("Poids par jour")} dots />
         </>
       )}
       <Info>{$t("La moyenne sur 7 jours lisse les variations d’hydratation d’un jour à l’autre. Le poids est un simple suivi : il ne modifie aucune charge. Une pesée saisie à la main n’est jamais écrasée par Health Connect.")}</Info>
@@ -322,36 +343,70 @@ export function WeightCard({ data, d }: Props) {
 }
 
 // ------------------------------------------------------------------ sommeil
+const hhSleep = (sec: number) => Math.floor(sec / 3600) + NBSP + 'h' + String(Math.round((sec % 3600) / 60)).padStart(2, '0');
+const clockSec = (iso: string, off: number | null) => { const [h, m] = timeOf(iso, off).split(':').map(Number); return h * 3600 + m * 60; };
+const SPANS_SLEEP: SpanOption[] = [[7, $t("7 nuits")], [14, $t("14 nuits")], [30, $t("30 nuits")], [90, $t("3 mois")]];
+
 export function SleepCard({ data, d }: Props) {
   const st = sleepStats(data, d.today);
-  if (st.nights14 === 0) return null;
-  const hh = (sec: number) => Math.floor(sec / 3600) + NBSP + 'h' + String(Math.round((sec % 3600) / 60)).padStart(2, '0');
-  const clock = (m: number) => { const x = Math.round(m) % 1440; return String(Math.floor(x / 60)).padStart(2, '0') + NBSP + 'h' + String(x % 60).padStart(2, '0'); };
+  const sheet = useLocalSheet();
+  const pw = usePeriod(14);
+  const nightsAll = liveRecords(data.sleep);
+  const first = nightsAll.reduce((m, n) => (n.nightDate < m ? n.nightDate : m), d.today);
+  const all = dayRange(first < addDays(d.today, -29) ? first : addDays(d.today, -29), d.today);
+  const days = pw.slice(all);
+  const [si, setSi] = useDaySel(days, (x) => !!data.sleep[x] && !data.sleep[x].deleted);
+  const [bed, setBed] = useState<number | null>(null);
+  const [wake, setWake] = useState<number | null>(null);
+  if (nightsAll.length === 0) return null;
+  const day = days[si] ?? d.today;
+  const n = data.sleep[day] && !data.sleep[day].deleted ? data.sleep[day] : null;
+  const offset = n?.zoneOffsetMinutes ?? -new Date().getTimezoneOffset();
   const diff = st.avg7 !== null && st.avgBefore !== null ? st.avg7 - st.avgBefore : null;
+  const clock = (m: number) => { const x = Math.round(m) % 1440; return String(Math.floor(x / 60)).padStart(2, '0') + NBSP + 'h' + String(x % 60).padStart(2, '0'); };
+  const bedS = bed ?? (n ? clockSec(n.startAt, n.zoneOffsetMinutes) : 23 * 3600);
+  const wakeS = wake ?? (n ? clockSec(n.endAt, n.zoneOffsetMinutes) : 7 * 3600);
+  const durS = (bedS <= wakeS ? wakeS - bedS : 86400 - bedS + wakeS);
+  const ok = durS >= 3600 && durS <= 16 * 3600;
+  const openEdit = () => { setBed(null); setWake(null); sheet.show(); };
+  const save = () => {
+    if (!ok) return;
+    const snap = saveSleepNight(day, bedS, wakeS, offset);
+    sheet.hide();
+    showToast($t("Nuit enregistrée"), { undo: () => restore(snap) });
+  };
+  const reset = () => { const snap = resetSleepNight(day); sheet.hide(); showToast($t("Nuit rendue à la montre"), { undo: () => restore(snap) }); };
   return (
     <InfoCard className="card g12" aria-label={$t("Sommeil")}>
-      <h2>{$t("Sommeil")}<InfoToggle /></h2>
+      <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
+        <h2>{$t("Sommeil")}<InfoToggle /></h2>
+        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={openEdit}>{n ? $t("Modifier la nuit") : $t("Saisir la nuit")}</button>
+      </div>
+      <PeriodBar p={pw} options={SPANS_SLEEP} total={all.length} from={days[0]} to={days[days.length - 1]} />
+      <Readout when={<>{day === d.today ? $t("Cette nuit (réveil aujourd’hui)") : $t("Réveil le {0}", { 0: dayTitle(day) })}{n?.edited ? <span className="var-chip flat" style={{ marginLeft: 'var(--space-8)' }}>{$t("validée")}</span> : null}</>} cells={[
+        { label: $t("Durée"), value: n ? hhSleep(n.durationSec) : '—', color: 'var(--chart-value)', key: true },
+        { label: $t("Coucher → lever"), value: n ? timeOf(n.startAt, n.zoneOffsetMinutes) + ' → ' + timeOf(n.endAt, n.zoneOffsetMinutes) : '—' },
+      ]} />
+      <DayChart points={days.map((x) => { const r = data.sleep[x]; return { day: x, v: r && !r.deleted ? r.durationSec / 3600 : null, faint: !!r && !r.deleted && !r.fromStages }; })} kind="bars" min={0} max={10} ticks={[0, 2, 4, 6, 8, 10]} fmtTick={(v) => v + ' h'} sel={si} onSel={setSi} height={110} color="var(--chart-value)" label={$t("Durée de sommeil par nuit")} />
       <dl className="kv">
-        <dt>{$t("Durée moyenne, 7 dernières nuits")}</dt><dd>{st.avg7 === null ? '—' : hh(st.avg7)}</dd>
+        <dt>{$t("Durée moyenne, 7 dernières nuits")}</dt><dd>{st.avg7 === null ? '—' : hhSleep(st.avg7)}</dd>
         <dt>{$t("Écart avec les 3 semaines précédentes")}</dt><dd>{diff === null ? '—' : (diff >= 0 ? '+' : '−') + Math.round(Math.abs(diff) / 60) + NBSP + 'min'}</dd>
         <dt>{$t("Heure de coucher habituelle")}</dt><dd>{st.bedtimeMedian === null ? '—' : clock(st.bedtimeMedian)}</dd>
         <dt>{$t("Régularité du coucher (écart-type)")}</dt><dd>{st.bedtimeSd === null ? '—' : '± ' + Math.round(st.bedtimeSd) + NBSP + 'min'}</dd>
       </dl>
-      {st.staged14 < st.nights14 && <div className="note"><Icon name="info" size={20} /><span>{st.staged14 === 0 ? $t("Ces durées sont le temps passé au lit, éveils compris : Health Connect ne donne pas (encore) les étapes du sommeil. Avec la dernière version de l’APK, l’app compte le temps réellement endormi, comme Garmin Connect.") : $t("{0} nuit(s) sur {1} sont comptées en temps passé au lit (étapes du sommeil indisponibles), les autres en temps réellement endormi.", { 0: st.nights14 - st.staged14, 1: st.nights14 })}</span></div>}
-      <details className="nights">
-        <summary className="t-caption-strong c-neutral">{$t("Détail des dernières nuits")}</summary>
-        <ul className="stack-4" style={{ paddingTop: 'var(--space-8)' }}>
-          {recentNights(data, d.today, 7).map((r) => (
-            <li key={r.nightDate} className="between t-caption">
-              <span>{dayTitle(r.nightDate)}</span>
-              <span className="c-moderate">{timeOf(r.startAt, r.zoneOffsetMinutes)} → {timeOf(r.endAt, r.zoneOffsetMinutes)}</span>
-              <strong>{hh(r.durationSec)}{r.fromStages ? '' : ' *'}</strong>
-            </li>
-          ))}
-        </ul>
-        <p className="t-legal c-moderate">{$t("Jour de réveil, comme dans Garmin Connect. * = temps passé au lit (étapes du sommeil indisponibles).")}</p>
-      </details>
-      <Info>{$t("Lecture seule, sans objectif de sommeil imposé : on compare ta semaine à tes propres habitudes. La durée est le temps réellement endormi (éveils exclus) quand Health Connect donne les étapes du sommeil, comme dans Garmin Connect. Le coucher est l’heure de début de la nuit lue par Health Connect, sur les 14 dernières nuits (5 minimum). Plus l’écart-type est petit, plus tes nuits sont régulières. La durée de la nuit compte déjà dans la forme du jour.")}</Info>
+      <Info>{$t("Jour de réveil, comme dans Garmin Connect. Touche une nuit du graphe pour la lire ; « Modifier la nuit » corrige le coucher et le lever (par exemple si tu n’avais pas la montre au poignet) : la nuit corrigée n’est plus écrasée par la montre. Un rappel le matin te propose de la valider (réglable dans Paramètres). La durée est le temps réellement endormi (éveils exclus) quand Health Connect donne les étapes du sommeil ; une barre pâle est un temps passé au lit. Le coucher habituel se calcule sur les 14 dernières nuits (5 minimum) ; plus l’écart-type est petit, plus tes nuits sont régulières. La durée de la nuit compte déjà dans la forme du jour.")}</Info>
+      {sheet.open && (
+        <Sheet title={$t("Nuit du réveil du {0}", { 0: dayMonth(day) })} onClose={sheet.hide} footer={<button type="button" className="btn btn-primary block" disabled={!ok} onClick={save}>{$t("Enregistrer")}</button>}>
+          <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
+            <div className="grid-2">
+              <div className="field"><span className="lbl">{$t("Coucher")}</span><ClockField label={$t("Coucher")} value={bedS} onChange={setBed} /></div>
+              <div className="field"><span className="lbl">{$t("Lever")}</span><ClockField label={$t("Lever")} value={wakeS} onChange={setWake} /></div>
+            </div>
+            <span className="t-caption c-neutral">{ok ? $t("Durée : {0}", { 0: hhSleep(durS) }) : $t("Durée improbable : entre 1 h et 16 h.")}</span>
+            {n?.edited && d.today <= addDays(day, 2) && <button type="button" className="btn btn-tertiary" onClick={reset}>{$t("Rétablir la valeur de la montre")}</button>}
+          </div>
+        </Sheet>
+      )}
     </InfoCard>
   );
 }

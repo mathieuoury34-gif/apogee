@@ -3,7 +3,7 @@
 // Health Connect le permet (permission « historique ») : tout ce que Garmin y a déposé est récupéré.
 import { useSyncExternalStore } from 'react';
 import { ingest, type IngestReport, type NativeResting, type NativeSession, type NativeSleep, type NativeWeight } from '../domain/health';
-import { ingestEnergy, ingestVitals, type NativeEnergyDay, type NativeHrv, type NativeVo2 } from '../domain/healthExtra';
+import { ingestEnergy, ingestVitals, type NativeActivityDay, type NativeEnergyDay, type NativeHrv, type NativeVo2 } from '../domain/healthExtra';
 import { commit, getData, getPrefs, setPrefs } from '../data/store';
 import { native } from './bridge';
 
@@ -74,14 +74,15 @@ export async function runHealthSync(): Promise<IngestReport | null> {
       (h.readWeight?.(range) as Promise<{ records: NativeWeight[] }> | undefined)?.catch(() => ({ records: [] })) ?? Promise.resolve({ records: [] as NativeWeight[] }),
     ]);
     // dépense du jour, VO₂max, HRV : un APK plus ancien ou une autorisation refusée ne bloque rien
-    const [en, vo2, hrv] = await Promise.all([
+    const [en, act, vo2, hrv] = await Promise.all([
       (h.readDailyEnergy?.(range) as Promise<{ days: NativeEnergyDay[] }> | undefined)?.catch(() => ({ days: [] as NativeEnergyDay[] })) ?? Promise.resolve({ days: [] as NativeEnergyDay[] }),
+      (h.readDailyActivity?.(getPrefs().healthActivityScan ? range : { start: new Date(end.getTime() - 120 * 86400_000).toISOString(), end: range.end }) as Promise<{ days: NativeActivityDay[] }> | undefined)?.catch(() => ({ days: [] as NativeActivityDay[] })) ?? Promise.resolve({ days: [] as NativeActivityDay[] }),
       (h.readVo2Max?.(range) as Promise<{ records: NativeVo2[] }> | undefined)?.catch(() => ({ records: [] as NativeVo2[] })) ?? Promise.resolve({ records: [] as NativeVo2[] }),
       (h.readHrv?.(range) as Promise<{ records: NativeHrv[] }> | undefined)?.catch(() => ({ records: [] as NativeHrv[] })) ?? Promise.resolve({ records: [] as NativeHrv[] }),
     ]);
-    const energyOps = ingestEnergy(getData(), en.days ?? []);
+    const energyOps = ingestEnergy(getData(), en.days ?? [], act.days ?? []);
     const vitalsOps = ingestVitals(getData(), vo2.records ?? [], hrv.records ?? []);
-    setPrefs({ healthProbe: JSON.stringify({ at: range.end, energyDays: (en.days ?? []).length, vo2: (vo2.records ?? []).length, hrv: (hrv.records ?? []).length }) });
+    setPrefs({ healthProbe: JSON.stringify({ at: range.end, energyDays: (en.days ?? []).length, activityDays: (act.days ?? []).length, vo2: (vo2.records ?? []).length, hrv: (hrv.records ?? []).length }) });
     const { ops, report } = ingest(getData(), s.sessions ?? [], n.nights ?? [], r.records ?? [], { weight: wt.records ?? [] });
     commit((tx) => {
       ops.actual.forEach((x) => tx.put('actual', x));
@@ -92,6 +93,7 @@ export async function runHealthSync(): Promise<IngestReport | null> {
       energyOps.forEach((x) => tx.put('energy', x));
       vitalsOps.forEach((x) => tx.put('vitals', x));
     });
+    if (!getPrefs().healthActivityScan && (act.days ?? []).length > 0) setPrefs({ healthActivityScan: true });
     if (rescanSleep && (n.nights ?? []).some((x) => 'asleepSec' in x)) setPrefs({ healthSleepAsleep: true, healthSleepMerged: true });
     setPrefs({ healthSyncedUntil: range.end, healthLastRun: range.end, healthLastError: '', healthLastReport: JSON.stringify(report) });
     set({ running: false, lastReport: report });

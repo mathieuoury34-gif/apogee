@@ -7,9 +7,12 @@ import { useCalc } from '../data/store';
 import { Info, InfoCard, InfoToggle } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { navigate } from '../ui/router';
-import { addDays } from '../domain/dates';
+import { addDays, dayRange } from '../domain/dates';
+import { DayChart } from '../ui/daychart';
+import { PeriodBar, useDaySel, usePeriod, type SpanOption } from '../ui/period';
+import { Readout } from '../ui/readout';
 import {
-  bestEfforts, energyReserve, enduranceScore, hillScore, racePredictions, readiness, readinessFactors, trainingEffects, vo2maxEstimate,
+  bestEfforts, effortAdjuster, energyReserve, enduranceScore, hillScore, racePredictions, readiness, readinessFactors, trainingEffects, vo2maxEstimate,
   readinessLevel, type ReadinessKey, type ReadinessLevel,
 } from '../domain/capacity';
 import type { TeLevel } from '../domain/science';
@@ -43,7 +46,7 @@ export function TrainingEffectCard({ id }: { id: string }) {
       <div className="between"><h2>{$t("Effet de la séance")}<InfoToggle /></h2><Est /></div>
       {row($t("Aérobie"), e.aerobic, e.level)}
       {row($t("Anaérobie"), e.anaerobic, e.anaerobicLevel)}
-      <Info>{$t("Échelle de 0 à 5 comme sur les montres. Aérobie : charge de la séance (TRIMP de Banister, qui suit la dépense d’oxygène après l’effort) comparée à une séance solide de tes 90 derniers jours ({0}).", { 0: e.refIsDefault ? $t("valeur type : historique trop court") : num(e.refLoad, 0) })}{e.anaerobic === null ? '' : $t(" Anaérobie : temps passé à 90 % de la FC max ou plus ({0}), approximation d’Apogée.", { 0: Math.round((e.zone5Sec ?? 0) / 60) + NBSP + 'min' })}</Info>
+      <Info>{$t("Échelle de 0 à 5 comme sur les montres. Aérobie : charge de la séance (modèle d’effort de type EPOC, la dépense d’oxygène après l’effort) comparée à une séance solide de tes 90 derniers jours ({0}).", { 0: e.refIsDefault ? $t("valeur type : historique trop court") : num(e.refLoad, 0) })}{e.anaerobic === null ? '' : $t(" Anaérobie : temps passé à 90 % de la FC max ou plus ({0}), approximation d’Apogée.", { 0: Math.round((e.zone5Sec ?? 0) / 60) + NBSP + 'min' })}</Info>
     </InfoCard>
   );
 }
@@ -68,17 +71,33 @@ function factorValue(k: ReadinessKey, v: number): string {
   return signed(v, 0);
 }
 
+const SPANS_DAYS: SpanOption[] = [[7, $t("7 j")], [14, $t("14 j")], [30, $t("30 j")], [90, $t("3 mois")]];
+
+/** Tous les jours depuis le début de l'historique (au moins 30 jours) jusqu'à aujourd'hui. */
+function useAllDays(): string[] {
+  const { d } = useCalc();
+  return useMemo(() => dayRange(d.series.firstDay && d.series.firstDay < addDays(d.today, -29) ? d.series.firstDay : addDays(d.today, -29), d.today), [d.series.firstDay, d.today]);
+}
+
 export function ReadinessCard() {
   const { data, d } = useCalc();
-  const r = useMemo(() => readiness(data, d), [data, d]);
-  const missingNow = useMemo(() => readinessFactors(data, d).missing, [data, d]);
-  const week = useMemo(() => Array.from({ length: 7 }, (_, i) => { const day = addDays(d.today, i - 6); return { day, r: readiness(data, d, day) }; }), [data, d]);
+  const all = useAllDays();
+  const pw = usePeriod(14);
+  const days = pw.slice(all);
+  const key = days[0] + days.length;
+  const pts = useMemo(() => days.map((day) => ({ day, r: readiness(data, d, day) })), [data, d, key]);
+  const [si, setSi] = useDaySel(days, (x) => !!pts.find((q) => q.day === x)?.r);
+  const cur = pts[si];
+  const r = cur?.r ?? null;
+  const missingSel = useMemo(() => (cur ? readinessFactors(data, d, cur.day).missing : []), [data, d, cur?.day]);
   return (
     <InfoCard className="card g12" aria-label={$t("Disponibilité à l’entraînement")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Disponibilité à l’entraînement")}<InfoToggle /></h2><Est /></div>
+      <PeriodBar p={pw} options={SPANS_DAYS} total={all.length} from={days[0]} to={days[days.length - 1]} />
+      <Readout when={cur ? (cur.day === d.today ? $t("Aujourd’hui") : dayTitle(cur.day)) : ''} cols={1} cells={[{ label: r ? R_LABEL[r.level] : $t("Pas assez de données"), value: r ? r.score : '—', color: r ? R_COLOR[r.level] : undefined, key: true, valueColor: r ? R_COLOR[r.level] : undefined }]} />
+      <DayChart points={pts.map((p) => ({ day: p.day, v: p.r ? p.r.score : null, color: p.r ? R_COLOR[p.r.level] : undefined }))} kind="bars" min={0} max={100} ticks={[0, 25, 50, 75, 100]} sel={si} onSel={setSi} height={110} label={$t("Disponibilité à l’entraînement par jour")} />
       {r ? (
         <>
-          <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2">{r.score}</span><span className="t-strong" style={{ color: R_COLOR[r.level] }}>{R_LABEL[r.level]}</span></div>
           <p className="t-caption c-neutral">{R_TEXT[r.level]}</p>
           <ul className="stack" style={{ gap: 'var(--space-10)' }}>
             {R_ORDER.map((k) => {
@@ -91,25 +110,17 @@ export function ReadinessCard() {
               );
             })}
           </ul>
-          <div className="row" style={{ gap: 'var(--space-6)', alignItems: 'flex-end', height: 56 }} aria-label={$t("7 derniers jours")}>
-            {week.map(({ day, r: x }) => (
-              <div key={day} className="stack-4" style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
-                <div style={{ width: '70%', height: x ? Math.max(4, (x.score / 100) * 36) : 4, borderRadius: 4, background: x ? R_COLOR[x.level] : 'var(--bg-grey-minimal)' }} title={x ? `${dayTitle(day)} : ${x.score}` : dayTitle(day)} />
-                <span className="t-legal c-moderate">{weekdayShort(day)}</span>
-              </div>
-            ))}
-          </div>
           {r.missing.length > 0 && <p className="t-legal c-moderate">{$t("Le poids des données manquantes est réparti sur les autres.")}</p>}
         </>
       ) : (
         <>
-          <p className="t-caption c-moderate">{$t("Il faut au moins deux de ces éléments pour calculer le score. Ce qu’Apogée a trouvé aujourd’hui :")}</p>
+          <p className="t-caption c-moderate">{$t("Il faut au moins deux de ces éléments pour calculer le score. Ce qu’Apogée a trouvé ce jour-là :")}</p>
           <ul className="stack-4">
-            {R_ORDER.map((k) => { const ok = !missingNow.includes(k); return <li key={k} className="between t-caption"><span>{R_FACTOR[k]}</span><span className={ok ? 'c-success' : 'c-moderate'}>{ok ? $t("trouvé") : $t("manquant")}</span></li>; })}
+            {R_ORDER.map((k) => { const ok = !missingSel.includes(k); return <li key={k} className="between t-caption"><span>{R_FACTOR[k]}</span><span className={ok ? 'c-success' : 'c-moderate'}>{ok ? $t("trouvé") : $t("manquant")}</span></li>; })}
           </ul>
         </>
       )}
-      <Info>{$t("Méthode : on combine les facteurs que la littérature relie à la capacité de s’entraîner — sommeil (7 à 9 h recommandées, Hirshkowitz 2015), FC de repos au-dessus de ta base (Buchheit 2014), rapport de charge aiguë / chronique (Gabbett 2016) et fraîcheur du modèle de Banister. Les poids ci-dessus sont ceux d’Apogée. La variabilité cardiaque (HRV), qui entre dans l’indice de Garmin, n’est pas utilisée.")}</Info>
+      <Info>{$t("Touche ou fais glisser le graphe pour lire un autre jour ; les flèches reculent d’une période. Méthode : on combine les facteurs que la littérature relie à la capacité de s’entraîner — sommeil (7 à 9 h recommandées, Hirshkowitz 2015), FC de repos au-dessus de ta base (Buchheit 2014), rapport de charge aiguë / chronique (Gabbett 2016) et fraîcheur du modèle de Banister. Les poids ci-dessus sont ceux d’Apogée. La variabilité cardiaque (HRV), qui entre dans l’indice de Garmin, n’est pas utilisée.")}</Info>
     </InfoCard>
   );
 }
@@ -117,31 +128,30 @@ export function ReadinessCard() {
 // ------------------------------------------------------------------ réserve d'énergie
 export function ReserveCard() {
   const { data, d } = useCalc();
-  const pts = useMemo(() => energyReserve(data, d, 14), [data, d]);
-  const last = pts[pts.length - 1];
-  const W = 300, H = 80, gap = 4, bw = (W - gap * (pts.length - 1)) / pts.length;
-  const Y = (v: number) => H - (v / 100) * H;
+  const all = useAllDays();
+  const pw = usePeriod(14);
+  const days = pw.slice(all);
+  const last = days[days.length - 1] ?? d.today;
+  const pts = useMemo(() => energyReserve(data, d, days.length || 1, last), [data, d, days.length, last]);
+  const [si, setSi] = useDaySel(pts.map((p) => p.day));
+  const cur = pts[si];
   return (
     <InfoCard className="card g12" aria-label={$t("Réserve d’énergie")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Réserve d’énergie")}<InfoToggle /></h2><Est /></div>
-      {!last || pts.every((p) => p.sleepAssumed) ? <p className="t-caption c-moderate">{$t("Il faut des nuits de sommeil (montre lue par Health Connect) pour estimer la réserve.")}</p> : (
+      {!cur || pts.every((p) => p.sleepAssumed) ? <p className="t-caption c-moderate">{$t("Il faut des nuits de sommeil (montre lue par Health Connect) pour estimer la réserve.")}</p> : (
         <>
-          <div className="row wrap" style={{ gap: 'var(--space-24)', alignItems: 'baseline' }}>
-            <span className="stack-4"><span className="t-legal c-moderate">{$t("Ce matin")}</span><span className="t-h2">{last.wake}</span></span>
-            <span className="stack-4"><span className="t-legal c-moderate">{$t("Ce soir (séances déjà faites)")}</span><span className="t-h2">{last.evening}</span></span>
-          </div>
-          <svg viewBox={`0 0 ${W} ${H + 18}`} role="img" aria-label={$t("Réserve d’énergie sur 14 jours : réveil et soir")} style={{ width: '100%', height: 'auto' }}>
-            {pts.map((p, i) => (
-              <g key={p.day}>
-                <rect x={i * (bw + gap)} y={Y(p.wake)} width={bw} height={Math.max(2, Y(p.evening) - Y(p.wake))} rx="3" style={{ fill: p.sleepAssumed ? 'var(--bg-grey-minimal)' : 'var(--form-ready)' }}><title>{`${dayTitle(p.day)} : ${p.wake} → ${p.evening}`}</title></rect>
-                {(i === 0 || i === pts.length - 1 || i === 7) && <text x={i === 0 ? 0 : i === pts.length - 1 ? W : i * (bw + gap) + bw / 2} y={H + 14} textAnchor={i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle'} fontSize="10" style={{ fill: 'var(--text-moderate)' }}>{dayMonth(p.day)}</text>}
-              </g>
-            ))}
-          </svg>
-          <Info>{$t("Chaque barre va du niveau du réveil (haut) à celui du soir (bas). Une courte nuit ou plusieurs grosses journées de suite abaissent le réveil suivant. Les jours en gris n’ont pas de nuit enregistrée (sommeil supposé égal à ta moyenne).")}</Info>
+          <PeriodBar p={pw} options={SPANS_DAYS} total={all.length} from={pts[0].day} to={pts[pts.length - 1].day} />
+          <Readout when={cur.day === d.today ? $t("Aujourd’hui") : dayTitle(cur.day)} cells={[
+            { label: $t("Au réveil"), value: cur.wake, color: 'var(--form-ready)', key: true },
+            { label: $t("Point bas du jour"), value: cur.evening, color: 'var(--form-strained)', key: true },
+            { label: $t("Sommeil"), value: cur.sleepSec === null ? $t("supposé") : hhmm(cur.sleepSec) },
+            { label: $t("Charge du jour"), value: num(cur.load, 0) },
+          ]} />
+          <DayChart points={pts.map((p) => ({ day: p.day, v: p.wake, lo: p.evening, faint: p.sleepAssumed }))} kind="range" min={0} max={100} ticks={[0, 25, 50, 75, 100]} sel={si} onSel={setSi} height={120} color="var(--form-ready)" label={$t("Réserve d’énergie par jour : réveil et point bas")} />
+          <div className="legend"><span><span className="dot s10" style={{ background: 'var(--form-ready)' }} />{$t("De l’heure du réveil (haut) au point bas de la journée (bas)")}</span><span><span className="dot s10" style={{ background: 'var(--form-ready)', opacity: 0.45 }} />{$t("Nuit non enregistrée")}</span></div>
         </>
       )}
-      <Info>{$t("Méthode simplifiée : le Body Battery de Garmin repose sur la HRV et le stress, que la montre ne transmet pas. Ici : recharge = jusqu’à 80 points selon la durée de sommeil (besoin 8 h) et la FC de repos ; dépense = 35 points par jour plus 40 points par séance à ta charge habituelle. Ces paramètres sont ceux d’Apogée : c’est une lecture de tendance, pas une mesure.")}</Info>
+      <Info>{$t("Méthode simplifiée : le Body Battery de Garmin repose sur la HRV et le stress, que la montre ne transmet pas. Ici : recharge = jusqu’à 80 points selon la durée de sommeil (besoin 8 h) et la FC de repos ; dépense = 55 points par jour plus 25 points par séance à ta charge habituelle. Ces paramètres ont été recalés sur une semaine de Garmin Connect (réveils de 90 à 100, creux de 10 à 34) : c’est une lecture de tendance, pas une mesure. Les jours grisés n’ont pas de nuit enregistrée (sommeil supposé égal à ta moyenne).")}</Info>
     </InfoCard>
   );
 }
@@ -158,13 +168,11 @@ export function Vo2Card() {
       {v.value !== null ? (
         <>
           <div className="row" style={{ gap: 'var(--space-8)', alignItems: 'baseline' }}><span className="t-h2">{num(v.value, 0, 1)}</span><span className="t-caption c-moderate">ml/kg/min · {v.method === 'submax' ? $t("d’après tes sorties de course") : $t("d’après FC max / FC de repos")}</span></div>
-          <dl className="kv">
-            {v.submax && <><dt>{$t("Sorties de course (FC de réserve)")}</dt><dd>{num(v.submax.value, 0, 1)} <span className="t-legal c-moderate" style={{ fontWeight: 400 }}>({v.submax.n} {$t("séances")})</span></dd></>}
-            {v.watch && <><dt>{$t("Ta montre (point du {0})", { 0: dayMonth(v.watch.week) })}</dt><dd>{num(v.watch.value, 0, 1)}</dd></>}
-          </dl>
+          {v.watch && <dl className="kv"><dt>{$t("Ta montre (point du {0})", { 0: dayMonth(v.watch.week) })}</dt><dd>{num(v.watch.value, 0, 1)}</dd></dl>}
+          {v.submax && <p className="t-legal c-moderate">{$t("Calculée sur {0} sorties de course récentes.", { 0: v.submax.n })}</p>}
         </>
       ) : <p className="t-caption c-moderate">{$t("Il faut ta FC de repos (montre lue par Health Connect) et ta FC max pour estimer la VO₂max. Renseigne ta date de naissance dans Paramètres › Athlète si besoin.")}</p>}
-      <Info>{$t("Méthode publiée : sorties de course à allure stable — coût en oxygène de la course (ACSM) et équivalence entre % de la réserve de FC et % de la réserve de VO₂ (Swain et Leutholtz 1997) ; médiane des sorties à plat des 60 derniers jours, 3 sorties minimum. Sans assez de sorties, repli sur le rapport FC max / FC de repos × 15,3 (Uth 2004). L’erreur typique est de l’ordre de 10 %.")}{hrNote ? ' ' + $t("Ta FC max vient d’une formule : la mesurer (ou la laisser s’affiner avec tes efforts) améliore l’estimation.") : ''}</Info>
+      <Info>{$t("Méthode publiée : sorties de course à allure stable — coût en oxygène de la course (ACSM) et équivalence entre % de la réserve de FC et % de la réserve de VO₂ (Swain et Leutholtz 1997) ; moyenne des sorties à plat des 60 derniers jours, les plus récentes comptant davantage (demi-vie de 3 semaines), 3 sorties minimum. Sans assez de sorties, repli sur le rapport FC max / FC de repos × 15,3 (Uth 2004). L’erreur typique est de l’ordre de 10 %.")}{hrNote ? ' ' + $t("Ta FC max vient d’une formule : la mesurer (ou la laisser s’affiner avec tes efforts) améliore l’estimation.") : ''}</Info>
     </InfoCard>
   );
 }
@@ -174,29 +182,32 @@ export function PredictionsCard() {
   const { data, d } = useCalc();
   const efforts = useMemo(() => bestEfforts(data, d.today), [data, d.today]);
   const v = useMemo(() => vo2maxEstimate(data, d, efforts), [data, d, efforts]);
-  const p = useMemo(() => racePredictions(data, v, efforts), [data, v, efforts]);
-  const any = p.rows.some((r) => r.vdotSec !== null || r.riegelSec !== null || r.watchSec !== null);
+  const p = useMemo(() => racePredictions(data, v, efforts, { adjust: effortAdjuster(data, d, d.today) }), [data, d, v, efforts]);
+  const any = p.rows.some((r) => r.riegelSec !== null || r.watchSec !== null);
   const hasWatch = p.rows.some((r) => r.watchSec !== null);
   return (
     <InfoCard className="card g12" aria-label={$t("Prédictions de course")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Prédictions de course")}<InfoToggle /></h2><Est /></div>
-      {!any ? <p className="t-caption c-moderate">{$t("Pas encore de VO₂max estimée ni d’effort de course sur 90 jours : rien à prédire.")}</p> : (
-        <div className="pred-grid" style={{ gridTemplateColumns: `auto repeat(${hasWatch ? 3 : 2}, 1fr)` }} role="table">
-          <span className="t-legal c-moderate" role="columnheader">{$t("Distance")}</span>
-          <span className="t-legal c-moderate" role="columnheader" style={{ textAlign: 'right' }}>{$t("Prédiction (ton meilleur effort)")}</span>
-          <span className="t-legal c-moderate" role="columnheader" style={{ textAlign: 'right' }}>{$t("Potentiel (VO₂max)")}</span>
-          {hasWatch && <span className="t-legal c-moderate" role="columnheader" style={{ textAlign: 'right' }}>{$t("Ta montre")}</span>}
-          {p.rows.map((r) => (
-            <div key={r.dist.key} style={{ display: 'contents' }} role="row">
-              <span className="t-caption-strong" role="cell">{r.dist.label}</span>
-              <span style={{ textAlign: 'right' }} role="cell"><strong>{clockOf(r.riegelSec)}{r.far && r.riegelSec !== null ? ' *' : ''}</strong></span>
-              <span style={{ textAlign: 'right' }} className="c-moderate" role="cell">{clockOf(r.vdotSec)}</span>
-              {hasWatch && <span style={{ textAlign: 'right' }} role="cell">{clockOf(r.watchSec)}</span>}
-            </div>
-          ))}
-        </div>
+      {!any ? <p className="t-caption c-moderate">{$t("Pas encore d’effort de course sur 90 jours : rien à prédire.")}</p> : (
+        <>
+          <div className="pred-grid" style={{ gridTemplateColumns: `auto repeat(${hasWatch ? 2 : 1}, 1fr)` }} role="table">
+            <span className="t-legal c-moderate" role="columnheader">{$t("Distance")}</span>
+            <span className="t-legal c-moderate" role="columnheader" style={{ textAlign: 'right' }}>{$t("Apogée")}</span>
+            {hasWatch && <span className="t-legal c-moderate" role="columnheader" style={{ textAlign: 'right' }}>{$t("Ta montre")}</span>}
+            {p.rows.map((r) => (
+              <div key={r.dist.key} style={{ display: 'contents' }} role="row">
+                <span className="t-caption-strong" role="cell">{r.dist.label}</span>
+                <span style={{ textAlign: 'right' }} role="cell"><strong>{clockOf(r.riegelSec)}{r.far && r.riegelSec !== null ? ' *' : ''}</strong></span>
+                {hasWatch && <span style={{ textAlign: 'right' }} className="c-neutral" role="cell">{clockOf(r.watchSec)}</span>}
+              </div>
+            ))}
+          </div>
+          {p.calib
+            ? <p className="t-legal c-moderate">{$t("Calées sur les prédictions de ta montre du {0} (coefficient ×{1}). Les valeurs évoluent ensuite avec tes sorties.", { 0: dayMonth(p.calib.week), 1: num(p.calib.factor, 2) })}</p>
+            : <p className="t-legal c-moderate">{$t("Pas encore calées sur ta montre : recopie ses prédictions dans le point de la semaine pour rapprocher les chiffres.")}</p>}
+        </>
       )}
-      <Info>{$t("Méthodes publiées. « Prédiction » extrapole ton meilleur temps récent par une loi de puissance, T₂ = T₁ × (D₂ ÷ D₁)^1,12 : Riegel (1981) proposait 1,06 sur des records, mais les coureurs amateurs ralentissent plus vite quand la distance s’allonge (Vickers et Vertosick 2016, de l’ordre de 1,1 à 1,15). Un * signale une extrapolation lointaine (plus de 4 fois la distance de l’effort) : à lire avec prudence. « Potentiel » applique les équations de Daniels et Gilbert (1979) à ta VO₂max estimée : c’est le chrono d’une course à fond, après une préparation spécifique à la distance, donc nettement plus ambitieux que ce que tes sorties actuelles permettent.")}</Info>
+      <Info>{$t("Méthode : Apogée prend ton meilleur temps des 90 derniers jours sur 3, 5, 10 km ou semi, le ramène à ta forme du jour (le temps d’un effort ancien est corrigé du rapport entre ta VO₂max de l’époque et celle d’aujourd’hui), puis l’extrapole par une loi de puissance, T₂ = T₁ × (D₂ ÷ D₁)^1,12 : Riegel (1981) proposait 1,06 sur des records, mais les coureurs amateurs ralentissent plus vite quand la distance s’allonge (de l’ordre de 1,1 à 1,15 ; les prédictions de Garmin suivent la même pente). Garmin part d’autres données que celles qu’il transmet à Health Connect : pour que les chiffres se rejoignent, Apogée se cale sur ses prédictions quand tu les recopies. Un * signale une extrapolation lointaine (plus de 4 fois la distance de l’effort) : à lire avec prudence.")}</Info>
     </InfoCard>
   );
 }

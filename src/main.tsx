@@ -35,6 +35,7 @@ createRoot(document.getElementById('root')!).render(<App />);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const plan = () => { clearTimeout(timer); timer = setTimeout(() => scheduleReminders(getData(), getDerived()).catch(() => undefined), 2000); };
     onChange(plan);
+    native.onResume(plan);
     plan();
   }
 })();

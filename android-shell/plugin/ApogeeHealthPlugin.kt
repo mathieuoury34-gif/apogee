@@ -12,6 +12,8 @@ import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ElevationGainedRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.FloorsClimbedRecord
+import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.Vo2MaxRecord
@@ -56,6 +58,8 @@ class ApogeeHealthPlugin : Plugin() {
         "Weight" to WeightRecord::class,
         "Vo2Max" to Vo2MaxRecord::class,
         "HeartRateVariability" to HeartRateVariabilityRmssdRecord::class,
+        "Steps" to StepsRecord::class,
+        "FloorsClimbed" to FloorsClimbedRecord::class,
     )
     private val readPermissions: Map<String, String> get() = types.mapValues { HealthPermission.getReadPermission(it.value) }
     private val historyPermission = "android.permission.health.READ_HEALTH_DATA_HISTORY"
@@ -257,6 +261,28 @@ class ApogeeHealthPlugin : Plugin() {
                 }
                 call.resolve(JSObject().put("days", days))
             } catch (e: Exception) { call.reject(e.message ?: "Lecture de la dépense énergétique impossible") }
+        }
+    }
+
+    /** Pas et étages montés du jour, un total par jour local (Health Connect écarte les doublons entre applications). Lecture séparée de la dépense : une autorisation en retard ne bloque pas le reste. */
+    @PluginMethod
+    fun readDailyActivity(call: PluginCall) {
+        val c = client() ?: return call.reject("Health Connect indisponible")
+        val (start, end) = range(call) ?: return call.reject("Période invalide")
+        scope.launch {
+            try {
+                val zone = java.time.ZoneId.systemDefault()
+                val from = java.time.LocalDateTime.ofInstant(start, zone).toLocalDate().atStartOfDay()
+                val to = java.time.LocalDateTime.ofInstant(end, zone)
+                val days = JSArray()
+                val steps = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(StepsRecord.COUNT_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1))) }
+                val floors = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1))) }
+                val byDay = linkedMapOf<String, JSObject>()
+                for (g in steps ?: emptyList()) byDay.getOrPut(g.startTime.toLocalDate().toString()) { JSObject() }.putN("steps", g.result[StepsRecord.COUNT_TOTAL])
+                for (g in floors ?: emptyList()) byDay.getOrPut(g.startTime.toLocalDate().toString()) { JSObject() }.putN("floors", g.result[FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL])
+                for ((day, o) in byDay) days.put(o.put("day", day))
+                call.resolve(JSObject().put("days", days))
+            } catch (e: Exception) { call.reject(e.message ?: "Lecture des pas et étages impossible") }
         }
     }
 

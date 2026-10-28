@@ -16,7 +16,7 @@ import { computeDailyForm } from '../src/domain/form';
 import { ingest } from '../src/domain/health';
 import { encodeFit, fitCrc, fitFileName, toFitWorkouts } from '../src/domain/fit';
 import { sleepStats, weightTrend } from '../src/domain/body';
-import { analyzeHr, cleanHr, hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
+import { analyzeHr, cleanHr, epocFromAverage, epocFromSeries, epocRate, hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
 import { importLegacyDb, emptyData } from '../src/domain/legacy';
 import { buildLoadSeries, computeSessionLoads, resolveHrMax } from '../src/domain/load';
 import { buildManualSession, parseBulkActual, parseBulkPlanned, parseManualFields } from '../src/domain/manual';
@@ -24,7 +24,7 @@ import { hm } from '../src/ui/format';
 import { bmrKcal, dayEnergy, weekEnergy } from '../src/domain/energy';
 import { mergeSleepParts } from '../src/domain/health';
 import { loadFocus } from '../src/domain/loadStatus';
-import { AMATEUR_EXPONENT } from '../src/domain/capacity';
+import { AMATEUR_EXPONENT, capacityHistory } from '../src/domain/capacity';
 import { ingestEnergy, ingestVitals } from '../src/domain/healthExtra';
 import { currentCheckin, metricSeries } from '../src/domain/checkin';
 import { acuteSeries, statusOf, weeklyStatus } from '../src/domain/loadStatus';
@@ -854,4 +854,74 @@ test('répartition de la charge : le renforcement compte en anaérobie', () => {
   const f = loadFocus(d, loads, 188, '2026-10-27');
   assert.equal(f.anaerobic, 60); assert.equal(f.low, 0); assert.equal(f.total, 60);
   assert.ok(AMATEUR_EXPONENT > 1.06 && AMATEUR_EXPONENT < 1.2);
+});
+
+test('modèle d\'effort (type EPOC) : seuil à 50 % de la FC max, saturation, et une séance courte et dure pèse plus qu\'une longue et facile', () => {
+  const flat = (bpm: number, sec: number): [number, number][] => Array.from({ length: sec / 5 }, (_, i) => [i * 5, bpm] as [number, number]);
+  assert.equal(epocRate(0.5), 0);
+  assert.equal(epocRate(0.3), 0);
+  const hrMax = 200;
+  const hour70 = epocFromSeries(flat(140, 3600), hrMax, 3600)!;
+  // 24,8 × 0,2^1,5 × 44,7 × (1 − e^(−60/44,7)) ≈ 73
+  assert.ok(Math.abs(hour70.value - 73) < 2, 'une heure à 70 % : ' + hour70.value);
+  const longEasy = epocFromSeries(flat(125, 4 * 3600), hrMax, 4 * 3600)!.value;
+  const longerEasy = epocFromSeries(flat(125, 8 * 3600), hrMax, 8 * 3600)!.value;
+  assert.ok(longerEasy < longEasy * 1.08, 'la charge sature : doubler la durée ne double pas l\'effort');
+  const shortHard = epocFromSeries(flat(180, 1800), hrMax, 1800)!.value;
+  assert.ok(shortHard > longEasy, 'une demi-heure à 90 % pèse plus que 4 h à 62 %');
+  const viaAvg = epocFromAverage(140, 3600, hrMax)!;
+  assert.ok(Math.abs(viaAvg - hour70.value) < 1, 'FC moyenne constante : même valeur que la courbe');
+  assert.equal(epocFromSeries(flat(140, 20), hrMax, 20)?.value ?? null, null, 'moins de 10 mesures : pas de charge mesurée');
+});
+
+test('sommeil corrigé à la main : la lecture de la montre ne l\'écrase plus', () => {
+  const d = emptyData();
+  d.sleep['2026-10-17'] = { id: '2026-10-17', updatedAt: 'x', nightDate: '2026-10-17', startAt: '2026-10-16T21:00:00.000Z', endAt: '2026-10-17T05:00:00.000Z', zoneOffsetMinutes: 120, durationSec: 8 * 3600, fromStages: true, edited: true, sourceId: 'manual' } as never;
+  const night = { id: 'n1', clientRecordId: null, startTime: '2026-10-17T02:22:00Z', endTime: '2026-10-17T05:00:00Z', startZoneOffsetSeconds: 7200, asleepSec: 2.5 * 3600 };
+  assert.equal(ingest(d, [], [night], []).ops.sleep.length, 0, 'nuit validée : intacte');
+  d.sleep['2026-10-17'].edited = false;
+  assert.equal(ingest(d, [], [night], []).ops.sleep.length, 0, 'non validée mais plus longue : la valeur la plus longue gagne');
+});
+
+test('pas et étages : fusionnés par jour avec la dépense, et réécrits seulement s\'ils changent', () => {
+  const d = emptyData();
+  const day = '2026-10-20';
+  let rows = ingestEnergy(d, [{ day, activeKcal: 900, totalKcal: 3000 }], [{ day, steps: 12345, floors: 17 }]);
+  assert.equal(rows.length, 1);
+  assert.deepEqual([rows[0].activeKcal, rows[0].totalKcal, rows[0].steps, rows[0].floors], [900, 3000, 12345, 17]);
+  d.energy[day] = rows[0];
+  assert.equal(ingestEnergy(d, [{ day, activeKcal: 900, totalKcal: 3000 }], [{ day, steps: 12345, floors: 17 }]).length, 0);
+  // seuls les pas arrivent (étages non transmis) : les calories déjà connues sont conservées
+  rows = ingestEnergy(d, [], [{ day, steps: 13000 }]);
+  assert.equal(rows[0].steps, 13000); assert.equal(rows[0].totalKcal, 3000); assert.equal(rows[0].floors, 17);
+});
+
+test('courbes de capacité : un point par jour, et la VO₂max suit les sorties récentes au lieu de rester sur un palier', () => {
+  const data = runnerData();
+  const d = derive(data, SETTINGS, new Date('2026-10-27T12:00:00Z'));
+  const h = capacityHistory(data, d, 40);
+  assert.equal(h.length, 40);
+  assert.equal(h[39].day, '2026-10-27');
+  const v = h.map((p) => p.vo2max).filter((x): x is number => x !== null);
+  assert.ok(v.length > 20);
+  assert.ok(new Set(v.map((x) => Math.round(x * 100))).size >= 6, 'valeurs distinctes : pas de paliers');
+  let run = 1, maxRun = 1;
+  for (let i = 1; i < v.length; i++) { run = Math.abs(v[i] - v[i - 1]) < 0.005 ? run + 1 : 1; maxRun = Math.max(maxRun, run); }
+  assert.ok(maxRun <= 3, 'jamais plus de 3 jours identiques de suite (séances tous les 2 jours) : ' + maxRun);
+  const efforts = bestEfforts(data, d.today);
+  assert.equal(h[39].vo2max, vo2maxEstimate(data, d, efforts).value, 'dernier point = valeur du jour');
+});
+
+test('prédictions : calage sur les prédictions de la montre', () => {
+  const data = runnerData();
+  const d = derive(data, SETTINGS, new Date('2026-10-27T12:00:00Z'));
+  const efforts = bestEfforts(data, d.today);
+  const v = vo2maxEstimate(data, d, efforts);
+  const raw = racePredictions(data, v, efforts);
+  assert.equal(raw.calib, null);
+  data.checkins['2026-10-26'] = { id: '2026-10-26', week: '2026-10-26', updatedAt: 'x', vo2max: 55, pred5kSec: 1356, pred10kSec: 2939 } as never;
+  const cal = racePredictions(data, v, efforts);
+  assert.ok(cal.calib && cal.calib.factor > 0.6);
+  const ratio = (cal.rows[0].riegelSec as number) / (raw.rows[0].riegelSec as number);
+  assert.ok(Math.abs(ratio - cal.calib!.factor) < 1e-9);
 });

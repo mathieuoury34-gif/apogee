@@ -2,15 +2,18 @@
 // Tout ce qui vient d'une estimation Apogée ou d'une saisie est étiqueté comme tel ; Apogée ne recalcule pas les indices Garmin.
 import { $t } from '../i18n';
 import { useMemo, useState } from 'react';
-import { Sheet, showToast, Info, InfoCard, InfoToggle } from '../ui/kit';
+import { Segmented, Sheet, showToast, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { DecField, DurationField, IntField, PaceField, numOf } from '../ui/wheels';
 import { useLocalSheet } from '../ui/menu';
 import { useCalc } from '../data/store';
 import { addMeal, deleteMeal, restore, saveCheckin } from '../data/actions';
-import { addDays, mondayOf } from '../domain/dates';
+import { addDays, dayRange, mondayOf } from '../domain/dates';
 import { dayEnergy, weekEnergy } from '../domain/energy';
 import { capacityHistory, type CapacityPoint } from '../domain/capacity';
+import { DayChart } from '../ui/daychart';
+import { PeriodBar, useDaySel, usePeriod, type SpanOption } from '../ui/period';
+import { Readout } from '../ui/readout';
 import { currentCheckin, hasContent, metricSeries, type CheckinMetric } from '../domain/checkin';
 import { liveRecords } from '../domain/load';
 import type { Checkin } from '../domain/types';
@@ -38,6 +41,9 @@ export function CaloriesCard() {
   };
   const maxBar = Math.max(1, ...week.days.map((x) => Math.max(x.total ?? x.active ?? 0, x.intake)));
   const noEnergy = e.active === null && e.rest === null;
+  const cp = usePeriod(14);
+  const cAll = useMemo(() => dayRange(addDays(d.today, -364), d.today), [d.today]);
+  const cDays = cp.slice(cAll);
   return (
     <InfoCard className="card g12" aria-label={$t("Calories")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
@@ -61,6 +67,7 @@ export function CaloriesCard() {
           </dl>
         </>
       )}
+      {e.hcRaw && (e.hcRaw.active !== null || e.hcRaw.total !== null) && <p className="t-legal c-moderate">{$t("Ce que ta montre dépose dans Health Connect ce jour-là : {0} actives, {1} au total.", { 0: e.hcRaw.active === null ? '—' : KCAL(e.hcRaw.active), 1: e.hcRaw.total === null ? '—' : KCAL(e.hcRaw.total) })}</p>}
       <dl className="kv">
         <dt>{$t("Mangées (journal)")}</dt><dd>{e.meals ? KCAL(e.intake) : '—'}</dd>
         {e.balance !== null && (<><dt>{$t("Bilan du jour")}</dt><dd style={{ color: e.balance > 0 ? 'var(--warning-text)' : 'var(--success-text)' }}>{signed(e.balance, 0)}{NBSP}kcal</dd></>)}
@@ -74,26 +81,13 @@ export function CaloriesCard() {
           ))}
         </ul>
       )}
-      <h3 className="t-strong">{$t("Semaine du {0}", { 0: dayMonth(week.days[0].day) })}</h3>
-      <div className="kcal-week" role="img" aria-label={$t("Dépense et apport de la semaine")}>
-        {week.days.map((x) => {
-          const act = x.active ?? 0, rest = x.rest ?? 0;
-          return (
-            <button key={x.day} type="button" className={'col' + (x.day === day ? ' on' : '')} onClick={() => setDay(x.day)} aria-label={dayTitle(x.day)}>
-              <span className="bars">
-                <span className="stack-bar"><span className="rest" style={{ height: `${(rest / maxBar) * 100}%` }} /><span className="act" style={{ height: `${(act / maxBar) * 100}%` }} /></span>
-                {x.intake > 0 && <span className="intake" style={{ bottom: `${(x.intake / maxBar) * 100}%` }} />}
-              </span>
-              <span className="t-legal c-moderate">{weekdayShort(x.day)}</span>
-            </button>
-          );
-        })}
-      </div>
+      <PeriodBar p={cp} options={[[7, $t("7 j")], [14, $t("14 j")], [30, $t("30 j")], [90, $t("3 mois")]]} total={cAll.length} from={cDays[0]} to={cDays[cDays.length - 1]} />
+      <DayChart points={cDays.map((x) => { const en = dayEnergy(data, x); return { day: x, v: en.active ?? (en.total !== null ? 0 : null), lo: en.rest ?? 0 }; })} kind="stack" sel={Math.max(0, cDays.indexOf(day))} onSel={(i) => setDay(cDays[i])} height={110} color="var(--chart-1)" color2="var(--chart-other)" fmtTick={(v) => num(v, 0)} label={$t("Dépense par jour : repos et actives")} />
       <div className="legend">
         <span><span className="dot s10" style={{ background: 'var(--chart-1)' }} />{$t("Actives")}</span>
         <span><span className="dot s10" style={{ background: 'var(--chart-other)' }} />{$t("Repos")}</span>
-        <span><span style={{ width: 14, height: 3, background: 'var(--text)', borderRadius: 2 }} />{$t("Mangées")}</span>
       </div>
+      <h3 className="t-strong">{$t("Semaine du {0}", { 0: dayMonth(week.days[0].day) })}</h3>
       <p className="t-legal c-moderate">{$t("Semaine : {0} actives, {1} de repos, {2} mangées sur {3} jour(s) saisi(s).", { 0: KCAL(week.active), 1: KCAL(week.rest), 2: week.mealDays ? KCAL(week.intake) : '—', 3: week.mealDays })}</p>
       <Info>{$t("Le repos vient de Health Connect quand la montre donne le total ; sinon c’est une estimation (formule de Mifflin-St Jeor, avec ta taille, ton poids, ton âge et ton sexe). Le journal de repas est un simple compteur : tu entres les kcal toi-même, il n’y a pas de base d’aliments. Une estimation reste une estimation : ne la prends pas pour une mesure.")} {$t("Si tu renseignes les calories de repos de ta montre (Paramètres › Profil), le total reste celui de Health Connect et les actives sont calculées comme dans Garmin Connect.")}</Info>
       {sheet.open && (
@@ -108,6 +102,34 @@ export function CaloriesCard() {
           </div>
         </Sheet>
       )}
+    </InfoCard>
+  );
+}
+
+// ------------------------------------------------------------------ pas et étages
+export function ActivityCard() {
+  const { data, d } = useCalc();
+  const [what, setWhat] = useState<'steps' | 'floors'>('steps');
+  const all = useMemo(() => dayRange(addDays(d.today, -364), d.today), [d.today]);
+  const pw = usePeriod(14);
+  const days = pw.slice(all);
+  const [si, setSi] = useDaySel(days);
+  const val = (x: string) => { const e = data.energy[x]; return e && !e.deleted ? e[what] ?? null : null; };
+  const known = days.map(val).filter((x): x is number => !!x);
+  if (!Object.values(data.energy).some((e) => !e.deleted && (e.steps || e.floors))) return null;
+  const day = days[si] ?? d.today;
+  const avg = known.length ? known.reduce((a, b) => a + b, 0) / known.length : null;
+  return (
+    <InfoCard className="card g12" aria-label={$t("Pas et étages")}>
+      <h2>{$t("Pas et étages")}<InfoToggle /></h2>
+      <Segmented label={$t("Mesure")} value={what} onChange={setWhat} options={[['steps', $t("Pas")], ['floors', $t("Étages")]]} />
+      <PeriodBar p={pw} options={[[7, $t("7 j")], [14, $t("14 j")], [30, $t("30 j")], [90, $t("3 mois")]]} total={all.length} from={days[0]} to={days[days.length - 1]} />
+      <Readout when={day === d.today ? $t("Aujourd’hui") : dayTitle(day)} cells={[
+        { label: what === 'steps' ? $t("Pas") : $t("Étages"), value: val(day) === null ? '—' : num(val(day)!, 0), color: what === 'steps' ? 'var(--chart-7)' : 'var(--chart-4)', key: true },
+        { label: $t("Moyenne de la période"), value: avg === null ? '—' : num(avg, 0) },
+      ]} />
+      <DayChart points={days.map((x) => ({ day: x, v: val(x) }))} kind="bars" sel={si} onSel={setSi} height={110} color={what === 'steps' ? 'var(--chart-7)' : 'var(--chart-4)'} fmtTick={(v) => num(v, 0)} label={what === 'steps' ? $t("Pas par jour") : $t("Étages par jour")} />
+      <Info>{$t("Lus dans Health Connect (rien n’est recalculé) : Garmin Connect y dépose le total du jour. Les étages ne sont affichés que si la montre les transmet.")}</Info>
     </InfoCard>
   );
 }
@@ -230,54 +252,90 @@ const TRENDS: { k: CheckinMetric; label: string; fmt: (v: number) => string; bet
   { k: 'predMarathonSec', label: $t("Prédiction marathon"), fmt: clock as (v: number) => string, better: 'down' },
 ];
 
-function Line({ values }: { values: number[] }) {
-  if (values.length < 2) return null;
-  const lo = Math.min(...values), hi = Math.max(...values), pad = (hi - lo) * 0.2 || Math.abs(hi) * 0.02 || 1;
-  const W = 300, H = 48;
-  const pts = values.map((v, i) => `${((i / (values.length - 1)) * W).toFixed(1)},${(H - ((v - (lo - pad)) / (hi - lo + 2 * pad)) * H).toFixed(1)}`).join(' ');
-  return <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true"><polyline points={pts} fill="none" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" style={{ stroke: 'var(--chart-fitness)' }} /></svg>;
+/** Graduations « rondes » en secondes (10 s, 30 s, 1 min, 5 min…) pour un axe de temps. */
+function timeTicks(lo: number, hi: number): number[] {
+  const steps = [5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600];
+  const st = steps.find((x) => (hi - lo) / x <= 4) ?? 3600;
+  const out: number[] = [];
+  for (let v = Math.ceil(lo / st) * st; v <= hi; v += st) out.push(v);
+  return out;
+}
+
+/** Courbe d'une métrique avec son curseur : valeur lue, écart sur la période, graphe. */
+function MetricChart({ label, pts, fmt, better, time, sel, onSel, estimated }: { label: string; pts: { day: string; v: number | null }[]; fmt: (v: number) => string; better: 'up' | 'down' | null; time?: boolean; sel: number; onSel: (i: number) => void; estimated?: boolean }) {
+  const known = pts.filter((p) => p.v !== null).map((p) => p.v as number);
+  const cur = pts[Math.min(sel, pts.length - 1)];
+  const first = known[0], lastV = known[known.length - 1];
+  const diff = known.length >= 2 ? lastV - first : null;
+  const good = diff === null || diff === 0 || better === null ? null : (diff > 0) === (better === 'up');
+  const lo = Math.min(...known), hi = Math.max(...known);
+  const pad = (hi - lo) * 0.15 || Math.abs(hi) * 0.03 || 1;
+  return (
+    <li className="stack-4" data-component="MetricChart">
+      <div className="between"><span className="t-caption-strong">{label}</span>
+        <span className="row" style={{ gap: 'var(--space-8)', alignItems: 'baseline' }}>
+          <strong className="metric-val">{cur && cur.v !== null ? fmt(cur.v) : '—'}</strong>
+          {diff !== null && diff !== 0 && <span className="t-legal" style={{ color: good === null ? 'var(--text-moderate)' : good ? 'var(--success-text)' : 'var(--warning-text)' }}>{$t("{0} sur la période", { 0: (diff > 0 ? '+' : '−') + fmt(Math.abs(diff)) })}</span>}
+        </span>
+      </div>
+      <DayChart points={pts} kind="line" sel={sel} onSel={onSel} height={86} label={label} min={lo - pad} max={hi + pad} fmtTick={fmt} ticks={time ? timeTicks(lo - pad, hi + pad) : undefined} dots={pts.length <= 31 ? true : false} />
+      {estimated && cur && cur.v === null && <span className="t-legal c-moderate">{$t("Pas de valeur ce jour-là.")}</span>}
+    </li>
+  );
+}
+
+const SPANS_CAP: SpanOption[] = [[28, $t("4 sem.")], [56, $t("8 sem.")], [84, $t("12 sem.")], [182, $t("6 mois")], [365, $t("1 an")]];
+
+/** Courbes de la montre (un point par semaine, recopiés) : même curseur, même glissement que les autres graphes. */
+function WatchTrend({ k, label, fmt, better, time }: { k: CheckinMetric; label: string; fmt: (v: number) => string; better: 'up' | 'down' | null; time?: boolean }) {
+  const { data } = useCalc();
+  const s = metricSeries(data, k);
+  const [sel, setSel] = useState<number | null>(null);
+  if (!s.length) return null;
+  const i = Math.min(sel ?? s.length - 1, s.length - 1);
+  return (
+    <MetricChart label={label} pts={s.map((x) => ({ day: x.week, v: x.v }))} fmt={fmt} better={better} time={time} sel={i} onSel={setSel} />
+  );
 }
 
 export function CapacitiesTrendsCard() {
   const { data, d } = useCalc();
-  const rows = TRENDS.map((t) => ({ t, s: metricSeries(data, t.k) })).filter((r) => r.s.length > 0);
-  // courbes calculées par Apogée sur tes séances, sans rien recopier : une valeur par semaine sur 12 semaines
-  const hist = useMemo(() => capacityHistory(data, d, 12), [data, d]);
-  const own = [
-    { label: $t("VO₂max"), fmt: (v: number) => num(v, 0, 1), better: 'up' as const, pick: (p: CapacityPoint) => p.vo2max },
-    { label: $t("Prédiction 5 km"), fmt: clock as (v: number) => string, better: 'down' as const, pick: (p: CapacityPoint) => p.pred['5k'] },
-    { label: $t("Prédiction 10 km"), fmt: clock as (v: number) => string, better: 'down' as const, pick: (p: CapacityPoint) => p.pred['10k'] },
-    { label: $t("Prédiction semi"), fmt: clock as (v: number) => string, better: 'down' as const, pick: (p: CapacityPoint) => p.pred.half },
-    { label: $t("Prédiction marathon"), fmt: clock as (v: number) => string, better: 'down' as const, pick: (p: CapacityPoint) => p.pred.marathon },
-  ].map((m) => ({ ...m, pts: hist.filter((p) => m.pick(p) !== null).map((p) => ({ day: p.day, v: m.pick(p) as number })) })).filter((m) => m.pts.length >= 2);
-  const trend = (label: string, last: number, prev: number | null, better: 'up' | 'down' | null, fmt: (v: number) => string, vals: number[], from: string, to: string, count: string) => {
-    const diff = prev !== null ? last - prev : null;
-    const good = diff === null || diff === 0 || better === null ? null : (diff > 0) === (better === 'up');
-    return (
-      <li key={label} className="stack-4">
-        <div className="between"><span className="t-caption-strong">{label}</span>
-          <span className="row" style={{ gap: 'var(--space-8)', alignItems: 'baseline' }}><strong>{fmt(last)}</strong>{diff !== null && diff !== 0 && <span className="t-legal" style={{ color: good === null ? 'var(--text-moderate)' : good ? 'var(--success-text)' : 'var(--warning-text)' }}>{diff > 0 ? '+' : '−'}{fmt(Math.abs(diff))}</span>}</span>
-        </div>
-        <Line values={vals} />
-        <div className="between t-legal c-moderate"><span>{from}</span><span>{count}</span><span>{to}</span></div>
-      </li>
-    );
-  };
+  const pw = usePeriod(84);
+  // courbes calculées par Apogée sur tes séances, sans rien recopier : un point par jour
+  const hist = useMemo(() => capacityHistory(data, d, 365), [data, d]);
+  const win = pw.slice(hist);
+  const [si, setSi] = useDaySel(win.map((p) => p.day));
+  type Own = { label: string; fmt: (v: number) => string; better: 'up' | 'down'; time?: boolean; pick: (p: CapacityPoint) => number | null };
+  const ownAll: Own[] = [
+    { label: $t("VO₂max"), fmt: (v) => num(v, 0, 1), better: 'up', pick: (p) => p.vo2max },
+    { label: $t("Prédiction 5 km"), fmt: clock as (v: number) => string, better: 'down', time: true, pick: (p) => p.pred['5k'] },
+    { label: $t("Prédiction 10 km"), fmt: clock as (v: number) => string, better: 'down', time: true, pick: (p) => p.pred['10k'] },
+    { label: $t("Prédiction semi"), fmt: clock as (v: number) => string, better: 'down', time: true, pick: (p) => p.pred.half },
+    { label: $t("Prédiction marathon"), fmt: clock as (v: number) => string, better: 'down', time: true, pick: (p) => p.pred.marathon },
+  ];
+  const own = ownAll.filter((m) => win.filter((p) => m.pick(p) !== null).length >= 2);
+  const watchRows = TRENDS.filter((t) => metricSeries(data, t.k).length > 0);
   return (
     <InfoCard className="card g12" aria-label={$t("Courbes de capacité")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Courbes de capacité")}<InfoToggle /></h2>{own.length > 0 && <span className="var-chip flat" style={{ alignSelf: 'center' }}>{$t("estimation Apogée")}</span>}</div>
-      {own.length === 0 && rows.length === 0 ? <p className="t-caption c-moderate">{$t("Les courbes apparaîtront dès qu’Apogée aura assez de sorties de course pour estimer ta VO₂max ou tes prédictions, ou dès que tu auras rempli ton point de la semaine.")}</p> : (
+      {own.length === 0 && watchRows.length === 0 ? <p className="t-caption c-moderate">{$t("Les courbes apparaîtront dès qu’Apogée aura assez de sorties de course pour estimer ta VO₂max ou tes prédictions, ou dès que tu auras rempli ton point de la semaine.")}</p> : (
         <>
-          {own.length > 0 && <ul className="stack" style={{ gap: 'var(--space-16)' }}>
-            {own.map((m) => trend(m.label, m.pts[m.pts.length - 1].v, m.pts[m.pts.length - 2].v, m.better, m.fmt, m.pts.map((x) => x.v), dayMonth(m.pts[0].day), dayMonth(m.pts[m.pts.length - 1].day), $t("{0} semaine(s)", { 0: m.pts.length })))}
-          </ul>}
-          {rows.length > 0 && <h3 className="t-strong">{$t("Recopié de ta montre")}</h3>}
-          {rows.length > 0 && <ul className="stack" style={{ gap: 'var(--space-16)' }}>
-            {rows.map(({ t, s }) => trend(t.label, s[s.length - 1].v, s.length > 1 ? s[s.length - 2].v : null, t.better, t.fmt, s.map((x) => x.v), dayMonth(s[0].week), dayMonth(s[s.length - 1].week), $t("{0} point(s)", { 0: s.length })))}
+          {own.length > 0 && (
+            <>
+              <PeriodBar p={pw} options={SPANS_CAP} total={hist.length} from={win[0]?.day} to={win[win.length - 1]?.day} />
+              <Readout when={win[si] ? (win[si].day === d.today ? $t("Aujourd’hui") : dayMonth(win[si].day)) : ''} cols={1} cells={[]} />
+              <ul className="stack" style={{ gap: 'var(--space-16)' }}>
+                {own.map((m) => <MetricChart key={m.label} label={m.label} pts={win.map((p) => ({ day: p.day, v: m.pick(p) }))} fmt={m.fmt} better={m.better} time={m.time} sel={si} onSel={setSi} estimated />)}
+              </ul>
+            </>
+          )}
+          {watchRows.length > 0 && <h3 className="t-strong">{$t("Recopié de ta montre")}</h3>}
+          {watchRows.length > 0 && <ul className="stack" style={{ gap: 'var(--space-16)' }}>
+            {watchRows.map((t) => <WatchTrend key={t.k} k={t.k} label={t.label} fmt={t.fmt} better={t.better} time={t.k.startsWith('pred') || t.k === 'lthPaceSecKm'} />)}
           </ul>}
         </>
       )}
-      <Info>{$t("Courbes calculées par Apogée sur tes propres séances : chaque point est recalculé avec les séances connues à cette date (VO₂max : sorties de course à allure stable des 60 jours précédents ; prédictions : meilleur effort des 90 jours précédents). Plus bas, les valeurs que tu recopies de ta montre. Les deux ne sont pas comparables un à un : Garmin utilise ses propres modèles.")}</Info>
+      <Info>{$t("Courbes calculées par Apogée sur tes propres séances, un point par jour : chaque point est recalculé avec les séances connues à cette date (VO₂max : sorties de course à allure stable des 60 jours précédents, les plus récentes comptant davantage ; prédictions : meilleur effort des 90 jours précédents, ramené à ta forme du jour, puis calé sur ta montre). Touche ou fais glisser un graphe : le curseur se déplace sur tous, et les flèches reculent d’une période. Plus bas, les valeurs que tu recopies de ta montre (un point par semaine). Les deux ne sont pas comparables un à un : Garmin utilise ses propres modèles.")}</Info>
     </InfoCard>
   );
 }

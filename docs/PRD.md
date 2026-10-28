@@ -304,3 +304,8 @@ résolution de `ONE_RM` en kilos (aucun 1RM stocké) ; lecture de la montre sur 
 | Objectif 5h45 | Outil de confrontation livré ; la révision reste à la discrétion de Mathieu |
 | Indisponibilité du développeur | Découpage en tranches courtes ; documentation complète (ce dossier) |
 | Appui long / glisser / balayage dans l'éditeur | Vérifiés par captures et types ; pas de confirmation explicite sur téléphone |
+
+
+## Addendum 28/10/2026 — périmètre élargi (validé par Mathieu)
+
+Ajoutés à la demande de Mathieu : **pas et étages** (Health Connect) avec 4 tuiles sur l'Accueil (pas, étages, calories, rapport de charge) ; **sommeil éditable** et rappel du matin ; période, navigation et curseur sur tous les graphes de Progression. Rien d'autre n'est ajouté hors MVP.

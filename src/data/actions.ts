@@ -5,7 +5,7 @@ import { newId, nowIso } from '../domain/ids';
 import { buildManualSession, existingSourceIds, manualSourceId, type ManualInput } from '../domain/manual';
 import { liveRecords, sessionDay } from '../domain/load';
 import { planDedupe } from '../domain/dedupe';
-import type { SessionTemplate, ActualSession, AppData, Athlete, Checkin, CollectionName, Collections, EditableField, Interruption, WeightReading, PlannedSession, Race, TrainingPhase, ZoneReading } from '../domain/types';
+import type { SessionTemplate, ActualSession, AppData, Athlete, Checkin, CollectionName, Collections, EditableField, Interruption, WeightReading, PlannedSession, Race, SleepNight, TrainingPhase, ZoneReading } from '../domain/types';
 import { COLLECTIONS } from '../domain/types';
 import { applyPreview, type CoachPlan, type Preview } from '../domain/coach';
 import { commit, getData } from './store';
@@ -265,6 +265,24 @@ export function saveWeight(day: string, kg: number): Snapshot {
 export function deleteWeight(day: string): Snapshot {
   const s = snapshot([['weight', day]]);
   commit((tx) => tx.remove('weight', day));
+  return s;
+}
+
+// ------------------------------------------------------------------ sommeil : validation / correction d'une nuit
+/** Heures locales de coucher et de lever (secondes depuis minuit) d'une nuit finissant le jour `nightDate`. Un coucher après le lever est celui de la veille. */
+export function saveSleepNight(nightDate: string, bedSec: number, wakeSec: number, offsetMin: number): Snapshot {
+  const s = snapshot([['sleep', nightDate]]);
+  const base = Date.parse(nightDate + 'T00:00:00Z') - offsetMin * 60_000;
+  const endMs = base + wakeSec * 1000;
+  const startMs = base + (bedSec <= wakeSec ? 0 : -86_400_000) + bedSec * 1000;
+  const rec: SleepNight = { id: nightDate, updatedAt: nowIso(), nightDate, startAt: new Date(startMs).toISOString(), endAt: new Date(endMs).toISOString(), zoneOffsetMinutes: offsetMin, durationSec: Math.round((endMs - startMs) / 1000), fromStages: true, edited: true, sourceId: 'manual' };
+  commit((tx) => tx.put('sleep', rec));
+  return s;
+}
+/** Rend la nuit à la montre : la valeur de Health Connect revient à la prochaine lecture. */
+export function resetSleepNight(nightDate: string): Snapshot {
+  const s = snapshot([['sleep', nightDate]]);
+  commit((tx) => tx.remove('sleep', nightDate));
   return s;
 }
 

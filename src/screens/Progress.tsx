@@ -6,9 +6,11 @@ import { useState } from 'react';
 import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast, OtherToggle, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { FormChart, LoadPanels, StackedWeeks, StepChart } from '../ui/charts';
 import { ComplianceCard, FitnessCard, SleepCard, WeightCard } from './Analysis';
-import { CaloriesCard, CapacitiesTrendsCard, CheckinCard } from './Wellness';
+import { ActivityCard, CaloriesCard, CapacitiesTrendsCard, CheckinCard } from './Wellness';
 import { EnduranceHillCard, PredictionsCard, ReadinessCard, ReserveCard, Vo2Card } from './Capacity';
 import { AcuteLoadChart, FocusBars, RatioChart, STATUS_INFO, StatusStrip } from '../ui/loadkit';
+import { PeriodBar, SPANS_LONG, SPANS_SHORT, usePeriod } from '../ui/period';
+import { KeyFigures } from '../ui/readout';
 import { acuteSeries, loadFocus, statusOf, weeklyStatus } from '../domain/loadStatus';
 import { Icon } from '../ui/icons';
 import { navigate, useRoute } from '../ui/router';
@@ -33,11 +35,13 @@ export function LoadScreen() {
   const route = useRoute();
   const { data, d } = useCalc();
   const [view, setView] = useState<'charge' | 'forme'>(route.query.get('vue') === 'forme' ? 'forme' : 'charge');
-  const [period, setPeriod] = useState<'7' | '14' | '30' | '90' | '180' | '365'>('7');
+  const pw = usePeriod(7);
+  const fw = usePeriod(28);
   const c = d.constat;
-  const n = +period;
-  const days = d.series.days.slice(-n);
-  const formDays = dayRange(addDays(d.today, -Math.min(n, 119) + 1), d.today);
+  const total = d.series.days.length;
+  const days = pw.slice(d.series.days);
+  const formDays = days.map((x) => x.day);
+  const winFrom = days[0]?.day, winTo = days[days.length - 1]?.day;
   const weeks = weeklyVolume(data, d.today, 12);
   const [withOther] = useWithOther();
   const form = d.form ?? d.lastForm;
@@ -45,7 +49,8 @@ export function LoadScreen() {
   const acutePts = acuteSeries(d.series.days);
   const weekStatus = weeklyStatus(d.series.days, d.today, 12);
   const curStatus = statusOf(acwr, c.fitnessDelta);
-  const focus = loadFocus(data, d.loads, d.ctx.hrMax.bpm, d.today);
+  const focusEnd = addDays(d.today, -fw.offset);
+  const focus = loadFocus(data, d.loads, d.ctx.hrMax.bpm, focusEnd, fw.span);
   const acwrZone = acwr === null ? null : acwr > 1.5 ? 'critical' : acwr > 1.3 ? 'warning' : acwr < 0.8 ? 'low' : 'ok';
   if (!d.series.days.length) {
     return (
@@ -81,35 +86,35 @@ export function LoadScreen() {
         <InfoCard className="card g12 dspan-12" aria-label={$t("Charge aiguë")}>
           <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
             <h2>{$t("Charge aiguë et zone optimale")}<InfoToggle /></h2>
-            {acwr !== null && <span className={'var-chip' + (acwrZone === 'ok' ? '' : acwrZone === 'low' ? ' flat' : ' warn')}>{$t("rapport")} {num(acwr, 2)}</span>}
           </div>
+          {acwr !== null && c.acuteLoad !== null && (
+            <KeyFigures items={[
+              { label: $t("Charge aiguë (7 j)"), value: num(c.acuteLoad, 0), sub: c.chronicWeeklyLoad === null ? undefined : $t("habituelle {0}", { 0: num(c.chronicWeeklyLoad, 0) }), color: acwrZone === 'critical' ? 'var(--critical)' : acwrZone === 'warning' ? 'var(--warning)' : acwrZone === 'low' ? 'var(--form-strained)' : 'var(--success)' },
+              { label: $t("Rapport de charge"), value: num(acwr, 2), sub: acwrZone === 'critical' ? $t("Très élevé") : acwrZone === 'warning' ? $t("Élevé") : acwrZone === 'low' ? $t("Bas") : $t("Optimal"), color: acwrZone === 'critical' ? 'var(--critical)' : acwrZone === 'warning' ? 'var(--warning)' : acwrZone === 'low' ? 'var(--form-strained)' : 'var(--success)' },
+            ]} />
+          )}
           <Info>{$t("Le trait noir est ta charge des 7 derniers jours. La bande verte est la zone où elle progresse sans excès : entre 0,8 et 1,3 fois ta charge hebdomadaire habituelle. Dans la bande orange, c’est élevé ; au-delà, le risque de blessure monte.")}</Info>
-          <ChipGroup label={$t("Période")} value={period} onChange={setPeriod} options={[['7', $t("1 sem.")], ['14', $t("2 sem.")], ['30', $t("1 mois")], ['90', $t("3 mois")], ['180', $t("6 mois")], ['365', $t("1 an")]]} />
-          <AcuteLoadChart points={acutePts.slice(-Math.max(n, 8))} today={d.today} />
+          <PeriodBar p={pw} options={SPANS_SHORT} total={total} from={winFrom} to={winTo} />
+          <AcuteLoadChart points={pw.slice(acutePts)} today={d.today} />
           <h3 className="t-strong">{$t("Rapport de charge")}</h3>
           <Info>{$t("Charge des 7 jours divisée par ta charge hebdomadaire habituelle. Entre 0,8 et 1,3 (vert) : tu progresses sans te griller. Sous 0,8 (bleu) : semaine légère. Au-dessus de 1,3 : tu montes trop vite.")}</Info>
-          <RatioChart points={acutePts.slice(-Math.max(n, 8))} />
-          {acwr !== null && (
-            <dl className="kv">
-              <dt>{$t("Aiguë (7 derniers jours)")}</dt><dd>{c.acuteLoad === null ? '—' : num(c.acuteLoad, 0)}</dd>
-              <dt>{$t("Chronique (moyenne par semaine, 28 j)")}</dt><dd>{c.chronicWeeklyLoad === null ? '—' : num(c.chronicWeeklyLoad, 0)}</dd>
-            </dl>
-          )}
+          <RatioChart points={pw.slice(acutePts)} today={d.today} />
           {c.heaviestDay && c.heaviestDay.share >= 0.2 && <div className="note"><Icon name="info" size={20} /><span>{$t("Une seule journée pèse beaucoup dans les 28 derniers jours : le {0} ({1}, soit {2} du total). Si cette charge est surévaluée, le rapport est écrasé. Vérifie-la dans le bilan de la séance (ressenti ou FC).", { 0: dayTitle(c.heaviestDay.day), 1: num(c.heaviestDay.load, 0), 2: pct(c.heaviestDay.share) })}</span></div>}
           {d.series.isPriming && <div className="note"><Icon name="info" size={20} /><span>{$t("Historique court : forme et fatigue sont amorcées sur ta charge habituelle des 14 premiers jours, et se stabilisent vers le")} {dateFr(d.series.primingEndsOn!)}.</span></div>}
         </InfoCard>
 
         <InfoCard className="card g12 dspan-12" aria-label={$t("Répartition de la charge")}>
           <h2>{$t("Répartition de la charge")}<InfoToggle /></h2>
-          <Info>{$t("D’où vient ta charge des 4 dernières semaines : sorties tranquilles, efforts soutenus ou intensité maximale, d’après ta fréquence cardiaque.")}</Info>
+          <Info>{$t("D’où vient ta charge sur la période choisie (4 semaines par défaut) : sorties tranquilles, efforts soutenus ou intensité maximale, d’après ta fréquence cardiaque.")}</Info>
+          <PeriodBar p={fw} options={SPANS_LONG.filter(([n]) => n !== 182 && n !== 365).concat([[14, $t("2 sem.")]]).sort((a, b) => a[0] - b[0])} total={total} from={addDays(focusEnd, -(fw.span - 1))} to={focusEnd} />
           <FocusBars focus={focus} />
         </InfoCard>
 
         <InfoCard className="card g12 dspan-12" aria-label={$t("Évolution")}>
           <h2>{$t("Forme de fond, fatigue et fraîcheur")}<InfoToggle /></h2>
           <Segmented label={$t("Courbe")} value={view} onChange={setView} options={[['charge', $t("Charge")], ['forme', $t("Forme du jour")]]} />
-          <Info>{$t("Même période que le graphique de charge aiguë, plus haut.")}</Info>
-          {view === 'charge' ? <LoadPanels days={days} /> : (
+          <PeriodBar p={pw} options={SPANS_SHORT} total={total} from={winFrom} to={winTo} />
+          {view === 'charge' ? <LoadPanels days={days} today={d.today} /> : (
             <>
               <FormChart days={formDays} forms={d.formByDay} />
               <Info>{$t("Score sur 100, calculé chaque matin à partir de ta nuit, de ta FC de repos, de ta fraîcheur au réveil et du ressenti de la veille, comparés à tes 14 jours précédents.")}</Info>
@@ -125,7 +130,7 @@ export function LoadScreen() {
 
         <InfoCard className="card g8 dspan-12" aria-label={$t("Méthode")}>
           <h2>{$t("Comment la charge est calculée")}<InfoToggle /></h2>
-          <Info><p>{$t("Chaque séance reçoit une charge, de la plus fiable à la moins fiable : TRIMP sur la courbe cardiaque de la montre ; TRIMP sur la FC moyenne ; ressenti × durée recalé sur l’échelle du TRIMP (coefficient")} {num(d.ctx.srpeFactor, 2)}, {d.ctx.srpeCalibrationPairs >= 5 ? $t("appris sur {0} de tes séances", { 0: d.ctx.srpeCalibrationPairs }) : $t("valeur type tant qu’il y a moins de 5 séances avec FC et ressenti")}{$t(") ; à défaut, une charge provisoire tirée de tes habitudes. Forme de fond = moyenne exponentielle sur 42 jours, fatigue = sur 7 jours, fraîcheur = forme − fatigue.")}</p>
+          <Info><p>{$t("Chaque séance reçoit une charge, de la plus fiable à la moins fiable : effort mesuré sur la courbe cardiaque de la montre (modèle de type EPOC, calé sur Garmin Connect) ; le même modèle sur la FC moyenne ; ressenti × durée recalé sur la même échelle (coefficient")} {num(d.ctx.srpeFactor, 2)}, {d.ctx.srpeCalibrationPairs >= 5 ? $t("appris sur {0} de tes séances", { 0: d.ctx.srpeCalibrationPairs }) : $t("valeur type tant qu’il y a moins de 5 séances avec FC et ressenti")}{$t(") ; à défaut, une charge provisoire tirée de tes habitudes. Forme de fond = moyenne exponentielle sur 42 jours, fatigue = sur 7 jours, fraîcheur = forme − fatigue.")}</p>
           <p>{$t("FC max retenue :")} {d.ctx.hrMax.bpm ? $t("{0} bpm ({1})", { 0: num(d.ctx.hrMax.bpm, 0), 1: d.ctx.hrMax.origin === 'observed' ? $t("pic soutenu observé") : d.ctx.hrMax.origin === 'tanaka' ? $t("formule de Tanaka, faute de mieux") : $t("valeur déclarée") }) : $t("inconnue — renseigne ta date de naissance ou une FC max")}{$t(". FC de repos de référence :")} {d.ctx.resting.at(d.today) ? $t("{0} bpm", { 0: num(d.ctx.resting.at(d.today)!, 0) }) : '—'}.</p></Info>
         </InfoCard>
       </main>
@@ -174,6 +179,7 @@ export function HealthScreen() {
           <FormDetailCard />
           <SleepCard data={data} d={d} />
           <WeightCard data={data} d={d} />
+          <ActivityCard />
           <CaloriesCard />
         </div>
       </main>

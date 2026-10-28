@@ -18,6 +18,7 @@ import { dateFr, dayLong, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor,
 import { useActualMenu, usePlannedMenu } from '../ui/menu';
 import { WelcomeCard } from './Welcome';
 import { HealthCard } from './Health';
+import { ActivityTiles } from './ActivityTiles';
 
 export function HomeScreen() {
   const { data, d } = useCalc();
@@ -56,6 +57,7 @@ export function HomeScreen() {
 
         <div className="dmasonry">
         <FormHero form={form} isToday={!!d.form} constat={d.constat} priming={d.series.isPriming} firstDay={d.series.firstDay} />
+        <ActivityTiles />
         <section className="stack-12 dspan-7">
           {interruption && (
             <div role="note" className="note"><Icon name="pause" size={20} /><span><strong>{$t("En interruption :")} {interruption.label}</strong> {$t("— jusqu’au")} {dateFr(interruption.endDate)}.{interruption.dailyLoadOverride !== null ? $t(" Charge forfaitaire de {0} par jour.", { 0: num(interruption.dailyLoadOverride, 0) }) : ''}</span></div>

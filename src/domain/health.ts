@@ -122,6 +122,8 @@ export function ingest(data: AppData, sessions: NativeSession[], nights: NativeS
     // temps réellement endormi quand les étapes sont connues (Garmin affiche ce temps, pas celui passé au lit)
     const stages = typeof n.asleepSec === 'number' && n.asleepSec > 0;
     const dur = stages ? Math.min(Math.round(n.asleepSec!), inBed) : inBed;
+    const kept = data.sleep[nightDate];
+    if (kept && !kept.deleted && kept.edited) continue;
     const cur = bestNight.get(nightDate) ?? (data.sleep[nightDate] && !data.sleep[nightDate].deleted ? data.sleep[nightDate] : undefined);
     if (cur) {
       if (cur.fromStages && !stages) continue;

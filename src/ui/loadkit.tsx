@@ -3,6 +3,7 @@
 import { $t } from '../i18n';
 import { useState, type ReactNode } from 'react';
 import { Info, useWidth } from './kit';
+import { Readout } from './readout';
 import { hoverIndex, niceStep } from './charts';
 import { dateShort, dayMonth, num, pct } from './format';
 import { FOCUS_REF, RATIO_HIGH, RATIO_LOW, RATIO_OPT_HIGH, STATUS_ORDER, type AcutePoint, type LoadFocus, type StatusKey, type WeekStatus } from '../domain/loadStatus';
@@ -40,7 +41,7 @@ export function AcuteLoadChart({ points, today }: { points: AcutePoint[]; today:
     withBand.length < 2 ? '' : 'M' + withBand.map((q) => X(q.i).toFixed(1) + ',' + Y(a(q.p)).toFixed(1)).join(' L') + ' L' + withBand.slice().reverse().map((q) => X(q.i).toFixed(1) + ',' + Y(b(q.p)).toFixed(1)).join(' L') + ' Z';
   const line = points.map((p, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ',' + Y(p.acute).toFixed(1)).join(' ');
   const ti = points.findIndex((p) => p.day === today);
-  const h = hover ?? (ti >= 0 ? ti : n - 1);
+  const h = hover ?? (ti >= 0 && ti >= n - 1 ? ti : n - 1);
   const hp = points[h];
   const ticks: ReactNode[] = [];
   let grid = '';
@@ -48,16 +49,16 @@ export function AcuteLoadChart({ points, today }: { points: AcutePoint[]; today:
   const picks = [0, Math.round((n - 1) / 2), n - 1];
   return (
     <div className="stack-8" data-component="AcuteLoadChart">
-      <div role="status" aria-live="polite" className="load-readout">
-        <span className="when t-caption-strong">{hover === null && hp.day === today ? $t("Aujourd’hui") : dayMonth(hp.day)}</span>
-        <span><span className="sw" style={{ background: 'var(--text)' }} /><span className="c-neutral">{$t("Charge aiguë (7 j)")}</span><strong style={{ color: ratioColor(hp.ratio) }}>{num(hp.acute, 0)}</strong></span>
-        <span><span className="sw" style={{ background: 'var(--success)', opacity: 0.6 }} /><span className="c-neutral">{$t("Zone optimale")}</span><strong>{hp.lo === null ? '—' : num(hp.lo, 0) + '–' + num(hp.hi!, 0)}</strong></span>
-      </div>
+      <Readout when={hp.day === today && hover === null ? $t("Aujourd’hui") : dayMonth(hp.day)} cells={[
+        { label: $t("Charge aiguë (7 j)"), value: num(hp.acute, 0), color: 'var(--text)', key: true, valueColor: ratioColor(hp.ratio) },
+        { label: $t("Rapport de charge"), value: hp.ratio === null ? '—' : num(hp.ratio, 2), color: ratioColor(hp.ratio), key: true, valueColor: ratioColor(hp.ratio) },
+        { label: $t("Zone optimale"), value: hp.lo === null ? '—' : num(hp.lo, 0) + '–' + num(hp.hi!, 0), color: 'var(--success)' },
+      ]} />
       <div ref={ref} className="chart" style={{ height: B + 22 }}>
         <svg viewBox={`0 0 ${cw} ${B + 22}`} width={cw} height={B + 22} role="img" aria-label={$t("Charge aiguë des 7 derniers jours : {0}, zone optimale {1}", { 0: num(points[n - 1].acute, 0), 1: points[n - 1].lo === null ? '—' : num(points[n - 1].lo!, 0) + '–' + num(points[n - 1].hi!, 0) })}>
           <path d={grid} fill="none" strokeWidth="1" style={{ stroke: 'var(--chart-grid)' }} />
-          <path d={poly((p) => p.hi!, (p) => p.top!)} style={{ fill: 'var(--warning)', opacity: 0.34 }} />
-          <path d={poly((p) => p.lo!, (p) => p.hi!)} style={{ fill: 'var(--success)', opacity: 0.42 }} />
+          <path d={poly((p) => p.hi!, (p) => p.top!)} style={{ fill: 'var(--warning)', opacity: 0.45 }} />
+          <path d={poly((p) => p.lo!, (p) => p.hi!)} style={{ fill: 'var(--success)', opacity: 0.52 }} />
           <path d={line} fill="none" strokeWidth="2.75" strokeLinejoin="round" strokeLinecap="round" style={{ stroke: 'var(--text)' }} />
         </svg>
         {ticks}
@@ -77,7 +78,7 @@ export function AcuteLoadChart({ points, today }: { points: AcutePoint[]; today:
 }
 
 // ------------------------------------------------------------------ rapport de charge
-export function RatioChart({ points }: { points: AcutePoint[] }) {
+export function RatioChart({ points, today }: { points: AcutePoint[]; today: string }) {
   const [ref, cw] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const n = points.length;
@@ -92,13 +93,12 @@ export function RatioChart({ points }: { points: AcutePoint[] }) {
   const picks = [0, Math.round((n - 1) / 2), n - 1];
   return (
     <div className="stack-8" data-component="RatioChart">
-      <div role="status" aria-live="polite" className="load-readout">
-        <span className="when t-caption-strong">{dayMonth(hv.p.day)}</span>
-        <span><span className="sw" style={{ background: ratioColor(hv.p.ratio) }} /><span className="c-neutral">{$t("Rapport de charge")}</span><strong style={{ color: ratioColor(hv.p.ratio) }}>{num(hv.p.ratio!, 2)}</strong></span>
-      </div>
+      <Readout when={hv.p.day === today && hover === null ? $t("Aujourd’hui") : dayMonth(hv.p.day)} cols={1} cells={[
+        { label: $t("Rapport de charge"), value: num(hv.p.ratio!, 2), color: ratioColor(hv.p.ratio), key: true, valueColor: ratioColor(hv.p.ratio) },
+      ]} />
       <div ref={ref} className="chart" style={{ height: B + 22 }}>
         <svg viewBox={`0 0 ${cw} ${B + 22}`} width={cw} height={B + 22} role="img" aria-label={$t("Rapport de charge {0}", { 0: num(pts[pts.length - 1].p.ratio!, 2) })}>
-          {bands.map(([a, b, c]) => <rect key={a} x="0" y={Y(b)} width={W} height={Y(a) - Y(b)} style={{ fill: c, opacity: 0.34 }} />)}
+          {bands.map(([a, b, c]) => <rect key={a} x="0" y={Y(b)} width={W} height={Y(a) - Y(b)} style={{ fill: c, opacity: 0.45 }} />)}
           <path d={path} fill="none" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" style={{ stroke: 'var(--text)' }} />
         </svg>
         {[RATIO_LOW, RATIO_OPT_HIGH, RATIO_HIGH].map((v) => <span key={v} className="tick" style={{ left: W + 6, top: Y(v) - 9 }}>{num(v, 1)}</span>)}
@@ -161,7 +161,7 @@ export function FocusBars({ focus }: { focus: LoadFocus }) {
           </div>
         );
       })}
-      <Info>{$t("Bande claire = repère courant d’une semaine équilibrée (indicatif, pas une prescription). Calcul sur 28 jours : la charge de chaque séance de course, vélo ou natation avec FC est partagée selon le temps passé dans chaque zone, une minute intense pesant plus qu’une minute facile (poids 1 à 5, Edwards 1993) ; la charge du renforcement compte en anaérobie{0}. Garmin classe autrement, avec ses propres seuils : les parts ne sont pas comparables une à une.", { 0: focus.skipped ? $t(" ; {0} séance(s) sans FC non comptée(s)", { 0: focus.skipped }) : '' })}</Info>
+      <Info>{$t("Bande claire = repère courant d’une semaine équilibrée (indicatif, pas une prescription). Calcul sur la période affichée : la charge de chaque séance de course, vélo ou natation avec FC est partagée selon le temps passé dans chaque zone, une minute intense pesant plus qu’une minute facile (le poids de chaque zone vient du modèle d’effort de la charge) ; la charge du renforcement compte en anaérobie{0}. Garmin classe autrement, avec ses propres seuils : les parts ne sont pas comparables une à une.", { 0: focus.skipped ? $t(" ; {0} séance(s) sans FC non comptée(s)", { 0: focus.skipped }) : '' })}</Info>
     </div>
   );
 }

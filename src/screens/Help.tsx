@@ -66,7 +66,7 @@ export function HelpScreen() {
     <div className="screen" data-screen="aide">
       <SubHeader title={$t("Aide")} fallback="/parametres" />
       <main className="content form-narrow stack-16">
-        <p className="t-caption c-neutral">{$t("Tout ce que fait l’application et la façon dont chaque chiffre est calculé. Cherche un mot (RPE, TRIMP, APK, rappel…) ou ouvre une rubrique.")}</p>
+        <p className="t-caption c-neutral">{$t("Tout ce que fait l’application et la façon dont chaque chiffre est calculé. Cherche un mot (RPE, EPOC, APK, rappel…) ou ouvre une rubrique.")}</p>
         <label className="help-search">
           <Icon name="search" size={20} style={{ color: 'var(--text-moderate)' }} />
           <input className="help-search-in" type="search" value={q} placeholder={$t("Rechercher dans l’aide")} aria-label={$t("Rechercher dans l’aide")} onChange={(e) => setQ(e.target.value)} />

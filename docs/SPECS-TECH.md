@@ -82,7 +82,7 @@ par enregistrement avec Firestore. Tout enregistrement : `{ id: string, updatedA
 | `resting` | FC de repos du jour : `day, bpm` | = day |
 | `weight` | pesée du jour : `day, kg, source ('health'|'manual')` ; une saisie manuelle n'est jamais écrasée, une pesée supprimée n'est pas ré-importée | = day |
 | `templates` | séance favorite ou semaine type : `name, kind ('session'|'week'), items ({offset, discipline, title, notes, blocks}[]), createdAt` | id |
-| `energy` | dépense du jour lue dans Health Connect : `day, activeKcal, totalKcal (repos compris), source 'health'` (agrégat Health Connect, doublons entre applications écartés par Android) | = day |
+| `energy` | dépense, pas et étages du jour lus dans Health Connect : `day, activeKcal, totalKcal (repos compris), steps?, floors?, source 'health'` (agrégat Health Connect, doublons entre applications écartés par Android) | = day |
 | `meals` | journal de repas : `day, kcal, label` (aucune base d'aliments) | id |
 | `vitals` | VO₂max et HRV du jour **si la montre les dépose** dans Health Connect : `day, vo2max, hrvMs` (HRV = moyenne des RMSSD du jour) | = day |
 | `checkins` | point hebdomadaire : `week (lundi), vo2max, lthrBpm, lthPaceSecKm, hrvMs, hrvStatus, sleepFelt, recoveryFelt (1 à 5), pred5k/10k/Half/MarathonSec, note` | = week |
@@ -511,3 +511,13 @@ prévisionnel ; alerte blessure ; estimation de VMA ; poids et sommeil ; ingesti
 12. **Éviter les dates en dur dans l'UI** : le jour civil dépend du décalage horaire de la séance (`sessionDay`).
 13. **Ne jamais livrer de diff à recopier** : toujours des fichiers complets (leçon de l'ancienne version).
 14. **Mettre à jour l'Aide** (`help-content.ts`) quand un chiffre de calcul change.
+
+
+## Addendum 28/10/2026 — modèle de charge, graphes à période, sommeil, pas et étages
+
+- **Charge de séance (hr.ts)** : `epocRate(x) = 24,8 · max(0, x − 0,5)^1,5` par minute, x = FC / FC max (plafonné à 1,05) ; effort `E ← E + (taux·τ − E)(1 − e^(−Δt/τ))`, τ = 44,7 min ; charge = pic de E ; trous de courbe comblés à l'intensité moyenne ; variante FC moyenne `taux(x_moy)·τ·(1 − e^(−T/τ))`. Constantes ajustées sur 4 séances Garmin (course, vélo, natation, renforcement : ≈ 2 %). Les clés de méthode (`trimp`, `trimp_avg`, `srpe`, `provisional`, `pending`) sont inchangées. Poids de zone de la répartition (`ZONE_LOAD_WEIGHT`) = `epocRate` au centre des zones.
+- **Fenêtres de période** : `usePeriod` (durée + décalage, pas d'une fenêtre), `PeriodBar`, `useDaySel` (jour lu, mémorisé par date), `DayChart` (barres / flottantes / courbe / empilées), `Readout` (bandeau = légende + valeurs), `KeyFigures`.
+- **Capacités** : `capacityHistory` quotidien (365 j max) ; `sessionEfforts` et `sessionVo2` en cache ; VO₂max = moyenne pondérée (demi-vie 21 j, 60 j, valeurs à ±15 % de la médiane) ; prédictions = meilleurs efforts 90 j × (VO₂ de l'époque / VO₂ actuelle, borné ±10 %) puis Riegel 1,12, puis coefficient médian de calage sur la montre (point hebdomadaire).
+- **Réserve d'énergie** : recharge 80, dépense de base 55, séance 25 par charge de référence (recalé sur la semaine Garmin du 22–28/10) ; `energyReserve(data, d, span, endDay)`.
+- **Sommeil** : `SleepNight.edited` ; `saveSleepNight` / `resetSleepNight` (actions) ; `ingest` ignore une nuit `edited` ; rappel local chaque matin (`prefs.sleepReminder`, `sleepReminderHour`, 3 jours glissants, ouvre `/progression/sante`).
+- **Pas et étages** : permissions `READ_STEPS`, `READ_FLOORS_CLIMBED` (patch-android) ; méthode plugin `readDailyActivity` (agrégats journaliers, lecture séparée de la dépense) ; fusion par jour dans `ingestEnergy` ; relecture unique de 120 jours (`prefs.healthActivityScan`).

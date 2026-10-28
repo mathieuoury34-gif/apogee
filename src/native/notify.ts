@@ -8,6 +8,7 @@ import { liveRecords } from '../domain/load';
 import type { Derived } from '../domain/engine';
 import type { AppData } from '../domain/types';
 import { DISCIPLINE_LABEL } from '../ui/format';
+import { navigate } from '../ui/router';
 import { getPrefs } from '../data/store';
 import { native } from './bridge';
 
@@ -18,6 +19,7 @@ function suspended(data: AppData, day: string): boolean {
 }
 
 let last = '';
+let listening = false;
 export async function scheduleReminders(data: AppData, d: Derived): Promise<void> {
   const ln = native.notifications();
   if (!ln) return;
@@ -25,7 +27,7 @@ export async function scheduleReminders(data: AppData, d: Derived): Promise<void
   const at = (day: string) => { const [y, m, dd] = day.split('-').map(Number); return new Date(y, m - 1, dd, hour, 0, 0, 0); };
   const now = new Date();
   const t = today(now);
-  const list: { id: number; title: string; body: string; schedule: { at: Date; allowWhileIdle: boolean } }[] = [];
+  const list: { id: number; title: string; body: string; schedule: { at: Date; allowWhileIdle: boolean }; extra?: { route: string } }[] = [];
   let id = 1;
   for (const p of liveRecords(data.planned)) {
     if (p.plannedDate < t || p.plannedDate > addDays(t, LOOKAHEAD - 1) || d.links.byPlanned.has(p.id) || suspended(data, p.plannedDate)) continue;
@@ -53,12 +55,28 @@ export async function scheduleReminders(data: AppData, d: Derived): Promise<void
     if (when <= now || (c && !c.deleted) || suspended(data, sunday)) continue;
     list.push({ id: id++, title: $t("Point de la semaine"), body: $t("Deux minutes pour noter VO₂max, ressenti et prédictions : tes courbes se complètent."), schedule: { at: when, allowWhileIdle: true } });
   }
+  // sommeil : chaque matin, une invitation à valider (ou corriger) les heures de coucher et de lever
+  const prefs = getPrefs();
+  if (prefs.sleepReminder !== false) {
+    const sh = prefs.sleepReminderHour ?? 8;
+    for (let k = 0; k < 3; k++) {
+      const day = addDays(t, k);
+      const [y, m, dd] = day.split('-').map(Number);
+      const when = new Date(y, m - 1, dd, sh, 0, 0, 0);
+      if (when <= now || suspended(data, day)) continue;
+      list.push({ id: id++, title: $t("Ta nuit"), body: $t("Valide tes heures de coucher et de lever, ou corrige-les si la montre s’est trompée."), schedule: { at: when, allowWhileIdle: true }, extra: { route: '/progression/sante' } });
+    }
+  }
   const key = JSON.stringify(list.map((x) => [x.title, x.body, x.schedule.at.getTime()]));
   if (key === last) return;
   last = key;
   try {
     const perm = await ln.checkPermissions();
     if (perm.display !== 'granted') { const r = await ln.requestPermissions(); if (r.display !== 'granted') return; }
+    if (!listening) {
+      listening = true;
+      ln.addListener?.('localNotificationActionPerformed', (e: { notification?: { extra?: { route?: string } } }) => { const r = e?.notification?.extra?.route; if (r) navigate(r); });
+    }
     const pending = await ln.getPending();
     if (pending.notifications?.length) await ln.cancel({ notifications: pending.notifications.map((n: { id: number }) => ({ id: n.id })) });
     if (list.length) await ln.schedule({ notifications: list });

@@ -12,7 +12,7 @@ type Type = Block['targetType'];
 export function MeasureWheel({ measure, value, onChange, discipline }: { measure: 'TIME' | 'DISTANCE' | 'REPS'; value: number; onChange: (v: number) => void; discipline: PlannedDiscipline | 'OTHER' }) {
   if (measure === 'TIME') return <DurationWheel value={value} onChange={onChange} label={$t("Durée")} />;
   if (measure === 'REPS') return <IntWheel value={value} onChange={onChange} label={$t("Répétitions")} min={1} max={100} unit={$t("rép.")} />;
-  return <SplitWheel value={value} onChange={onChange} label={$t("Distance")} base={1000} hiMax={99} hiUnit="km" loUnit="m" loStep={discipline === 'SWIM' ? 25 : 10} loPad={3} />;
+  return <SplitWheel value={value} onChange={onChange} label={$t("Distance")} base={1000} hiMax={99} hiUnit="km" loUnit="m" loStep={discipline === 'SWIM' ? 25 : 10} loPad={1} />;
 }
 
 /** Roulette d'une valeur d'intensité (valeur ou borne). */
@@ -50,6 +50,13 @@ export function DurationField({ label, value, onChange, clearable, hours = true,
     wheel={(d, set) => <DurationWheel value={d} onChange={set} label={label} hours={hours} seconds={seconds} />} />;
 }
 
+/** Heure du jour (HH:MM), en secondes depuis minuit : deux roulettes, heures et minutes. */
+export function ClockField({ label, value, onChange, initial = 0 }: { label: string; value: number | null; onChange: (v: number) => void; initial?: number }) {
+  const text = (v: number) => pad2(Math.floor(v / 3600) % 24) + ':' + pad2(Math.floor((v % 3600) / 60));
+  return <WheelField<number> label={label} value={value ?? initial} onChange={onChange} text={value === null ? DASH : text(value)}
+    wheel={(d, set) => <DurationWheel value={d} onChange={set} label={label} hours seconds={false} />} />;
+}
+
 export function IntField({ label, value, onChange, clearable, min, max, step = 1, unit = '', initial }: FieldBase<number> & { min: number; max: number; step?: number; unit?: string; initial?: number }) {
   return <WheelField<number> label={label} value={value ?? initial ?? min} onChange={onChange} text={value === null ? DASH : String(value) + (unit ? NBSP + unit : '')} onClear={clearable && value !== null ? () => onChange(null) : undefined}
     wheel={(d, set) => <IntWheel value={d} onChange={set} label={label} min={min} max={max} step={step} unit={unit} />} />;
@@ -66,7 +73,7 @@ export function DecField({ label, value, onChange, clearable, unit = '', hiMax =
 export function DistanceField({ label, value, onChange, clearable, hiMax = 99, loStep = 10, initial = 0, meters = false }: FieldBase<number> & { hiMax?: number; loStep?: number; initial?: number; meters?: boolean }) {
   const text = value === null ? DASH : meters ? Math.round(value).toLocaleString('fr-FR').replace(/[\u202f\u00a0]/g, NBSP) + NBSP + 'm' : toInput(value / 1000, value % 1000 === 0 ? 0 : value % 100 === 0 ? 1 : 2) + NBSP + 'km';
   return <WheelField<number> label={label} value={value ?? initial} onChange={onChange} text={text} onClear={clearable && value !== null ? () => onChange(null) : undefined}
-    wheel={(d, set) => <SplitWheel value={d} onChange={set} label={label} base={1000} hiMax={hiMax} hiUnit="km" loUnit="m" loStep={loStep} loPad={3} />} />;
+    wheel={(d, set) => <SplitWheel value={d} onChange={set} label={label} base={1000} hiMax={hiMax} hiUnit="km" loUnit="m" loStep={loStep} loPad={1} />} />;
 }
 
 /** Allure en secondes par km (ou par 100 m) : minutes + secondes. */

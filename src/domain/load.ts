@@ -1,4 +1,4 @@
-// Charge d'entraînement : FC max, FC de repos, charge par séance, charge quotidienne, modèle de Banister.
+// Charge d'entraînement : FC max, FC de repos, charge par séance (modèle d'EPOC à saturation, voir hr.ts), charge quotidienne, modèle de Banister.
 //
 // Différences avec la version Android (voir ANALYSE.md) :
 //  - sRPE recalé sur l'échelle du TRIMP. Avant, une séance notée RPE 6 pendant 60 min valait 360
@@ -13,7 +13,7 @@
 import { $t } from '../i18n';
 import type { ActualSession, AppData, CalcSettings, ZoneKind, ZoneReading, ZoneSource } from './types';
 import { addDays, ageAt, daysBetween, localDay } from './dates';
-import { analyzeHr, median, srpe, trimpFromAverage, trimpFromSeries, type Sex, type TrimpContext } from './hr';
+import { analyzeHr, epocFromAverage, epocFromSeries, median, srpe, type Sex } from './hr';
 
 export type LoadMethod = 'trimp' | 'trimp_avg' | 'srpe' | 'provisional' | 'pending';
 export type Assise = 'measured' | 'estimated' | 'entered' | 'none';
@@ -117,29 +117,24 @@ export function computeSessionLoads(data: AppData, settings: CalcSettings, now: 
   const resting = restingBaseline(data);
   const sessions = liveRecords(data.actual).sort((a, b) => (a.startAt < b.startAt ? -1 : 1));
   const loads = new Map<string, SessionLoad>();
-  const ctxFor = (day: string): TrimpContext | null => {
-    const rest = resting.at(day);
-    return hrMax.bpm !== null && rest !== null ? { hrMaxBpm: hrMax.bpm, hrRestBpm: rest, sex } : null;
-  };
 
-  // 1. TRIMP (série) et TRIMP (FC moyenne)
+  // 1. charge d'effort (série cardiaque) et charge d'effort (FC moyenne)
   const pending: ActualSession[] = [];
   const ratios: number[] = [];
   for (const s of sessions) {
-    const day = sessionDay(s);
-    const c = ctxFor(day);
+    const hrMaxBpm = hrMax.bpm;
     const ser = data.series[s.id];
     const an = ser && !ser.deleted ? analyzeHr(ser.hr) : null;
     const hr = an ? an.clean : [];
     const drift = an ? an.drift : null;
     let res: SessionLoad | null = null;
-    if (c && hr.length) {
-      const t = trimpFromSeries(hr, c, s.durationSec);
+    if (hrMaxBpm && hr.length) {
+      const t = epocFromSeries(hr, hrMaxBpm, s.durationSec);
       if (t) res = { load: t.value, method: 'trimp', drift, assise: 'measured' };
     }
     if (res && s.rpe) ratios.push(res.load! / srpe(s.rpe, s.durationSec));
-    if (!res && c && s.avgHrBpm) {
-      const t = trimpFromAverage(s.avgHrBpm, s.durationSec, c);
+    if (!res && hrMaxBpm && s.avgHrBpm) {
+      const t = epocFromAverage(s.avgHrBpm, s.durationSec, hrMaxBpm);
       if (t !== null) res = { load: t, method: 'trimp_avg', drift, assise: 'estimated' };
     }
     if (res) loads.set(s.id, res);

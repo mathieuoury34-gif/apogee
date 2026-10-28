@@ -82,6 +82,51 @@ export function trimpFromAverage(avgBpm: number, durationSec: number, c: TrimpCo
   return (durationSec / 60) * r * a * Math.exp(b * r);
 }
 
+// ------------------------------------------------------------------ charge d'effort à saturation (modèle d'EPOC)
+// La charge d'une séance suit l'EPOC (consommation d'oxygène en excès après l'effort) : elle se construit vite avec l'intensité, puis
+// SATURE avec la durée (une sortie de 2 h 15 facile ne pèse pas trois fois une heure : le corps ne s'endette pas indéfiniment). C'est le principe
+// publié de Banister (1991, réponse impulsionnelle) et de Firstbeat (EPOC) ; les valeurs numériques sont ajustées par Apogée sur quatre séances de
+// référence de ta montre Garmin (course, vélo, natation, renforcement : écart de 2 % au plus sur ces quatre). Ce n'est pas la formule de Garmin.
+//   taux(x) = EPOC_GAIN · max(0, x − EPOC_ONSET)^EPOC_EXP   (x = FC ÷ FC max ; unités de charge par minute)
+//   E(t) : tend vers taux · τ avec la constante de temps EPOC_TAU_MIN ; la charge de la séance est le pic de E.
+export const EPOC_TAU_MIN = 44.7;
+export const EPOC_ONSET = 0.5;
+export const EPOC_EXP = 1.5;
+export const EPOC_GAIN = 24.8;
+
+/** Charge par minute à l'intensité `x` (fraction de la FC max). Nulle sous la moitié de la FC max. */
+export function epocRate(x: number): number {
+  return x <= EPOC_ONSET ? 0 : EPOC_GAIN * Math.pow(Math.min(x, 1.05) - EPOC_ONSET, EPOC_EXP);
+}
+
+/** Charge d'une séance depuis sa courbe cardiaque. `null` si la série est inexploitable. */
+export function epocFromSeries(series: Series, hrMaxBpm: number, durationSec: number): { value: number; coverage: number } | null {
+  if (series.length < MIN_SAMPLES_FOR_TRIMP || !(hrMaxBpm > 100)) return null;
+  let e = 0, peak = 0, covered = 0, weighted = 0;
+  for (const s of weightSamples(series)) {
+    if (!s.dtSec) continue;
+    const rate = epocRate(s.bpm / hrMaxBpm);
+    const k = 1 - Math.exp(-s.dtSec / 60 / EPOC_TAU_MIN);
+    e += (rate * EPOC_TAU_MIN - e) * k;
+    if (e > peak) peak = e;
+    covered += s.dtSec; weighted += rate * s.dtSec;
+  }
+  // trous du capteur : le temps manquant est supposé à l'intensité moyenne du reste de la séance
+  const missing = durationSec - covered;
+  if (missing > 60 && covered > 0) {
+    const target = (weighted / covered) * EPOC_TAU_MIN;
+    e += (target - e) * (1 - Math.exp(-missing / 60 / EPOC_TAU_MIN));
+    if (e > peak) peak = e;
+  }
+  return { value: peak, coverage: durationSec > 0 ? Math.min(1, covered / durationSec) : 0 };
+}
+
+/** Charge d'une séance depuis sa FC moyenne seulement (estimation : une moyenne lisse les pics, la charge est un peu sous-estimée). */
+export function epocFromAverage(avgBpm: number, durationSec: number, hrMaxBpm: number): number | null {
+  if (!(avgBpm > 0) || !(durationSec > 0) || !(hrMaxBpm > 100)) return null;
+  return epocRate(avgBpm / hrMaxBpm) * EPOC_TAU_MIN * (1 - Math.exp(-durationSec / 60 / EPOC_TAU_MIN));
+}
+
 /** sRPE de Foster : RPE × minutes (échelle propre, recalée ensuite sur celle du TRIMP). */
 export function srpe(rpe: number, durationSec: number): number {
   return rpe * (durationSec / 60);

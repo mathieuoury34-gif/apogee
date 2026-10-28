@@ -116,7 +116,7 @@
 
   /* ---------- Rampe de forme du jour ---------- */
   --form-depleted: #4A3A6B;
-  --form-strained: #4C5C8E;
+  --form-strained: #3F58A8;
   --form-steady: #3E7A86;
   --form-ready: #4E9C86;
   --form-fresh: #7BBFA8;
@@ -136,13 +136,13 @@
   --zone-hard: #E0A030;
   --zone-intense: #B4432A;
   --chart-axis: #656970;
-  --chart-fitness: #3E7A86;
-  --chart-fatigue: #4C5C8E;
-  --chart-fresh-pos: #7BBFA8;
-  --chart-fresh-neg: #4A3A6B;
-  --chart-load: #C3BEB2;
-  --chart-value: #3E7A86;
-  --chart-value-area: #3E7A861F;
+  --chart-fitness: #2A87A0;
+  --chart-fatigue: #3F58A8;
+  --chart-fresh-pos: #4FBE98;
+  --chart-fresh-neg: #6B49A8;
+  --chart-load: #CDAA72;
+  --chart-value: #2A87A0;
+  --chart-value-area: #2A87A026;
 
   /* ---------- Rayons, ombres, espacements, mise en page (identiques à PEAnalyze) ---------- */
   --radius-2: 2px; --radius-4: 4px; --radius-6: 6px; --radius-8: 8px;
@@ -254,7 +254,7 @@
   --d-OTHER-bg: #222A30;
 
   --form-depleted: #7A63A8;
-  --form-strained: #7189C4;
+  --form-strained: #7C97E0;
   --form-steady: #57AEBC;
   --form-ready: #63C9A6;
   --form-fresh: #A9E3CD;
@@ -273,13 +273,13 @@
   --zone-hard: #F0B74A;
   --zone-intense: #E88663;
   --chart-axis: #8A939B;
-  --chart-fitness: #57AEBC;
-  --chart-fatigue: #8FA6DC;
-  --chart-fresh-pos: #A9E3CD;
-  --chart-fresh-neg: #9C86CC;
-  --chart-load: #77858F;
-  --chart-value: #57AEBC;
-  --chart-value-area: #57AEBC26;
+  --chart-fitness: #4DBBD0;
+  --chart-fatigue: #9BB4EE;
+  --chart-fresh-pos: #7DE0BC;
+  --chart-fresh-neg: #AD92E6;
+  --chart-load: #C9A46A;
+  --chart-value: #4DBBD0;
+  --chart-value-area: #4DBBD02E;
 
   --shadow-xs: 0 1px 3px 0 #00000066;
   --shadow-s: 0 4px 16px 0 #00000059;

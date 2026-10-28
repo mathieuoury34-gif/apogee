@@ -148,8 +148,13 @@ export interface Prefs {
   healthSleepAsleep?: boolean;
   /** Les nuits ont été relues une fois avec le recollage des sessions coupées (sommeil). */
   healthSleepMerged?: boolean;
+  /** Les pas et étages des 120 derniers jours ont été relus une fois (APK avec ces lectures). */
+  healthActivityScan?: boolean;
   /** Rappels de séance (APK) : heure locale. */
   reminderHour: number;
+  /** Rappel du matin pour valider ou corriger la nuit (APK). Actif par défaut. */
+  sleepReminder?: boolean;
+  sleepReminderHour?: number;
 }
 const DEFAULT_PREFS: Prefs = { skipLogin: false, provisionalLoad: true, reminderHour: 7 };
 const prefListeners = new Set<() => void>();

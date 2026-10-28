@@ -140,7 +140,7 @@ function instructions(): string {
     '',
     'À PROPOS DE "loadMethod" : "trimp" = mesurée sur la série cardio ;',
     '"trimp_avg" = estimée sur la FC moyenne ; "srpe" = estimée depuis le RPE et',
-    'recalée sur l\'échelle du TRIMP (coefficient loadSummary.srpeFactor) ;',
+    'recalée sur la même échelle (coefficient loadSummary.srpeFactor) ;',
     '"provisional" = provisoire, sans FC ni RPE ; null = pas de charge.',
     '',
     'Un exemple de fichier complet et déjà valide se trouve dans',
