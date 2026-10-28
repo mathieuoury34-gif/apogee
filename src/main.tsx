@@ -54,6 +54,9 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
       }
     }).catch(() => undefined);
   } else {
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => undefined));
+    // le programme de l'app s'exécute souvent APRÈS l'événement « load » (chargement différé pour ne pas saccader le logo) : on enregistre tout de suite dans ce cas,
+    // sinon le service worker n'était jamais installé et l'app ne s'ouvrait pas hors ligne
+    const register = () => navigator.serviceWorker.register('./sw.js').catch(() => undefined);
+    if (document.readyState === 'complete') register(); else window.addEventListener('load', register);
   }
 }

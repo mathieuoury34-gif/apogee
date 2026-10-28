@@ -357,11 +357,11 @@ export function BlockList({ p }: { p: PlannedSession }) {
           <span className="stack grow">
             <span className="t-strong">{blockHead(b).replace(KIND_LABEL[b.kind] + ' — ', '').replace(KIND_LABEL[b.kind], b.kind === 'SET' ? '' : KIND_LABEL[b.kind])}</span>
             {b.kind !== 'SET' && <span className="t-caption c-neutral">{blockDetail(b, p.discipline)}{b.discipline ? ' · ' + DISCIPLINE_LABEL[b.discipline] : ''}</span>}
-            {b.notes && <Info title={$t("Consigne")}>{b.notes}</Info>}
+            {b.notes && <span className="t-caption c-moderate">{b.notes}</span>}
             {b.kind === 'SET' && (
               <ol className="block-children">
                 {b.children.map((c, k) => (
-                  <li key={k}><span className="t-caption-strong">{blockHead(c)}</span> <span className="t-caption c-neutral">{blockDetail(c, p.discipline)}</span>{c.notes && <Info title={$t("Consigne")}>{c.notes}</Info>}</li>
+                  <li key={k}><span className="t-caption-strong">{blockHead(c)}</span> <span className="t-caption c-neutral">{blockDetail(c, p.discipline)}</span>{c.notes && <span className="t-caption c-moderate"> — {c.notes}</span>}</li>
                 ))}
               </ol>
             )}

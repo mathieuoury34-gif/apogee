@@ -314,3 +314,8 @@ Ajoutés à la demande de Mathieu : **pas et étages** (Health Connect) avec 4 t
 ## Addendum 28/10/2026 (3e série) — cohérence de l'interface
 
 Pas de nouvelle fonctionnalité hors MVP. Règles de produit ajoutées : (1) tout lien interne amène à l'endroit précis de la page (ancre) ; (2) toutes les périodes de visualisation proposent uniquement 1 semaine, 2 semaines, 1 mois, 3 mois, 6 mois, 1 an, Tout, avec **1 semaine par défaut** ; (3) les explications restent repliées derrière « i » ; (4) le formulaire hebdomadaire (point hebdo) ne remplace jamais les calculs d'Apogée : il sert de valeur de secours (VO₂max) et de calage des prédictions, et alimente ses propres courbes de tendance.
+
+
+## Addendum 29/10/2026 — agencement des onglets (validé par Mathieu)
+
+Séances : Journal (résumé de la période) · Statistiques (bilan de semaine, respect du plan, bilan global + répartition du temps, détail par discipline, zones FC, records, efficacité, enchaînements). Progression : Charge, Santé, Capacités, Objectif, avec les données les plus utiles en haut (voir ETAT.md §2 ter, lot E septies). Aucune fonctionnalité hors MVP ajoutée.

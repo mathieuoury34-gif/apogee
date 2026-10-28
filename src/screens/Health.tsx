@@ -85,7 +85,7 @@ export function HealthCard({ compact = false }: { compact?: boolean }) {
           </span>
         </div>
         {android && <ExtLink href={APK_PAGE} className="help-link"><Icon name="download" size={20} /><span>{$t("Télécharger l’APK Apogée (GitHub › Releases)")}</span></ExtLink>}
-        {!compact && <Disclosure title={$t("Détail de la lecture")}><WatchKv st={st} /></Disclosure>}
+        {!compact && <Disclosure title={$t("Détail de la lecture")}><WatchKv st={st} /><GarminDiagnostic /></Disclosure>}
         {compact && <div className="row wrap"><button type="button" className="btn btn-tertiary" onClick={() => navigate('/parametres?ancre=montre')}>{$t("Détails")}</button></div>}
         {!compact && <span className="t-legal c-moderate">{$t("Diagnostic :")} {native.diagnostic()}</span>}
       </div>
@@ -122,6 +122,7 @@ export function HealthCard({ compact = false }: { compact?: boolean }) {
             {report && <><dt>{$t("Dernière lecture")}</dt><dd className="t-caption">{$t("{0} séance(s) vue(s), {1} nouvelle(s), {2} complétée(s), {3} nuit(s), {4} FC de repos", { 0: report.found, 1: report.inserted, 2: report.updated, 3: report.nights, 4: report.restingDays })}</dd></>}
           </dl>
           <WatchKv st={st} />
+          <GarminDiagnostic />
           {h.missing.length > 0 && h.granted.length > 0 && <span className="t-legal c-moderate">{$t("Manquantes :")} {h.missing.join(', ')}</span>}
         </Disclosure>
       )}
@@ -153,5 +154,51 @@ function WatchKv({ st }: { st: ReturnType<typeof useWatchStats> }) {
       <dt>{$t("VO₂max")}</dt><dd className="t-caption">{st.vo2 ? $t("{0} valeur(s)", { 0: num(st.vo2) }) : $t("aucune pour l’instant")}</dd>
       <dt>{$t("Variabilité cardiaque")}</dt><dd className="t-caption">{st.hrv ? $t("{0} valeur(s)", { 0: num(st.hrv) }) : $t("aucune pour l’instant")}</dd>
     </dl>
+  );
+}
+
+type DiagKind = { records?: number; overlaps?: number; lastEnd?: number; days?: { day: string; raw: number; clean: number }[] };
+type Diag = { origins?: string[]; apps?: { app: string; steps: number }[]; kinds?: Record<string, DiagKind> };
+const DIAG_KINDS: [string, string][] = [['steps', $t("Pas")], ['floors', $t("Étages")], ['active', $t("Calories actives (kcal)")], ['total', $t("Calories totales (kcal)")]];
+
+/** Ce que Garmin dépose réellement dans Health Connect sur les 7 derniers jours, pour comprendre un écart avec Garmin Connect. */
+export function GarminDiagnostic() {
+  const [diag, setDiag] = useState<Diag | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const run = async () => {
+    const h = native.health();
+    if (!h?.diagnoseGarmin) { setErr($t("Ce diagnostic demande l’APK le plus récent.")); return; }
+    setBusy(true); setErr('');
+    try {
+      const end = new Date();
+      setDiag(await h.diagnoseGarmin({ start: new Date(end.getTime() - 6 * 86400_000).toISOString(), end: end.toISOString() }) as Diag);
+    } catch (e) { setErr((e as Error).message || $t("Diagnostic impossible")); }
+    setBusy(false);
+  };
+  return (
+    <div className="stack-8" data-component="GarminDiagnostic">
+      <button type="button" className="btn btn-tertiary" disabled={busy} onClick={run}>{busy ? $t("Lecture…") : $t("Diagnostic Garmin (7 jours)")}</button>
+      {err && <span className="t-legal c-moderate">{err}</span>}
+      {diag && (
+        <div className="stack-8">
+          <span className="t-legal c-moderate">{$t("Sources lues :")} {(diag.origins ?? []).length ? (diag.origins ?? []).join(', ') : $t("aucune source Garmin trouvée (toutes sources mélangées)")}</span>
+          <span className="t-legal c-moderate">{$t("Applications qui écrivent des pas :")} {(diag.apps ?? []).map((a) => a.app + ' (' + a.steps + ')').join(', ') || $t("aucune")}</span>
+          {DIAG_KINDS.map(([k, label]) => {
+            const x = diag.kinds?.[k];
+            if (!x || !x.days) return <span key={k} className="t-legal c-moderate">{label} : {$t("non lisible")}</span>;
+            return (
+              <div key={k} className="stack-4">
+                <span className="t-caption-strong">{label}</span>
+                <span className="t-legal c-moderate">{$t("{0} mesure(s), dont {1} qui en recouvre une autre · dernière à {2}", { 0: x.records ?? 0, 1: x.overlaps ?? 0, 2: x.lastEnd ? new Date(x.lastEnd * 1000).toLocaleString() : '—' })}</span>
+                <dl className="kv">
+                  {x.days.map((d) => <><dt key={d.day + 'a'}>{dateFr(d.day)}</dt><dd key={d.day + 'b'} className="t-caption">{num(d.clean, 0)}{Math.abs(d.raw - d.clean) >= 1 ? ' ' + $t("(somme brute {0})", { 0: num(d.raw, 0) }) : ''}</dd></>)}
+                </dl>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

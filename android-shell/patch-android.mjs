@@ -38,6 +38,7 @@ const PERMS = [
   'android.permission.health.READ_BASAL_METABOLIC_RATE',
   'android.permission.health.READ_HEALTH_DATA_HISTORY',
   'android.permission.POST_NOTIFICATIONS',
+  'android.permission.ACCESS_NETWORK_STATE',
 ];
 if (!m.includes('READ_EXERCISE')) {
   const lines = PERMS.map((p) => `    <uses-permission android:name="${p}" />`).join('\n');
@@ -126,8 +127,14 @@ mkdirSync(javaDir, { recursive: true });
 cpSync('plugin/ApogeeHealthPlugin.kt', join(javaDir, 'ApogeeHealthPlugin.kt'));
 write(join(javaDir, 'MainActivity.java'), `package com.mathieu.apogee;
 
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
 import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeActivity;
 
@@ -141,6 +148,36 @@ public class MainActivity extends BridgeActivity {
         splash.setKeepOnScreenCondition(() -> !SplashGate.ready && SystemClock.uptimeMillis() - t0 < 4000);
         registerPlugin(ApogeeHealthPlugin.class);
         super.onCreate(savedInstanceState);
+        openOfflineIfNeeded();
+    }
+
+    private boolean online() {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            Network n = cm.getActiveNetwork();
+            if (n == null) return false;
+            NetworkCapabilities c = cm.getNetworkCapabilities(n);
+            return c != null && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    // Sans réseau au lancement : l'app se rouvre depuis la mémoire du téléphone (dernière version chargée) au lieu d'afficher « page introuvable ».
+    // Avec réseau : comportement normal, la version à jour est chargée.
+    private void openOfflineIfNeeded() {
+        try {
+            WebView w = getBridge().getWebView();
+            if (online()) {
+                w.getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
+                return;
+            }
+            w.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
+            String url = getBridge().getConfig().getServerUrl();
+            if (url != null && !url.isEmpty()) w.loadUrl(url);
+        } catch (Exception e) {
+            // repli : comportement normal
+        }
     }
 }
 `);

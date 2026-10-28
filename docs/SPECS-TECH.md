@@ -530,3 +530,11 @@ prévisionnel ; alerte blessure ; estimation de VMA ; poids et sommeil ; ingesti
 - **Composants** : `Info({title?})` ; `Disclosure({title, defaultOpen})` (flèche dépliable).
 - **Énergie (Health Connect)** : les agrégats sont filtrés sur les origines Garmin (`garminOrigins`) pour ne pas mélanger plusieurs applications ; `BasalMetabolicRateRecord` lu (`basalKcal`) ; priorité du repos : réglage Profil (`restKcal`) > dépense de base > différence totale − active (`restHow` = setting / basal / split / estimation). Relecture unique de 120 jours (`prefs.healthEnergyScan`).
 - **Point hebdomadaire** : donnée de montre séparée (`checkins`) ; n'écrase jamais un calcul `derive()`.
+
+
+## Addendum 29/10/2026 — énergie sans doublon, hors ligne
+
+- **Lecteur Health Connect (ApogeeHealthPlugin.kt)** : `garminOrigins` = sources dont le paquet contient « garmin » (pas et calories totales, 7 jours). Pour chaque type (`steps`, `floors`, `active`, `total`) : mesures lues par tranches de 30 jours, doublons exacts écartés, puis `dayTotals` : mesures triées de la plus courte à la plus longue, un intervalle déjà compté n'est jamais recompté (`Cover`, arbre d'intervalles), partage au prorata entre jours locaux (`spread`). Sans source Garmin trouvée : agrégats Health Connect comme avant. Réponse : `days`, `origins`, `version: 2`. `diagnoseGarmin` : somme brute, total sans doublon, nombre de recouvrements, dernière mesure, applications qui écrivent des pas.
+- **Synchronisation** : `healthGarminScan` ('2') ; tant qu'il n'est pas posé (et seulement si l'APK répond `version: 2`), relecture de 180 jours ; ensuite les 7 derniers jours à chaque lecture (les dernières heures d'une journée arrivent en retard).
+- **Hors ligne (site)** : `main.tsx` enregistre `./sw.js` tout de suite si `document.readyState === 'complete'` (le programme s'exécute après `load`) ; manifest `background_color`/`theme_color` = `#16181B` ; `refreshThemeColor()` (theme.ts) appelée à la disparition de l'écran de démarrage ; test `python3 scripts/pwa-offline-check.py dist apogee "Apogée"` (serveur réellement arrêté).
+- **Hors ligne (APK)** : `MainActivity.openOfflineIfNeeded` : sans réseau au lancement, cache du WebView `LOAD_CACHE_ELSE_NETWORK` et rechargement de l'adresse du site ; non vérifiable hors téléphone.

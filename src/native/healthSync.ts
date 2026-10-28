@@ -52,6 +52,9 @@ export function openHealthSettings(): void {
   native.health()?.openSettings?.();
 }
 
+/** Version du lecteur dépense / pas / étages (voir ApogeeHealthPlugin.kt, `version`). */
+const GARMIN_SCAN = '2';
+
 export async function runHealthSync(): Promise<IngestReport | null> {
   const h = native.health();
   if (!h || state.running) return null;
@@ -74,9 +77,12 @@ export async function runHealthSync(): Promise<IngestReport | null> {
       (h.readWeight?.(range) as Promise<{ records: NativeWeight[] }> | undefined)?.catch(() => ({ records: [] })) ?? Promise.resolve({ records: [] as NativeWeight[] }),
     ]);
     // dépense du jour, VO₂max, HRV : un APK plus ancien ou une autorisation refusée ne bloque rien
+    // Dépense et pas/étages : relecture de 180 jours une fois par version du lecteur, sinon des 7 derniers jours (les dernières heures d'une journée arrivent en retard)
+    const fullScan = getPrefs().healthGarminScan !== GARMIN_SCAN;
+    const dayRange = { start: new Date(fullScan ? end.getTime() - 180 * 86400_000 : Math.min(start.getTime(), end.getTime() - 7 * 86400_000)).toISOString(), end: range.end };
     const [en, act, vo2, hrv] = await Promise.all([
-      (h.readDailyEnergy?.(getPrefs().healthEnergyScan ? range : { start: new Date(end.getTime() - 120 * 86400_000).toISOString(), end: range.end }) as Promise<{ days: NativeEnergyDay[] }> | undefined)?.catch(() => ({ days: [] as NativeEnergyDay[] })) ?? Promise.resolve({ days: [] as NativeEnergyDay[] }),
-      (h.readDailyActivity?.(getPrefs().healthActivityScan ? range : { start: new Date(end.getTime() - 120 * 86400_000).toISOString(), end: range.end }) as Promise<{ days: NativeActivityDay[] }> | undefined)?.catch(() => ({ days: [] as NativeActivityDay[] })) ?? Promise.resolve({ days: [] as NativeActivityDay[] }),
+      (h.readDailyEnergy?.(dayRange) as Promise<{ days: NativeEnergyDay[]; version?: number }> | undefined)?.catch(() => ({ days: [] as NativeEnergyDay[], version: 0 })) ?? Promise.resolve({ days: [] as NativeEnergyDay[], version: 0 }),
+      (h.readDailyActivity?.(dayRange) as Promise<{ days: NativeActivityDay[]; version?: number }> | undefined)?.catch(() => ({ days: [] as NativeActivityDay[], version: 0 })) ?? Promise.resolve({ days: [] as NativeActivityDay[], version: 0 }),
       (h.readVo2Max?.(range) as Promise<{ records: NativeVo2[] }> | undefined)?.catch(() => ({ records: [] as NativeVo2[] })) ?? Promise.resolve({ records: [] as NativeVo2[] }),
       (h.readHrv?.(range) as Promise<{ records: NativeHrv[] }> | undefined)?.catch(() => ({ records: [] as NativeHrv[] })) ?? Promise.resolve({ records: [] as NativeHrv[] }),
     ]);
@@ -93,8 +99,8 @@ export async function runHealthSync(): Promise<IngestReport | null> {
       energyOps.forEach((x) => tx.put('energy', x));
       vitalsOps.forEach((x) => tx.put('vitals', x));
     });
-    if (!getPrefs().healthActivityScan && (act.days ?? []).length > 0) setPrefs({ healthActivityScan: true });
-    if (!getPrefs().healthEnergyScan && (en.days ?? []).length > 0) setPrefs({ healthEnergyScan: true });
+    // seul un APK avec le lecteur à jour répond « version 2 » : un ancien APK ne ferme donc pas la relecture
+    if (fullScan && en.version === 2 && act.version === 2 && ((en.days ?? []).length > 0 || (act.days ?? []).length > 0)) setPrefs({ healthGarminScan: GARMIN_SCAN, healthActivityScan: true, healthEnergyScan: true });
     if (rescanSleep && (n.nights ?? []).some((x) => 'asleepSec' in x)) setPrefs({ healthSleepAsleep: true, healthSleepMerged: true });
     setPrefs({ healthSyncedUntil: range.end, healthLastRun: range.end, healthLastError: '', healthLastReport: JSON.stringify(report) });
     set({ running: false, lastReport: report });

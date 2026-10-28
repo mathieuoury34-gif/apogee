@@ -24,7 +24,7 @@ import { ACTUAL_DISCIPLINES } from '../domain/types';
 import { DISCIPLINE_SHORT, bpm, dateFr, dateTimeFr, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, elevation, hm, hours, kcal, km, mmss, monthLong, num, paceFor, parseNum, pct, pctSigned, signed, speedKmh, timeOf, toInput, NBSP } from '../ui/format';
 import { cleanHr } from '../domain/hr';
 import { polarSplit, zoneTimes } from '../domain/zones';
-import { BricksCard, EfficiencyCard, RecordsCard, WeekCard, ZonesCard } from './Analysis';
+import { BricksCard, ComplianceCard, EfficiencyCard, RecordsCard, WeekCard, ZonesCard } from './Analysis';
 import { SplitBars } from '../ui/charts2';
 import { PeriodBar, usePeriod } from '../ui/period';
 
@@ -80,6 +80,11 @@ export function JournalScreen() {
       </SubNav>
       <main className="content with-fab journal">
         {!searching && <PeriodBar p={pw} total={Math.max(d.series.days.length, 1)} from={since ?? undefined} to={winEnd} />}
+        {!searching && list.length > 0 && (
+          <p className="t-caption c-neutral" data-anchor="resume-periode">
+            <strong>{list.length}</strong> {list.length > 1 ? $t("séances") : $t("séance")} · <strong>{duration(list.reduce((t, x) => t + x.durationSec, 0))}</strong> · {$t("charge")} <strong>{num(list.reduce((t, x) => t + (d.loads.get(x.id)?.load ?? 0), 0), 0)}</strong>
+          </p>
+        )}
         {!list.length && <Empty icon="seances" title={filter === 'rpe' ? $t("Tout est noté") : (q || pw.span !== 0 || pw.offset !== 0) && all.length ? $t("Aucun résultat") : $t("Aucune séance pour l’instant")} text={filter === 'rpe' ? $t("Chaque séance a son ressenti.") : (q || pw.span !== 0 || pw.offset !== 0) && all.length ? $t("Aucune séance ne correspond à cette recherche.") : $t("Les séances de ta montre arrivent ici. Utilise le bouton + pour en saisir une.")} />}
         {shown.map((g) => {
           const vol = g.items.reduce((t, s) => t + s.durationSec, 0);
@@ -531,6 +536,11 @@ export function StatsScreen() {
       <SubNav items={NAV} label={$t("Sections Séances")} />
       <main className="content with-fab dgrid">
         <div className="dmasonry">
+          <WeekCard data={data} d={d} />
+          <ComplianceCard data={data} d={d} />
+        </div>
+
+        <div className="dmasonry">
         <Hero className="dspan-5" label={ov.firstDay ? $t("Bilan depuis le ") + dateFr(ov.firstDay) : $t("Bilan global")} value={hours(ov.seconds)} chip={$t("{0} séances · {1} semaines · {2}", { 0: ov.sessions, 1: ov.weeks, 2: km(ov.metres, 0) })}>
           <div className="foot">
             <span><strong>{ov.weeks ? hm(ov.seconds / ov.weeks) : '—'}</strong> {$t("par semaine")}</span>
@@ -620,7 +630,6 @@ export function StatsScreen() {
           </>
         )}
         <div className="dmasonry">
-          <WeekCard data={data} d={d} />
           <ZonesCard data={data} d={d} />
           <RecordsCard data={data} d={d} />
           <EfficiencyCard data={data} d={d} />

@@ -72,7 +72,7 @@
         done = true;
         var s = document.getElementById('splash');
         document.documentElement.classList.add('app-ready');
-        if (s) { s.classList.add('out'); setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 400); }
+        if (s) { s.classList.add('out'); try { if (window.apogeeThemeColor) window.apogeeThemeColor(); } catch (e) { /* ignoré */ } setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 400); }
       }
       // Dans l'APK : dès que le logo est dessiné, l'écran de lancement natif peut s'effacer (nouvelle tentative tant que le pont n'est pas prêt).
       function hideNative() {

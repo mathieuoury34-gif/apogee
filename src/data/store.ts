@@ -152,6 +152,8 @@ export interface Prefs {
   healthActivityScan?: boolean;
   /** Relecture unique de 120 jours de dépense (totaux et repos), faite une fois que l'historique a été relu avec les totaux. */
   healthEnergyScan?: boolean;
+  /** Version du lecteur de dépense / pas / étages avec laquelle les 180 derniers jours ont été relus (2 = sources Garmin seules, sans doublon). */
+  healthGarminScan?: string;
   /** Rappels de séance (APK) : heure locale. */
   reminderHour: number;
   /** Rappel du matin pour valider ou corriger la nuit (APK). Actif par défaut. */

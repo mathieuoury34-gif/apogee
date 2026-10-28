@@ -28,9 +28,19 @@ function apply(): void {
   if (typeof document === 'undefined') return;
   const t = resolvedTheme();
   document.documentElement.dataset.theme = t;
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--bg-surface-minimal').trim() || (t === 'dark' ? '#0E1215' : '#F2F0EA'));
+  refreshThemeColor();
   listeners.forEach((l) => l());
+}
+
+/** Couleur de la barre d'état : le fond sombre de l'écran de démarrage tant qu'il est visible (pas de barre claire dessus), ensuite celle du thème. */
+export function refreshThemeColor(): void {
+  if (typeof document === 'undefined') return;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) return;
+  const s = document.getElementById('splash');
+  const splashing = !!s && !s.classList.contains('out');
+  meta.setAttribute('content', splashing ? '#16181B'
+    : getComputedStyle(document.documentElement).getPropertyValue('--bg-surface-minimal').trim() || (resolvedTheme() === 'dark' ? '#0E1215' : '#F2F0EA'));
 }
 
 export function setThemePref(p: ThemePref): void {
@@ -47,3 +57,6 @@ export function onThemeChange(fn: () => void): () => void {
 
 media?.addEventListener?.('change', () => { if (pref === 'system') apply(); });
 apply();
+
+// appelée par index.html dès que l'écran de démarrage se retire
+if (typeof window !== 'undefined') (window as unknown as { apogeeThemeColor?: () => void }).apogeeThemeColor = refreshThemeColor;

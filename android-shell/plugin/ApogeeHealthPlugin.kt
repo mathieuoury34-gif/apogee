@@ -138,8 +138,121 @@ class ApogeeHealthPlugin : Plugin() {
 
     /** Sources Garmin qui ont écrit dans Health Connect ces derniers jours : les totaux du jour ne portent que sur elles, comme Garmin Connect (sinon Health Connect mélange aussi le compteur de pas du téléphone). Aucune trouvée : toutes les sources. */
     private suspend fun garminOrigins(c: HealthConnectClient, end: Instant): Set<DataOrigin> {
-        val recent = safe { readAll(c, StepsRecord::class, end.minusSeconds(3 * 86400L), end) } ?: return emptySet()
-        return recent.map { it.metadata.dataOrigin }.filter { it.packageName.contains("garmin", ignoreCase = true) }.toSet()
+        val found = HashSet<DataOrigin>()
+        val steps = safe { readAll(c, StepsRecord::class, end.minusSeconds(7 * 86400L), end) }
+        if (steps != null) for (r in steps) if (r.metadata.dataOrigin.packageName.contains("garmin", ignoreCase = true)) found.add(r.metadata.dataOrigin)
+        val cals = safe { readAll(c, TotalCaloriesBurnedRecord::class, end.minusSeconds(7 * 86400L), end) }
+        if (cals != null) for (r in cals) if (r.metadata.dataOrigin.packageName.contains("garmin", ignoreCase = true)) found.add(r.metadata.dataOrigin)
+        return found
+    }
+
+    /** Une mesure sur un intervalle de temps (pas, étages, calories) telle que Garmin la dépose. */
+    private class Piece(val start: Instant, val end: Instant, val value: Double)
+
+    /** Intervalles de temps déjà comptés (disjoints), pour ne jamais compter deux fois un même moment. */
+    private class Cover {
+        private val map = java.util.TreeMap<Long, Long>()
+
+        /** Parties de [s, e[ pas encore comptées. */
+        fun gaps(s: Long, e: Long): List<LongArray> {
+            val out = ArrayList<LongArray>()
+            var cur = s
+            val before = map.floorEntry(s)
+            val from = if (before != null && before.value > s) before.key else s
+            for (entry in map.subMap(from, true, e, false).entries) {
+                if (entry.value <= cur) continue
+                if (entry.key > cur) out.add(longArrayOf(cur, minOf(entry.key, e)))
+                cur = maxOf(cur, entry.value)
+                if (cur >= e) break
+            }
+            if (cur < e) out.add(longArrayOf(cur, e))
+            return out
+        }
+
+        fun add(s: Long, e: Long) {
+            var ns = s
+            var ne = e
+            val before = map.floorEntry(s)
+            if (before != null && before.value >= s) { ns = minOf(ns, before.key); ne = maxOf(ne, before.value) }
+            val keys = ArrayList(map.subMap(ns, true, ne, true).keys)
+            for (k in keys) { val v = map[k]; if (v != null && v > ne) ne = v; map.remove(k) }
+            map[ns] = ne
+        }
+    }
+
+    private class DayTotals(val days: HashMap<String, Double>, val overlaps: Int, val naive: HashMap<String, Double>)
+
+    /** Répartit `amount` entre les jours locaux traversés par [a, b[, au prorata du temps passé dans chaque jour. */
+    private fun spread(out: HashMap<String, Double>, a: Long, b: Long, amount: Double, zone: java.time.ZoneId) {
+        val total = (b - a).toDouble()
+        if (total <= 0.0) return
+        var cur = a
+        while (cur < b) {
+            val date = Instant.ofEpochMilli(cur).atZone(zone).toLocalDate()
+            val next = minOf(b, date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli())
+            val key = date.toString()
+            out[key] = (out[key] ?: 0.0) + amount * (next - cur).toDouble() / total
+            cur = next
+        }
+    }
+
+    /**
+     * Total par jour local. Les mesures se recouvrent parfois (une séance déposée en plus du suivi de la journée) : Health Connect les additionne alors deux fois.
+     * On part des plus courtes (le suivi le plus fin) et on ne compte jamais deux fois un même moment. Sans recouvrement, c'est la simple somme.
+     */
+    private fun dayTotals(pieces: List<Piece>, zone: java.time.ZoneId): DayTotals {
+        val days = HashMap<String, Double>()
+        val naive = HashMap<String, Double>()
+        val cover = Cover()
+        var overlaps = 0
+        for (p in pieces.sortedBy { it.end.toEpochMilli() - it.start.toEpochMilli() }) {
+            val s = p.start.toEpochMilli()
+            val e = p.end.toEpochMilli()
+            val len = e - s
+            if (len <= 0L) {
+                val key = p.start.atZone(zone).toLocalDate().toString()
+                days[key] = (days[key] ?: 0.0) + p.value
+                naive[key] = (naive[key] ?: 0.0) + p.value
+                continue
+            }
+            spread(naive, s, e, p.value, zone)
+            val gaps = cover.gaps(s, e)
+            var counted = 0L
+            for (g in gaps) {
+                counted += g[1] - g[0]
+                spread(days, g[0], g[1], p.value * (g[1] - g[0]).toDouble() / len.toDouble(), zone)
+            }
+            if (counted < len) overlaps++
+            cover.add(s, e)
+        }
+        return DayTotals(days, overlaps, naive)
+    }
+
+    /** Mesures des sources données (toutes si `origins` est vide) pour un type : "steps", "floors", "active" ou "total". */
+    private suspend fun pieces(c: HealthConnectClient, kind: String, start: Instant, end: Instant, origins: Set<DataOrigin>): List<Piece> {
+        val names = origins.map { it.packageName }.toSet()
+        return when (kind) {
+            "steps" -> readAll(c, StepsRecord::class, start, end).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.count.toDouble()) }
+            "floors" -> readAll(c, FloorsClimbedRecord::class, start, end).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.floors) }
+            "active" -> readAll(c, ActiveCaloriesBurnedRecord::class, start, end).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.energy.inKilocalories) }
+            else -> readAll(c, TotalCaloriesBurnedRecord::class, start, end).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.energy.inKilocalories) }
+        }
+    }
+
+    /** Lit un type par tranches de 30 jours (mémoire) et en tire un total par jour local. */
+    private suspend fun dailyOf(c: HealthConnectClient, kind: String, from: java.time.LocalDateTime, to: java.time.LocalDateTime, origins: Set<DataOrigin>, zone: java.time.ZoneId): DayTotals? {
+        val all = ArrayList<Piece>()
+        var a = from
+        while (a < to) {
+            val b = if (a.plusDays(30) < to) a.plusDays(30) else to
+            // une mesure à cheval sur deux tranches est lue deux fois : on la garde une fois (début dans la tranche)
+            val got = safe { pieces(c, kind, a.atZone(zone).toInstant(), b.atZone(zone).toInstant(), origins) } ?: return null
+            all.addAll(got)
+            a = b
+        }
+        val seen = HashSet<String>()
+        val uniq = all.filter { seen.add(it.start.toEpochMilli().toString() + "/" + it.end.toEpochMilli() + "/" + it.value) }
+        return dayTotals(uniq, zone)
     }
 
     private fun range(call: PluginCall): Pair<Instant, Instant>? = try {
@@ -245,7 +358,7 @@ class ApogeeHealthPlugin : Plugin() {
         }
     }
 
-    /** Dépense du jour (calories actives et totales, repos compris), un total par jour local ; Health Connect écarte lui-même les doublons entre applications. */
+    /** Dépense du jour (calories actives et totales, repos compris), un total par jour local, uniquement les sources Garmin et sans compter deux fois un même moment. */
     @PluginMethod
     fun readDailyEnergy(call: PluginCall) {
         val c = client() ?: return call.reject("Health Connect indisponible")
@@ -256,31 +369,43 @@ class ApogeeHealthPlugin : Plugin() {
                 val from = java.time.LocalDateTime.ofInstant(start, zone).toLocalDate().atStartOfDay()
                 val to = java.time.LocalDateTime.ofInstant(end, zone)
                 val origins = garminOrigins(c, end)
-                val slice = java.time.Period.ofDays(1)
-                val groups = c.aggregateGroupByPeriod(
-                    AggregateGroupByPeriodRequest(
-                        setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL, TotalCaloriesBurnedRecord.ENERGY_TOTAL),
-                        TimeRangeFilter.between(from, to), slice, origins
+                val days = JSArray()
+                val active = if (origins.isEmpty()) null else dailyOf(c, "active", from, to, origins, zone)
+                val total = if (origins.isEmpty()) null else dailyOf(c, "total", from, to, origins, zone)
+                if (active != null && total != null) {
+                    val keys = java.util.TreeSet<String>()
+                    keys.addAll(active.days.keys); keys.addAll(total.days.keys)
+                    for (day in keys) days.put(JSObject().put("day", day).putN("activeKcal", active.days[day]).putN("totalKcal", total.days[day]).putN("basalKcal", null))
+                } else {
+                    val slice = java.time.Period.ofDays(1)
+                    val groups = c.aggregateGroupByPeriod(
+                        AggregateGroupByPeriodRequest(
+                            setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL, TotalCaloriesBurnedRecord.ENERGY_TOTAL),
+                            TimeRangeFilter.between(from, to), slice, origins
+                        )
                     )
-                )
-                // dépense de base (repos) : lecture séparée, une autorisation en retard ne bloque pas le reste
-                val basal = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(BasalMetabolicRateRecord.BASAL_CALORIES_TOTAL), TimeRangeFilter.between(from, to), slice, origins)) }
+                    for (g in groups) {
+                        days.put(JSObject().put("day", g.startTime.toLocalDate().toString())
+                            .putN("activeKcal", g.result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories)
+                            .putN("totalKcal", g.result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories)
+                            .putN("basalKcal", null))
+                    }
+                }
+                // dépense de base (repos) : lecture séparée, une autorisation en retard ne bloque pas le reste (Garmin ne la dépose pas toujours)
+                val basal = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(BasalMetabolicRateRecord.BASAL_CALORIES_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1), origins)) }
                 val basalByDay = HashMap<String, Double?>()
                 for (g in basal ?: emptyList()) basalByDay[g.startTime.toLocalDate().toString()] = g.result[BasalMetabolicRateRecord.BASAL_CALORIES_TOTAL]?.inKilocalories
-                val days = JSArray()
-                for (g in groups) {
-                    val day = g.startTime.toLocalDate().toString()
-                    days.put(JSObject().put("day", day)
-                        .putN("activeKcal", g.result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories)
-                        .putN("totalKcal", g.result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories)
-                        .putN("basalKcal", basalByDay[day]))
+                for (i in 0 until days.length()) {
+                    val o = days.getJSONObject(i)
+                    val b = basalByDay[o.getString("day")]
+                    if (b != null && b > 0.0) o.put("basalKcal", b)
                 }
-                call.resolve(JSObject().put("days", days))
+                call.resolve(JSObject().put("days", days).put("origins", strArray(origins.map { it.packageName })).put("version", 2))
             } catch (e: Exception) { call.reject(e.message ?: "Lecture de la dépense énergétique impossible") }
         }
     }
 
-    /** Pas et étages montés du jour, un total par jour local (Health Connect écarte les doublons entre applications). Lecture séparée de la dépense : une autorisation en retard ne bloque pas le reste. */
+    /** Pas et étages montés du jour, un total par jour local, uniquement les sources Garmin et sans compter deux fois un même moment. Lecture séparée de la dépense : une autorisation en retard ne bloque pas le reste. */
     @PluginMethod
     fun readDailyActivity(call: PluginCall) {
         val c = client() ?: return call.reject("Health Connect indisponible")
@@ -292,14 +417,64 @@ class ApogeeHealthPlugin : Plugin() {
                 val to = java.time.LocalDateTime.ofInstant(end, zone)
                 val days = JSArray()
                 val origins = garminOrigins(c, end)
-                val steps = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(StepsRecord.COUNT_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1), origins)) }
-                val floors = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1), origins)) }
-                val byDay = linkedMapOf<String, JSObject>()
-                for (g in steps ?: emptyList()) byDay.getOrPut(g.startTime.toLocalDate().toString()) { JSObject() }.putN("steps", g.result[StepsRecord.COUNT_TOTAL])
-                for (g in floors ?: emptyList()) byDay.getOrPut(g.startTime.toLocalDate().toString()) { JSObject() }.putN("floors", g.result[FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL])
-                for ((day, o) in byDay) days.put(o.put("day", day))
-                call.resolve(JSObject().put("days", days))
+                val steps = if (origins.isEmpty()) null else dailyOf(c, "steps", from, to, origins, zone)
+                val floors = if (origins.isEmpty()) null else dailyOf(c, "floors", from, to, origins, zone)
+                if (origins.isNotEmpty() && (steps != null || floors != null)) {
+                    val keys = java.util.TreeSet<String>()
+                    if (steps != null) keys.addAll(steps.days.keys)
+                    if (floors != null) keys.addAll(floors.days.keys)
+                    for (day in keys) days.put(JSObject().put("day", day).putN("steps", steps?.days?.get(day)).putN("floors", floors?.days?.get(day)))
+                } else {
+                    val st = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(StepsRecord.COUNT_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1), origins)) }
+                    val fl = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1), origins)) }
+                    val byDay = linkedMapOf<String, JSObject>()
+                    for (g in st ?: emptyList()) byDay.getOrPut(g.startTime.toLocalDate().toString()) { JSObject() }.putN("steps", g.result[StepsRecord.COUNT_TOTAL])
+                    for (g in fl ?: emptyList()) byDay.getOrPut(g.startTime.toLocalDate().toString()) { JSObject() }.putN("floors", g.result[FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL])
+                    for ((day, o) in byDay) days.put(o.put("day", day))
+                }
+                call.resolve(JSObject().put("days", days).put("origins", strArray(origins.map { it.packageName })).put("version", 2))
             } catch (e: Exception) { call.reject(e.message ?: "Lecture des pas et étages impossible") }
+        }
+    }
+
+    /** Diagnostic : pour chaque jour récent, ce que Garmin a déposé dans Health Connect (somme brute, total sans doublon, nombre de mesures qui se recouvrent) et quelles applications écrivent des pas. */
+    @PluginMethod
+    fun diagnoseGarmin(call: PluginCall) {
+        val c = client() ?: return call.reject("Health Connect indisponible")
+        val (start, end) = range(call) ?: return call.reject("Période invalide")
+        scope.launch {
+            try {
+                val zone = java.time.ZoneId.systemDefault()
+                val from = java.time.LocalDateTime.ofInstant(start, zone).toLocalDate().atStartOfDay()
+                val to = java.time.LocalDateTime.ofInstant(end, zone)
+                val origins = garminOrigins(c, end)
+                val out = JSObject()
+                out.put("origins", strArray(origins.map { it.packageName }))
+                val apps = HashMap<String, Int>()
+                val allSteps = safe { readAll(c, StepsRecord::class, from.atZone(zone).toInstant(), end) }
+                if (allSteps != null) for (r in allSteps) { val k = r.metadata.dataOrigin.packageName; apps[k] = (apps[k] ?: 0) + 1 }
+                val appList = JSArray()
+                for ((k, n) in apps) appList.put(JSObject().put("app", k).put("steps", n))
+                out.put("apps", appList)
+                val kinds = JSObject()
+                for (kind in listOf("steps", "floors", "active", "total")) {
+                    val got = safe { pieces(c, kind, from.atZone(zone).toInstant(), end, origins) }
+                    val k = JSObject()
+                    if (got != null) {
+                        val t = dayTotals(got, zone)
+                        k.put("records", got.size).put("overlaps", t.overlaps)
+                        var last = 0L
+                        for (p in got) if (p.end.epochSecond > last) last = p.end.epochSecond
+                        k.put("lastEnd", last)
+                        val dd = JSArray()
+                        for (day in java.util.TreeSet(t.naive.keys)) dd.put(JSObject().put("day", day).put("raw", t.naive[day] ?: 0.0).put("clean", t.days[day] ?: 0.0))
+                        k.put("days", dd)
+                    }
+                    kinds.put(kind, k)
+                }
+                out.put("kinds", kinds)
+                call.resolve(out)
+            } catch (e: Exception) { call.reject(e.message ?: "Diagnostic impossible") }
         }
     }
 
@@ -338,6 +513,8 @@ class ApogeeHealthPlugin : Plugin() {
     }
 
     /** JSONObject.put(k, null) retire la clé : on écrit un vrai null JSON. */
+    private fun strArray(xs: List<String>): JSArray { val a = JSArray(); for (x in xs) a.put(x); return a }
+
     private fun JSObject.putN(k: String, v: Any?): JSObject { put(k, v ?: org.json.JSONObject.NULL); return this }
 
     private inline fun <T> safe(block: () -> T): T? = try { block() } catch (e: Exception) { null }

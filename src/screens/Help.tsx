@@ -62,7 +62,7 @@ export function HelpScreen() {
   const route = useRoute();
   const first = route.query.get('rubrique') ?? '';
   const [q, setQ] = useState('');
-  const [open, setOpen] = useState<Set<string>>(new Set(first ? [first] : ['start']));
+  const [open, setOpen] = useState<Set<string>>(new Set(first ? [first] : []));
   const index = useMemo(() => HELP.map((s) => ({ s, text: textOf(s) })), [lang]); // eslint-disable-line react-hooks/exhaustive-deps
   const words = norm(q).split(/\s+/).filter(Boolean);
   const shown = words.length ? index.filter((x) => words.every((w) => x.text.includes(w))).map((x) => x.s) : HELP;

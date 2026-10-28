@@ -77,9 +77,7 @@ export function LoadScreen() {
 
         <InfoCard className="card g12 dspan-7" aria-label={$t("Statut d’entraînement")} data-anchor="statut">
           <div className="between"><h2>{$t("Statut d’entraînement")}<InfoToggle /></h2><span className="t-legal c-moderate">{$t("estimation Apogée")}</span></div>
-          {curStatus ? (
-            <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2" style={{ color: STATUS_INFO[curStatus].color }}>{STATUS_INFO[curStatus].label}</span><span className="t-caption c-neutral">{STATUS_INFO[curStatus].text}</span></div>
-          ) : <p className="t-caption c-moderate">{$t("Disponible après 28 jours d’historique")}{d.series.firstDay ? $t(" (dès le {0})", { 0: dateFr(addDays(d.series.firstDay, 28)) }) : ''}.</p>}
+          {!curStatus && <p className="t-caption c-moderate">{$t("Disponible après 28 jours d’historique")}{d.series.firstDay ? $t(" (dès le {0})", { 0: dateFr(addDays(d.series.firstDay, 28)) }) : ''}.</p>}
           <PeriodBar p={sw} total={total} from={statusCells[0]?.start} to={statusEnd} />
           <StatusStrip weeks={statusCells} />
           <Info>{$t("Chaque case est un jour (jusqu’à 1 mois) ou une semaine. Le statut croise ta charge des 7 jours avec ta charge habituelle (4 semaines) et la tendance de ta forme de fond. Touche une case pour le détail.")}</Info>
@@ -100,13 +98,6 @@ export function LoadScreen() {
           {d.series.isPriming && <div className="note"><Icon name="info" size={20} /><span>{$t("Historique court : forme et fatigue sont amorcées sur ta charge habituelle des 14 premiers jours, et se stabilisent vers le")} {dateFr(d.series.primingEndsOn!)}.</span></div>}
         </InfoCard>
 
-        <InfoCard className="card g12 dspan-12" aria-label={$t("Répartition de la charge")} data-anchor="repartition">
-          <h2>{$t("Répartition de la charge")}<InfoToggle /></h2>
-          <Info>{$t("D’où vient ta charge sur la période choisie (1 semaine par défaut) : sorties tranquilles, efforts soutenus ou intensité maximale, d’après ta fréquence cardiaque.")}</Info>
-          <PeriodBar p={fw} total={total} from={addDays(focusEnd, -(fspan - 1))} to={focusEnd} />
-          <FocusBars focus={focus} />
-        </InfoCard>
-
         <InfoCard className="card g12 dspan-12" aria-label={$t("Évolution")} data-anchor="evolution">
           <h2>{$t("Forme de fond, fatigue et fraîcheur")}<InfoToggle /></h2>
           <Segmented label={$t("Courbe")} value={view} onChange={setView} options={[['charge', $t("Charge")], ['forme', $t("Forme du jour")]]} />
@@ -117,6 +108,13 @@ export function LoadScreen() {
               <Info>{$t("Score sur 100, calculé chaque matin à partir de ta nuit, de ta FC de repos, de ta fraîcheur au réveil et du ressenti de la veille, comparés à tes 14 jours précédents.")}</Info>
             </>
           )}
+        </InfoCard>
+
+        <InfoCard className="card g12 dspan-12" aria-label={$t("Répartition de la charge")} data-anchor="repartition">
+          <h2>{$t("Répartition de la charge")}<InfoToggle /></h2>
+          <Info>{$t("D’où vient ta charge sur la période choisie (1 semaine par défaut) : sorties tranquilles, efforts soutenus ou intensité maximale, d’après ta fréquence cardiaque.")}</Info>
+          <PeriodBar p={fw} total={total} from={addDays(focusEnd, -(fspan - 1))} to={focusEnd} />
+          <FocusBars focus={focus} />
         </InfoCard>
 
         <ForecastCard />
@@ -173,11 +171,11 @@ export function HealthScreen() {
         <div className="dmasonry">
           <ReadinessCard />
           <ReserveCard />
-          <FormDetailCard />
           <SleepCard data={data} d={d} />
-          <WeightCard data={data} d={d} />
           <ActivityCard />
           <CaloriesCard />
+          <WeightCard data={data} d={d} />
+          <FormDetailCard />
         </div>
       </main>
     </div>
@@ -347,8 +345,8 @@ export function ZonesScreen() {
           <Vo2Card />
           <PredictionsCard />
           <EnduranceHillCard />
-          <CheckinCard />
           <CapacitiesTrendsCard />
+          <CheckinCard />
         </div>
         <ZoneSuggestions />
         {(['vma', 'ftp', 'css', 'hr_max'] as ZoneKind[]).map((k) => {

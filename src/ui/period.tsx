@@ -48,11 +48,11 @@ export function usePeriod(defaultSpan: number = DEFAULT_SPAN): PeriodWindow {
 export function PeriodBar({ p, total, from, to, label, children }: { p: PeriodWindow; total: number; from?: string; to?: string; label?: string; children?: ReactNode }) {
   const swipe = useSwipe(() => p.next(), () => p.prev(total));
   return (
-    <div className="period-bar" data-component="PeriodBar" {...swipe}>
+    <div className="period-bar" data-component="PeriodBar">
       <div role="group" aria-label={$t("Période")} className="period-spans">
         {SPANS.map(([d, l]) => <button key={d} type="button" className="chip" aria-pressed={p.span === d} onClick={() => p.setSpan(d)}>{l}</button>)}
       </div>
-      <div className="period-nav">
+      <div className="period-nav" {...swipe}>
         <button type="button" className="icon-btn" aria-label={$t("Période précédente")} disabled={!p.canPrev(total)} onClick={() => p.prev(total)}><Icon name="back" size={20} /></button>
         <span className="when t-caption-strong" aria-live="polite">{label ?? (from && to ? (from === to ? dateShort(from) : dateShort(from) + ' → ' + dateShort(to)) : '')}</span>
         <button type="button" className="icon-btn" aria-label={$t("Période suivante")} disabled={!p.canNext} onClick={p.next}><Icon name="next" size={20} /></button>
