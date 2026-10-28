@@ -6,7 +6,7 @@ import { Icon } from '../ui/icons';
 import { SubHeader } from '../ui/kit';
 import { useRoute } from '../ui/router';
 import { native } from '../native/bridge';
-import { APK_FILE, APK_PAGE, HELP, type Block, type HelpSection, type Pair } from './help-content';
+import { HELP, type Block, type HelpSection, type Pair } from './help-content';
 
 const L = (p: Pair) => (lang === 'en' ? p[1] : p[0]);
 
@@ -35,14 +35,20 @@ function Blocks({ blocks }: { blocks: Block[] }) {
   return (
     <>
       {blocks.map((b, i) => {
+        if (b.t === 'link' && blocks[i - 1]?.t === 'link') return null; // déjà rendu avec le lien précédent
+        if (b.t === 'link') {
+          const run: Extract<Block, { t: 'link' }>[] = [];
+          for (let k = i; k < blocks.length; k++) { const x = blocks[k]; if (x.t !== 'link') break; run.push(x); }
+          return (
+            <div key={i} className="help-links">
+              {run.map((l, k) => <ExtLink key={k} href={l.href} className="help-link"><Icon name="download" size={20} /><span>{L(l.v)}</span></ExtLink>)}
+            </div>
+          );
+        }
         if (b.t === 'p') return <p key={i} className="help-p"><Inline text={L(b.v)} /></p>;
         if (b.t === 'ul') return <ul key={i} className="help-ul">{b.v.map((x, j) => <li key={j}><Inline text={L(x)} /></li>)}</ul>;
         if (b.t === 'f') return <pre key={i} className="help-f">{L(b.v)}</pre>;
-        return (
-          <ExtLink key={i} href={b.href} className="help-link">
-            <Icon name="download" size={20} /><span>{L(b.v)}</span>
-          </ExtLink>
-        );
+        return null;
       })}
     </>
   );
@@ -71,9 +77,6 @@ export function HelpScreen() {
           <Icon name="search" size={20} style={{ color: 'var(--text-moderate)' }} />
           <input className="help-search-in" type="search" value={q} placeholder={$t("Rechercher dans l’aide")} aria-label={$t("Rechercher dans l’aide")} onChange={(e) => setQ(e.target.value)} />
         </label>
-        <ExtLink href={APK_PAGE} className="help-link help-apk">
-          <Icon name="download" size={20} /><span>{$t("Télécharger l’application Android (APK)")}</span>
-        </ExtLink>
         {!shown.length && <p className="t-caption c-neutral">{$t("Aucune rubrique ne correspond. Essaie un autre mot.")}</p>}
         <div className="help-list">
           {shown.map((s) => {
@@ -92,7 +95,6 @@ export function HelpScreen() {
             );
           })}
         </div>
-        <ExtLink href={APK_FILE} className="help-inline t-caption">{$t("Lien direct vers apogee.apk")}</ExtLink>
       </main>
     </div>
   );

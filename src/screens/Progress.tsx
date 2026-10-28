@@ -9,9 +9,8 @@ import { ComplianceCard, FitnessCard, SleepCard, WeightCard } from './Analysis';
 import { ActivityCard, CaloriesCard, CapacitiesTrendsCard, CheckinCard } from './Wellness';
 import { EnduranceHillCard, PredictionsCard, ReadinessCard, ReserveCard, Vo2Card } from './Capacity';
 import { AcuteLoadChart, FocusBars, RatioChart, STATUS_INFO, StatusStrip } from '../ui/loadkit';
-import { PeriodBar, SPANS_LONG, SPANS_SHORT, usePeriod } from '../ui/period';
-import { KeyFigures } from '../ui/readout';
-import { acuteSeries, loadFocus, statusOf, weeklyStatus } from '../domain/loadStatus';
+import { DEFAULT_SPAN, PeriodBar, SPANS, usePeriod } from '../ui/period';
+import { acuteSeries, dailyStatus, loadFocus, statusOf, weeklyStatus } from '../domain/loadStatus';
 import { Icon } from '../ui/icons';
 import { navigate, useRoute } from '../ui/router';
 import { useCalc } from '../data/store';
@@ -35,8 +34,8 @@ export function LoadScreen() {
   const route = useRoute();
   const { data, d } = useCalc();
   const [view, setView] = useState<'charge' | 'forme'>(route.query.get('vue') === 'forme' ? 'forme' : 'charge');
-  const pw = usePeriod(7);
-  const fw = usePeriod(28);
+  const pw = usePeriod();
+  const fw = usePeriod();
   const c = d.constat;
   const total = d.series.days.length;
   const days = pw.slice(d.series.days);
@@ -47,10 +46,13 @@ export function LoadScreen() {
   const form = d.form ?? d.lastForm;
   const acwr = c.acuteChronicRatio;
   const acutePts = acuteSeries(d.series.days);
-  const weekStatus = weeklyStatus(d.series.days, d.today, 12);
+  const sw = usePeriod();
+  const statusEnd = addDays(d.today, -sw.offset);
+  const statusCells = sw.span !== 0 && sw.span <= 31 ? dailyStatus(d.series.days, statusEnd, sw.span) : weeklyStatus(d.series.days, statusEnd, Math.max(1, Math.ceil((sw.span || total) / 7)));
   const curStatus = statusOf(acwr, c.fitnessDelta);
   const focusEnd = addDays(d.today, -fw.offset);
-  const focus = loadFocus(data, d.loads, d.ctx.hrMax.bpm, focusEnd, fw.span);
+  const fspan = fw.span || Math.max(1, total);
+  const focus = loadFocus(data, d.loads, d.ctx.hrMax.bpm, focusEnd, fspan);
   const acwrZone = acwr === null ? null : acwr > 1.5 ? 'critical' : acwr > 1.3 ? 'warning' : acwr < 0.8 ? 'low' : 'ok';
   if (!d.series.days.length) {
     return (
@@ -73,28 +75,23 @@ export function LoadScreen() {
           </div>
         </Hero>
 
-        <InfoCard className="card g12 dspan-7" aria-label={$t("Statut d’entraînement")}>
+        <InfoCard className="card g12 dspan-7" aria-label={$t("Statut d’entraînement")} data-anchor="statut">
           <div className="between"><h2>{$t("Statut d’entraînement")}<InfoToggle /></h2><span className="t-legal c-moderate">{$t("estimation Apogée")}</span></div>
           {curStatus ? (
             <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2" style={{ color: STATUS_INFO[curStatus].color }}>{STATUS_INFO[curStatus].label}</span><span className="t-caption c-neutral">{STATUS_INFO[curStatus].text}</span></div>
           ) : <p className="t-caption c-moderate">{$t("Disponible après 28 jours d’historique")}{d.series.firstDay ? $t(" (dès le {0})", { 0: dateFr(addDays(d.series.firstDay, 28)) }) : ''}.</p>}
-          <StatusStrip weeks={weekStatus} />
-          <Info>{$t("Chaque case est une semaine. Le statut croise ta charge des 7 jours avec ta charge habituelle (4 semaines) et la tendance de ta forme de fond. Touche une case pour le détail.")}</Info>
+          <PeriodBar p={sw} total={total} from={statusCells[0]?.start} to={statusEnd} />
+          <StatusStrip weeks={statusCells} />
+          <Info>{$t("Chaque case est un jour (jusqu’à 1 mois) ou une semaine. Le statut croise ta charge des 7 jours avec ta charge habituelle (4 semaines) et la tendance de ta forme de fond. Touche une case pour le détail.")}</Info>
         </InfoCard>
         </div>
 
-        <InfoCard className="card g12 dspan-12" aria-label={$t("Charge aiguë")}>
+        <InfoCard className="card g12 dspan-12" aria-label={$t("Charge aiguë")} data-anchor="charge-aigue">
           <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
             <h2>{$t("Charge aiguë et zone optimale")}<InfoToggle /></h2>
           </div>
-          {acwr !== null && c.acuteLoad !== null && (
-            <KeyFigures items={[
-              { label: $t("Charge aiguë (7 j)"), value: num(c.acuteLoad, 0), sub: c.chronicWeeklyLoad === null ? undefined : $t("habituelle {0}", { 0: num(c.chronicWeeklyLoad, 0) }), color: acwrZone === 'critical' ? 'var(--critical)' : acwrZone === 'warning' ? 'var(--warning)' : acwrZone === 'low' ? 'var(--form-strained)' : 'var(--success)' },
-              { label: $t("Rapport de charge"), value: num(acwr, 2), sub: acwrZone === 'critical' ? $t("Très élevé") : acwrZone === 'warning' ? $t("Élevé") : acwrZone === 'low' ? $t("Bas") : $t("Optimal"), color: acwrZone === 'critical' ? 'var(--critical)' : acwrZone === 'warning' ? 'var(--warning)' : acwrZone === 'low' ? 'var(--form-strained)' : 'var(--success)' },
-            ]} />
-          )}
           <Info>{$t("Le trait noir est ta charge des 7 derniers jours. La bande verte est la zone où elle progresse sans excès : entre 0,8 et 1,3 fois ta charge hebdomadaire habituelle. Dans la bande orange, c’est élevé ; au-delà, le risque de blessure monte.")}</Info>
-          <PeriodBar p={pw} options={SPANS_SHORT} total={total} from={winFrom} to={winTo} />
+          <PeriodBar p={pw} total={total} from={winFrom} to={winTo} />
           <AcuteLoadChart points={pw.slice(acutePts)} today={d.today} />
           <h3 className="t-strong">{$t("Rapport de charge")}</h3>
           <Info>{$t("Charge des 7 jours divisée par ta charge hebdomadaire habituelle. Entre 0,8 et 1,3 (vert) : tu progresses sans te griller. Sous 0,8 (bleu) : semaine légère. Au-dessus de 1,3 : tu montes trop vite.")}</Info>
@@ -103,17 +100,17 @@ export function LoadScreen() {
           {d.series.isPriming && <div className="note"><Icon name="info" size={20} /><span>{$t("Historique court : forme et fatigue sont amorcées sur ta charge habituelle des 14 premiers jours, et se stabilisent vers le")} {dateFr(d.series.primingEndsOn!)}.</span></div>}
         </InfoCard>
 
-        <InfoCard className="card g12 dspan-12" aria-label={$t("Répartition de la charge")}>
+        <InfoCard className="card g12 dspan-12" aria-label={$t("Répartition de la charge")} data-anchor="repartition">
           <h2>{$t("Répartition de la charge")}<InfoToggle /></h2>
-          <Info>{$t("D’où vient ta charge sur la période choisie (4 semaines par défaut) : sorties tranquilles, efforts soutenus ou intensité maximale, d’après ta fréquence cardiaque.")}</Info>
-          <PeriodBar p={fw} options={SPANS_LONG.filter(([n]) => n !== 182 && n !== 365).concat([[14, $t("2 sem.")]]).sort((a, b) => a[0] - b[0])} total={total} from={addDays(focusEnd, -(fw.span - 1))} to={focusEnd} />
+          <Info>{$t("D’où vient ta charge sur la période choisie (1 semaine par défaut) : sorties tranquilles, efforts soutenus ou intensité maximale, d’après ta fréquence cardiaque.")}</Info>
+          <PeriodBar p={fw} total={total} from={addDays(focusEnd, -(fspan - 1))} to={focusEnd} />
           <FocusBars focus={focus} />
         </InfoCard>
 
-        <InfoCard className="card g12 dspan-12" aria-label={$t("Évolution")}>
+        <InfoCard className="card g12 dspan-12" aria-label={$t("Évolution")} data-anchor="evolution">
           <h2>{$t("Forme de fond, fatigue et fraîcheur")}<InfoToggle /></h2>
           <Segmented label={$t("Courbe")} value={view} onChange={setView} options={[['charge', $t("Charge")], ['forme', $t("Forme du jour")]]} />
-          <PeriodBar p={pw} options={SPANS_SHORT} total={total} from={winFrom} to={winTo} />
+          <PeriodBar p={pw} total={total} from={winFrom} to={winTo} />
           {view === 'charge' ? <LoadPanels days={days} today={d.today} /> : (
             <>
               <FormChart days={formDays} forms={d.formByDay} />
@@ -142,7 +139,7 @@ export function FormDetailCard() {
   const { d } = useCalc();
   const form = d.form ?? d.lastForm;
   return (
-        <section className="card g12" aria-label={$t("Forme du jour, détail")}>
+        <section className="card g12" aria-label={$t("Forme du jour, détail")} data-anchor="forme-detail">
           <div className="between"><h2>{$t("Forme du jour, détail")}</h2>{form && <span className="t-caption c-moderate">{form.day === d.today ? $t("ce matin") : dayTitle(form.day)}</span>}</div>
           {form ? (
             <>
@@ -451,16 +448,16 @@ function ZoneSheet({ kind, onClose }: { kind: ZoneKind; onClose: () => void }) {
 // ------------------------------------------------------------------ Prévisionnel de charge
 function ForecastCard() {
   const { data, d } = useCalc();
-  const [h, setH] = useState<'14' | '28' | 'plan'>('14');
-  const f = forecastLoad(data, d.series, d.loads, d.links, d.refs, d.today, h === 'plan' ? 'plan' : +h);
+  const [h, setH] = useState<number>(DEFAULT_SPAN);
+  const f = forecastLoad(data, d.series, d.loads, d.links, d.refs, d.today, h === 0 ? 'plan' : h);
   const hasPlan = f.lastPlanned !== null;
   const past = d.series.days.slice(-15, -1);
   const days: DayLoad[] = [...past, ...f.days.map((x) => ({ day: x.day, load: x.load, estimated: true, interruptionFill: false, fitness: x.fitness, fatigue: x.fatigue, freshness: x.freshness }))];
   return (
-    <InfoCard className="card g12 dspan-12" aria-label={$t("Prévisionnel de charge")}>
+    <InfoCard className="card g12 dspan-12" aria-label={$t("Prévisionnel de charge")} data-anchor="prevision">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
         <h2>{$t("Prévisionnel de charge")}<InfoToggle /></h2>
-        <ChipGroup label={$t("Horizon")} value={h} onChange={setH} options={[['14', $t("2 sem.")], ['28', $t("4 sem.")], ['plan', $t("Tout le plan")]]} />
+        <ChipGroup label={$t("Horizon")} value={String(h)} onChange={(v) => setH(Number(v))} options={SPANS.map(([n, l]) => [String(n), n === 0 ? $t("Tout le plan") : l] as [string, string])} />
       </div>
       {!hasPlan || d.series.days.length < 2 ? <p className="t-caption c-moderate">{$t("Aucune séance prévue à venir : importe un plan du coach ou ajoute des séances au calendrier pour voir la projection.")}</p> : (
         <>

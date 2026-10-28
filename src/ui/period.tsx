@@ -9,9 +9,9 @@ import { dateShort } from './format';
 
 export type SpanOption = [days: number, label: string];
 
-export const SPANS_SHORT: SpanOption[] = [[7, $t("1 sem.")], [14, $t("2 sem.")], [30, $t("1 mois")], [90, $t("3 mois")], [180, $t("6 mois")], [365, $t("1 an")]];
-export const SPANS_LONG: SpanOption[] = [[28, $t("4 sem.")], [56, $t("8 sem.")], [91, $t("3 mois")], [182, $t("6 mois")], [365, $t("1 an")]];
-export const SPANS_VERY_SHORT: SpanOption[] = [[7, $t("7 j")], [14, $t("14 j")], [30, $t("30 j")], [60, $t("2 mois")], [90, $t("3 mois")]];
+/** Les seules bases de temps de l'appli, partout : 1 sem., 2 sem., 1 mois, 3 mois, 6 mois, 1 an, Tout (0 = tout l'historique). Par défaut : 1 sem. */
+export const SPANS: SpanOption[] = [[7, $t("1 sem.")], [14, $t("2 sem.")], [30, $t("1 mois")], [90, $t("3 mois")], [180, $t("6 mois")], [365, $t("1 an")], [0, $t("Tout")]];
+export const DEFAULT_SPAN = 7;
 
 export interface PeriodWindow {
   span: number; offset: number;
@@ -23,15 +23,16 @@ export interface PeriodWindow {
   atToday: boolean;
 }
 
-/** `offset` = nombre de jours entre la fin de la fenêtre et aujourd'hui. On avance par pas d'une fenêtre entière. */
-export function usePeriod(defaultSpan: number): PeriodWindow {
+/** `offset` = nombre de jours entre la fin de la fenêtre et aujourd'hui. On avance par pas d'une fenêtre entière. `span` 0 = tout l'historique. */
+export function usePeriod(defaultSpan: number = DEFAULT_SPAN): PeriodWindow {
   const [span, setSpanRaw] = useState(defaultSpan);
   const [offset, setOffset] = useState(0);
-  const maxOffset = (total: number) => Math.max(0, total - span);
+  const maxOffset = (total: number) => (span === 0 ? 0 : Math.max(0, total - span));
   return {
     span, offset,
     setSpan: (n) => { setSpanRaw(n); setOffset(0); },
     slice: <T,>(all: T[]) => {
+      if (span === 0) return all;
       const end = Math.max(Math.min(span, all.length), all.length - Math.min(offset, maxOffset(all.length)));
       return all.slice(Math.max(0, end - span), end);
     },
@@ -44,12 +45,12 @@ export function usePeriod(defaultSpan: number): PeriodWindow {
 }
 
 /** Barre de période : choix de la durée, flèches ‹ ›, dates affichées et retour à aujourd'hui. Balayer la barre change aussi de période. */
-export function PeriodBar({ p, options, total, from, to, label, children }: { p: PeriodWindow; options: SpanOption[]; total: number; from?: string; to?: string; label?: string; children?: ReactNode }) {
+export function PeriodBar({ p, total, from, to, label, children }: { p: PeriodWindow; total: number; from?: string; to?: string; label?: string; children?: ReactNode }) {
   const swipe = useSwipe(() => p.next(), () => p.prev(total));
   return (
     <div className="period-bar" data-component="PeriodBar" {...swipe}>
       <div role="group" aria-label={$t("Période")} className="period-spans">
-        {options.map(([d, l]) => <button key={d} type="button" className="chip" aria-pressed={p.span === d} onClick={() => p.setSpan(d)}>{l}</button>)}
+        {SPANS.map(([d, l]) => <button key={d} type="button" className="chip" aria-pressed={p.span === d} onClick={() => p.setSpan(d)}>{l}</button>)}
       </div>
       <div className="period-nav">
         <button type="button" className="icon-btn" aria-label={$t("Période précédente")} disabled={!p.canPrev(total)} onClick={() => p.prev(total)}><Icon name="back" size={20} /></button>

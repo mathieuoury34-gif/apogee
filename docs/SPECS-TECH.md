@@ -521,3 +521,12 @@ prévisionnel ; alerte blessure ; estimation de VMA ; poids et sommeil ; ingesti
 - **Réserve d'énergie** : recharge 80, dépense de base 55, séance 25 par charge de référence (recalé sur la semaine Garmin du 22–28/10) ; `energyReserve(data, d, span, endDay)`.
 - **Sommeil** : `SleepNight.edited` ; `saveSleepNight` / `resetSleepNight` (actions) ; `ingest` ignore une nuit `edited` ; rappel local chaque matin (`prefs.sleepReminder`, `sleepReminderHour`, 3 jours glissants, ouvre `/progression/sante`).
 - **Pas et étages** : permissions `READ_STEPS`, `READ_FLOORS_CLIMBED` (patch-android) ; méthode plugin `readDailyActivity` (agrégats journaliers, lecture séparée de la dépense) ; fusion par jour dans `ingestEnergy` ; relecture unique de 120 jours (`prefs.healthActivityScan`).
+
+
+## Addendum 28/10/2026 (3e série) — ancres, périodes, énergie
+
+- **Ancres** : `?ancre=nom` dans l'URL ; les cibles portent `data-anchor="nom"` ; `useAnchorScroll` (App.tsx) fait défiler et déclenche `.anchor-flash`. Requêtes complémentaires : `mesure=steps|floors`, `vue=forme`. Les notifications locales (`native/notify.ts`) utilisent les mêmes routes.
+- **Périodes** : `SPANS` = 7, 14, 30, 90, 180, 365, 0 (Tout) ; `DEFAULT_SPAN = 7` ; `PeriodBar` sans option. Statut d'entraînement : `dailyStatus` (une case par jour, ≤ 31 j) sinon `weeklyStatus`. `weeklyZones(..., fromDay?)` et `weeklyVolume(..., fromDay?)` acceptent un début de fenêtre.
+- **Composants** : `Info({title?})` ; `Disclosure({title, defaultOpen})` (flèche dépliable).
+- **Énergie (Health Connect)** : les agrégats sont filtrés sur les origines Garmin (`garminOrigins`) pour ne pas mélanger plusieurs applications ; `BasalMetabolicRateRecord` lu (`basalKcal`) ; priorité du repos : réglage Profil (`restKcal`) > dépense de base > différence totale − active (`restHow` = setting / basal / split / estimation). Relecture unique de 120 jours (`prefs.healthEnergyScan`).
+- **Point hebdomadaire** : donnée de montre séparée (`checkins`) ; n'écrase jamais un calcul `derive()`.

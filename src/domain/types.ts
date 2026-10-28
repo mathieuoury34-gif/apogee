@@ -258,6 +258,8 @@ export interface EnergyDay extends Rec {
   day: string;
   activeKcal: number | null;
   totalKcal: number | null;
+  /** Dépense de base du jour (calories de repos) déposée par la montre, si elle la dépose. */
+  basalKcal?: number | null;
   /** Pas et étages montés du jour (Health Connect), si la montre les dépose. */
   steps?: number | null;
   floors?: number | null;

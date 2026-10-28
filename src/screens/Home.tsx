@@ -10,7 +10,7 @@ import { estimateDistance, estimateDuration } from '../domain/blocks';
 import { addDays, daysBetween, mondayOf } from '../domain/dates';
 import { FORM_LABEL, FORM_STEP_LABEL, FORM_STEPS, formStep } from '../domain/form';
 import { liveRecords, sessionDay } from '../domain/load';
-import { ALERT_TEXT, reviewSession, VERDICT_TEXT } from '../domain/review';
+import { ALERT_TEXT, reviewSession, VERDICT_TEXT, type TrainingAlertCode } from '../domain/review';
 import { lastPlanValidity } from '../domain/coach';
 import { paceOf } from '../domain/stats';
 import type { ActualSession, PlannedSession } from '../domain/types';
@@ -19,6 +19,15 @@ import { useActualMenu, usePlannedMenu } from '../ui/menu';
 import { WelcomeCard } from './Welcome';
 import { HealthCard } from './Health';
 import { ActivityTiles } from './ActivityTiles';
+
+/** Où mène chaque alerte de l'Accueil : directement à l'endroit qui permet d'agir. */
+const ALERT_LINK: Record<TrainingAlertCode, string> = {
+  PENDING_RPE: '/seances?filtre=ressenti',
+  MISSED_SESSIONS: '/calendrier',
+  RPE_HIGH_STREAK: '/seances',
+  LOAD_RAMP: '/progression?ancre=charge-aigue',
+  INJURY_LOAD: '/parametres/profil?ancre=blessures',
+};
 
 export function HomeScreen() {
   const { data, d } = useCalc();
@@ -46,7 +55,7 @@ export function HomeScreen() {
         {d.alerts.length > 0 && (
           <section aria-label={$t("À signaler")} className="stack-8 dspan-12">
             {d.alerts.map((a) => (
-              <button key={a.code} type="button" className={'note' + (a.code === 'LOAD_RAMP' || a.code === 'RPE_HIGH_STREAK' ? ' note-warning' : '')} onClick={() => navigate(a.code === 'PENDING_RPE' ? '/seances?filtre=ressenti' : a.code === 'MISSED_SESSIONS' ? '/calendrier' : '/progression')}
+              <button key={a.code} type="button" className={'note' + (a.code === 'LOAD_RAMP' || a.code === 'RPE_HIGH_STREAK' ? ' note-warning' : '')} onClick={() => navigate(ALERT_LINK[a.code])}
                 style={{ border: 0, textAlign: 'left', cursor: 'pointer', width: '100%' }}>
                 <Icon name={a.code === 'PENDING_RPE' ? 'edit' : 'alert'} size={20} />
                 <span>{ALERT_TEXT[a.code](a)}</span>
@@ -68,7 +77,7 @@ export function HomeScreen() {
 
         <WeekCard />
 
-        <section aria-labelledby="h-load" className="card dspan-7" onClick={() => navigate('/progression')} style={{ cursor: 'pointer' }}>
+        <section aria-labelledby="h-load" className="card dspan-7" onClick={() => navigate('/progression?ancre=charge-aigue')} style={{ cursor: 'pointer' }}>
           <div className="between"><h2 id="h-load">{$t("Charge — 4 semaines")}</h2><Icon name="next" size={20} style={{ color: 'var(--text-moderate)' }} /></div>
           <LoadChart days={d.series.days.slice(-28)} height={110} compact />
           <LoadLegend />
@@ -87,7 +96,7 @@ export function HomeScreen() {
 function FormHero({ form, isToday, constat, priming, firstDay }: { form: ReturnType<typeof useCalc>['d']['form']; isToday: boolean; constat: ReturnType<typeof useCalc>['d']['constat']; priming: boolean; firstDay: string | null }) {
   const step = form ? formStep(form.score) : null;
   return (
-    <section aria-label={$t("Forme du jour")} className="hero" data-component="Card.hero" onClick={() => navigate('/progression?vue=forme')} style={{ cursor: 'pointer' }}>
+    <section aria-label={$t("Forme du jour")} className="hero" data-component="Card.hero" onClick={() => navigate('/progression?vue=forme&ancre=evolution')} style={{ cursor: 'pointer' }}>
       <div className="between" style={{ alignItems: 'flex-start' }}>
         <span className="overline">{$t("Forme du jour")}</span>
         {step && <span className="chip-reverse">{FORM_STEP_LABEL[step]}</span>}

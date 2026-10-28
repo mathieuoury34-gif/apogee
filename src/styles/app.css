@@ -566,6 +566,8 @@ select.input { appearance: auto; }
 .help-ul { margin: 0; list-style: disc; padding-left: var(--space-20); display: flex; flex-direction: column; gap: var(--space-8); }
 .help-f { margin: 0; padding: var(--space-12); background: var(--bg-neutral-minimal, rgba(127,127,127,.12)); border-radius: var(--radius-8, 8px); font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 .help-code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: rgba(127,127,127,.15); padding: 1px 4px; border-radius: 4px; }
+.help-links { display: flex; gap: var(--space-8); flex-wrap: wrap; }
+.help-links .help-link { flex: 1 1 140px; justify-content: center; text-align: center; }
 .help-link { display: flex; align-items: center; gap: var(--space-8); padding: var(--space-12); border-radius: var(--radius-12); background: var(--bg-brand-minimal); color: var(--primary-fg); font-weight: 600; text-decoration: none; }
 .help-inline { color: var(--primary-fg); }
 .help-search { display: flex; align-items: center; gap: var(--space-8); height: var(--input-height); padding: 0 var(--space-12); border: var(--input-border); border-radius: var(--input-radius); background: var(--bg-surface); }
@@ -606,9 +608,8 @@ select.input { appearance: auto; }
 .kf .num { font-size: 40px; line-height: 1.05; font-weight: 800; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; color: var(--kf); }
 .kf .sub { color: var(--kf); }
 .period-bar { display: flex; flex-direction: column; gap: var(--space-8); touch-action: pan-y; }
-.period-spans { display: flex; gap: var(--space-6); overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--screen-margin)); padding: 0 var(--screen-margin); }
-.period-spans::-webkit-scrollbar { display: none; }
-@media (hover: hover) and (pointer: fine) { .period-spans { flex-wrap: wrap; overflow-x: visible; } }
+.period-spans { display: flex; flex-wrap: wrap; gap: var(--space-6); }
+.period-spans .chip { min-height: 34px; padding: 0 var(--space-12); }
 .period-nav { display: flex; align-items: center; gap: var(--space-4); }
 .period-nav .when { flex: 1; text-align: center; min-width: 0; }
 .period-nav .icon-btn { width: 40px; height: 40px; flex: none; }
@@ -713,3 +714,14 @@ input, textarea, select, [contenteditable="true"], pre, code, .help-f, .help-cod
 .act-tile .sub { grid-row: 3; grid-column: 1 / -1; font: var(--type-caption); color: var(--text-neutral); }
 .act-tile:focus-visible { outline: 2px solid var(--focus-indicator); }
 .act-tiles .act-note { grid-column: 1 / -1; }
+
+.disclosure { border-top: 1px solid var(--border-minimal); }
+.disclosure-head { display: flex; align-items: center; gap: var(--space-8); width: 100%; min-height: 44px; padding: var(--space-8) 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.disclosure-head:focus-visible { outline: 2px solid var(--focus-indicator); }
+.disclosure-body { display: flex; flex-direction: column; gap: var(--space-12); padding-bottom: var(--space-8); }
+
+/* liens « ancre » : on arrive au bon endroit, sous l'en-tête fixe, et la carte clignote un instant */
+[data-anchor] { scroll-margin-top: calc(var(--safe-top, 0px) + 132px); }
+@keyframes anchor-flash { 0% { box-shadow: 0 0 0 3px var(--focus-indicator); } 70% { box-shadow: 0 0 0 3px var(--focus-indicator); } 100% { box-shadow: 0 0 0 3px transparent; } }
+.anchor-flash { animation: anchor-flash 2.2s ease-out; border-radius: var(--radius-16); }
+@media (prefers-reduced-motion: reduce) { .anchor-flash { animation: none; box-shadow: 0 0 0 3px var(--focus-indicator); } }

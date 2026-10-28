@@ -150,6 +150,8 @@ export interface Prefs {
   healthSleepMerged?: boolean;
   /** Les pas et étages des 120 derniers jours ont été relus une fois (APK avec ces lectures). */
   healthActivityScan?: boolean;
+  /** Relecture unique de 120 jours de dépense (totaux et repos), faite une fois que l'historique a été relu avec les totaux. */
+  healthEnergyScan?: boolean;
   /** Rappels de séance (APK) : heure locale. */
   reminderHour: number;
   /** Rappel du matin pour valider ou corriger la nuit (APK). Actif par défaut. */

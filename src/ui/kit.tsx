@@ -548,14 +548,28 @@ export function InfoToggle() {
 }
 
 /** Texte d'explication (méthode, lecture d'un graphique…) masqué par défaut. */
-export function Info({ children }: { children: ReactNode }) {
+export function Info({ children, title }: { children: ReactNode; title?: string }) {
   const c = useContext(InfoCtx);
   const [own, setOwn] = useState(false);
   if (c) return c.open ? <div className="info-text" role="note">{children}</div> : null;
   return (
     <div className="info">
-      <InfoButton open={own} onClick={() => setOwn(!own)} />
+      {title ? <div className="row" style={{ gap: 'var(--space-4)' }}><InfoButton open={own} onClick={() => setOwn(!own)} /><span className="t-caption-strong">{title}</span></div> : <InfoButton open={own} onClick={() => setOwn(!own)} />}
       {own && <div className="info-text" role="note">{children}</div>}
+    </div>
+  );
+}
+
+/** Zone repliable avec flèche : le détail ne s'affiche que si on le déplie. */
+export function Disclosure({ title, children, defaultOpen = false }: { title: string; children: ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="disclosure" data-open={open}>
+      <button type="button" className="disclosure-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="grow t-strong">{title}</span>
+        <Icon name="down" size={20} style={{ color: 'var(--text-moderate)', transform: open ? 'rotate(180deg)' : undefined }} />
+      </button>
+      {open && <div className="disclosure-body">{children}</div>}
     </div>
   );
 }

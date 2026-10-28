@@ -1,7 +1,8 @@
 // Santé et capacités : calories (dépense / apport) et point hebdomadaire (VO₂max, seuil de lactate, ressenti, prédictions).
 // Tout ce qui vient d'une estimation Apogée ou d'une saisie est étiqueté comme tel ; Apogée ne recalcule pas les indices Garmin.
 import { $t } from '../i18n';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { navigate, useRoute } from '../ui/router';
 import { Segmented, Sheet, showToast, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { DecField, DurationField, IntField, PaceField, numOf } from '../ui/wheels';
@@ -12,7 +13,7 @@ import { addDays, dayRange, mondayOf } from '../domain/dates';
 import { dayEnergy, weekEnergy } from '../domain/energy';
 import { capacityHistory, type CapacityPoint } from '../domain/capacity';
 import { DayChart } from '../ui/daychart';
-import { PeriodBar, useDaySel, usePeriod, type SpanOption } from '../ui/period';
+import { PeriodBar, useDaySel, usePeriod } from '../ui/period';
 import { Readout } from '../ui/readout';
 import { currentCheckin, hasContent, metricSeries, type CheckinMetric } from '../domain/checkin';
 import { liveRecords } from '../domain/load';
@@ -41,11 +42,11 @@ export function CaloriesCard() {
   };
   const maxBar = Math.max(1, ...week.days.map((x) => Math.max(x.total ?? x.active ?? 0, x.intake)));
   const noEnergy = e.active === null && e.rest === null;
-  const cp = usePeriod(14);
+  const cp = usePeriod();
   const cAll = useMemo(() => dayRange(addDays(d.today, -364), d.today), [d.today]);
   const cDays = cp.slice(cAll);
   return (
-    <InfoCard className="card g12" aria-label={$t("Calories")}>
+    <InfoCard className="card g12" aria-label={$t("Calories")} data-anchor="calories">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
         <h2>{$t("Calories")}<InfoToggle /></h2>
         <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => sheet.show()}>{$t("Ajouter un repas")}</button>
@@ -55,7 +56,7 @@ export function CaloriesCard() {
         <span className="t-strong">{day === d.today ? $t("Aujourd’hui") : dayTitle(day)}</span>
         <button type="button" className="icon-btn" aria-label={$t("Jour suivant")} disabled={day >= d.today} onClick={() => setDay(addDays(day, 1))}><Icon name="next" /></button>
       </div>
-      {noEnergy ? <p className="t-caption c-moderate">{$t("Pas de dépense connue ce jour. Les calories actives viennent des séances de la montre ; pour la dépense de repos, renseigne ta taille dans Paramètres › Profil.")}</p> : (
+      {noEnergy ? <><p className="t-caption c-moderate">{$t("Pas de dépense connue ce jour. Les calories actives viennent des séances de la montre ; pour la dépense de repos, renseigne ta taille dans Paramètres › Profil.")}</p><button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/parametres/profil')}>{$t("Ouvrir le profil")}</button></> : (
         <>
           <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}>
             <span className="t-h2">{KCAL(e.total)}</span>
@@ -67,7 +68,7 @@ export function CaloriesCard() {
           </dl>
         </>
       )}
-      {e.hcRaw && (e.hcRaw.active !== null || e.hcRaw.total !== null) && <p className="t-legal c-moderate">{$t("Ce que ta montre dépose dans Health Connect ce jour-là : {0} actives, {1} au total.", { 0: e.hcRaw.active === null ? '—' : KCAL(e.hcRaw.active), 1: e.hcRaw.total === null ? '—' : KCAL(e.hcRaw.total) })}</p>}
+      {e.restHow === 'split' && <><p className="t-legal c-moderate">{$t("Le partage repos / actives vient de Health Connect et peut s’écarter de Garmin Connect. Pour les faire coller, renseigne les calories de repos de ta montre dans Paramètres › Profil.")}</p><button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/parametres/profil?ancre=repos')}>{$t("Ouvrir le profil")}</button></>}
       <dl className="kv">
         <dt>{$t("Mangées (journal)")}</dt><dd>{e.meals ? KCAL(e.intake) : '—'}</dd>
         {e.balance !== null && (<><dt>{$t("Bilan du jour")}</dt><dd style={{ color: e.balance > 0 ? 'var(--warning-text)' : 'var(--success-text)' }}>{signed(e.balance, 0)}{NBSP}kcal</dd></>)}
@@ -81,7 +82,7 @@ export function CaloriesCard() {
           ))}
         </ul>
       )}
-      <PeriodBar p={cp} options={[[7, $t("7 j")], [14, $t("14 j")], [30, $t("30 j")], [90, $t("3 mois")]]} total={cAll.length} from={cDays[0]} to={cDays[cDays.length - 1]} />
+      <PeriodBar p={cp} total={cAll.length} from={cDays[0]} to={cDays[cDays.length - 1]} />
       <DayChart points={cDays.map((x) => { const en = dayEnergy(data, x); return { day: x, v: en.active ?? (en.total !== null ? 0 : null), lo: en.rest ?? 0 }; })} kind="stack" sel={Math.max(0, cDays.indexOf(day))} onSel={(i) => setDay(cDays[i])} height={110} color="var(--chart-1)" color2="var(--chart-other)" fmtTick={(v) => num(v, 0)} label={$t("Dépense par jour : repos et actives")} />
       <div className="legend">
         <span><span className="dot s10" style={{ background: 'var(--chart-1)' }} />{$t("Actives")}</span>
@@ -109,9 +110,12 @@ export function CaloriesCard() {
 // ------------------------------------------------------------------ pas et étages
 export function ActivityCard() {
   const { data, d } = useCalc();
-  const [what, setWhat] = useState<'steps' | 'floors'>('steps');
+  const route = useRoute();
+  const wanted = route.query.get('mesure') === 'floors' ? 'floors' : 'steps';
+  const [what, setWhat] = useState<'steps' | 'floors'>(wanted);
+  useEffect(() => { setWhat(wanted); }, [route.key, wanted]);
   const all = useMemo(() => dayRange(addDays(d.today, -364), d.today), [d.today]);
-  const pw = usePeriod(14);
+  const pw = usePeriod();
   const days = pw.slice(all);
   const [si, setSi] = useDaySel(days);
   const val = (x: string) => { const e = data.energy[x]; return e && !e.deleted ? e[what] ?? null : null; };
@@ -120,10 +124,10 @@ export function ActivityCard() {
   const day = days[si] ?? d.today;
   const avg = known.length ? known.reduce((a, b) => a + b, 0) / known.length : null;
   return (
-    <InfoCard className="card g12" aria-label={$t("Pas et étages")}>
+    <InfoCard className="card g12" aria-label={$t("Pas et étages")} data-anchor="pas-etages">
       <h2>{$t("Pas et étages")}<InfoToggle /></h2>
       <Segmented label={$t("Mesure")} value={what} onChange={setWhat} options={[['steps', $t("Pas")], ['floors', $t("Étages")]]} />
-      <PeriodBar p={pw} options={[[7, $t("7 j")], [14, $t("14 j")], [30, $t("30 j")], [90, $t("3 mois")]]} total={all.length} from={days[0]} to={days[days.length - 1]} />
+      <PeriodBar p={pw} total={all.length} from={days[0]} to={days[days.length - 1]} />
       <Readout when={day === d.today ? $t("Aujourd’hui") : dayTitle(day)} cells={[
         { label: what === 'steps' ? $t("Pas") : $t("Étages"), value: val(day) === null ? '—' : num(val(day)!, 0), color: what === 'steps' ? 'var(--chart-7)' : 'var(--chart-4)', key: true },
         { label: $t("Moyenne de la période"), value: avg === null ? '—' : num(avg, 0) },
@@ -191,7 +195,7 @@ export function CheckinCard() {
     </div>
   );
   return (
-    <InfoCard className="card g12" aria-label={$t("Point de la semaine")}>
+    <InfoCard className="card g12" aria-label={$t("Point de la semaine")} data-anchor="point-semaine">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
         <h2>{$t("Point de la semaine")}<InfoToggle /></h2>
         <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={open}>{s ? $t("Modifier") : $t("Remplir")}</button>
@@ -284,7 +288,6 @@ function MetricChart({ label, pts, fmt, better, time, sel, onSel, estimated }: {
   );
 }
 
-const SPANS_CAP: SpanOption[] = [[28, $t("4 sem.")], [56, $t("8 sem.")], [84, $t("12 sem.")], [182, $t("6 mois")], [365, $t("1 an")]];
 
 /** Courbes de la montre (un point par semaine, recopiés) : même curseur, même glissement que les autres graphes. */
 function WatchTrend({ k, label, fmt, better, time }: { k: CheckinMetric; label: string; fmt: (v: number) => string; better: 'up' | 'down' | null; time?: boolean }) {
@@ -300,7 +303,7 @@ function WatchTrend({ k, label, fmt, better, time }: { k: CheckinMetric; label: 
 
 export function CapacitiesTrendsCard() {
   const { data, d } = useCalc();
-  const pw = usePeriod(84);
+  const pw = usePeriod();
   // courbes calculées par Apogée sur tes séances, sans rien recopier : un point par jour
   const hist = useMemo(() => capacityHistory(data, d, 365), [data, d]);
   const win = pw.slice(hist);
@@ -316,13 +319,13 @@ export function CapacitiesTrendsCard() {
   const own = ownAll.filter((m) => win.filter((p) => m.pick(p) !== null).length >= 2);
   const watchRows = TRENDS.filter((t) => metricSeries(data, t.k).length > 0);
   return (
-    <InfoCard className="card g12" aria-label={$t("Courbes de capacité")}>
+    <InfoCard className="card g12" aria-label={$t("Courbes de capacité")} data-anchor="courbes-capacite">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Courbes de capacité")}<InfoToggle /></h2>{own.length > 0 && <span className="var-chip flat" style={{ alignSelf: 'center' }}>{$t("estimation Apogée")}</span>}</div>
       {own.length === 0 && watchRows.length === 0 ? <p className="t-caption c-moderate">{$t("Les courbes apparaîtront dès qu’Apogée aura assez de sorties de course pour estimer ta VO₂max ou tes prédictions, ou dès que tu auras rempli ton point de la semaine.")}</p> : (
         <>
           {own.length > 0 && (
             <>
-              <PeriodBar p={pw} options={SPANS_CAP} total={hist.length} from={win[0]?.day} to={win[win.length - 1]?.day} />
+              <PeriodBar p={pw} total={hist.length} from={win[0]?.day} to={win[win.length - 1]?.day} />
               <Readout when={win[si] ? (win[si].day === d.today ? $t("Aujourd’hui") : dayMonth(win[si].day)) : ''} cols={1} cells={[]} />
               <ul className="stack" style={{ gap: 'var(--space-16)' }}>
                 {own.map((m) => <MetricChart key={m.label} label={m.label} pts={win.map((p) => ({ day: p.day, v: m.pick(p) }))} fmt={m.fmt} better={m.better} time={m.time} sel={si} onSel={setSi} estimated />)}

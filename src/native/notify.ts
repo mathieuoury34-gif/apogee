@@ -34,14 +34,14 @@ export async function scheduleReminders(data: AppData, d: Derived): Promise<void
     const when = at(p.plannedDate);
     if (when <= now) continue;
     const disc = DISCIPLINE_LABEL[p.discipline];
-    list.push({ id: id++, title: $t("Séance du jour"), body: p.title ? `${disc} — ${p.title}` : $t("{0} au programme aujourd’hui.", { 0: disc }), schedule: { at: when, allowWhileIdle: true } });
+    list.push({ id: id++, title: $t("Séance du jour"), body: p.title ? `${disc} — ${p.title}` : $t("{0} au programme aujourd’hui.", { 0: disc }), schedule: { at: when, allowWhileIdle: true }, extra: { route: '/calendrier/prevue/' + p.id } });
   }
   const valid = lastPlanValidity(data);
-  const overdue = (day: string) => !suspended(data, day) && at(day) > now && list.push({ id: id++, title: $t("Plan à renouveler"), body: $t("Ton plan n’a pas été renouvelé depuis un moment. Un nouvel échange avec ton coach, quand tu es prêt."), schedule: { at: at(day), allowWhileIdle: true } });
+  const overdue = (day: string) => !suspended(data, day) && at(day) > now && list.push({ id: id++, title: $t("Plan à renouveler"), body: $t("Ton plan n’a pas été renouvelé depuis un moment. Un nouvel échange avec ton coach, quand tu es prêt."), schedule: { at: at(day), allowWhileIdle: true }, extra: { route: '/coach' } });
   if (!valid) overdue(at(t) > now ? t : addDays(t, 1));
   else {
     const warn = addDays(valid, -DUE_WARNING);
-    if (warn >= t && !suspended(data, warn) && at(warn) > now) list.push({ id: id++, title: $t("Plan bientôt à échéance"), body: $t("Ton plan arrive à échéance dans {0} jours — pense à échanger avec ton coach.", { 0: DUE_WARNING }), schedule: { at: at(warn), allowWhileIdle: true } });
+    if (warn >= t && !suspended(data, warn) && at(warn) > now) list.push({ id: id++, title: $t("Plan bientôt à échéance"), body: $t("Ton plan arrive à échéance dans {0} jours — pense à échanger avec ton coach.", { 0: DUE_WARNING }), schedule: { at: at(warn), allowWhileIdle: true }, extra: { route: '/coach' } });
     let o = addDays(valid, OVERDUE_AFTER);
     while (o < t) o = addDays(o, OVERDUE_REPEAT);
     overdue(o);
@@ -53,7 +53,7 @@ export async function scheduleReminders(data: AppData, d: Derived): Promise<void
     const when = new Date(y, m - 1, dd, 18, 0, 0, 0);
     const c = data.checkins[mondayOf(sunday)];
     if (when <= now || (c && !c.deleted) || suspended(data, sunday)) continue;
-    list.push({ id: id++, title: $t("Point de la semaine"), body: $t("Deux minutes pour noter VO₂max, ressenti et prédictions : tes courbes se complètent."), schedule: { at: when, allowWhileIdle: true } });
+    list.push({ id: id++, title: $t("Point de la semaine"), body: $t("Deux minutes pour noter VO₂max, ressenti et prédictions : tes courbes se complètent."), schedule: { at: when, allowWhileIdle: true }, extra: { route: '/progression/capacites?ancre=point-semaine' } });
   }
   // sommeil : chaque matin, une invitation à valider (ou corriger) les heures de coucher et de lever
   const prefs = getPrefs();
@@ -64,7 +64,7 @@ export async function scheduleReminders(data: AppData, d: Derived): Promise<void
       const [y, m, dd] = day.split('-').map(Number);
       const when = new Date(y, m - 1, dd, sh, 0, 0, 0);
       if (when <= now || suspended(data, day)) continue;
-      list.push({ id: id++, title: $t("Ta nuit"), body: $t("Valide tes heures de coucher et de lever, ou corrige-les si la montre s’est trompée."), schedule: { at: when, allowWhileIdle: true }, extra: { route: '/progression/sante' } });
+      list.push({ id: id++, title: $t("Ta nuit"), body: $t("Valide tes heures de coucher et de lever, ou corrige-les si la montre s’est trompée."), schedule: { at: when, allowWhileIdle: true }, extra: { route: '/progression/sante?ancre=sommeil' } });
     }
   }
   const key = JSON.stringify(list.map((x) => [x.title, x.body, x.schedule.at.getTime()]));

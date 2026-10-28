@@ -9,7 +9,7 @@ import { Icon } from '../ui/icons';
 import { navigate } from '../ui/router';
 import { addDays, dayRange } from '../domain/dates';
 import { DayChart } from '../ui/daychart';
-import { PeriodBar, useDaySel, usePeriod, type SpanOption } from '../ui/period';
+import { PeriodBar, useDaySel, usePeriod } from '../ui/period';
 import { Readout } from '../ui/readout';
 import {
   bestEfforts, effortAdjuster, energyReserve, enduranceScore, hillScore, racePredictions, readiness, readinessFactors, trainingEffects, vo2maxEstimate,
@@ -71,18 +71,17 @@ function factorValue(k: ReadinessKey, v: number): string {
   return signed(v, 0);
 }
 
-const SPANS_DAYS: SpanOption[] = [[7, $t("7 j")], [14, $t("14 j")], [30, $t("30 j")], [90, $t("3 mois")]];
 
 /** Tous les jours depuis le début de l'historique (au moins 30 jours) jusqu'à aujourd'hui. */
 function useAllDays(): string[] {
   const { d } = useCalc();
-  return useMemo(() => dayRange(d.series.firstDay && d.series.firstDay < addDays(d.today, -29) ? d.series.firstDay : addDays(d.today, -29), d.today), [d.series.firstDay, d.today]);
+  return useMemo(() => dayRange(d.series.firstDay && d.series.firstDay < addDays(d.today, -364) ? (d.series.firstDay < addDays(d.today, -729) ? addDays(d.today, -729) : d.series.firstDay) : addDays(d.today, -364), d.today), [d.series.firstDay, d.today]);
 }
 
 export function ReadinessCard() {
   const { data, d } = useCalc();
   const all = useAllDays();
-  const pw = usePeriod(14);
+  const pw = usePeriod();
   const days = pw.slice(all);
   const key = days[0] + days.length;
   const pts = useMemo(() => days.map((day) => ({ day, r: readiness(data, d, day) })), [data, d, key]);
@@ -91,9 +90,9 @@ export function ReadinessCard() {
   const r = cur?.r ?? null;
   const missingSel = useMemo(() => (cur ? readinessFactors(data, d, cur.day).missing : []), [data, d, cur?.day]);
   return (
-    <InfoCard className="card g12" aria-label={$t("Disponibilité à l’entraînement")}>
+    <InfoCard className="card g12" aria-label={$t("Disponibilité à l’entraînement")} data-anchor="disponibilite">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Disponibilité à l’entraînement")}<InfoToggle /></h2><Est /></div>
-      <PeriodBar p={pw} options={SPANS_DAYS} total={all.length} from={days[0]} to={days[days.length - 1]} />
+      <PeriodBar p={pw} total={all.length} from={days[0]} to={days[days.length - 1]} />
       <Readout when={cur ? (cur.day === d.today ? $t("Aujourd’hui") : dayTitle(cur.day)) : ''} cols={1} cells={[{ label: r ? R_LABEL[r.level] : $t("Pas assez de données"), value: r ? r.score : '—', color: r ? R_COLOR[r.level] : undefined, key: true, valueColor: r ? R_COLOR[r.level] : undefined }]} />
       <DayChart points={pts.map((p) => ({ day: p.day, v: p.r ? p.r.score : null, color: p.r ? R_COLOR[p.r.level] : undefined }))} kind="bars" min={0} max={100} ticks={[0, 25, 50, 75, 100]} sel={si} onSel={setSi} height={110} label={$t("Disponibilité à l’entraînement par jour")} />
       {r ? (
@@ -129,18 +128,18 @@ export function ReadinessCard() {
 export function ReserveCard() {
   const { data, d } = useCalc();
   const all = useAllDays();
-  const pw = usePeriod(14);
+  const pw = usePeriod();
   const days = pw.slice(all);
   const last = days[days.length - 1] ?? d.today;
   const pts = useMemo(() => energyReserve(data, d, days.length || 1, last), [data, d, days.length, last]);
   const [si, setSi] = useDaySel(pts.map((p) => p.day));
   const cur = pts[si];
   return (
-    <InfoCard className="card g12" aria-label={$t("Réserve d’énergie")}>
+    <InfoCard className="card g12" aria-label={$t("Réserve d’énergie")} data-anchor="reserve">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Réserve d’énergie")}<InfoToggle /></h2><Est /></div>
       {!cur || pts.every((p) => p.sleepAssumed) ? <p className="t-caption c-moderate">{$t("Il faut des nuits de sommeil (montre lue par Health Connect) pour estimer la réserve.")}</p> : (
         <>
-          <PeriodBar p={pw} options={SPANS_DAYS} total={all.length} from={pts[0].day} to={pts[pts.length - 1].day} />
+          <PeriodBar p={pw} total={all.length} from={pts[0].day} to={pts[pts.length - 1].day} />
           <Readout when={cur.day === d.today ? $t("Aujourd’hui") : dayTitle(cur.day)} cells={[
             { label: $t("Au réveil"), value: cur.wake, color: 'var(--form-ready)', key: true },
             { label: $t("Point bas du jour"), value: cur.evening, color: 'var(--form-strained)', key: true },
@@ -163,7 +162,7 @@ export function Vo2Card() {
   const v = useMemo(() => vo2maxEstimate(data, d, efforts), [data, d, efforts]);
   const hrNote = d.ctx.hrMax.origin === 'tanaka';
   return (
-    <InfoCard className="card g12" aria-label={$t("VO₂max estimée")}>
+    <InfoCard className="card g12" aria-label={$t("VO₂max estimée")} data-anchor="vo2max">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("VO₂max")}<InfoToggle /></h2><Est /></div>
       {v.value !== null ? (
         <>
@@ -171,7 +170,7 @@ export function Vo2Card() {
           {v.watch && <dl className="kv"><dt>{$t("Ta montre (point du {0})", { 0: dayMonth(v.watch.week) })}</dt><dd>{num(v.watch.value, 0, 1)}</dd></dl>}
           {v.submax && <p className="t-legal c-moderate">{$t("Calculée sur {0} sorties de course récentes.", { 0: v.submax.n })}</p>}
         </>
-      ) : <p className="t-caption c-moderate">{$t("Il faut ta FC de repos (montre lue par Health Connect) et ta FC max pour estimer la VO₂max. Renseigne ta date de naissance dans Paramètres › Athlète si besoin.")}</p>}
+      ) : <><p className="t-caption c-moderate">{$t("Il faut ta FC de repos (montre lue par Health Connect) et ta FC max pour estimer la VO₂max. Renseigne ta date de naissance dans Paramètres › Athlète si besoin.")}</p><button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/parametres/profil')}>{$t("Ouvrir le profil")}</button></>}
       <Info>{$t("Méthode publiée : sorties de course à allure stable — coût en oxygène de la course (ACSM) et équivalence entre % de la réserve de FC et % de la réserve de VO₂ (Swain et Leutholtz 1997) ; moyenne des sorties à plat des 60 derniers jours, les plus récentes comptant davantage (demi-vie de 3 semaines), 3 sorties minimum. Sans assez de sorties, repli sur le rapport FC max / FC de repos × 15,3 (Uth 2004). L’erreur typique est de l’ordre de 10 %.")}{hrNote ? ' ' + $t("Ta FC max vient d’une formule : la mesurer (ou la laisser s’affiner avec tes efforts) améliore l’estimation.") : ''}</Info>
     </InfoCard>
   );
@@ -186,7 +185,7 @@ export function PredictionsCard() {
   const any = p.rows.some((r) => r.riegelSec !== null || r.watchSec !== null);
   const hasWatch = p.rows.some((r) => r.watchSec !== null);
   return (
-    <InfoCard className="card g12" aria-label={$t("Prédictions de course")}>
+    <InfoCard className="card g12" aria-label={$t("Prédictions de course")} data-anchor="predictions">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Prédictions de course")}<InfoToggle /></h2><Est /></div>
       {!any ? <p className="t-caption c-moderate">{$t("Pas encore d’effort de course sur 90 jours : rien à prédire.")}</p> : (
         <>

@@ -92,12 +92,14 @@ export function overview(data: AppData, todayDay: string): Overview {
 }
 
 /** Volume (secondes) par semaine et par discipline, pour les N dernières semaines. */
-export function weeklyVolume(data: AppData, todayDay: string, n: number): { start: string; byDiscipline: Record<string, number>; total: number }[] {
+export function weeklyVolume(data: AppData, todayDay: string, n: number, fromDay?: string): { start: string; byDiscipline: Record<string, number>; total: number }[] {
   const last = mondayOf(todayDay);
   const out = Array.from({ length: n }, (_, i) => ({ start: addDays(last, -7 * (n - 1 - i)), byDiscipline: {} as Record<string, number>, total: 0 }));
   const idx = new Map(out.map((w, i) => [w.start, i]));
   for (const s of liveRecords(data.actual)) {
-    const i = idx.get(mondayOf(sessionDay(s)));
+    const day = sessionDay(s);
+    if (fromDay && (day < fromDay || day > todayDay)) continue;
+    const i = idx.get(mondayOf(day));
     if (i === undefined) continue;
     out[i].byDiscipline[s.discipline] = (out[i].byDiscipline[s.discipline] ?? 0) + s.durationSec;
     out[i].total += s.durationSec;

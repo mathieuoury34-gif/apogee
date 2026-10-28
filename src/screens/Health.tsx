@@ -7,7 +7,7 @@ import { $t } from '../i18n';
 import { useState } from 'react';
 import { Icon } from '../ui/icons';
 import { navigate } from '../ui/router';
-import { showToast, Info } from '../ui/kit';
+import { showToast, Info, Disclosure } from '../ui/kit';
 import { useCalc, usePrefs } from '../data/store';
 import { native } from '../native/bridge';
 import { openHealthSettings, requestHealthPermissions, runHealthSync, useHealth } from '../native/healthSync';
@@ -85,8 +85,8 @@ export function HealthCard({ compact = false }: { compact?: boolean }) {
           </span>
         </div>
         {android && <ExtLink href={APK_PAGE} className="help-link"><Icon name="download" size={20} /><span>{$t("Télécharger l’APK Apogée (GitHub › Releases)")}</span></ExtLink>}
-        {!compact && <WatchKv st={st} />}
-        {compact && <div className="row wrap"><button type="button" className="btn btn-tertiary" onClick={() => navigate('/parametres')}>{$t("Détails")}</button></div>}
+        {!compact && <Disclosure title={$t("Détail de la lecture")}><WatchKv st={st} /></Disclosure>}
+        {compact && <div className="row wrap"><button type="button" className="btn btn-tertiary" onClick={() => navigate('/parametres?ancre=montre')}>{$t("Détails")}</button></div>}
         {!compact && <span className="t-legal c-moderate">{$t("Diagnostic :")} {native.diagnostic()}</span>}
       </div>
     );
@@ -101,7 +101,7 @@ export function HealthCard({ compact = false }: { compact?: boolean }) {
     error: { tone: 'crit', title: $t("La dernière lecture a échoué"), text: prefs.healthLastError || h.error || $t("Erreur inconnue.") },
     permissions: { tone: 'warn', title: $t("Montre pas encore reliée"), text: $t("Autorise Apogée à lire tes séances, ta FC, ton sommeil, ta FC de repos et ton poids dans Health Connect. Coche aussi « Historique » pour reprendre tes séances passées.") },
     never: { tone: 'warn', title: $t("Autorisations accordées, montre jamais lue"), text: $t("Lance une première lecture : elle remonte jusqu’à 400 jours si l’historique est autorisé.") },
-    ok: { tone: 'ok', title: $t("Montre reliée"), text: $t("Dernière lecture le {0}{1}.", { 0: dateTimeFr(prefs.healthLastRun!), 1: report ? $t(" : {0} séance(s) vue(s), {1} nouvelle(s), {2} complétée(s), {3} nuit(s), {4} FC de repos", { 0: report.found, 1: report.inserted, 2: report.updated, 3: report.nights, 4: report.restingDays }) : '' }) },
+    ok: { tone: 'ok', title: $t("Montre reliée"), text: $t("Dernière lecture le {0}.", { 0: dateTimeFr(prefs.healthLastRun!) }) },
   };
   const s = status[level];
   const color = s.tone === 'ok' ? 'var(--success-text)' : s.tone === 'warn' ? 'var(--warning-text)' : 'var(--critical-text)';
@@ -115,13 +115,16 @@ export function HealthCard({ compact = false }: { compact?: boolean }) {
           <span className="t-caption c-neutral">{s.text}</span>
         </span>
       </div>
-      {!compact && level !== 'module' && level !== 'bridge' && (
-        <dl className="kv">
-          <dt>{$t("Autorisations")}</dt><dd className="t-caption">{h.granted.length ? $t("{0} accordée(s){1}{2}", { 0: h.granted.length, 1: h.missing.length ? $t(", {0} manquante(s)", { 0: h.missing.length }) : '', 2: h.history ? $t(" · historique") : $t(" · sans historique") }) : $t("aucune")}</dd>
-        </dl>
+      {!compact && (
+        <Disclosure title={$t("Détail de la lecture")}>
+          <dl className="kv">
+            {level !== 'module' && level !== 'bridge' && <><dt>{$t("Autorisations")}</dt><dd className="t-caption">{h.granted.length ? $t("{0} accordée(s){1}{2}", { 0: h.granted.length, 1: h.missing.length ? $t(", {0} manquante(s)", { 0: h.missing.length }) : '', 2: h.history ? $t(" · historique") : $t(" · sans historique") }) : $t("aucune")}</dd></>}
+            {report && <><dt>{$t("Dernière lecture")}</dt><dd className="t-caption">{$t("{0} séance(s) vue(s), {1} nouvelle(s), {2} complétée(s), {3} nuit(s), {4} FC de repos", { 0: report.found, 1: report.inserted, 2: report.updated, 3: report.nights, 4: report.restingDays })}</dd></>}
+          </dl>
+          <WatchKv st={st} />
+          {h.missing.length > 0 && h.granted.length > 0 && <span className="t-legal c-moderate">{$t("Manquantes :")} {h.missing.join(', ')}</span>}
+        </Disclosure>
       )}
-      {!compact && <WatchKv st={st} />}
-      {!compact && h.missing.length > 0 && h.granted.length > 0 && <span className="t-legal c-moderate">{$t("Manquantes :")} {h.missing.join(', ')}</span>}
       <div className="row wrap">
         {level !== 'bridge' && (level === 'permissions' || (level !== 'module' && level !== 'unavailable' && level !== 'update' && (!h.history || h.missing.length > 0))) && (
           <button type="button" className="btn btn-primary" onClick={grant}><Icon name="link" size={18} />{$t("Autoriser Health Connect")}</button>
@@ -129,7 +132,7 @@ export function HealthCard({ compact = false }: { compact?: boolean }) {
         {(level === 'ok' || level === 'never' || level === 'error') && (
           <button type="button" className="btn btn-secondary" disabled={busy || h.running} onClick={read}><Icon name="refresh" size={18} />{busy || h.running ? $t("Lecture…") : $t("Lire la montre")}</button>
         )}
-        {compact ? <button type="button" className="btn btn-tertiary" onClick={() => navigate('/parametres')}>{$t("Détails")}</button>
+        {compact ? <button type="button" className="btn btn-tertiary" onClick={() => navigate('/parametres?ancre=montre')}>{$t("Détails")}</button>
           : level !== 'module' && level !== 'unavailable' && level !== 'bridge' && <button type="button" className="btn btn-tertiary" onClick={() => openHealthSettings()}>{$t("Ouvrir Health Connect")}</button>}
       </div>
       {!compact && (level === 'bridge' || level === 'module' || level === 'error') && <span className="t-legal c-moderate">{$t("Diagnostic :")} {native.diagnostic()}</span>}

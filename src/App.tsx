@@ -14,6 +14,28 @@ import { InterruptionsScreen } from './screens/Interruptions';
 import { HelpScreen } from './screens/Help';
 import { useReady } from './data/store';
 
+/** Lien « ancre » : `?ancre=nom` fait défiler jusqu'à l'élément `data-anchor="nom"` de l'écran d'arrivée et le fait clignoter un instant. */
+function useAnchorScroll(ready: boolean) {
+  const route = useRoute();
+  const a = route.query.get('ancre');
+  useEffect(() => {
+    if (!a || !ready) return;
+    let tries = 0, t = 0, off = 0;
+    const go = () => {
+      const el = Array.from(document.querySelectorAll<HTMLElement>('[data-anchor]')).find((x) => x.dataset.anchor === a);
+      if (el) {
+        el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        el.classList.add('anchor-flash');
+        off = window.setTimeout(() => el.classList.remove('anchor-flash'), 2400);
+        return;
+      }
+      if (++tries < 25) t = window.setTimeout(go, 120);
+    };
+    t = window.setTimeout(go, 80);
+    return () => { clearTimeout(t); clearTimeout(off); };
+  }, [route.key, a, ready]);
+}
+
 const SECTIONS = ['accueil', 'calendrier', 'seances', 'progression', 'coach', 'parametres'];
 
 function Screen() {
@@ -53,6 +75,7 @@ export function App() {
   const route = useRoute();
   const ready = useReady();
   const sheet = route.query.get('sheet');
+  useAnchorScroll(ready);
   // écrans de saisie plein écran : pas de barre d'onglets (comme les écrans Achat / Virement de PEAnalyze)
   const fullScreen = /^\/(seances\/saisie|calendrier\/editer|parametres\/profil)/.test(route.path);
 

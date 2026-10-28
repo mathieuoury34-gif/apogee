@@ -26,6 +26,7 @@ import { cleanHr } from '../domain/hr';
 import { polarSplit, zoneTimes } from '../domain/zones';
 import { BricksCard, EfficiencyCard, RecordsCard, WeekCard, ZonesCard } from './Analysis';
 import { SplitBars } from '../ui/charts2';
+import { PeriodBar, usePeriod } from '../ui/period';
 
 const NAV = [{ to: '/seances', label: $t("Journal") }, { to: '/seances/stats', label: $t("Statistiques") }];
 
@@ -36,15 +37,17 @@ export function JournalScreen() {
   const [filter, setFilter] = useState<'all' | ActualDiscipline | 'rpe'>(route.query.get('filtre') === 'ressenti' ? 'rpe' : 'all');
   const [months, setMonths] = useState(3);
   const [query, setQuery] = useState('');
-  const [period, setPeriod] = useState<'all' | '30' | '90' | '365'>('all');
+  const pw = usePeriod();
   const [swiped, setSwiped] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const all = liveRecords(data.actual).sort((a, b) => (a.startAt < b.startAt ? 1 : -1));
   const q = query.trim().toLowerCase();
-  const since = period === 'all' ? null : addDays(d.today, -Number(period));
+  const winEnd = addDays(d.today, -pw.offset);
+  const since = pw.span === 0 ? null : addDays(winEnd, -(pw.span - 1));
+  const searching = q.length > 0; // une recherche porte sur tout le journal, pas seulement sur la période choisie
   const list = all.filter((s) => {
     if (!(filter === 'all' || (filter === 'rpe' ? !s.rpe : s.discipline === filter))) return false;
-    if (since && sessionDay(s) < since) return false;
+    if (!searching && ((since && sessionDay(s) < since) || sessionDay(s) > winEnd)) return false;
     if (!q) return true;
     const hay = [s.title, s.comment, s.subSport, DISCIPLINE_LABEL[s.discipline], sessionDay(s), dateFr(sessionDay(s))].filter(Boolean).join(' ').toLowerCase();
     return q.split(/\s+/).every((w) => hay.includes(w));
@@ -73,13 +76,11 @@ export function JournalScreen() {
           {present.map((x) => <button key={x} type="button" className="chip" aria-pressed={filter === x} onClick={() => setFilter(x)}>{DISCIPLINE_LABEL[x]}</button>)}
           <button type="button" className="chip" aria-pressed={filter === 'rpe'} onClick={() => setFilter('rpe')}>{$t("Ressenti à noter")}</button>
         </div>
-        <div className="chips g6" role="group" aria-label={$t("Période")}>
-          {([['all', $t("Tout")], ['30', $t("30 jours")], ['90', $t("90 jours")], ['365', $t("1 an")]] as const).map(([k, l]) => <button key={k} type="button" className="chip" aria-pressed={period === k} onClick={() => setPeriod(k)}>{l}</button>)}
-        </div>
         <input className="input" type="search" value={query} placeholder={$t("Rechercher : titre, sport, commentaire, date…")} aria-label={$t("Rechercher une séance")} onChange={(e) => setQuery(e.target.value)} />
       </SubNav>
       <main className="content with-fab journal">
-        {!list.length && <Empty icon="seances" title={filter === 'rpe' ? $t("Tout est noté") : (q || period !== 'all') && all.length ? $t("Aucun résultat") : $t("Aucune séance pour l’instant")} text={filter === 'rpe' ? $t("Chaque séance a son ressenti.") : (q || period !== 'all') && all.length ? $t("Aucune séance ne correspond à cette recherche.") : $t("Les séances de ta montre arrivent ici. Utilise le bouton + pour en saisir une.")} />}
+        {!searching && <PeriodBar p={pw} total={Math.max(d.series.days.length, 1)} from={since ?? undefined} to={winEnd} />}
+        {!list.length && <Empty icon="seances" title={filter === 'rpe' ? $t("Tout est noté") : (q || pw.span !== 0 || pw.offset !== 0) && all.length ? $t("Aucun résultat") : $t("Aucune séance pour l’instant")} text={filter === 'rpe' ? $t("Chaque séance a son ressenti.") : (q || pw.span !== 0 || pw.offset !== 0) && all.length ? $t("Aucune séance ne correspond à cette recherche.") : $t("Les séances de ta montre arrivent ici. Utilise le bouton + pour en saisir une.")} />}
         {shown.map((g) => {
           const vol = g.items.reduce((t, s) => t + s.durationSec, 0);
           return (
@@ -508,12 +509,14 @@ const STATS_DISC: PlannedDiscipline[] = ['RUN', 'BIKE', 'SWIM', 'STRENGTH', 'BRI
 export function StatsScreen() {
   const { data, d } = useCalc();
   const [disc, setDisc] = useState<PlannedDiscipline>('RUN');
-  const [period, setPeriod] = useState<'4' | '12' | 'all'>('12');
+  const sw = usePeriod();
   const ov = overview(data, d.today);
   const st = disciplineStats(data, d.loads, disc, d.today, d.links);
-  // « Tout » : depuis la semaine (du lundi) qui contient la première séance, sinon une séance du dimanche de la semaine d'avant restait hors du total
-  const weeks = period === 'all' ? (ov.firstDay ? Math.round(daysBetween(mondayOf(ov.firstDay), mondayOf(d.today)) / 7) + 1 : 1) : +period;
-  const share = weeklyVolume(data, d.today, weeks);
+  const sEnd = addDays(d.today, -sw.offset);
+  const sFrom = sw.span === 0 ? (ov.firstDay ?? sEnd) : addDays(sEnd, -(sw.span - 1));
+  // semaines civiles qui recouvrent la période ; seules les séances de la période comptent
+  const weeks = Math.max(1, Math.round(daysBetween(mondayOf(sFrom), mondayOf(sEnd)) / 7) + 1);
+  const share = weeklyVolume(data, sEnd, weeks, sFrom);
   const totals: Record<string, number> = {};
   share.forEach((w) => Object.entries(w.byDiscipline).forEach(([k, v]) => (totals[k] = (totals[k] ?? 0) + v)));
   const [withOther] = useWithOther();
@@ -539,7 +542,7 @@ export function StatsScreen() {
         </Hero>
         <section className="card g12 dspan-7" aria-labelledby="h-share">
           <h2 id="h-share">{$t("Répartition du temps")}</h2>
-          <ChipGroup label={$t("Période")} value={period} onChange={setPeriod} options={[['4', $t("4 sem.")], ['12', $t("12 sem.")], ['all', $t("Tout")]]} />
+          <PeriodBar p={sw} total={Math.max(d.series.days.length, 1)} from={sFrom} to={sEnd} />
           <OtherToggle />
           <div className="row" style={{ gap: 'var(--space-16)', alignItems: 'center' }}>
             <Donut size={136} ring={20} label={$t("Répartition du temps par discipline")} slices={order.map((k) => ({ value: totals[k], color: dvar(k as ActualDiscipline) }))}>

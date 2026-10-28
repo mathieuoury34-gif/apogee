@@ -27,7 +27,7 @@ import { loadFocus } from '../src/domain/loadStatus';
 import { AMATEUR_EXPONENT, capacityHistory } from '../src/domain/capacity';
 import { ingestEnergy, ingestVitals } from '../src/domain/healthExtra';
 import { currentCheckin, metricSeries } from '../src/domain/checkin';
-import { acuteSeries, statusOf, weeklyStatus } from '../src/domain/loadStatus';
+import { acuteSeries, dailyStatus, statusOf, weeklyStatus } from '../src/domain/loadStatus';
 import type { DayLoad } from '../src/domain/load';
 import { applyPreview, buildDossier, parsePlan, preview } from '../src/domain/coach';
 import { RACE_DISTANCES, aerobicEffect, anaerobicEffect, riegel, teLevel, timeOfVdot, vdotOfPerformance, vo2OfRunning, vo2maxFromSubmax, vo2maxUth } from '../src/domain/science';
@@ -924,4 +924,30 @@ test('prédictions : calage sur les prédictions de la montre', () => {
   assert.ok(cal.calib && cal.calib.factor > 0.6);
   const ratio = (cal.rows[0].riegelSec as number) / (raw.rows[0].riegelSec as number);
   assert.ok(Math.abs(ratio - cal.calib!.factor) < 1e-9);
+});
+
+test('calories : la dépense de base de la montre donne le repos ; le réglage du profil reste prioritaire', () => {
+  const d = emptyData();
+  d.energy['2026-10-26'] = { id: '2026-10-26', updatedAt: 'x', day: '2026-10-26', activeKcal: 1282, totalKcal: 2681, basalKcal: 2167, source: 'health' };
+  const e = dayEnergy(d, '2026-10-26', 600);
+  assert.equal(e.rest, 2167); assert.equal(e.active, 514); assert.equal(e.total, 2681); assert.equal(e.restHow, 'basal');
+  // sans dépense de base ni réglage : simple différence des valeurs de Health Connect, signalée comme telle
+  d.energy['2026-10-26'] = { ...d.energy['2026-10-26'], basalKcal: null };
+  assert.equal(dayEnergy(d, '2026-10-26').restHow, 'split');
+  // le réglage de Profil passe avant
+  d.energy['2026-10-26'] = { ...d.energy['2026-10-26'], basalKcal: 2167 };
+  d.athlete.main = { id: 'main', updatedAt: 'x', displayName: null, birthDate: null, sex: null, availability: [], equipment: [], injuries: [], restKcal: 2100 };
+  assert.equal(dayEnergy(d, '2026-10-26', 600).rest, 2100);
+  // la dépense de base lue est conservée avec le jour
+  const rows = ingestEnergy(emptyData(), [{ day: '2026-10-20', activeKcal: 900, totalKcal: 3000, basalKcal: 2150 }]);
+  assert.equal(rows[0].basalKcal, 2150);
+});
+
+test('statut d\'entraînement par jour : une case par jour, même règle que par semaine', () => {
+  const days: DayLoad[] = Array.from({ length: 60 }, (_, i) => ({ day: addDays('2026-08-01', i), load: 60, estimated: false, interruptionFill: false, fitness: 40 + i * 0.3, fatigue: 50, freshness: -5 }));
+  const cells = dailyStatus(days, '2026-09-29', 7);
+  assert.equal(cells.length, 7);
+  assert.ok(cells.every((c) => c.daily && c.status !== null));
+  assert.equal(cells[6].start, '2026-09-29');
+  assert.ok(cells[6].ratio !== null && Math.abs(cells[6].ratio! - 1) < 0.01, 'charge constante : rapport ≈ 1');
 });

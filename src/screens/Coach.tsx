@@ -17,14 +17,16 @@ import { alreadyImported, buildDossier, ISSUE_LABEL, lastPlanValidity, PARSE_ERR
 import { liveRecords, METHOD_LABEL, sessionDay } from '../domain/load';
 import type { ActualSession, PreviewItem } from '../domain/types';
 import { native } from '../native/bridge';
+import { DEFAULT_SPAN, SPANS } from '../ui/period';
 import { dateFr, dateTimeFr, dayTitle, DISCIPLINE_LABEL, sessionLabel, duration, num, signed } from '../ui/format';
 
 export function CoachScreen() {
   const route = useRoute();
   const { data, d } = useCalc();
-  const [weeks, setWeeks] = useState<'1' | '2' | '4' | '8'>('1');
+  const [span, setSpan] = useState<number>(DEFAULT_SPAN);
   const [importOpen, setImportOpen] = useState(route.query.get('importer') === '1');
-  const from = addDays(d.today, -7 * +weeks + 1);
+  const firstDay = useMemo(() => liveRecords(data.actual).reduce((m, x) => (sessionDay(x) < m ? sessionDay(x) : m), d.today), [data.actual, d.today]);
+  const from = span === 0 ? firstDay : addDays(d.today, -span + 1);
   const candidates = useMemo(() => liveRecords(data.actual).filter((s) => sessionDay(s) >= from).sort((a, b) => (a.startAt < b.startAt ? 1 : -1)), [data.actual, from]);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const selected = candidates.filter((s) => !excluded.has(s.id));
@@ -54,11 +56,11 @@ export function CoachScreen() {
         <InfoCard className="card g12 dspan-7" aria-labelledby="h-export">
           <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
             <h2 id="h-export">{$t("1. Envoyer le dossier")}<InfoToggle /></h2>
-            <ChipGroup label={$t("Séances jointes")} value={weeks} onChange={(v) => { setWeeks(v); setExcluded(new Set()); }} options={[['1', $t("1 sem.")], ['2', $t("2 sem.")], ['4', $t("4 sem.")], ['8', $t("8 sem.")]]} />
+            <ChipGroup label={$t("Séances jointes")} value={String(span)} onChange={(v) => { setSpan(Number(v)); setExcluded(new Set()); }} options={SPANS.map(([n, l]) => [String(n), l] as [string, string])} />
           </div>
           <Info>{$t("Profil, course, indicateurs, périodisation, charge, séances prévues passées et à venir (telles que tu les as modifiées) et les séances cochées ci-dessous, avec la consigne de réponse au format apogee/1.")}</Info>
           {candidates.length ? (
-            <ul className="check-list" aria-label={$t("Séances jointes")}>
+            <ul className="check-list" aria-label={$t("Séances jointes")} style={candidates.length > 10 ? { maxHeight: 360, overflowY: 'auto' } : undefined}>
               {candidates.map((s) => <SessionCheck key={s.id} s={s} on={!excluded.has(s.id)} onToggle={() => toggle(s.id)} load={d.loads.get(s.id)} />)}
             </ul>
           ) : <p className="t-caption c-moderate">{$t("Aucune séance sur la période : le dossier part sans séances jointes.")}</p>}

@@ -397,8 +397,8 @@ function BlockSheet({ block, discipline, isChild, refs, onApply, onClose, onDele
             </div>
           </div>
         )}
-        {!isSet && <label className="field"><span className="lbl">{discipline === 'STRENGTH' ? $t("Mouvement") : $t("Nom")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>
-          <input className="input" value={b.label ?? ''} placeholder={discipline === 'STRENGTH' ? $t("Squat, tractions…") : $t("Corps de séance, éducatif…")} onChange={(e) => setB({ ...b, label: e.target.value })} /></label>}
+        <label className="field"><span className="lbl">{isSet ? $t("Titre de la série") : discipline === 'STRENGTH' ? $t("Mouvement") : $t("Nom")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>
+          <input className="input" value={b.label ?? ''} placeholder={isSet ? $t("Éducatif jambes, circuit, 4 × 100…") : discipline === 'STRENGTH' ? $t("Squat, tractions…") : $t("Corps de séance, éducatif…")} onChange={(e) => setB({ ...b, label: e.target.value })} /></label>
         {isSet ? (
           <>
             <div className="field">

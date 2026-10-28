@@ -293,7 +293,7 @@ export function PlannedDetailScreen({ id }: { id: string }) {
           </div>
           {(dur.usedRefs || dist.usedRefs) && <p className="t-caption c-moderate">{$t("Estimation à partir de ta dernière VMA / CSS pour les cibles en pourcentage.")}</p>}
           {(dur.untimed > 0 || dur.approx > 0) && <p className="t-caption c-moderate">{dur.untimed > 0 ? $t("{0} bloc(s) sans durée connue, non compté(s). ", { 0: dur.untimed }) : ''}{dur.approx > 0 ? $t("Blocs sans cible estimés à ton allure d’endurance (70 % VMA, 90 % CSS).") : ''}</p>}
-          {p.notes && <p className="note"><Icon name="info" size={20} /><span>{p.notes}</span></p>}
+          {p.notes && <Info title={$t("Commentaire de la séance")}>{p.notes}</Info>}
         </section>
         <section className="card g4 dspan-12" aria-label={$t("Blocs")}>
           <h2>{$t("Blocs")}</h2>
@@ -357,11 +357,11 @@ export function BlockList({ p }: { p: PlannedSession }) {
           <span className="stack grow">
             <span className="t-strong">{blockHead(b).replace(KIND_LABEL[b.kind] + ' — ', '').replace(KIND_LABEL[b.kind], b.kind === 'SET' ? '' : KIND_LABEL[b.kind])}</span>
             {b.kind !== 'SET' && <span className="t-caption c-neutral">{blockDetail(b, p.discipline)}{b.discipline ? ' · ' + DISCIPLINE_LABEL[b.discipline] : ''}</span>}
-            {b.notes && <span className="t-caption c-moderate">{b.notes}</span>}
+            {b.notes && <Info title={$t("Consigne")}>{b.notes}</Info>}
             {b.kind === 'SET' && (
               <ol className="block-children">
                 {b.children.map((c, k) => (
-                  <li key={k}><span className="t-caption-strong">{blockHead(c)}</span> <span className="t-caption c-neutral">{blockDetail(c, p.discipline)}</span>{c.notes && <span className="t-caption c-moderate"> — {c.notes}</span>}</li>
+                  <li key={k}><span className="t-caption-strong">{blockHead(c)}</span> <span className="t-caption c-neutral">{blockDetail(c, p.discipline)}</span>{c.notes && <Info title={$t("Consigne")}>{c.notes}</Info>}</li>
                 ))}
               </ol>
             )}

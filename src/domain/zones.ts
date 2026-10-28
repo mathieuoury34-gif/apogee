@@ -40,7 +40,7 @@ export interface ZoneWeek { start: string; zones: ZoneSeconds; sessions: number 
 export interface ZoneReport { weeks: ZoneWeek[]; total: ZoneSeconds; sessions: number; withoutHr: number }
 
 /** Temps par zone sur les `n` dernières semaines (semaine en cours comprise). */
-export function weeklyZones(data: AppData, hrMax: number | null, todayDay: string, n: number, withOther = false): ZoneReport {
+export function weeklyZones(data: AppData, hrMax: number | null, todayDay: string, n: number, withOther = false, fromDay?: string): ZoneReport {
   const last = mondayOf(todayDay);
   const weeks: ZoneWeek[] = Array.from({ length: n }, (_, i) => ({ start: addDays(last, -7 * (n - 1 - i)), zones: emptyZones(), sessions: 0 }));
   const idx = new Map(weeks.map((w, i) => [w.start, i]));
@@ -49,7 +49,9 @@ export function weeklyZones(data: AppData, hrMax: number | null, todayDay: strin
   if (!hrMax) return { weeks, total, sessions, withoutHr };
   for (const s of liveRecords(data.actual)) {
     if (!(ZONE_DISCIPLINES.includes(s.discipline) || (withOther && s.discipline === 'OTHER'))) continue;
-    const i = idx.get(mondayOf(sessionDay(s)));
+    const day = sessionDay(s);
+    if (day > todayDay || (fromDay && day < fromDay)) continue;
+    const i = idx.get(mondayOf(day));
     if (i === undefined) continue;
     const ser = data.series[s.id];
     const hr = ser && !ser.deleted ? analyzeHr(ser.hr).clean : [];

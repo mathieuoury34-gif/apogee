@@ -53,7 +53,7 @@ export function statusOf(ratio: number | null, fitnessDelta: number | null): Sta
   return ratio < 0.5 && fd < -1 ? 'detraining' : 'recovery';
 }
 
-export interface WeekStatus { start: string; load: number; ratio: number | null; fitnessDelta: number | null; status: StatusKey | null; partial: boolean }
+export interface WeekStatus { start: string; load: number; ratio: number | null; fitnessDelta: number | null; status: StatusKey | null; partial: boolean; /** Case d'un jour (et non d'une semaine) : `load` est alors la charge des 7 derniers jours. */ daily?: boolean }
 
 /** Statut de chacune des `n` dernières semaines (lundi→dimanche), évalué au dernier jour de la semaine (ou à aujourd'hui pour la semaine en cours). */
 export function weeklyStatus(days: DayLoad[], today: string, n: number): WeekStatus[] {
@@ -74,6 +74,22 @@ export function weeklyStatus(days: DayLoad[], today: string, n: number): WeekSta
     const fitnessDelta = prev ? days[ie].fitness - prev.fitness : null;
     const ratio = pts[ie].ratio;
     out.push({ start, load, ratio, fitnessDelta, status: statusOf(ratio, fitnessDelta), partial });
+  }
+  return out;
+}
+
+/** Statut de chacun des `n` derniers jours jusqu'à `endDay` : même règle que par semaine, évaluée chaque jour (charge des 7 jours glissants, forme de fond comparée à 7 jours avant). */
+export function dailyStatus(days: DayLoad[], endDay: string, n: number): WeekStatus[] {
+  const pts = acuteSeries(days);
+  const idx = new Map(days.map((d, i) => [d.day, i]));
+  const out: WeekStatus[] = [];
+  for (let k = n - 1; k >= 0; k--) {
+    const day = addDays(endDay, -k);
+    const i = idx.get(day);
+    if (i === undefined) { out.push({ start: day, load: 0, ratio: null, fitnessDelta: null, status: null, partial: false, daily: true }); continue; }
+    const prev = i >= 7 ? days[i - 7] : null;
+    const fitnessDelta = prev ? days[i].fitness - prev.fitness : null;
+    out.push({ start: day, load: pts[i].acute, ratio: pts[i].ratio, fitnessDelta, status: statusOf(pts[i].ratio, fitnessDelta), partial: false, daily: true });
   }
   return out;
 }

@@ -38,10 +38,10 @@ export function ActivityTiles({ className }: { className?: string }) {
   const noneYet = !cur?.steps && !cur?.floors;
   return (
     <section aria-label={$t("Activité du jour")} className={'act-tiles ' + (className ?? '')} data-component="ActivityTiles">
-      <Tile icon="run" label={$t("Pas")} value={fmt(cur?.steps)} sub={a7s === null ? undefined : $t("moy. 7 j : {0}", { 0: num(a7s, 0) })} color="var(--chart-7)" to="/progression/sante" />
-      <Tile icon="stairs" label={$t("Étages")} value={fmt(cur?.floors)} sub={a7f === null ? undefined : $t("moy. 7 j : {0}", { 0: num(a7f, 0) })} color="var(--chart-4)" to="/progression/sante" />
-      <Tile icon="flame" label={$t("Calories")} value={fmt(e.total)} unit="kcal" sub={e.active === null ? undefined : $t("dont {0} actives", { 0: num(e.active, 0) })} color="var(--chart-1)" to="/progression/sante" />
-      <Tile icon="gauge" label={$t("Rapport de charge")} value={ratio === null ? '—' : num(ratio, 2)} sub={rLabel} color={rColor} to="/progression" />
+      <Tile icon="run" label={$t("Pas")} value={fmt(cur?.steps)} sub={a7s === null ? undefined : $t("moy. 7 j : {0}", { 0: num(a7s, 0) })} color="var(--chart-7)" to="/progression/sante?ancre=pas-etages&mesure=steps" />
+      <Tile icon="stairs" label={$t("Étages")} value={fmt(cur?.floors)} sub={a7f === null ? undefined : $t("moy. 7 j : {0}", { 0: num(a7f, 0) })} color="var(--chart-4)" to="/progression/sante?ancre=pas-etages&mesure=floors" />
+      <Tile icon="flame" label={$t("Calories")} value={fmt(e.total)} unit="kcal" sub={e.active === null ? undefined : $t("dont {0} actives", { 0: num(e.active, 0) })} color="var(--chart-1)" to="/progression/sante?ancre=calories" />
+      <Tile icon="gauge" label={$t("Rapport de charge")} value={ratio === null ? '—' : num(ratio, 2)} sub={rLabel} color={rColor} to="/progression?ancre=charge-aigue" />
       {noneYet && <p className="t-legal c-moderate act-note">{$t("Pas et étages arrivent de Health Connect : mets l’APK à jour et accepte les nouvelles autorisations « Pas » et « Étages ».")}</p>}
     </section>
   );

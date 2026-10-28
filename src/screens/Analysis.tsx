@@ -10,7 +10,7 @@ import { navigate } from '../ui/router';
 import { Icon } from '../ui/icons';
 import { ClockField, DecField, numOf } from '../ui/wheels';
 import { DayChart } from '../ui/daychart';
-import { PeriodBar, useDaySel, usePeriod, type SpanOption } from '../ui/period';
+import { PeriodBar, useDaySel, usePeriod } from '../ui/period';
 import { Readout } from '../ui/readout';
 import { liveRecords } from '../domain/load';
 import { useCalc } from '../data/store';
@@ -78,25 +78,31 @@ function rateBar(c: Compliance) {
 }
 
 export function ComplianceCard({ d, data }: Props) {
-  const [by, setBy] = useState<'week' | 'month'>('week');
-  const rep = planCompliance(data, d.links, d.refs, d.today);
+  const pw = usePeriod();
+  const end = addDays(d.today, -pw.offset);
+  const rep = planCompliance(data, d.links, d.refs, end, 60, 36);
   if (!rep.weeks.length && !rep.months.length) {
     return <section className="card g12" aria-label={$t("Respect du plan")}><h2>{$t("Respect du plan")}</h2><Empty icon="calendrier" title={$t("Pas encore de séance prévue échue")} text={$t("Dès que des séances prévues sont passées, tu verras ici la part que tu as réalisée.")} /></section>;
   }
-  // les 3 dernières semaines (ou les 3 derniers mois) civils, y compris celles où rien n'était prévu
+  // semaines civiles jusqu'à 3 mois, mois civils au-delà (y compris ceux où rien n'était prévu)
+  const by: 'week' | 'month' = pw.span !== 0 && pw.span <= 90 ? 'week' : 'month';
+  const firstKey = rep.months[0]?.key ?? end.slice(0, 7);
+  const monthsBetween = (a: string, b: string) => (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5, 7)) - Number(a.slice(5, 7)) + 1;
+  const count = by === 'week' ? Math.max(1, Math.ceil(pw.span / 7)) : pw.span === 0 ? Math.min(36, Math.max(1, monthsBetween(firstKey, end.slice(0, 7)))) : Math.round(pw.span / 30.4);
   const wanted = by === 'week'
-    ? [0, 1, 2].map((k) => addDays(mondayOf(d.today), -7 * k))
-    : [0, 1, 2].map((k) => { const x = new Date(d.today + 'T00:00:00Z'); x.setUTCDate(1); x.setUTCMonth(x.getUTCMonth() - k); return x.toISOString().slice(0, 7); });
+    ? Array.from({ length: count }, (_, k) => addDays(mondayOf(end), -7 * k))
+    : Array.from({ length: count }, (_, k) => { const x = new Date(end + 'T00:00:00Z'); x.setUTCDate(1); x.setUTCMonth(x.getUTCMonth() - k); return x.toISOString().slice(0, 7); });
   const pool = by === 'week' ? rep.weeks : rep.months;
   const rows: Compliance[] = wanted.map((k) => pool.find((c) => c.key === k) ?? { key: k, planned: 0, done: 0, plannedSec: 0, doneSec: 0 });
   const tot = rows.reduce((t, c) => ({ planned: t.planned + c.planned, done: t.done + c.done, plannedSec: t.plannedSec + c.plannedSec, doneSec: t.doneSec + c.doneSec }), { planned: 0, done: 0, plannedSec: 0, doneSec: 0 });
   return (
     <InfoCard className="card g12" aria-label={$t("Respect du plan")}>
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Respect du plan")}<InfoToggle /></h2><Segmented label={$t("Regroupement")} value={by} onChange={setBy} options={[['week', $t("3 sem.")], ['month', $t("3 mois")]]} /></div>
+      <h2>{$t("Respect du plan")}<InfoToggle /></h2>
+      <PeriodBar p={pw} total={d.series.days.length} from={by === 'week' ? wanted[wanted.length - 1] : wanted[wanted.length - 1] + '-01'} to={end} />
       {tot.planned > 0 && (
         <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}>
           <span className="t-h2" style={{ color: `var(--${rateTone(tot.done / tot.planned)}-text)` }}>{pct(tot.done / tot.planned)}</span>
-          <span className="t-caption c-neutral">{by === 'week' ? $t("des séances prévues sur ces 3 semaines ({0} sur {1}){2}", { 0: tot.done, 1: tot.planned, 2: tot.plannedSec > 0 ? $t(", soit {0} de temps réalisé sur {1} prévu", { 0: duration(tot.doneSec), 1: duration(tot.plannedSec) }) : '' }) : $t("des séances prévues sur ces 3 mois ({0} sur {1}){2}", { 0: tot.done, 1: tot.planned, 2: tot.plannedSec > 0 ? $t(", soit {0} de temps réalisé sur {1} prévu", { 0: duration(tot.doneSec), 1: duration(tot.plannedSec) }) : '' })}</span>
+          <span className="t-caption c-neutral">{$t("des séances prévues sur la période ({0} sur {1}){2}", { 0: tot.done, 1: tot.planned, 2: tot.plannedSec > 0 ? $t(", soit {0} de temps réalisé sur {1} prévu", { 0: duration(tot.doneSec), 1: duration(tot.plannedSec) }) : '' })}</span>
         </div>
       )}
       <ul className="stack" style={{ gap: 'var(--space-10)' }}>{rows.map(rateBar)}</ul>
@@ -112,10 +118,13 @@ export function ComplianceCard({ d, data }: Props) {
 
 // ------------------------------------------------------------------ zones de FC
 export function ZonesCard({ d, data }: Props) {
-  const [n, setN] = useState<'4' | '8' | '12'>('4');
+  const pw = usePeriod();
   const [withOther] = useWithOther();
   const hrMax = d.ctx.hrMax.bpm;
-  const rep = weeklyZones(data, hrMax, d.today, +n, withOther);
+  const end = addDays(d.today, -pw.offset);
+  const from = pw.span === 0 ? (d.series.firstDay ?? end) : addDays(end, -(pw.span - 1));
+  const nWeeks = Math.min(160, Math.max(1, Math.round((Date.parse(mondayOf(end)) - Date.parse(mondayOf(from))) / (7 * 86400_000)) + 1));
+  const rep = weeklyZones(data, hrMax, end, nWeeks, withOther, from);
   const p = polarSplit(rep.total);
   const edges = HR_ZONE_EDGES.map((e) => (hrMax ? Math.round(e * hrMax) : null));
   const range = [`< ${edges[0]}`, `${edges[0]}–${edges[1]}`, `${edges[1]}–${edges[2]}`, `${edges[2]}–${edges[3]}`, `≥ ${edges[3]}`];
@@ -123,10 +132,10 @@ export function ZonesCard({ d, data }: Props) {
     <InfoCard className="card g12" aria-label={$t("Temps par zone de FC")}>
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
         <h2>{$t("Temps par zone de FC")}<InfoToggle /></h2>
-        <Segmented label={$t("Période")} value={n} onChange={setN} options={[['4', $t("4 sem.")], ['8', $t("8 sem.")], ['12', $t("12 sem.")]]} />
       </div>
+      <PeriodBar p={pw} total={d.series.days.length} from={from} to={end} />
       <OtherToggle />
-      {!hrMax || !rep.sessions ? <p className="t-caption c-moderate">{!hrMax ? $t("Il faut une FC max (déclarée ou calculée) : renseigne ta date de naissance ou une FC max dans Progression › Capacités.") : $t("Aucune séance de course, vélo ou natation avec une courbe cardiaque sur cette période.")}</p> : (
+      {!hrMax || !rep.sessions ? <><p className="t-caption c-moderate">{!hrMax ? $t("Il faut une FC max (déclarée ou calculée) : renseigne ta date de naissance ou une FC max dans Progression › Capacités.") : $t("Aucune séance de course, vélo ou natation avec une courbe cardiaque sur cette période.")}</p>{!hrMax && <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/progression/capacites')}>{$t("Ouvrir les capacités")}</button>}</> : (
         <>
           <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}>
             <span className="t-h2">{pct(p.total ? p.easy / p.total : 0)}</span>
@@ -160,9 +169,9 @@ export function ZonesCard({ d, data }: Props) {
 // ------------------------------------------------------------------ forme de fond par discipline
 export function FitnessCard({ d, data }: Props) {
   const [withOther] = useWithOther();
-  const fp = usePeriod(182);
+  const fp = usePeriod();
   const full = fitnessByDiscipline(data, d.loads, d.series);
-  const fEnd = addDays(d.today, -fp.offset), fStart = addDays(fEnd, -fp.span);
+  const fEnd = addDays(d.today, -fp.offset), fStart = fp.span === 0 ? '' : addDays(fEnd, -fp.span);
   const all = full.filter((s) => s.day > fStart && s.day <= fEnd);
   if (full.length < 2 || all.length < 1) return null;
   const keys = (['SWIM', 'BIKE', 'RUN', 'STRENGTH', 'OTHER', 'FORFAIT'] as LoadKey[]).filter((k) => (k !== 'OTHER' || withOther) && all.some((s) => s.byKey[k] > 0.5));
@@ -179,8 +188,8 @@ export function FitnessCard({ d, data }: Props) {
         <span className="t-caption c-neutral">{totBefore !== null ? $t("aujourd’hui, contre {0} il y a 4 semaines ({1})", { 0: num(totBefore, 0), 1: signed(tot - totBefore, 0) }) : $t("aujourd’hui")}</span>
       </div>
       <OtherToggle />
-      <Info>{$t("Chaque barre est une semaine : sa hauteur est ta forme de fond ce jour-là, et ses couleurs montrent la part de chaque discipline.")}</Info>
-      <PeriodBar p={fp} options={[[56, $t("8 sem.")], [91, $t("3 mois")], [182, $t("6 mois")], [365, $t("1 an")]]} total={Math.max(365, d.series.days.length)} from={addDays(fStart, 1)} to={fEnd} />
+      <Info>{$t("Chaque barre est un jour : sa hauteur est ta forme de fond ce jour-là, et ses couleurs montrent la part de chaque discipline.")}</Info>
+      <PeriodBar p={fp} total={Math.max(365, d.series.days.length)} from={all[0]?.day} to={fEnd} />
       <StackedFitness slices={all} keys={keys} />
       <ul>
         {keys.map((k) => {
@@ -291,8 +300,8 @@ export function WeightCard({ data, d }: Props) {
   const t = weightTrend(data, d.today);
   const wAll = liveRecords(data.weight);
   const wFirst = wAll.reduce((m, w) => (w.day < m ? w.day : m), d.today);
-  const wDays = dayRange(wFirst < addDays(d.today, -89) ? wFirst : addDays(d.today, -89), d.today);
-  const wp = usePeriod(90);
+  const wDays = dayRange(wFirst < addDays(d.today, -364) ? wFirst : addDays(d.today, -364), d.today);
+  const wp = usePeriod();
   const wWin = wp.slice(wDays);
   const [wsi, setWsi] = useDaySel(wWin, (x) => !!data.weight[x] && !data.weight[x].deleted);
   const wDay = wWin[wsi] ?? d.today;
@@ -309,7 +318,7 @@ export function WeightCard({ data, d }: Props) {
     showToast($t("Pesée enregistrée"), { undo: () => restore(snap) });
   };
   return (
-    <InfoCard className="card g12" aria-label={$t("Poids")}>
+    <InfoCard className="card g12" aria-label={$t("Poids")} data-anchor="poids">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
         <h2>{$t("Poids")}<InfoToggle /></h2>
         <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => { setVal(t.latest ? String(t.latest.kg).replace('.', ',') : ''); sheet.show(); }}>{$t("Saisir une pesée")}</button>
@@ -321,7 +330,7 @@ export function WeightCard({ data, d }: Props) {
             <span className="t-caption c-neutral">{t.avg7 !== null ? $t("moyenne des 7 derniers jours") : $t("dernière pesée le {0}", { 0: dateFr(t.latest.day) })}</span>
           </div>
           {t.change !== null && <span className="t-caption c-neutral">{signed(t.change, 1)}{NBSP}kg {$t("par rapport à il y a 4 semaines")}</span>}
-          <PeriodBar p={wp} options={[[30, $t("1 mois")], [90, $t("3 mois")], [180, $t("6 mois")], [365, $t("1 an")]]} total={wDays.length} from={wWin[0]} to={wWin[wWin.length - 1]} />
+          <PeriodBar p={wp} total={wDays.length} from={wWin[0]} to={wWin[wWin.length - 1]} />
           <Readout when={wDay === d.today ? $t("Aujourd’hui") : dayTitle(wDay)} cells={[
             { label: $t("Pesée du jour"), value: wAt(wDay) === null ? '—' : num(wAt(wDay)!, 1) + NBSP + 'kg', color: 'var(--chart-value)', key: true },
             { label: $t("Moyenne 7 jours"), value: wAvg === null ? '—' : num(wAvg, 1) + NBSP + 'kg' },
@@ -345,15 +354,14 @@ export function WeightCard({ data, d }: Props) {
 // ------------------------------------------------------------------ sommeil
 const hhSleep = (sec: number) => Math.floor(sec / 3600) + NBSP + 'h' + String(Math.round((sec % 3600) / 60)).padStart(2, '0');
 const clockSec = (iso: string, off: number | null) => { const [h, m] = timeOf(iso, off).split(':').map(Number); return h * 3600 + m * 60; };
-const SPANS_SLEEP: SpanOption[] = [[7, $t("7 nuits")], [14, $t("14 nuits")], [30, $t("30 nuits")], [90, $t("3 mois")]];
 
 export function SleepCard({ data, d }: Props) {
   const st = sleepStats(data, d.today);
   const sheet = useLocalSheet();
-  const pw = usePeriod(14);
+  const pw = usePeriod();
   const nightsAll = liveRecords(data.sleep);
   const first = nightsAll.reduce((m, n) => (n.nightDate < m ? n.nightDate : m), d.today);
-  const all = dayRange(first < addDays(d.today, -29) ? first : addDays(d.today, -29), d.today);
+  const all = dayRange(first < addDays(d.today, -364) ? first : addDays(d.today, -364), d.today);
   const days = pw.slice(all);
   const [si, setSi] = useDaySel(days, (x) => !!data.sleep[x] && !data.sleep[x].deleted);
   const [bed, setBed] = useState<number | null>(null);
@@ -377,12 +385,12 @@ export function SleepCard({ data, d }: Props) {
   };
   const reset = () => { const snap = resetSleepNight(day); sheet.hide(); showToast($t("Nuit rendue à la montre"), { undo: () => restore(snap) }); };
   return (
-    <InfoCard className="card g12" aria-label={$t("Sommeil")}>
+    <InfoCard className="card g12" aria-label={$t("Sommeil")} data-anchor="sommeil">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
         <h2>{$t("Sommeil")}<InfoToggle /></h2>
         <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={openEdit}>{n ? $t("Modifier la nuit") : $t("Saisir la nuit")}</button>
       </div>
-      <PeriodBar p={pw} options={SPANS_SLEEP} total={all.length} from={days[0]} to={days[days.length - 1]} />
+      <PeriodBar p={pw} total={all.length} from={days[0]} to={days[days.length - 1]} />
       <Readout when={<>{day === d.today ? $t("Cette nuit (réveil aujourd’hui)") : $t("Réveil le {0}", { 0: dayTitle(day) })}{n?.edited ? <span className="var-chip flat" style={{ marginLeft: 'var(--space-8)' }}>{$t("validée")}</span> : null}</>} cells={[
         { label: $t("Durée"), value: n ? hhSleep(n.durationSec) : '—', color: 'var(--chart-value)', key: true },
         { label: $t("Coucher → lever"), value: n ? timeOf(n.startAt, n.zoneOffsetMinutes) + ' → ' + timeOf(n.endAt, n.zoneOffsetMinutes) : '—' },

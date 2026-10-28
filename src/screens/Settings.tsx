@@ -33,9 +33,9 @@ function Row({ icon, title, sub, onClick, right, danger }: { icon: string; title
   );
 }
 
-function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+function Section({ id, title, children, anchor }: { id: string; title: string; children: React.ReactNode; anchor?: string }) {
   return (
-    <section aria-labelledby={id} className="stack-8">
+    <section aria-labelledby={id} className="stack-8" data-anchor={anchor}>
       <h2 id={id} className="overline c-neutral" style={{ padding: '0 var(--space-4)' }}>{title}</h2>
       {children}
     </section>
@@ -137,7 +137,7 @@ export function SettingsScreen() {
           </div>
         </Section>
 
-        <Section id="p-health" title={$t("Montre (Health Connect)")}>
+        <Section id="p-health" title={$t("Montre (Health Connect)")} anchor="montre">
           <div className="card g12" style={{ borderRadius: 'var(--radius-12)' }}>
             <HealthCard />
           </div>
@@ -281,7 +281,7 @@ export function ProfileScreen() {
             <span className="hint">{$t("Le sexe sert à estimer les calories de repos.")}</span>
           </div>
           <div className="field"><span className="lbl">{$t("Taille (cm)")}</span><IntField label={$t("Taille (cm)")} unit="cm" value={numOf(height)} onChange={(x) => setHeight(x === null ? '' : String(x))} min={120} max={230} clearable initial={175} /><span className="hint">{$t("Sert à estimer ta dépense de repos (calories), avec ton poids, ton âge et ton sexe.")}</span></div>
-          <div className="field"><span className="lbl">{$t("Calories de repos de ta montre (par jour)")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><IntField label={$t("Calories de repos de ta montre (par jour)")} unit="kcal" value={numOf(restKcal)} onChange={(x) => setRestKcal(x === null ? '' : String(x))} min={1000} max={4000} step={10} clearable initial={2000} />
+          <div className="field" data-anchor="repos"><span className="lbl">{$t("Calories de repos de ta montre (par jour)")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><IntField label={$t("Calories de repos de ta montre (par jour)")} unit="kcal" value={numOf(restKcal)} onChange={(x) => setRestKcal(x === null ? '' : String(x))} min={1000} max={4000} step={10} clearable initial={2000} />
             <span className="hint">{$t("Le total de calories vient de Health Connect ; le partage entre repos et actives, lui, diffère de Garmin Connect. Recopie ici les calories de repos d’une journée complète affichées par Garmin Connect (par exemple 2 150) : Apogée en déduit les actives comme la montre.")}</span></div>
           <div className="field"><span className="lbl">{$t("Jours disponibles pour s’entraîner")}</span>
             <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>
@@ -289,7 +289,7 @@ export function ProfileScreen() {
             </div>
           </div>
           <label className="field"><span className="lbl">{$t("Matériel")}</span><input className="input" value={equip} placeholder={$t("Home trainer, piscine 25 m, capteur de puissance…")} onChange={(e) => setEquip(e.target.value)} /><span className="hint">{$t("Séparé par des virgules. Transmis au coach.")}</span></label>
-          <div className="field"><span className="lbl">{$t("Blessures et points de vigilance")}</span>
+          <div className="field" data-anchor="blessures"><span className="lbl">{$t("Blessures et points de vigilance")}</span>
             <ul className="tile-list divided">
               {injuries.map((i) => (
                 <li key={i.id} className="between" style={{ padding: 'var(--space-8) 0', gap: 'var(--space-8)' }}>

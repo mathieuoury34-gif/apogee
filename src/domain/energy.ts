@@ -22,6 +22,8 @@ export interface DayEnergy {
   /** Calories de repos (passives). */
   rest: number | null;
   restFrom: 'health' | 'estimation' | null;
+  /** D'où vient le partage repos / actives : réglage de Profil, dépense de base de la montre, ou simple différence des valeurs de Health Connect (peut s'écarter de Garmin Connect). */
+  restHow: 'setting' | 'basal' | 'split' | 'estimation' | null;
   /** Dépense totale = repos + actives. */
   total: number | null;
   /** Valeurs brutes déposées par la montre dans Health Connect (avant tout calage), si elles existent. */
@@ -50,7 +52,7 @@ export function dayEnergy(data: AppData, day: string, nowMin: number = new Date(
     for (const s of liveRecords(data.actual)) if (sessionDay(s) === day && s.activeCaloriesJ) { j += s.activeCaloriesJ; any = true; }
     if (any) { active = j / KCAL_J; activeFrom = 'sessions'; }
   }
-  let rest: number | null = null, restFrom: DayEnergy['restFrom'] = null;
+  let rest: number | null = null, restFrom: DayEnergy['restFrom'] = null, restHow: DayEnergy['restHow'] = null;
   const ath = data.athlete.main && !data.athlete.main.deleted ? data.athlete.main : null;
   const calib = ath?.restKcal && ath.restKcal > 0 ? ath.restKcal : null;
   let totalOverride: number | null = null;
@@ -58,18 +60,23 @@ export function dayEnergy(data: AppData, day: string, nowMin: number = new Date(
     // le total de Health Connect est bon ; c'est son partage repos / actives qui diffère de Garmin Connect : on repart du repos de la montre
     // (au prorata de l'heure pour aujourd'hui, comme la montre) et les actives sont le reste
     const frac = day === today() ? Math.min(1, Math.max(0.02, nowMin / 1440)) : 1;
-    rest = Math.min(hc.totalKcal, calib * frac); restFrom = 'health';
+    rest = Math.min(hc.totalKcal, calib * frac); restFrom = 'health'; restHow = 'setting';
     active = Math.max(0, hc.totalKcal - rest); activeFrom = 'health';
     totalOverride = hc.totalKcal;
-  } else if (hc?.totalKcal != null && hc.activeKcal != null && hc.totalKcal >= hc.activeKcal) { rest = hc.totalKcal - hc.activeKcal; restFrom = 'health'; }
+  } else if (hc?.totalKcal != null && hc.totalKcal > 0 && hc.basalKcal != null && hc.basalKcal > 0 && hc.basalKcal <= hc.totalKcal) {
+    // la montre dépose aussi sa dépense de base : repos = base, actives = reste (c'est la définition de Garmin Connect)
+    rest = hc.basalKcal; restFrom = 'health'; restHow = 'basal';
+    active = hc.totalKcal - rest; activeFrom = 'health';
+    totalOverride = hc.totalKcal;
+  } else if (hc?.totalKcal != null && hc.activeKcal != null && hc.totalKcal >= hc.activeKcal) { rest = hc.totalKcal - hc.activeKcal; restFrom = 'health'; restHow = 'split'; }
   else {
     const b = bmrKcal(ath, weightAt(data, day), day);
-    if (b !== null) { rest = b; restFrom = 'estimation'; }
+    if (b !== null) { rest = b; restFrom = 'estimation'; restHow = 'estimation'; }
   }
   const meals = liveRecords(data.meals).filter((m) => m.day === day);
   const intake = meals.reduce((t, m) => t + m.kcal, 0);
   const total = totalOverride ?? (rest !== null ? rest + (active ?? 0) : null);
-  return { day, active, activeFrom, rest, restFrom, total, hcRaw: hc ? { active: hc.activeKcal ?? null, total: hc.totalKcal ?? null } : null, intake, meals: meals.length, balance: total !== null && meals.length ? intake - total : null };
+  return { day, active, activeFrom, rest, restFrom, restHow, total, hcRaw: hc ? { active: hc.activeKcal ?? null, total: hc.totalKcal ?? null } : null, intake, meals: meals.length, balance: total !== null && meals.length ? intake - total : null };
 }
 
 /** Les 7 jours de la semaine commençant le lundi `monday`. */

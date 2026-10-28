@@ -75,7 +75,7 @@ export async function runHealthSync(): Promise<IngestReport | null> {
     ]);
     // dépense du jour, VO₂max, HRV : un APK plus ancien ou une autorisation refusée ne bloque rien
     const [en, act, vo2, hrv] = await Promise.all([
-      (h.readDailyEnergy?.(range) as Promise<{ days: NativeEnergyDay[] }> | undefined)?.catch(() => ({ days: [] as NativeEnergyDay[] })) ?? Promise.resolve({ days: [] as NativeEnergyDay[] }),
+      (h.readDailyEnergy?.(getPrefs().healthEnergyScan ? range : { start: new Date(end.getTime() - 120 * 86400_000).toISOString(), end: range.end }) as Promise<{ days: NativeEnergyDay[] }> | undefined)?.catch(() => ({ days: [] as NativeEnergyDay[] })) ?? Promise.resolve({ days: [] as NativeEnergyDay[] }),
       (h.readDailyActivity?.(getPrefs().healthActivityScan ? range : { start: new Date(end.getTime() - 120 * 86400_000).toISOString(), end: range.end }) as Promise<{ days: NativeActivityDay[] }> | undefined)?.catch(() => ({ days: [] as NativeActivityDay[] })) ?? Promise.resolve({ days: [] as NativeActivityDay[] }),
       (h.readVo2Max?.(range) as Promise<{ records: NativeVo2[] }> | undefined)?.catch(() => ({ records: [] as NativeVo2[] })) ?? Promise.resolve({ records: [] as NativeVo2[] }),
       (h.readHrv?.(range) as Promise<{ records: NativeHrv[] }> | undefined)?.catch(() => ({ records: [] as NativeHrv[] })) ?? Promise.resolve({ records: [] as NativeHrv[] }),
@@ -94,6 +94,7 @@ export async function runHealthSync(): Promise<IngestReport | null> {
       vitalsOps.forEach((x) => tx.put('vitals', x));
     });
     if (!getPrefs().healthActivityScan && (act.days ?? []).length > 0) setPrefs({ healthActivityScan: true });
+    if (!getPrefs().healthEnergyScan && (en.days ?? []).length > 0) setPrefs({ healthEnergyScan: true });
     if (rescanSleep && (n.nights ?? []).some((x) => 'asleepSec' in x)) setPrefs({ healthSleepAsleep: true, healthSleepMerged: true });
     setPrefs({ healthSyncedUntil: range.end, healthLastRun: range.end, healthLastError: '', healthLastReport: JSON.stringify(report) });
     set({ running: false, lastReport: report });

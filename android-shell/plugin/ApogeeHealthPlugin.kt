@@ -9,6 +9,8 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
+import androidx.health.connect.client.records.BasalMetabolicRateRecord
+import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ElevationGainedRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
@@ -60,6 +62,7 @@ class ApogeeHealthPlugin : Plugin() {
         "HeartRateVariability" to HeartRateVariabilityRmssdRecord::class,
         "Steps" to StepsRecord::class,
         "FloorsClimbed" to FloorsClimbedRecord::class,
+        "BasalMetabolicRate" to BasalMetabolicRateRecord::class,
     )
     private val readPermissions: Map<String, String> get() = types.mapValues { HealthPermission.getReadPermission(it.value) }
     private val historyPermission = "android.permission.health.READ_HEALTH_DATA_HISTORY"
@@ -131,6 +134,12 @@ class ApogeeHealthPlugin : Plugin() {
             token = res.pageToken
         } while (!token.isNullOrEmpty())
         return out
+    }
+
+    /** Sources Garmin qui ont écrit dans Health Connect ces derniers jours : les totaux du jour ne portent que sur elles, comme Garmin Connect (sinon Health Connect mélange aussi le compteur de pas du téléphone). Aucune trouvée : toutes les sources. */
+    private suspend fun garminOrigins(c: HealthConnectClient, end: Instant): Set<DataOrigin> {
+        val recent = safe { readAll(c, StepsRecord::class, end.minusSeconds(3 * 86400L), end) } ?: return emptySet()
+        return recent.map { it.metadata.dataOrigin }.filter { it.packageName.contains("garmin", ignoreCase = true) }.toSet()
     }
 
     private fun range(call: PluginCall): Pair<Instant, Instant>? = try {
@@ -246,18 +255,25 @@ class ApogeeHealthPlugin : Plugin() {
                 val zone = java.time.ZoneId.systemDefault()
                 val from = java.time.LocalDateTime.ofInstant(start, zone).toLocalDate().atStartOfDay()
                 val to = java.time.LocalDateTime.ofInstant(end, zone)
+                val origins = garminOrigins(c, end)
+                val slice = java.time.Period.ofDays(1)
                 val groups = c.aggregateGroupByPeriod(
                     AggregateGroupByPeriodRequest(
                         setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL, TotalCaloriesBurnedRecord.ENERGY_TOTAL),
-                        TimeRangeFilter.between(from, to),
-                        java.time.Period.ofDays(1)
+                        TimeRangeFilter.between(from, to), slice, origins
                     )
                 )
+                // dépense de base (repos) : lecture séparée, une autorisation en retard ne bloque pas le reste
+                val basal = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(BasalMetabolicRateRecord.BASAL_CALORIES_TOTAL), TimeRangeFilter.between(from, to), slice, origins)) }
+                val basalByDay = HashMap<String, Double?>()
+                for (g in basal ?: emptyList()) basalByDay[g.startTime.toLocalDate().toString()] = g.result[BasalMetabolicRateRecord.BASAL_CALORIES_TOTAL]?.inKilocalories
                 val days = JSArray()
                 for (g in groups) {
-                    days.put(JSObject().put("day", g.startTime.toLocalDate().toString())
+                    val day = g.startTime.toLocalDate().toString()
+                    days.put(JSObject().put("day", day)
                         .putN("activeKcal", g.result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories)
-                        .putN("totalKcal", g.result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories))
+                        .putN("totalKcal", g.result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories)
+                        .putN("basalKcal", basalByDay[day]))
                 }
                 call.resolve(JSObject().put("days", days))
             } catch (e: Exception) { call.reject(e.message ?: "Lecture de la dépense énergétique impossible") }
@@ -275,8 +291,9 @@ class ApogeeHealthPlugin : Plugin() {
                 val from = java.time.LocalDateTime.ofInstant(start, zone).toLocalDate().atStartOfDay()
                 val to = java.time.LocalDateTime.ofInstant(end, zone)
                 val days = JSArray()
-                val steps = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(StepsRecord.COUNT_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1))) }
-                val floors = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1))) }
+                val origins = garminOrigins(c, end)
+                val steps = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(StepsRecord.COUNT_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1), origins)) }
+                val floors = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1), origins)) }
                 val byDay = linkedMapOf<String, JSObject>()
                 for (g in steps ?: emptyList()) byDay.getOrPut(g.startTime.toLocalDate().toString()) { JSObject() }.putN("steps", g.result[StepsRecord.COUNT_TOTAL])
                 for (g in floors ?: emptyList()) byDay.getOrPut(g.startTime.toLocalDate().toString()) { JSObject() }.putN("floors", g.result[FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL])

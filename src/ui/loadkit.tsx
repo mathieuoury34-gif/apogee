@@ -113,23 +113,26 @@ export function RatioChart({ points, today }: { points: AcutePoint[]; today: str
 
 // ------------------------------------------------------------------ bande de statut par semaine
 export function StatusStrip({ weeks }: { weeks: WeekStatus[] }) {
-  const [sel, setSel] = useState<number>(weeks.length - 1);
-  const w = weeks[Math.min(sel, weeks.length - 1)];
+  const [selStart, setSelStart] = useState<string | null>(null);
+  const found = selStart === null ? -1 : weeks.findIndex((x) => x.start === selStart);
+  const sel = found >= 0 ? found : weeks.length - 1;
+  const w = weeks[sel];
+  const daily = !!weeks[0]?.daily;
   const info = w?.status ? STATUS_INFO[w.status] : null;
   const present = STATUS_ORDER.filter((k) => weeks.some((x) => x.status === k));
   return (
     <div className="stack-8" data-component="StatusStrip">
-      <div className="status-strip" role="list" aria-label={$t("Statut de chaque semaine")}>
+      <div className="status-strip" role="list" aria-label={daily ? $t("Statut de chaque jour") : $t("Statut de chaque semaine")}>
         {weeks.map((x, i) => (
-          <button key={x.start} role="listitem" type="button" className={'seg' + (i === sel ? ' on' : '') + (x.partial ? ' partial' : '')} aria-pressed={i === sel} aria-label={dayMonth(x.start) + ' : ' + (x.status ? STATUS_INFO[x.status].label : $t("pas assez d’historique"))} style={{ background: x.status ? STATUS_INFO[x.status].color : 'var(--bg-surface-minimal)' }} onClick={() => setSel(i)} />
+          <button key={x.start} role="listitem" type="button" className={'seg' + (i === sel ? ' on' : '') + (x.partial ? ' partial' : '')} aria-pressed={i === sel} aria-label={dayMonth(x.start) + ' : ' + (x.status ? STATUS_INFO[x.status].label : $t("pas assez d’historique"))} style={{ background: x.status ? STATUS_INFO[x.status].color : 'var(--bg-surface-minimal)' }} onClick={() => setSelStart(x.start)} />
         ))}
       </div>
-      <div className="between t-legal c-moderate"><span>{dayMonth(weeks[0].start)}</span><span>{$t("cette semaine")}</span></div>
+      <div className="between t-legal c-moderate"><span>{dayMonth(weeks[0].start)}</span><span>{dayMonth(weeks[weeks.length - 1].start)}</span></div>
       {w && (
         <div role="status" aria-live="polite" className="status-detail">
-          <div className="between wrap"><span className="t-strong" style={{ color: info?.color }}>{info ? info.label : $t("Pas encore de statut")}</span><span className="t-caption c-moderate">{$t("Semaine du {0}", { 0: dayMonth(w.start) })}{w.partial ? $t(" (en cours)") : ''}</span></div>
+          <div className="between wrap"><span className="t-strong" style={{ color: info?.color }}>{info ? info.label : $t("Pas encore de statut")}</span><span className="t-caption c-moderate">{daily ? dayMonth(w.start) : $t("Semaine du {0}", { 0: dayMonth(w.start) })}{w.partial ? $t(" (en cours)") : ''}</span></div>
           <p className="t-caption c-neutral">{info ? info.text : $t("Il faut 28 jours d’historique pour situer la semaine.")}</p>
-          {w.ratio !== null && <p className="t-legal c-moderate">{$t("Charge de la semaine {0} · rapport {1}", { 0: num(w.load, 0), 1: num(w.ratio, 2) })}</p>}
+          {w.ratio !== null && <p className="t-legal c-moderate">{daily ? $t("Charge des 7 jours {0} · rapport {1}", { 0: num(w.load, 0), 1: num(w.ratio, 2) }) : $t("Charge de la semaine {0} · rapport {1}", { 0: num(w.load, 0), 1: num(w.ratio, 2) })}</p>}
         </div>
       )}
       {present.length > 0 && <div className="legend">{present.map((k) => <span key={k}><span className="dot s10" style={{ background: STATUS_INFO[k].color }} />{STATUS_INFO[k].label}</span>)}</div>}
@@ -144,7 +147,7 @@ const FOCUS_ROWS: { key: 'low' | 'high' | 'anaerobic'; label: string; color: str
   { key: 'anaerobic', label: $t("Anaérobie"), color: 'var(--zone-intense)', more: $t("Beaucoup d’intensité : garde-la pour peu de séances."), less: $t("Peu d’intensité : des fractionnés courts entretiennent la vitesse et la VO₂max.") },
 ];
 export function FocusBars({ focus }: { focus: LoadFocus }) {
-  if (!(focus.total > 0)) return <p className="t-caption c-moderate">{$t("Il faut des séances avec une FC (courbe ou moyenne) sur les 4 dernières semaines, et une FC max connue.")}</p>;
+  if (!(focus.total > 0)) return <p className="t-caption c-moderate">{$t("Il faut des séances avec une FC (courbe ou moyenne) sur la période choisie, et une FC max connue.")}</p>;
   return (
     <div className="stack-12" data-component="FocusBars">
       {FOCUS_ROWS.map((r) => {
