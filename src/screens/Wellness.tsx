@@ -182,8 +182,8 @@ export function parseClock(t: string): number | null {
 const numOrNull = (t: string): number | null => { const s = t.trim(); if (!s) return null; const v = Number(s.replace(',', '.')); return Number.isFinite(v) ? v : NaN; };
 
 /** Formulaire du point de la semaine : relevé daté de la montre (VO₂max, seuil, ressenti, prédictions) et correction d'un jour (pas, étages, calories, sommeil). */
-/** `only` : fenêtre réduite à un seul sujet (VO₂max ou prédictions) ; sans `only`, c’est le point de la semaine complet. */
-export function CheckinSheet({ onClose, only }: { onClose: () => void; only?: 'vo2' | 'pred' }) {
+/** `only` : fenêtre « Courbes de capacité » (VO₂max, seuil de lactate, prédictions) sans le ressenti ni la correction de jour ; sans `only`, c’est le point de la semaine complet. */
+export function CheckinSheet({ onClose, only }: { onClose: () => void; only?: 'curves' }) {
   const { data, d } = useCalc();
   const maxDay = sundayOf(d.today);
   const [dateF, setDateF] = useState(maxDay);
@@ -219,7 +219,7 @@ export function CheckinSheet({ onClose, only }: { onClose: () => void; only?: 'v
     if (withCheckin) snaps.push(saveCheckin(next));
     snaps.push(...fix.save());
     onClose();
-    showToast(only === "vo2" ? $t("VO₂max enregistrée") : only === "pred" ? $t("Prédictions enregistrées") : $t("Point de la semaine enregistré"), { undo: () => snaps.slice().reverse().forEach((x) => restore(x)) });
+    showToast(only ? $t("Courbes de capacité enregistrées") : $t("Point de la semaine enregistré"), { undo: () => snaps.slice().reverse().forEach((x) => restore(x)) });
   };
   const clk = (x: number | null) => (x !== null && Number.isFinite(x) ? x : null);
   const set = (k: string) => (ev: { target: { value: string } }) => setF({ ...f, [k]: ev.target.value });
@@ -231,30 +231,30 @@ export function CheckinSheet({ onClose, only }: { onClose: () => void; only?: 'v
     </div>
   );
   return (
-    <Sheet title={only === "vo2" ? $t("VO₂max") : only === "pred" ? $t("Prédictions de course") : $t("Point de la semaine")} onClose={onClose} footer={<button type="button" className="btn btn-primary block" disabled={!canSave} onClick={save}>{$t("Enregistrer")}</button>}>
+    <Sheet title={only ? $t("Courbes de capacité") : $t("Point de la semaine")} onClose={onClose} footer={<button type="button" className="btn btn-primary block" disabled={!canSave} onClick={save}>{$t("Enregistrer")}</button>}>
       <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
         <label className="field"><span className="lbl">{$t("Jour du relevé")}</span><input className="input" type="date" value={dateF} max={maxDay} onChange={(ev) => onDate(ev.target.value)} /></label>
         <span className="t-caption c-neutral">{$t("Par défaut le prochain dimanche. Choisis un jour passé pour recopier un ancien relevé de ta montre (une fiche par semaine : semaine du {0}). Laisse vide ce que ta montre ne donne pas.", { 0: dateFr(cur.week) })}</span>
-        {!only && <h3 className="t-strong">{$t("Capacités")}</h3>}
-        <div className={only ? undefined : "grid-2"} hidden={only === "pred"}>
-          {only !== "pred" && <div className="field"><span className="lbl">{$t("VO₂max")}</span><DecField label={$t("VO₂max")} value={numOf(f.vo2max ?? '')} onChange={(x) => setF({ ...f, vo2max: x === null ? '' : String(x).replace('.', ',') })} hiMax={90} clearable initial={50} /></div>}
-          {!only && <div className="field"><span className="lbl">{$t("Seuil : FC (bpm)")}</span><IntField label={$t("Seuil : FC (bpm)")} unit="bpm" value={numOf(f.lthrBpm ?? '')} onChange={(x) => setF({ ...f, lthrBpm: x === null ? '' : String(x) })} min={80} max={230} clearable initial={170} /></div>}
+        <h3 className="t-strong">{$t("Capacités")}</h3>
+        <div className="grid-2">
+          <div className="field"><span className="lbl">{$t("VO₂max")}</span><DecField label={$t("VO₂max")} value={numOf(f.vo2max ?? '')} onChange={(x) => setF({ ...f, vo2max: x === null ? '' : String(x).replace('.', ',') })} hiMax={90} clearable initial={50} /></div>
+          <div className="field"><span className="lbl">{$t("Seuil : FC (bpm)")}</span><IntField label={$t("Seuil : FC (bpm)")} unit="bpm" value={numOf(f.lthrBpm ?? '')} onChange={(x) => setF({ ...f, lthrBpm: x === null ? '' : String(x) })} min={80} max={230} clearable initial={170} /></div>
         </div>
-        {!only && <div className="field"><span className="lbl">{$t("Seuil : allure (min:s /km)")}</span><PaceField label={$t("Seuil : allure (min:s /km)")} value={clk(lthp)} onChange={(x) => setF({ ...f, lthPace: x === null ? '' : clock(x) })} clearable initial={275} /></div>}
+        <div className="field"><span className="lbl">{$t("Seuil : allure (min:s /km)")}</span><PaceField label={$t("Seuil : allure (min:s /km)")} value={clk(lthp)} onChange={(x) => setF({ ...f, lthPace: x === null ? '' : clock(x) })} clearable initial={275} /></div>
         {!only && <>
         <h3 className="t-strong">{$t("Ressenti de la semaine")}</h3>
         {scale(sleepF, setSleepF, $t("Sommeil"))}
         {scale(recF, setRecF, $t("Récupération"))}
         </>}
-        {only !== "vo2" && <>
-        {!only && <h3 className="t-strong">{$t("Prédictions de course de la montre")}</h3>}
+        <>
+        <h3 className="t-strong">{$t("Prédictions de course de la montre")}</h3>
         <div className="grid-2">
           <div className="field"><span className="lbl">{$t("5 km")}</span><DurationField label={$t("5 km")} hours={false} value={clk(p5)} onChange={(x) => setF({ ...f, p5: x === null ? '' : clock(x) })} clearable initial={1500} /></div>
           <div className="field"><span className="lbl">{$t("10 km")}</span><DurationField label={$t("10 km")} hours={true} value={clk(p10)} onChange={(x) => setF({ ...f, p10: x === null ? '' : clock(x) })} clearable initial={3100} /></div>
           <div className="field"><span className="lbl">{$t("Semi")}</span><DurationField label={$t("Semi")} hours={true} value={clk(ph)} onChange={(x) => setF({ ...f, ph: x === null ? '' : clock(x) })} clearable initial={6600} /></div>
           <div className="field"><span className="lbl">{$t("Marathon")}</span><DurationField label={$t("Marathon")} hours={true} value={clk(pm)} onChange={(x) => setF({ ...f, pm: x === null ? '' : clock(x) })} clearable initial={14100} /></div>
         </div>
-        </>}
+        </>
         {!only && <>
         <h3 className="t-strong">{$t("Corriger un jour d’après Garmin Connect")}</h3>
         {fix.node}
@@ -373,6 +373,53 @@ function WatchTrend({ k, label, fmt, better, time, days, sel, onSel, onRelease }
   return <MetricChart label={label} pts={days.map((day) => ({ day, v: byDay.get(day) ?? null }))} fmt={fmt} better={better} time={time} sel={sel} onSel={onSel} onRelease={onRelease} holdLast />;
 }
 
+
+/** Deux nombres à lire sur 4 intervalles égaux : bornes et graduations « rondes » (même nombre de lignes pour les deux axes du seuil). */
+function axis4(known: number[], steps: number[]): { lo: number; hi: number; ticks: number[] } {
+  const mn = Math.min(...known), mx = Math.max(...known);
+  const st = steps.find((x) => x * 4 >= (mx - mn) * 1.3) ?? steps[steps.length - 1];
+  let lo = Math.floor((mn + mx) / 2 / st) * st - 2 * st;
+  while (lo > mn - st * 0.2) lo -= st;
+  while (lo + 4 * st < mx + st * 0.2) lo += st;
+  return { lo, hi: lo + 4 * st, ticks: [0, 1, 2, 3, 4].map((k) => lo + k * st) };
+}
+
+/** Seuil de lactate : FC (bpm, échelle de gauche) et allure (échelle de droite, la plus rapide en haut), comme dans Garmin Connect. */
+function ThresholdChart({ days, sel, onSel, onRelease }: { days: string[]; sel: number; onSel: (i: number) => void; onRelease: () => void }) {
+  const { data } = useCalc();
+  const hrBy = new Map(metricSeries(data, 'lthrBpm').map((x) => [x.day, x.v]));
+  const paBy = new Map(metricSeries(data, 'lthPaceSecKm').map((x) => [x.day, x.v]));
+  const hr = days.map((x) => hrBy.get(x) ?? null), pa = days.map((x) => paBy.get(x) ?? null);
+  const kh = hr.filter((v): v is number => v !== null), kp = pa.filter((v): v is number => v !== null);
+  const label = $t("Seuil de lactate");
+  if (!kh.length && !kp.length) return <li className="stack-4"><span className="t-caption-strong">{label}</span><span className="t-legal c-moderate">{$t("Aucun relevé sur cette période.")}</span></li>;
+  const at = Math.min(sel, days.length - 1);
+  // relevés espacés : le curseur lit le dernier relevé connu avant ce jour
+  const held = (arr: (number | null)[]) => { for (let k = at; k >= 0; k--) if (arr[k] !== null) return { v: arr[k]!, from: days[k] }; return null; };
+  const ch = held(hr), cp = held(pa);
+  const axH = axis4(kh.length ? kh : [170], [1, 2, 5, 10]);
+  const axP = axis4(kp.length ? kp : [270], [1, 2, 5, 10, 15, 30, 60]);
+  const C1 = 'var(--chart-1)', C2 = 'var(--chart-3)';
+  const fromDay = ch?.from ?? cp?.from;
+  return (
+    <li className="stack-4" data-component="ThresholdChart">
+      <span className="t-caption-strong">{label}</span>
+      <div className="row wrap" style={{ gap: 'var(--space-16)', alignItems: 'baseline' }}>
+        <span className="row" style={{ gap: 'var(--space-6)', alignItems: 'baseline' }}><span className="dot s10" style={{ background: C1 }} /><strong className="metric-val">{ch ? ch.v + NBSP + 'bpm' : '—'}</strong></span>
+        <span className="row" style={{ gap: 'var(--space-6)', alignItems: 'baseline' }}><span className="dot s10" style={{ background: C2 }} /><strong className="metric-val">{cp ? clock(cp.v) + NBSP + '/km' : '—'}</strong></span>
+      </div>
+      <DayChart points={days.map((day, i) => ({ day, v: hr[i] }))} kind="line" sel={sel} onSel={onSel} onRelease={onRelease} height={110} label={label}
+        min={axH.lo} max={axH.hi} ticks={axH.ticks} fmtTick={(v) => num(v, 0)} color={C1} dots connect
+        second={{ vals: pa, lo: axP.lo, hi: axP.hi, ticks: axP.ticks, fmt: clock as (v: number) => string, color: C2, invert: true }} />
+      <div className="legend">
+        <span><span className="dot s10" style={{ background: C1 }} />{$t("Fréquence cardiaque")}</span>
+        <span><span className="dot s10" style={{ background: C2 }} />{$t("Allure")}</span>
+      </div>
+      {fromDay && <span className="t-legal c-moderate">{$t("Relevé du {0}", { 0: dayMonth(fromDay) })}</span>}
+    </li>
+  );
+}
+
 export function CapacitiesTrendsCard() {
   const { data, d } = useCalc();
   const pw = usePeriod(30);
@@ -391,14 +438,15 @@ export function CapacitiesTrendsCard() {
     { label: $t("VO₂max"), fmt: (v) => num(v, 0, 1), better: 'up', pick: (p) => p.vo2max },
   ];
   const own = ownAll.filter((m) => win.filter((p) => m.pick(p) !== null).length >= 2);
-  const watchRows = TRENDS.filter((t) => metricSeries(data, t.k).length > 0);
+  const hasThr = metricSeries(data, 'lthrBpm').length > 0 || metricSeries(data, 'lthPaceSecKm').length > 0;
+  const watchRows = TRENDS.filter((t) => t.k === 'lthrBpm' ? hasThr : t.k === 'lthPaceSecKm' ? false : metricSeries(data, t.k).length > 0);
   return (
     <InfoCard className="card g12" aria-label={$t("Courbes de capacité")} data-anchor="courbes-capacite">
       <div className="between">
         <h2>{$t("Courbes de capacité")}<InfoToggle /></h2>
         <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => sheet.show()}>{$t("Saisir")}</button>
       </div>
-      {sheet.open && <CheckinSheet only="pred" onClose={sheet.hide} />}
+      {sheet.open && <CheckinSheet only="curves" onClose={sheet.hide} />}
       {own.length === 0 && watchRows.length === 0 ? <p className="t-caption c-moderate">{$t("Les courbes apparaîtront dès qu’Apogée aura assez de sorties de course pour estimer ta VO₂max, ou dès que tu auras rempli ton point de la semaine.")}</p> : (
         <>
           <PeriodBar p={pw} total={hist.length} from={win[0]?.day} to={win[win.length - 1]?.day} />
@@ -410,11 +458,14 @@ export function CapacitiesTrendsCard() {
           )}
           {watchRows.length > 0 && <h3 className="t-strong">{$t("Recopié de ta montre")}</h3>}
           {watchRows.length > 0 && <ul className="stack" style={{ gap: 'var(--space-16)' }}>
-            {watchRows.map((t) => <WatchTrend key={t.k} k={t.k} label={t.label} fmt={t.fmt} better={t.better} time={t.k.startsWith('pred') || t.k === 'lthPaceSecKm'} days={win.map((p) => p.day)} sel={si} onSel={setSi} onRelease={back} />)}
+            {watchRows.map((t) => t.k === 'lthPaceSecKm' ? null : t.k === 'lthrBpm'
+              ? <ThresholdChart key="seuil" days={win.map((p) => p.day)} sel={si} onSel={setSi} onRelease={back} />
+              : <WatchTrend key={t.k} k={t.k} label={t.label} fmt={t.fmt} better={t.better} time={t.k.startsWith('pred')} days={win.map((p) => p.day)} sel={si} onSel={setSi} onRelease={back} />)}
           </ul>}
         </>
       )}
       <Info>{$t("VO₂max calculée par Apogée sur tes propres séances, un point par jour : chaque point est recalculé avec les sorties de course à allure stable des 60 jours précédents, les plus récentes comptant davantage. Aucune valeur n’est tracée tant qu’il n’y a pas assez de sorties. Touche ou fais glisser un graphe : le curseur se déplace sur tous, et les flèches reculent d’une période. Plus bas, les valeurs que tu recopies de ta montre (un relevé par semaine, reliés entre eux ; le curseur lit le dernier relevé connu), dont tes prédictions de course. Les deux ne sont pas comparables un à un : Garmin utilise ses propres modèles.")}</Info>
+      <Info>{$t("Méthode publiée : sorties de course à allure stable — coût en oxygène de la course (ACSM) et équivalence entre % de la réserve de FC et % de la réserve de VO₂ (Swain et Leutholtz 1997) ; moyenne des sorties à plat des 60 derniers jours, les plus récentes comptant davantage (demi-vie de 3 semaines), 3 sorties minimum. Sans assez de sorties, repli sur le rapport FC max / FC de repos × 15,3 (Uth 2004). L’erreur typique est de l’ordre de 10 %.")}</Info>
     </InfoCard>
   );
 }

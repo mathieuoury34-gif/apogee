@@ -11,7 +11,7 @@ export const GRAPH_FORMAT = 'apogee-garmin/1';
 export const GRAPH_FORMAT_V2 = 'apogee-garmin/2';
 
 export interface GraphEnergyDay { day: string; totalKcal?: number | null; restKcal?: number | null; steps?: number | null; floors?: number | null }
-export interface GraphPrediction { day: string; pred5kSec?: number | null; pred10kSec?: number | null; predHalfSec?: number | null; predMarathonSec?: number | null }
+export interface GraphPrediction { day: string; lthrBpm?: number | null; lthPaceSecKm?: number | null; pred5kSec?: number | null; pred10kSec?: number | null; predHalfSec?: number | null; predMarathonSec?: number | null }
 /** Une nuit de Garmin Connect : jour du réveil et durée réellement endormie. */
 export interface GraphSleep { night: string; durationMin: number }
 export interface GarminGraphFile { format: typeof GRAPH_FORMAT | typeof GRAPH_FORMAT_V2; note?: string; energy?: GraphEnergyDay[]; sleep?: GraphSleep[]; predictions?: GraphPrediction[] }
@@ -52,10 +52,10 @@ export function mergeGarminGraph(data: AppData, file: GarminGraphFile): { energy
   }
   const checkins: Checkin[] = [];
   // une fiche par semaine : on retient le relevé le plus tardif de chaque semaine (en pratique le dimanche)
-  const latest = new Map<string, { day: string; vals: Record<'pred5kSec' | 'pred10kSec' | 'predHalfSec' | 'predMarathonSec', number | null> }>();
+  const latest = new Map<string, { day: string; vals: Record<'lthrBpm' | 'lthPaceSecKm' | 'pred5kSec' | 'pred10kSec' | 'predHalfSec' | 'predMarathonSec', number | null> }>();
   for (const p of file.predictions ?? []) {
     if (!DAY.test(p.day) || p.day > limit) continue;
-    const vals = { pred5kSec: num(p.pred5kSec), pred10kSec: num(p.pred10kSec), predHalfSec: num(p.predHalfSec), predMarathonSec: num(p.predMarathonSec) };
+    const vals = { lthrBpm: num(p.lthrBpm), lthPaceSecKm: num(p.lthPaceSecKm), pred5kSec: num(p.pred5kSec), pred10kSec: num(p.pred10kSec), predHalfSec: num(p.predHalfSec), predMarathonSec: num(p.predMarathonSec) };
     if (Object.values(vals).every((v) => v === null)) continue;
     const week = mondayOf(p.day), prev = latest.get(week);
     if (!prev || prev.day < p.day) latest.set(week, { day: p.day, vals });
@@ -76,7 +76,7 @@ export function graphMessage(r: GraphReport): string {
   if (r.energyAdded) parts.push(`${r.energyAdded} jour(s) de pas, étages et calories ajouté(s)`);
   if (r.energyFilled) parts.push(`${r.energyFilled} complété(s)`);
   if (r.energyKept) parts.push(`${r.energyKept} déjà lu(s) sur la montre, laissé(s) tel(s) quel(s)`);
-  if (r.checkinsAdded) parts.push(`${r.checkinsAdded} point(s) de la semaine avec prédictions ajouté(s)`);
+  if (r.checkinsAdded) parts.push(`${r.checkinsAdded} point(s) de la semaine (seuil, prédictions) ajouté(s)`);
   if (r.checkinsFilled) parts.push(`${r.checkinsFilled} complété(s)`);
   return parts.join(', ');
 }

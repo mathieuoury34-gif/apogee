@@ -1517,4 +1517,7 @@ export const EN: Record<string, string> = {
   "Pas de nuit lue : règle le coucher et le lever pour la saisir.": "No night read: set bedtime and wake time to enter it.",
   "VO₂max enregistrée": "VO₂max saved",
   "Prédictions enregistrées": "Predictions saved",
+  "Courbes de capacité enregistrées": "Capacity curves saved",
+  "Seuil de lactate": "Lactate threshold",
+  "Fréquence cardiaque": "Heart rate",
 };

@@ -569,3 +569,5 @@ prévisionnel ; alerte blessure ; estimation de VMA ; poids et sommeil ; ingesti
 - **Menu +** (`AddSheet`) : deux tuiles. `FavoritesSheet` (`?sheet=favoris`) n'a plus de point d'entrée dans l'interface.
 
 **Addendum 29/10 (fenêtres ciblées)** : `CheckinSheet` accepte `only?: 'vo2' | 'pred'`. Sans `only` : point de la semaine complet (Accueil). Avec `only`, seuls le jour du relevé et le sujet choisi (VO₂max, ou les 4 prédictions) sont affichés ; les autres champs du point de la semaine restent préremplis et conservés à l’enregistrement ; la correction de jour (`useDayFix`) est désactivée. L’écran Charge fusionne Statut et Charge aiguë dans une seule `InfoCard` (une seule `usePeriod`).
+
+**Addendum 29/10 (seuil à double échelle)** : `DayChart` accepte `second: SecondAxis` (deuxième courbe, axe à droite, `invert` pour l’allure) ; les deux axes ont 4 intervalles égaux (`axis4`) pour que les graduations tombent sur les mêmes lignes. `CheckinSheet only="curves"` remplace `'vo2' | 'pred'`. `GraphPrediction` porte aussi `lthrBpm` et `lthPaceSecKm`.

@@ -1055,3 +1055,15 @@ test('corrections Garmin (apogee-garmin/2) : seulement les écarts nets, saisies
   d.energy['2026-10-21'] = b;
   assert.equal(dayEnergy(d, '2026-10-21', 600).active, 1250);
 });
+
+test('import Garmin : le seuil de lactate (FC, allure) est repris dans le point de la semaine, sans rien écraser', () => {
+  const d = emptyData();
+  const file = { format: 'apogee-garmin/1' as const, predictions: [{ day: '2026-08-16', lthrBpm: 185, lthPaceSecKm: 283 }, { day: '2026-10-11', lthrBpm: 184, lthPaceSecKm: 279 }] };
+  const r = mergeGarminGraph(d, file);
+  assert.equal(r.checkins.length, 2);
+  const a = r.checkins.find((x) => x.day === '2026-08-16')!;
+  assert.equal(a.lthrBpm, 185); assert.equal(a.lthPaceSecKm, 283); assert.equal(a.pred5kSec, null);
+  d.checkins[a.week] = { ...a, lthrBpm: 190 };
+  const again = mergeGarminGraph(d, file);
+  assert.equal(again.checkins.find((x) => x.week === a.week), undefined);
+});

@@ -6,8 +6,6 @@ import { useMemo } from 'react';
 import { useCalc } from '../data/store';
 import { Info, InfoCard, InfoToggle } from '../ui/kit';
 import { Icon } from '../ui/icons';
-import { useLocalSheet } from '../ui/menu';
-import { CheckinSheet } from './Wellness';
 import { navigate } from '../ui/router';
 import { addDays, dayRange } from '../domain/dates';
 import { DayChart } from '../ui/daychart';
@@ -144,32 +142,6 @@ export function ReserveCard() {
         </>
       )}
       <Info>{$t("Méthode simplifiée : le Body Battery de Garmin repose sur la HRV et le stress, que la montre ne transmet pas. Ici : recharge = jusqu’à 80 points selon la durée de sommeil (besoin 8 h) et la FC de repos ; dépense = 55 points par jour plus 25 points par séance à ta charge habituelle. Ces paramètres ont été recalés sur une semaine de Garmin Connect (réveils de 90 à 100, creux de 10 à 34) : c’est une lecture de tendance, pas une mesure. Les jours grisés n’ont pas de nuit enregistrée (sommeil supposé égal à ta moyenne).")}</Info>
-    </InfoCard>
-  );
-}
-
-// ------------------------------------------------------------------ VO₂max
-export function Vo2Card() {
-  const { data, d } = useCalc();
-  const efforts = useMemo(() => bestEfforts(data, d.today), [data, d.today]);
-  const v = useMemo(() => vo2maxEstimate(data, d, efforts), [data, d, efforts]);
-  const hrNote = d.ctx.hrMax.origin === 'tanaka';
-  const sheet = useLocalSheet();
-  return (
-    <InfoCard className="card g12" aria-label={$t("VO₂max estimée")} data-anchor="vo2max">
-      <div className="between">
-        <h2>{$t("VO₂max")}<InfoToggle /></h2>
-        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => sheet.show()}>{v.watch ? $t("Modifier") : $t("Saisir")}</button>
-      </div>
-      {sheet.open && <CheckinSheet only="vo2" onClose={sheet.hide} />}
-      {v.value !== null ? (
-        <>
-          <div className="row" style={{ gap: 'var(--space-8)', alignItems: 'baseline' }}><span className="t-h2">{num(v.value, 0, 1)}</span><span className="t-caption c-moderate">ml/kg/min · {v.method === 'submax' ? $t("d’après tes sorties de course") : $t("d’après FC max / FC de repos")}</span></div>
-          {v.watch && <dl className="kv"><dt>{$t("Ta montre (point du {0})", { 0: dayMonth(v.watch.week) })}</dt><dd>{num(v.watch.value, 0, 1)}</dd></dl>}
-          {v.submax && <p className="t-legal c-moderate">{$t("Calculée sur {0} sorties de course récentes.", { 0: v.submax.n })}</p>}
-        </>
-      ) : <><p className="t-caption c-moderate">{$t("Il faut ta FC de repos (montre lue par Health Connect) et ta FC max pour estimer la VO₂max. Renseigne ta date de naissance dans Paramètres › Athlète si besoin.")}</p><button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/parametres/profil')}>{$t("Ouvrir le profil")}</button></>}
-      <Info>{$t("Méthode publiée : sorties de course à allure stable — coût en oxygène de la course (ACSM) et équivalence entre % de la réserve de FC et % de la réserve de VO₂ (Swain et Leutholtz 1997) ; moyenne des sorties à plat des 60 derniers jours, les plus récentes comptant davantage (demi-vie de 3 semaines), 3 sorties minimum. Sans assez de sorties, repli sur le rapport FC max / FC de repos × 15,3 (Uth 2004). L’erreur typique est de l’ordre de 10 %.")}{hrNote ? ' ' + $t("Ta FC max vient d’une formule : la mesurer (ou la laisser s’affiner avec tes efforts) améliore l’estimation.") : ''}</Info>
     </InfoCard>
   );
 }
