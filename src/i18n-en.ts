@@ -1465,4 +1465,5 @@ export const EN: Record<string, string> = {
   "total du jour par Health Connect :": "daily total by Health Connect:",
   "(total Health Connect {0})": "(Health Connect total {0})",
   "Rien à ajouter : tout était déjà là": "Nothing to add: everything was already there",
+  "Détail du dernier point ({0})": "Latest check-in details ({0})",
 };

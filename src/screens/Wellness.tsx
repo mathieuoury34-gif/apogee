@@ -3,7 +3,7 @@
 import { $t } from '../i18n';
 import { useEffect, useMemo, useState } from 'react';
 import { navigate, useRoute } from '../ui/router';
-import { Segmented, Sheet, showToast, Info, InfoCard, InfoToggle } from '../ui/kit';
+import { Disclosure, Segmented, Sheet, showToast, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { DecField, DurationField, IntField, PaceField, numOf } from '../ui/wheels';
 import { useLocalSheet } from '../ui/menu';
@@ -215,8 +215,8 @@ export function CheckinCard() {
       </div>
       <Info>{$t("Une fois par semaine, recopie ce que ta montre affiche : VO₂max, seuil de lactate, prédictions de course, et ton ressenti. Apogée en trace les courbes. Un rappel te le propose le dimanche.")}</Info>
       {s ? (
+        <Disclosure title={$t("Détail du dernier point ({0})", { 0: dateFr(s.day || s.week) })}>
         <dl className="kv">
-          <dt>{$t("Dernier point")}</dt><dd>{dateFr(s.day || s.week)}</dd>
           {s.vo2max !== null && <><dt>{$t("VO₂max")}</dt><dd>{num(s.vo2max, 0, 1)}</dd></>}
           {s.lthrBpm !== null && <><dt>{$t("Seuil de lactate : FC")}</dt><dd>{s.lthrBpm}{NBSP}bpm</dd></>}
           {s.lthPaceSecKm !== null && <><dt>{$t("Seuil de lactate : allure")}</dt><dd>{clock(s.lthPaceSecKm)}{NBSP}/km</dd></>}
@@ -227,6 +227,7 @@ export function CheckinCard() {
           {s.predHalfSec !== null && <><dt>{$t("Prédiction semi")}</dt><dd>{clock(s.predHalfSec)}</dd></>}
           {s.predMarathonSec !== null && <><dt>{$t("Prédiction marathon")}</dt><dd>{clock(s.predMarathonSec)}</dd></>}
         </dl>
+        </Disclosure>
       ) : <p className="t-caption c-moderate">{$t("Aucun point enregistré pour l’instant.")}</p>}
       {sheet.open && (
         <Sheet title={$t("Point de la semaine")} onClose={sheet.hide} footer={<button type="button" className="btn btn-primary block" disabled={bad} onClick={save}>{$t("Enregistrer")}</button>}>
