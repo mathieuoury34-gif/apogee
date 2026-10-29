@@ -37,12 +37,16 @@ export function checkinMissing(data: AppData, day: string): boolean {
 /** Dimanche de la semaine de `day` (le jour même s'il est dimanche) : jour proposé par défaut pour recopier la montre. */
 export const sundayOf = (day: string): string => addDays(mondayOf(day), 6);
 
-/** État du rendez-vous hebdomadaire : fait pour la semaine en cours ou non, et date du prochain point. */
-export function checkinStatus(data: AppData, today: string): { done: boolean; doneDay: string | null; next: string } {
-  const week = mondayOf(today);
-  const c = data.checkins[week];
-  const done = !!c && !c.deleted;
-  return { done, doneDay: done ? (c.day || null) : null, next: done ? addDays(sundayOf(today), 7) : sundayOf(today) };
+/**
+ * État du rendez-vous hebdomadaire : fait si le dernier dimanche (ou la semaine en cours, saisie à l'avance) a son point.
+ * `due` = dernier dimanche (le jour d'aujourd'hui s'il est dimanche) ; `next` = prochain dimanche à venir.
+ */
+export function checkinStatus(data: AppData, today: string): { done: boolean; due: string; next: string } {
+  const isSunday = sundayOf(today) === today;
+  const due = isSunday ? today : addDays(mondayOf(today), -1);
+  const has = (day: string) => { const c = data.checkins[mondayOf(day)]; return !!c && !c.deleted; };
+  const done = has(due) || has(today);
+  return { done, due, next: isSunday ? addDays(today, 7) : sundayOf(today) };
 }
 
 export type CheckinMetric = 'vo2max' | 'lthrBpm' | 'lthPaceSecKm' | 'sleepFelt' | 'recoveryFelt' | 'pred5kSec' | 'pred10kSec' | 'predHalfSec' | 'predMarathonSec';

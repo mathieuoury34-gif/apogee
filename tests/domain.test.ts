@@ -609,6 +609,11 @@ test('fichier .FIT : structure valide, cibles converties, répétitions, BRICK e
   const sm = readFit(encodeFit(sw));
   assert.equal(sm[1].f[4], 10); assert.equal(sm[1].f[11], 20);
   assert.equal(sm[2].f[0], 'Squat'); assert.equal(sm[2].f[1], 29); assert.equal(sm[2].f[2], 12);
+  // commentaire de 1 à 5 mots pour la montre : la consigne du bloc, à défaut son libellé
+  assert.equal(sm[2].f[8], 'Squat');
+  const swim = { ...run, discipline: 'SWIM', title: 'Natation', blocks: [{ ...newBlock('WORK'), measure: 'DISTANCE' as const, measureValue: 25, notes: 'costal gauche, bras tendu devant, tête basse, respiration' }] } as typeof run;
+  const swm = readFit(encodeFit(toFitWorkouts(swim, refs)[0]));
+  assert.equal(swm[2].f[8], 'costal gauche, bras tendu devant,');
   assert.equal(fitFileName('Fractionné 6×3 — vélo', '2026-10-20'), '2026-10-20-Fractionne-6-3-velo.fit');
 });
 
@@ -955,18 +960,23 @@ test('statut d\'entraînement par jour : une case par jour, même règle que par
 
 test('point de la semaine : statut fait / à faire et prochain dimanche', () => {
   const d = emptyData();
-  // jeudi 29/10/2026 : le dimanche de la semaine est le 01/11
   assert.equal(sundayOf('2026-10-29'), '2026-11-01');
   assert.equal(sundayOf('2026-11-01'), '2026-11-01');
-  assert.deepEqual(checkinStatus(d, '2026-10-29'), { done: false, doneDay: null, next: '2026-11-01' });
-  d.checkins['2026-10-26'] = { ...emptyCheckin('2026-10-26'), day: '2026-11-01', pred5kSec: 1350, updatedAt: 'x' } as never;
-  const st = checkinStatus(d, '2026-10-29');
-  assert.equal(st.done, true);
-  assert.equal(st.next, '2026-11-08');
-  // un point de la semaine passée ne compte pas pour la semaine en cours
+  // jeudi 29/10 : le dernier dimanche est le 25/10, le prochain le 01/11
+  assert.deepEqual(checkinStatus(d, '2026-10-29'), { done: false, due: '2026-10-25', next: '2026-11-01' });
+  // le point du dimanche 25/10 (semaine du 19/10) est rempli : coche
+  d.checkins['2026-10-19'] = { ...emptyCheckin('2026-10-19'), day: '2026-10-25', pred5kSec: 1350, updatedAt: 'x' } as never;
+  assert.equal(checkinStatus(d, '2026-10-29').done, true);
+  assert.equal(checkinStatus(d, '2026-10-25').done, true);
+  // dès le lundi suivant le dimanche 01/11 devient le prochain ; le 02/11 il faut le point du 01/11
+  assert.equal(checkinStatus(d, '2026-11-01').done, false);
+  assert.equal(checkinStatus(d, '2026-11-01').next, '2026-11-08');
   assert.equal(checkinStatus(d, '2026-11-03').done, false);
+  // saisi à l'avance pour la semaine en cours : fait
+  d.checkins['2026-10-26'] = { ...emptyCheckin('2026-10-26'), day: '2026-11-01', pred5kSec: 1340, updatedAt: 'x' } as never;
+  assert.equal(checkinStatus(d, '2026-10-29').done, true);
   // la courbe est datée du jour saisi, pas du lundi
-  assert.equal(metricSeries(d, 'pred5kSec')[0].day, '2026-11-01');
+  assert.equal(metricSeries(d, 'pred5kSec')[0].day, '2026-10-25');
 });
 
 test('relevés Garmin repris sans rien écraser', () => {

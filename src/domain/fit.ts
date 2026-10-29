@@ -40,6 +40,8 @@ export interface FitStep {
   low: number;
   high: number;
   intensity: number;
+  /** Commentaire de 1 à 5 mots affiché par la montre pendant l'étape (exercice, côté…) ; vide = aucun. */
+  notes?: string;
 }
 export interface FitWorkout { name: string; discipline: 'RUN' | 'BIKE' | 'SWIM' | 'STRENGTH'; steps: FitStep[]; warnings: string[] }
 
@@ -90,6 +92,11 @@ function targetOf(b: Block, d: PlannedDiscipline | null, refs: RefValues, warnin
 function stepName(b: Block, fallback: string): string {
   return (b.label || fallback).replace(/\s+/g, ' ').trim();
 }
+/** Commentaire court (5 mots au plus) pour la montre : la consigne du bloc, à défaut son libellé. */
+export function stepNote(b: Block): string {
+  const src = (b.notes || b.label || '').replace(/\s+/g, ' ').trim();
+  return src.split(' ').slice(0, 5).join(' ');
+}
 const KIND_NAME: Record<string, string> = { WARMUP: 'Échauffement', WORK: 'Effort', RECOVERY: 'Récupération', REST: 'Repos', COOLDOWN: 'Retour au calme', TRANSITION: 'Transition' };
 
 function pushBlocks(blocks: Block[], d: PlannedDiscipline | null, refs: RefValues, out: FitStep[], warnings: string[]): void {
@@ -112,7 +119,7 @@ function pushBlocks(blocks: Block[], d: PlannedDiscipline | null, refs: RefValue
     if (b.measure === 'TIME' && b.measureValue !== null) { dt = DUR.time; dv = Math.round(b.measureValue * 1000); }
     else if (b.measure === 'DISTANCE' && b.measureValue !== null) { dt = DUR.distance; dv = Math.round(b.measureValue * 100); }
     else if (b.measure === 'REPS' && b.measureValue !== null) { dt = DUR.reps; dv = Math.round(b.measureValue); }
-    out.push({ name: stepName(b, KIND_NAME[b.kind] ?? 'Étape'), durationType: dt, durationValue: dv, targetType: tg.type, targetValue: 0, low: tg.low, high: tg.high, intensity: INTENSITY_OF[b.kind] ?? INTENSITY.active });
+    out.push({ name: stepName(b, KIND_NAME[b.kind] ?? 'Étape'), durationType: dt, durationValue: dv, targetType: tg.type, targetValue: 0, low: tg.low, high: tg.high, intensity: INTENSITY_OF[b.kind] ?? INTENSITY.active, notes: stepNote(b) });
   }
 }
 
@@ -161,7 +168,7 @@ function definition(w: Writer, local: number, global: number, fields: Field[]) {
   for (const [n, size, t] of fields) { w.u8(n); w.u8(size); w.u8(t); }
 }
 
-const NAME_SIZE = 32, STEP_SIZE = 20;
+const NAME_SIZE = 32, STEP_SIZE = 20, NOTES_SIZE = 50;
 
 export function encodeFit(wk: FitWorkout, now: Date = new Date()): Uint8Array {
   const body = new Writer();
@@ -172,10 +179,10 @@ export function encodeFit(wk: FitWorkout, now: Date = new Date()): Uint8Array {
   definition(body, 1, 26, [[4, 1, T.enum], [6, 2, T.uint16], [8, NAME_SIZE, T.string], [11, 1, T.enum]]);
   body.u8(1); body.u8(SPORT[wk.discipline]); body.u16(wk.steps.length); body.str(wk.name, NAME_SIZE); body.u8(SUB_SPORT[wk.discipline]);
   // workout_step
-  definition(body, 2, 27, [[254, 2, T.uint16], [0, STEP_SIZE, T.string], [1, 1, T.enum], [2, 4, T.uint32], [3, 1, T.enum], [4, 4, T.uint32], [5, 4, T.uint32], [6, 4, T.uint32], [7, 1, T.enum]]);
+  definition(body, 2, 27, [[254, 2, T.uint16], [0, STEP_SIZE, T.string], [1, 1, T.enum], [2, 4, T.uint32], [3, 1, T.enum], [4, 4, T.uint32], [5, 4, T.uint32], [6, 4, T.uint32], [7, 1, T.enum], [8, NOTES_SIZE, T.string]]);
   wk.steps.forEach((s, i) => {
     body.u8(2); body.u16(i); body.str(s.name, STEP_SIZE); body.u8(s.durationType); body.u32(s.durationValue);
-    body.u8(s.targetType); body.u32(s.targetValue); body.u32(s.low); body.u32(s.high); body.u8(s.intensity);
+    body.u8(s.targetType); body.u32(s.targetValue); body.u32(s.low); body.u32(s.high); body.u8(s.intensity); body.str(s.notes ?? '', NOTES_SIZE);
   });
   const head = new Writer();
   head.u8(14); head.u8(0x20); head.u16(2132); head.u32(body.bytes.length);

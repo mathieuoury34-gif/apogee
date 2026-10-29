@@ -1466,4 +1466,11 @@ export const EN: Record<string, string> = {
   "(total Health Connect {0})": "(Health Connect total {0})",
   "Rien à ajouter : tout était déjà là": "Nothing to add: everything was already there",
   "Détail du dernier point ({0})": "Latest check-in details ({0})",
+  "Fait pour dimanche {0}": "Done for Sunday {0}",
+  "Pas encore fait": "Not done yet",
+  "Relevé du dimanche {0} à faire · prochain : dimanche {1}": "Sunday {0} reading still to do · next: Sunday {1}",
+  "Aucun relevé sur cette période.": "No reading in this period.",
+  "Relevé du {0}": "Reading from {0}",
+  "· écrit par Garmin le {0}": "· written by Garmin on {0}",
+  "Courbes calculées par Apogée sur tes propres séances, un point par jour : chaque point est recalculé avec les séances connues à cette date (VO₂max : sorties de course à allure stable des 60 jours précédents, les plus récentes comptant davantage ; prédictions : meilleur effort des 90 jours précédents, ramené à ta forme du jour, puis calé sur ta montre). Touche ou fais glisser un graphe : le curseur se déplace sur tous, et les flèches reculent d’une période. Plus bas, les valeurs que tu recopies de ta montre (un relevé par semaine, reliés entre eux ; le curseur lit le dernier relevé connu). Les deux ne sont pas comparables un à un : Garmin utilise ses propres modèles.": "Curves computed by Apogée from your own sessions, one point per day: each point is recomputed with the sessions known at that date (VO₂max: steady-pace runs of the previous 60 days, the most recent counting more; predictions: best effort of the previous 90 days, brought to your current form, then calibrated on your watch). Tap or drag a chart: the cursor moves on all of them, and the arrows go back one period. Further down, the values you copy from your watch (one reading per week, joined together; the cursor reads the latest known reading). The two are not comparable one to one: Garmin uses its own models.",
 };

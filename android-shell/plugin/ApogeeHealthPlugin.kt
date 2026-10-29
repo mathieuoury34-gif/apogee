@@ -147,7 +147,7 @@ class ApogeeHealthPlugin : Plugin() {
     }
 
     /** Une mesure sur un intervalle de temps (pas, étages, calories) telle que Garmin la dépose. */
-    private class Piece(val start: Instant, val end: Instant, val value: Double)
+    private class Piece(val start: Instant, val end: Instant, val value: Double, val modified: Long = 0L)
 
     /** Intervalles de temps déjà comptés (disjoints), pour ne jamais compter deux fois un même moment. */
     private class Cover {
@@ -232,10 +232,10 @@ class ApogeeHealthPlugin : Plugin() {
     private suspend fun pieces(c: HealthConnectClient, kind: String, start: Instant, end: Instant, origins: Set<DataOrigin>): List<Piece> {
         val names = origins.map { it.packageName }.toSet()
         return when (kind) {
-            "steps" -> readAll(c, StepsRecord::class, start, end, 300).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.count.toDouble()) }
-            "floors" -> readAll(c, FloorsClimbedRecord::class, start, end, 300).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.floors) }
-            "active" -> readAll(c, ActiveCaloriesBurnedRecord::class, start, end).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.energy.inKilocalories) }
-            else -> readAll(c, TotalCaloriesBurnedRecord::class, start, end).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.energy.inKilocalories) }
+            "steps" -> readAll(c, StepsRecord::class, start, end, 300).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.count.toDouble(), it.metadata.lastModifiedTime.epochSecond) }
+            "floors" -> readAll(c, FloorsClimbedRecord::class, start, end, 300).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.floors, it.metadata.lastModifiedTime.epochSecond) }
+            "active" -> readAll(c, ActiveCaloriesBurnedRecord::class, start, end).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.energy.inKilocalories, it.metadata.lastModifiedTime.epochSecond) }
+            else -> readAll(c, TotalCaloriesBurnedRecord::class, start, end).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.energy.inKilocalories, it.metadata.lastModifiedTime.epochSecond) }
         }
     }
 
@@ -419,16 +419,12 @@ class ApogeeHealthPlugin : Plugin() {
                 val days = JSArray()
                 val origins = garminOrigins(c, end)
                 val errors = ArrayList<String>()
-                // pas et étages : mesures Garmin sans doublon ; si la lecture détaillée échoue, total du jour calculé par Health Connect (mêmes sources)
-                val steps = if (origins.isEmpty()) null else dailyOf(c, "steps", from, to, origins, zone, errors)
+                // pas : total du jour calculé par Health Connect (mêmes sources). La lecture mesure par mesure plante quand Garmin dépose une mesure à 0 pas (« count must not be less than 1 »).
                 val floors = if (origins.isEmpty()) null else dailyOf(c, "floors", from, to, origins, zone, errors)
                 val byDay = java.util.TreeMap<String, JSObject>()
                 fun put(day: String, k: String, v: Double?) { byDay.getOrPut(day) { JSObject() }.putN(k, v) }
-                if (steps != null) { for ((day, v) in steps.days) put(day, "steps", v) }
-                else {
-                    val st = try { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(StepsRecord.COUNT_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1), origins)) } catch (e: Exception) { errors.add("pas (total du jour) : " + e.javaClass.simpleName + " " + (e.message ?: "")); null }
-                    for (g in st ?: emptyList()) put(g.startTime.toLocalDate().toString(), "steps", g.result[StepsRecord.COUNT_TOTAL]?.toDouble())
-                }
+                val st = try { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(StepsRecord.COUNT_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1), origins)) } catch (e: Exception) { errors.add("pas (total du jour) : " + e.javaClass.simpleName + " " + (e.message ?: "")); null }
+                for (g in st ?: emptyList()) put(g.startTime.toLocalDate().toString(), "steps", g.result[StepsRecord.COUNT_TOTAL]?.toDouble())
                 if (floors != null) { for ((day, v) in floors.days) put(day, "floors", v) }
                 else {
                     val fl = try { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1), origins)) } catch (e: Exception) { errors.add("étages (total du jour) : " + e.javaClass.simpleName + " " + (e.message ?: "")); null }
@@ -470,7 +466,10 @@ class ApogeeHealthPlugin : Plugin() {
                         for (p in got) if (p.end.epochSecond > last) last = p.end.epochSecond
                         k.put("lastEnd", last)
                         val dd = JSArray()
-                        for (day in java.util.TreeSet(t.naive.keys)) dd.put(JSObject().put("day", day).put("raw", t.naive[day] ?: 0.0).put("clean", t.days[day] ?: 0.0))
+                        // dernière écriture de Garmin pour chaque jour : un jour figé avant minuit n'a pas reçu la fin de la journée
+                        val modBy = HashMap<String, Long>()
+                        for (p in got) { val dk = p.end.minusSeconds(1).atZone(zone).toLocalDate().toString(); if (p.modified > (modBy[dk] ?: 0L)) modBy[dk] = p.modified }
+                        for (day in java.util.TreeSet(t.naive.keys)) dd.put(JSObject().put("day", day).put("raw", t.naive[day] ?: 0.0).put("clean", t.days[day] ?: 0.0).put("mod", modBy[day] ?: 0L))
                         k.put("days", dd)
                     } catch (e: Exception) { k.put("error", e.javaClass.simpleName + " " + (e.message ?: "")) }
                     // total du jour calculé par Health Connect lui-même (mêmes sources), pour comparer
@@ -479,7 +478,14 @@ class ApogeeHealthPlugin : Plugin() {
                         val rng = TimeRangeFilter.between(from, to)
                         val ag = JSArray()
                         when (kind) {
-                            "steps" -> for (x in c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(StepsRecord.COUNT_TOTAL), rng, per, origins))) ag.put(JSObject().put("day", x.startTime.toLocalDate().toString()).putN("v", x.result[StepsRecord.COUNT_TOTAL]?.toDouble()))
+                            "steps" -> {
+                                val seen = HashSet<String>()
+                                for (x in c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(StepsRecord.COUNT_TOTAL), rng, per, origins))) {
+                                    ag.put(JSObject().put("day", x.startTime.toLocalDate().toString()).putN("v", x.result[StepsRecord.COUNT_TOTAL]?.toDouble()))
+                                    for (o in x.result.dataOrigins) seen.add(o.packageName)
+                                }
+                                out.put("stepsOrigins", strArray(seen.toList()))
+                            }
                             "floors" -> for (x in c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL), rng, per, origins))) ag.put(JSObject().put("day", x.startTime.toLocalDate().toString()).putN("v", x.result[FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL]))
                             "active" -> for (x in c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL), rng, per, origins))) ag.put(JSObject().put("day", x.startTime.toLocalDate().toString()).putN("v", x.result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories))
                             else -> for (x in c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(TotalCaloriesBurnedRecord.ENERGY_TOTAL), rng, per, origins))) ag.put(JSObject().put("day", x.startTime.toLocalDate().toString()).putN("v", x.result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories))
