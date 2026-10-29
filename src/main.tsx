@@ -7,6 +7,7 @@ import { mergeDuplicateActuals } from './data/actions';
 import { native } from './native/bridge';
 import { refreshHealthState, runHealthSync } from './native/healthSync';
 import { scheduleReminders } from './native/notify';
+import { openWeeklyIfDue } from './native/weeklyPrompt';
 import './styles/tokens.css';
 import './styles/app.css';
 import './theme';
@@ -31,6 +32,9 @@ createRoot(document.getElementById('root')!).render(<App />);
     await refreshHealthState();
     read();
     native.onResume(read);
+    // le point de la semaine s'ouvre en première page à la première ouverture après le rappel du dimanche
+    openWeeklyIfDue();
+    native.onResume(() => openWeeklyIfDue());
     // Rappels locaux, recalculés quand les données changent (regroupés)
     let timer: ReturnType<typeof setTimeout> | undefined;
     const plan = () => { clearTimeout(timer); timer = setTimeout(() => scheduleReminders(getData(), getDerived()).catch(() => undefined), 2000); };

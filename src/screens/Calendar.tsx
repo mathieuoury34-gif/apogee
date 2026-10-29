@@ -391,15 +391,6 @@ export function AddSheet() {
             <span className="stack" style={{ gap: 'var(--space-2)' }}><span className="t-amount-m">{$t("Séance faite")}</span><span className="t-caption c-neutral">{$t("Saisie à la main, sans la montre")}</span></span>
           </button>
         </div>
-        <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
-          <SheetRow icon="bookmark" title={$t("Mes séances favorites")} sub={$t("Réutilise une séance enregistrée")} onClick={() => navigate(route.path + '?sheet=favoris&date=' + date, { replace: true })} />
-          <SheetRow icon="clipboard" title={$t("Coller un lot de séances faites")} sub={$t("Une ligne par séance, depuis tes notes")} onClick={() => go('/seances/saisie?mode=lot')} />
-          <SheetRow icon="clipboard" title={$t("Coller un lot de séances prévues")} sub={$t("Date ; discipline ; durée ; titre")} onClick={() => go('/seances/saisie?mode=prevues')} />
-          <SheetRow icon="check" title={$t("Point de la semaine")} sub={$t("VO₂max, seuil, ressenti et prédictions de ta montre")} onClick={() => go('/progression/capacites?point=1')} />
-          <SheetRow icon="flame" title={$t("Pas, étages, calories")} sub={$t("Corriger un jour d’après Garmin Connect")} onClick={() => navigate(route.path + '?sheet=jour&date=' + (date > d.today ? d.today : date), { replace: true })} />
-          <SheetRow icon="pause" title={$t("Déclarer une interruption")} sub={$t("Blessure, déplacement, bivouac…")} onClick={() => go('/calendrier/interruptions?nouvelle=' + date)} />
-          <SheetRow icon="coach" title={$t("Importer un plan du coach")} sub={$t("Fichier JSON apogee/1")} onClick={() => go('/coach?importer=1')} />
-        </ul>
       </div>
     </Sheet>
   );

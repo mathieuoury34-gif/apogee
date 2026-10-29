@@ -3,18 +3,23 @@
 import { mondayOf, today } from './dates';
 import { nowIso } from './ids';
 import { emptyCheckin } from './checkin';
-import type { AppData, Checkin, EnergyDay } from './types';
+import { dayEnergy } from './energy';
+import type { AppData, Checkin, EnergyDay, EnergyPart, SleepNight } from './types';
 
 export const GRAPH_FORMAT = 'apogee-garmin/1';
+/** Version « correctif » : les valeurs de Garmin Connect remplacent celles de Health Connect quand elles divergent nettement (et ne sont plus écrasées ensuite). */
+export const GRAPH_FORMAT_V2 = 'apogee-garmin/2';
 
 export interface GraphEnergyDay { day: string; totalKcal?: number | null; restKcal?: number | null; steps?: number | null; floors?: number | null }
 export interface GraphPrediction { day: string; pred5kSec?: number | null; pred10kSec?: number | null; predHalfSec?: number | null; predMarathonSec?: number | null }
-export interface GarminGraphFile { format: typeof GRAPH_FORMAT; note?: string; energy?: GraphEnergyDay[]; predictions?: GraphPrediction[] }
+/** Une nuit de Garmin Connect : jour du réveil et durée réellement endormie. */
+export interface GraphSleep { night: string; durationMin: number }
+export interface GarminGraphFile { format: typeof GRAPH_FORMAT | typeof GRAPH_FORMAT_V2; note?: string; energy?: GraphEnergyDay[]; sleep?: GraphSleep[]; predictions?: GraphPrediction[] }
 export interface GraphReport { energyAdded: number; energyFilled: number; energyKept: number; checkinsAdded: number; checkinsFilled: number; checkinsKept: number }
 
 export function isGarminGraph(j: unknown): j is GarminGraphFile {
   const f = j as Partial<GarminGraphFile> | null;
-  return !!f && typeof f === 'object' && f.format === GRAPH_FORMAT;
+  return !!f && typeof f === 'object' && (f.format === GRAPH_FORMAT || f.format === GRAPH_FORMAT_V2);
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -73,5 +78,76 @@ export function graphMessage(r: GraphReport): string {
   if (r.energyKept) parts.push(`${r.energyKept} déjà lu(s) sur la montre, laissé(s) tel(s) quel(s)`);
   if (r.checkinsAdded) parts.push(`${r.checkinsAdded} point(s) de la semaine avec prédictions ajouté(s)`);
   if (r.checkinsFilled) parts.push(`${r.checkinsFilled} complété(s)`);
+  return parts.join(', ');
+}
+
+
+// ------------------------------------------------------------------ version correctif (apogee-garmin/2)
+export interface CorrectionReport {
+  kcalFixed: number; stepsFixed: number; floorsFixed: number; daysAdded: number;
+  sleepFixed: number; sleepAdded: number; kept: number; handKept: number;
+}
+/** Écarts jugés nets (le relevé sur graphique est exact à environ 1 %). */
+export const FIX_KCAL_TOTAL = 0.03, FIX_KCAL_MIN = 60, FIX_KCAL_ACTIVE = 60, FIX_STEPS_RATIO = 0.04, FIX_STEPS_MIN = 400, FIX_FLOORS = 2, FIX_SLEEP_MIN = 10;
+
+export function correctFromGarmin(data: AppData, file: GarminGraphFile, offsetMin: number = -new Date().getTimezoneOffset()): { energy: EnergyDay[]; sleep: SleepNight[]; checkins: Checkin[]; report: CorrectionReport } {
+  const report: CorrectionReport = { kcalFixed: 0, stepsFixed: 0, floorsFixed: 0, daysAdded: 0, sleepFixed: 0, sleepAdded: 0, kept: 0, handKept: 0 };
+  const now = nowIso(), limit = today();
+  const energy: EnergyDay[] = [];
+  for (const g of file.energy ?? []) {
+    if (!DAY.test(g.day) || g.day > limit) continue;
+    const total = num(g.totalKcal), rest = num(g.restKcal), steps = num(g.steps), floors = num(g.floors);
+    const live = data.energy[g.day] && !data.energy[g.day].deleted ? data.energy[g.day] : null;
+    const next: EnergyDay = live ? { ...live, updatedAt: now } : { id: g.day, updatedAt: now, day: g.day, activeKcal: null, totalKcal: null, source: 'health' };
+    const edited = new Set<EnergyPart>(live?.edited ?? []);
+    let changed = false, hand = false;
+    if (total !== null && rest !== null && total > 0) {
+      const active = Math.max(0, total - rest);
+      if (edited.has('kcal')) hand = true;
+      else {
+        const cur = dayEnergy(data, g.day, 1440);
+        if (cur.total === null || Math.abs(cur.total - total) > Math.max(FIX_KCAL_MIN, FIX_KCAL_TOTAL * total) || cur.active === null || Math.abs(cur.active - active) > FIX_KCAL_ACTIVE) {
+          next.totalKcal = total; next.activeKcal = active; next.basalKcal = rest; edited.add('kcal'); report.kcalFixed++; changed = true;
+        }
+      }
+    }
+    if (steps !== null && steps > 0) {
+      if (edited.has('steps')) hand = true;
+      else if (!live?.steps || Math.abs(live.steps - steps) > Math.max(FIX_STEPS_MIN, FIX_STEPS_RATIO * steps)) { next.steps = steps; edited.add('steps'); report.stepsFixed++; changed = true; }
+    }
+    if (floors !== null && floors > 0) {
+      if (edited.has('floors')) hand = true;
+      else if (!live?.floors || Math.abs(live.floors - floors) >= FIX_FLOORS) { next.floors = floors; edited.add('floors'); report.floorsFixed++; changed = true; }
+    }
+    if (changed) { next.edited = [...edited]; energy.push(next); if (!live) report.daysAdded++; }
+    else if (hand) report.handKept++;
+    else report.kept++;
+  }
+  const sleep: SleepNight[] = [];
+  for (const n of file.sleep ?? []) {
+    if (!DAY.test(n.night) || n.night > limit || !(n.durationMin >= 30 && n.durationMin <= 1000)) continue;
+    const durationSec = Math.round(n.durationMin) * 60;
+    const live = data.sleep[n.night] && !data.sleep[n.night].deleted ? data.sleep[n.night] : null;
+    if (live?.edited) { report.handKept++; continue; }
+    if (live && Math.abs(live.durationSec - durationSec) < FIX_SLEEP_MIN * 60) { report.kept++; continue; }
+    // on garde l'heure du lever de la montre ; le coucher est déduit de la durée de Garmin Connect
+    const endMs = live ? Date.parse(live.endAt) : Date.parse(n.night + 'T07:00:00Z') - offsetMin * 60_000;
+    sleep.push({ id: n.night, updatedAt: now, nightDate: n.night, startAt: new Date(endMs - durationSec * 1000).toISOString(), endAt: new Date(endMs).toISOString(), zoneOffsetMinutes: live?.zoneOffsetMinutes ?? offsetMin, durationSec, fromStages: true, edited: true, sourceId: 'garmin-graph' });
+    if (live) report.sleepFixed++; else report.sleepAdded++;
+  }
+  // les prédictions de la montre se comblent comme dans la version 1 (rien d'écrasé)
+  const { checkins } = mergeGarminGraph(data, { format: GRAPH_FORMAT, predictions: file.predictions });
+  return { energy, sleep, checkins, report };
+}
+
+export function correctionMessage(r: CorrectionReport): string {
+  const parts: string[] = [];
+  if (r.kcalFixed) parts.push(`${r.kcalFixed} jour(s) de calories corrigé(s)`);
+  if (r.stepsFixed) parts.push(`${r.stepsFixed} de pas`);
+  if (r.floorsFixed) parts.push(`${r.floorsFixed} d’étages`);
+  if (r.sleepFixed) parts.push(`${r.sleepFixed} nuit(s) corrigée(s)`);
+  if (r.sleepAdded) parts.push(`${r.sleepAdded} nuit(s) ajoutée(s) (lever à 7 h par défaut)`);
+  if (r.kept) parts.push(`${r.kept} valeur(s) déjà conformes`);
+  if (r.handKept) parts.push(`${r.handKept} saisie(s) à la main conservée(s)`);
   return parts.join(', ');
 }

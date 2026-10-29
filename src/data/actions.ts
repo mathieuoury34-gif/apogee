@@ -11,7 +11,7 @@ import { applyPreview, type CoachPlan, type Preview } from '../domain/coach';
 import { purgePlan } from '../domain/purge';
 import { commit, getData } from './store';
 
-type Snapshot = { coll: CollectionName; id: string; rec: unknown }[];
+export type Snapshot = { coll: CollectionName; id: string; rec: unknown }[];
 
 function snapshot(keys: [CollectionName, string][]): Snapshot {
   const d = getData();

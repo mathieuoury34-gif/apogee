@@ -3,7 +3,7 @@ import { $t } from '../i18n';
 import { emptyData, importLegacyDb, type LegacyReport } from '../domain/legacy';
 import { liveRecords } from '../domain/load';
 import { importDossierData, isDossier, type Dossier, type DossierReport } from '../domain/dossier';
-import { graphMessage, isGarminGraph, mergeGarminGraph, type GarminGraphFile } from '../domain/garminGraph';
+import { correctFromGarmin, correctionMessage, GRAPH_FORMAT_V2, graphMessage, isGarminGraph, mergeGarminGraph, type GarminGraphFile } from '../domain/garminGraph';
 import type { AppData } from '../domain/types';
 import { COLLECTIONS } from '../domain/types';
 import { commit, getData, replaceAll } from './store';
@@ -75,6 +75,11 @@ export function importDossier(dossier: Dossier): DossierReport {
 
 /** Reprend des relevés Garmin mesurés sur des captures (pas, étages, calories, prédictions) : ne remplace rien, comble seulement ce qui manque. */
 export function importGarminGraph(file: GarminGraphFile): string {
+  if (file.format === GRAPH_FORMAT_V2) {
+    const r = correctFromGarmin(getData(), file);
+    commit((tx) => { r.energy.forEach((x) => tx.put('energy', x)); r.sleep.forEach((x) => tx.put('sleep', x)); r.checkins.forEach((x) => tx.put('checkins', x)); });
+    return correctionMessage(r.report) || $t("Rien à corriger : tout était déjà conforme à Garmin Connect");
+  }
   const { energy, checkins, report } = mergeGarminGraph(getData(), file);
   commit((tx) => { energy.forEach((x) => tx.put('energy', x)); checkins.forEach((x) => tx.put('checkins', x)); });
   return graphMessage(report) || $t("Rien à ajouter : tout était déjà là");

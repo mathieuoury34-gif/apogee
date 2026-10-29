@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast, OtherToggle, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { FormChart, LoadPanels, StackedWeeks, StepChart } from '../ui/charts';
 import { FitnessCard, SleepCard, WeightCard } from './Analysis';
-import { ActivityCard, CaloriesCard, CapacitiesTrendsCard, CheckinCard } from './Wellness';
+import { ActivityCard, CaloriesCard, CapacitiesTrendsCard } from './Wellness';
 import { EnduranceHillCard, ReadinessCard, ReserveCard, Vo2Card } from './Capacity';
 import { AcuteLoadChart, FocusBars, RatioChart, STATUS_INFO, StatusStrip } from '../ui/loadkit';
 import { DEFAULT_SPAN, PeriodBar, SPANS, usePeriod } from '../ui/period';
@@ -341,7 +341,6 @@ export function ZonesScreen() {
       <SubNav items={NAV} label={$t("Sections Progression")} />
       <main className="content dgrid">
         <div className="dmasonry">
-          <CheckinCard />
           <Vo2Card />
           <EnduranceHillCard />
           <CapacitiesTrendsCard />

@@ -27,7 +27,7 @@ import { loadFocus } from '../src/domain/loadStatus';
 import { capacityHistory } from '../src/domain/capacity';
 import { ingestEnergy, ingestVitals } from '../src/domain/healthExtra';
 import { checkinStatus, currentCheckin, emptyCheckin, metricSeries, sundayOf } from '../src/domain/checkin';
-import { mergeGarminGraph } from '../src/domain/garminGraph';
+import { correctFromGarmin, mergeGarminGraph } from '../src/domain/garminGraph';
 import { purgePlan } from '../src/domain/purge';
 import { acuteSeries, dailyStatus, statusOf, weeklyStatus } from '../src/domain/loadStatus';
 import type { DayLoad } from '../src/domain/load';
@@ -1025,4 +1025,33 @@ test('pas, étages, calories : une valeur saisie à la main n\'est jamais écras
   d.athlete.main = { id: 'main', updatedAt: 'x', restKcal: 2150 } as never;
   const e = dayEnergy(d, '2026-10-26', 600);
   assert.equal(e.restHow, 'manual'); assert.equal(e.active, 1000); assert.equal(e.rest, 2100); assert.equal(e.total, 3100);
+});
+
+test('corrections Garmin (apogee-garmin/2) : seulement les écarts nets, saisies à la main conservées', () => {
+  const d = emptyData();
+  d.energy['2026-10-20'] = { id: '2026-10-20', updatedAt: 'x', day: '2026-10-20', activeKcal: 900, totalKcal: 3050, basalKcal: 2150, steps: 10000, floors: 10, source: 'health' };
+  d.energy['2026-10-21'] = { id: '2026-10-21', updatedAt: 'x', day: '2026-10-21', activeKcal: 700, totalKcal: 2850, steps: 8000, floors: 5, edited: ['steps'], source: 'health' };
+  d.sleep['2026-10-20'] = { id: '2026-10-20', updatedAt: 'x', nightDate: '2026-10-20', startAt: '2026-10-19T21:00:00.000Z', endAt: '2026-10-20T05:00:00.000Z', zoneOffsetMinutes: 120, durationSec: 8 * 3600, fromStages: true, sourceId: 'hc' } as never;
+  d.sleep['2026-10-21'] = { id: '2026-10-21', updatedAt: 'x', nightDate: '2026-10-21', startAt: '2026-10-20T21:00:00.000Z', endAt: '2026-10-21T05:00:00.000Z', zoneOffsetMinutes: 120, durationSec: 8 * 3600, fromStages: true, edited: true, sourceId: 'manual' } as never;
+  const r = correctFromGarmin(d, {
+    format: 'apogee-garmin/2',
+    energy: [
+      { day: '2026-10-20', totalKcal: 3060, restKcal: 2150, steps: 10100, floors: 14 },   // calories et pas conformes ; étages +4 : corrigés
+      { day: '2026-10-21', totalKcal: 3400, restKcal: 2150, steps: 12000, floors: 5 },   // calories : écart net ; pas saisis à la main : gardés
+    ],
+    sleep: [{ night: '2026-10-20', durationMin: 330 }, { night: '2026-10-21', durationMin: 300 }, { night: '2026-10-22', durationMin: 400 }],
+  }, 120);
+  const a = r.energy.find((x) => x.day === '2026-10-20')!;
+  assert.equal(a.floors, 14); assert.equal(a.totalKcal, 3050); assert.deepEqual(a.edited, ['floors']);
+  const b = r.energy.find((x) => x.day === '2026-10-21')!;
+  assert.equal(b.totalKcal, 3400); assert.equal(b.activeKcal, 1250); assert.equal(b.steps, 8000); assert.deepEqual(b.edited?.sort(), ['kcal', 'steps']);
+  // sommeil : même lever que la montre, coucher déduit de la durée ; nuit validée à la main conservée ; nuit absente ajoutée
+  const n = r.sleep.find((x) => x.nightDate === '2026-10-20')!;
+  assert.equal(n.endAt, '2026-10-20T05:00:00.000Z'); assert.equal(n.durationSec, 330 * 60); assert.equal(n.edited, true);
+  assert.equal(r.sleep.some((x) => x.nightDate === '2026-10-21'), false);
+  assert.equal(r.sleep.find((x) => x.nightDate === '2026-10-22')!.endAt, '2026-10-22T05:00:00.000Z');
+  assert.equal(r.report.sleepFixed, 1); assert.equal(r.report.sleepAdded, 1);
+  // une fois corrigé, le calcul affiche les valeurs de Garmin sans calage
+  d.energy['2026-10-21'] = b;
+  assert.equal(dayEnergy(d, '2026-10-21', 600).active, 1250);
 });

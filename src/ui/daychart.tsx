@@ -22,8 +22,8 @@ export interface DayPoint {
 }
 export type DayChartKind = 'bars' | 'range' | 'line' | 'stack';
 
-export function DayChart({ points, kind, sel, onSel, min, max, ticks, fmtTick, height = 130, label, color = 'var(--chart-value)', color2 = 'var(--chart-other)', dots, connect }: {
-  points: DayPoint[]; kind: DayChartKind; sel: number; onSel: (i: number) => void;
+export function DayChart({ points, kind, sel, onSel, onRelease, min, max, ticks, fmtTick, height = 130, label, color = 'var(--chart-value)', color2 = 'var(--chart-other)', dots, connect }: {
+  points: DayPoint[]; kind: DayChartKind; sel: number; onSel: (i: number) => void; /** Appelé quand le doigt (ou la souris) lâche le graphe, ou que le défilement de la page le reprend. */ onRelease?: () => void;
   min?: number; max?: number; ticks?: number[]; fmtTick?: (v: number) => string;
   height?: number; label: string; color?: string; color2?: string; dots?: boolean;
   /** Courbe : relier aussi les points séparés par des jours sans valeur (pesées espacées). */
@@ -74,7 +74,7 @@ export function DayChart({ points, kind, sel, onSel, min, max, ticks, fmtTick, h
       {picks.map((i, k) => <span key={k} className="tick" style={{ top: B + 6, ...(k === 0 ? { left: 0 } : k === picks.length - 1 ? { right: AXIS } : { left: X(i) - 30, width: 60, textAlign: 'center' as const }) }}>{dateShort(points[i].day)}</span>)}
       <div className="cross" style={{ top: T, height: H, left: X(s) }} />
       {kind === 'line' && sp.v !== null && <span aria-hidden="true" className="marker-dot" style={{ background: sp.color ?? color, border: '2px solid var(--bg-surface)', left: X(s) - 5, top: Y(sp.v) - 5 }} />}
-      <div className="hit" style={{ width: W, height: B }} onPointerDown={(e) => onSel(idx(e))} onPointerMove={(e) => { if (e.pointerType === 'mouse' || e.buttons) onSel(idx(e)); }} />
+      <div className="hit" style={{ width: W, height: B }} onPointerDown={(e) => onSel(idx(e))} onPointerMove={(e) => { if (e.pointerType === 'mouse' || e.buttons) onSel(idx(e)); }} onPointerUp={onRelease} onPointerCancel={onRelease} onPointerLeave={(e) => { if (e.pointerType === 'mouse' && e.buttons) onRelease?.(); }} />
     </div>
   );
 }

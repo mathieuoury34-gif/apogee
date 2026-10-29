@@ -195,33 +195,45 @@ export function SettingsScreen() {
               <span className="stack"><span className="t-strong" id="lbl-prov">{$t("Charge provisoire")}</span><span className="t-caption c-moderate">{$t("Une séance sans FC ni ressenti compte d’après tes habitudes (charge par minute × durée), marquée « estimée », au lieu de zéro.")}</span></span>
               <Switch checked={prefs.provisionalLoad} labelledBy="lbl-prov" onChange={(v) => setPrefs({ provisionalLoad: v })} />
             </div>
-            {app && (
+          </div>
+        </Section>
+
+        {app && (
+          <Section id="p-reminders" title={$t("Rappels et notifications")}>
+            <div className="card g12" style={{ borderRadius: 'var(--radius-12)' }}>
+              <div className="between" style={{ gap: 'var(--space-12)' }}>
+                <span className="stack"><span className="t-strong" id="lbl-sessrem">{$t("Rappel de séance")}</span><span className="t-caption c-moderate">{$t("Le matin d’une séance prévue, et rappels de renouvellement du plan. Suspendus pendant une interruption.")}</span></span>
+                <Switch checked={prefs.sessionReminder !== false} labelledBy="lbl-sessrem" onChange={(v) => setPrefs({ sessionReminder: v })} />
+              </div>
+              {prefs.sessionReminder !== false && (
+                <div className="field">
+                  <span className="lbl">{$t("Heure du rappel de séance")}</span>
+                  <IntField label={$t("Heure du rappel de séance")} unit="h" value={prefs.reminderHour} onChange={(x) => setPrefs({ reminderHour: x ?? 7 })} min={0} max={23} />
+                </div>
+              )}
               <div className="between" style={{ gap: 'var(--space-12)' }}>
                 <span className="stack"><span className="t-strong" id="lbl-sleeprem">{$t("Rappel du sommeil")}</span><span className="t-caption c-moderate">{$t("Chaque matin, une notification t’invite à valider tes heures de coucher et de lever, ou à les corriger.")}</span></span>
                 <Switch checked={prefs.sleepReminder !== false} labelledBy="lbl-sleeprem" onChange={(v) => setPrefs({ sleepReminder: v })} />
               </div>
-            )}
-            {app && prefs.sleepReminder !== false && (
-              <div className="field">
-                <span className="lbl">{$t("Heure du rappel du sommeil")}</span>
-                <IntField label={$t("Heure du rappel du sommeil")} unit="h" value={prefs.sleepReminderHour ?? 8} onChange={(x) => setPrefs({ sleepReminderHour: x ?? 8 })} min={5} max={12} />
-              </div>
-            )}
-            {app && (
+              {prefs.sleepReminder !== false && (
+                <div className="field">
+                  <span className="lbl">{$t("Heure du rappel du sommeil")}</span>
+                  <IntField label={$t("Heure du rappel du sommeil")} unit="h" value={prefs.sleepReminderHour ?? 8} onChange={(x) => setPrefs({ sleepReminderHour: x ?? 8 })} min={5} max={12} />
+                </div>
+              )}
               <div className="between" style={{ gap: 'var(--space-12)' }}>
-                <span className="stack"><span className="t-strong" id="lbl-fixrem">{$t("Rappel des corrections")}</span><span className="t-caption c-moderate">{$t("Chaque dimanche à 18 h, en même temps que le point de la semaine, une notification t’invite à comparer la semaine (pas, étages, calories, sommeil) à Garmin Connect et à corriger les jours qui diffèrent nettement.")}</span></span>
-                <Switch checked={prefs.weeklyFixReminder !== false} labelledBy="lbl-fixrem" onChange={(v) => setPrefs({ weeklyFixReminder: v })} />
+                <span className="stack"><span className="t-strong" id="lbl-weekrem">{$t("Rappel du point de la semaine")}</span><span className="t-caption c-moderate">{$t("Chaque dimanche, une notification t’invite à remplir le point de la semaine : relevé de ta montre (VO₂max, ressenti, prédictions) et corrections de pas, étages, calories et sommeil d’après Garmin Connect. L’application s’ouvre alors directement sur le formulaire.")}</span></span>
+                <Switch checked={prefs.weeklyReminder !== false} labelledBy="lbl-weekrem" onChange={(v) => setPrefs({ weeklyReminder: v })} />
               </div>
-            )}
-            {app && (
-              <div className="field">
-                <span className="lbl">{$t("Heure des rappels de séance")}</span>
-                <IntField label={$t("Heure des rappels de séance")} unit="h" value={prefs.reminderHour} onChange={(x) => setPrefs({ reminderHour: x ?? 8 })} min={0} max={23} />
-                <span className="hint">{$t("Rappel le matin d’une séance prévue, et rappels de renouvellement du plan. Suspendus pendant une interruption.")}</span>
-              </div>
-            )}
-          </div>
-        </Section>
+              {prefs.weeklyReminder !== false && (
+                <div className="field">
+                  <span className="lbl">{$t("Heure du rappel du point de la semaine")}</span>
+                  <IntField label={$t("Heure du rappel du point de la semaine")} unit="h" value={prefs.weeklyReminderHour ?? 18} onChange={(x) => setPrefs({ weeklyReminderHour: x ?? 18 })} min={0} max={23} />
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
 
         <Section id="p-about" title={$t("À propos")}>
           <div className="card g8" style={{ borderRadius: 'var(--radius-12)' }}>

@@ -19,6 +19,7 @@ import { useActualMenu, usePlannedMenu } from '../ui/menu';
 import { WelcomeCard } from './Welcome';
 import { HealthCard } from './Health';
 import { ActivityTiles } from './ActivityTiles';
+import { CheckinCard } from './Wellness';
 
 /** Où mène chaque alerte de l'Accueil : directement à l'endroit qui permet d'agir. */
 const ALERT_LINK: Record<TrainingAlertCode, string> = {
@@ -85,6 +86,7 @@ export function HomeScreen() {
 
         {last && <LastSessionCard s={last} />}
         </div>
+        <div className="dspan-12"><CheckinCard /></div>
 
       </main>
       <Fab onClick={() => openSheet('ajouter')} />

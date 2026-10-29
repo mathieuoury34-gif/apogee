@@ -6,6 +6,8 @@ import { useMemo } from 'react';
 import { useCalc } from '../data/store';
 import { Info, InfoCard, InfoToggle } from '../ui/kit';
 import { Icon } from '../ui/icons';
+import { useLocalSheet } from '../ui/menu';
+import { CheckinSheet } from './Wellness';
 import { navigate } from '../ui/router';
 import { addDays, dayRange } from '../domain/dates';
 import { DayChart } from '../ui/daychart';
@@ -154,9 +156,14 @@ export function Vo2Card() {
   const efforts = useMemo(() => bestEfforts(data, d.today), [data, d.today]);
   const v = useMemo(() => vo2maxEstimate(data, d, efforts), [data, d, efforts]);
   const hrNote = d.ctx.hrMax.origin === 'tanaka';
+  const sheet = useLocalSheet();
   return (
     <InfoCard className="card g12" aria-label={$t("VO₂max estimée")} data-anchor="vo2max">
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("VO₂max")}<InfoToggle /></h2><Est /></div>
+      <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
+        <h2>{$t("VO₂max")}<InfoToggle /></h2>
+        <div className="row" style={{ gap: 'var(--space-8)', alignItems: 'center' }}><Est /><button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => sheet.show()}>{v.watch ? $t("Modifier") : $t("Saisir")}</button></div>
+      </div>
+      {sheet.open && <CheckinSheet onClose={sheet.hide} />}
       {v.value !== null ? (
         <>
           <div className="row" style={{ gap: 'var(--space-8)', alignItems: 'baseline' }}><span className="t-h2">{num(v.value, 0, 1)}</span><span className="t-caption c-moderate">ml/kg/min · {v.method === 'submax' ? $t("d’après tes sorties de course") : $t("d’après FC max / FC de repos")}</span></div>

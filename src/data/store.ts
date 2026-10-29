@@ -154,13 +154,19 @@ export interface Prefs {
   healthEnergyScan?: boolean;
   /** Version du lecteur de dépense / pas / étages avec laquelle les 180 derniers jours ont été relus (2 = sources Garmin seules, sans doublon). */
   healthGarminScan?: string;
-  /** Rappels de séance (APK) : heure locale. */
+  /** Rappels de séance et de renouvellement du plan (APK). Actifs par défaut. */
+  sessionReminder?: boolean;
+  /** Heure locale des rappels de séance. */
   reminderHour: number;
   /** Rappel du matin pour valider ou corriger la nuit (APK). Actif par défaut. */
   sleepReminder?: boolean;
   sleepReminderHour?: number;
-  /** Rappel du lundi matin pour corriger la semaine écoulée (pas, étages, calories, sommeil) d'après Garmin Connect (APK). Actif par défaut. */
-  weeklyFixReminder?: boolean;
+  /** Rappel du dimanche pour remplir le point de la semaine (relevé de la montre et corrections) (APK). Actif par défaut. */
+  weeklyReminder?: boolean;
+  /** Heure locale du rappel du point de la semaine (18 par défaut). */
+  weeklyReminderHour?: number;
+  /** Dernier rappel du point de la semaine dont le formulaire a déjà été ouvert (AAAA-MM-JJTHH) : le suivant l'ouvre en première page. */
+  weeklyPromptAck?: string;
 }
 const DEFAULT_PREFS: Prefs = { skipLogin: false, provisionalLoad: true, reminderHour: 7 };
 const prefListeners = new Set<() => void>();
