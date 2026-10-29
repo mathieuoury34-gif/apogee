@@ -85,13 +85,13 @@ function PlannedSheet({ p, sh }: { p: PlannedSession; sh: SheetCtl }) {
           const c = duplicatePlanned(p.id, date);
           sh.hide();
           if (c) showToast($t("Séance dupliquée au ") + dateFr(date), { undo: () => restore([{ coll: 'planned', id: c.id, rec: undefined }]) });
-        }} />}
+        }} onClose={() => setMode(null)} />}
         <Action icon="calendar" title={$t("Déplacer")} sub={$t("Change le jour de cette séance")} open={mode === 'move'} onClick={() => setMode(mode === 'move' ? null : 'move')} />
         {mode === 'move' && <DatePicker value={p.plannedDate} label={$t("Déplacer au")} onChange={(date) => {
           const snap = movePlanned(p.id, date);
           sh.hide();
           showToast($t("Séance déplacée au ") + dateFr(date), { undo: () => restore(snap) });
-        }} />}
+        }} onClose={() => setMode(null)} />}
         <Action icon="bookmark" title={$t("Ajouter aux favoris")} sub={$t("Pour la replacer plus tard en un geste")} onClick={() => { const t = templateFromSession(p.id); sh.hide(); if (t) showToast($t("Ajoutée aux favoris : {0}", { 0: t.name })); }} />
         <Action icon="pencil" title={$t("Modifier")} sub={$t("Ouvre l’éditeur de blocs")} onClick={() => sh.leave('/calendrier/editer/' + p.id)} />
         {!confirm
@@ -134,7 +134,7 @@ function ActualSheet({ s, sh }: { s: ActualSession; sh: SheetCtl }) {
             const c = duplicatePlanned(plan.id, date);
             sh.hide();
             if (c) showToast($t("Séance dupliquée au ") + dateFr(date), { undo: () => restore([{ coll: 'planned', id: c.id, rec: undefined }]) });
-          }} />}
+          }} onClose={() => setCopy(false)} />}
         </>}
       </div>
     </Sheet>

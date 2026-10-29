@@ -304,7 +304,7 @@ export function WeightCard({ data, d }: Props) {
   const wDays = dayRange(wFirst < addDays(d.today, -364) ? wFirst : addDays(d.today, -364), d.today);
   const wp = usePeriod();
   const wWin = wp.slice(wDays);
-  const [wsi, setWsi] = useDaySel(wWin, (x) => !!data.weight[x] && !data.weight[x].deleted);
+  const [wsi, setWsi, relW] = useDaySel(wWin, (x) => !!data.weight[x] && !data.weight[x].deleted);
   const wDay = wWin[wsi] ?? d.today;
   const wAt = (x: string) => { const r = data.weight[x]; return r && !r.deleted ? r.kg : null; };
   const wAvg = (() => { const v = Array.from({ length: 7 }, (_, k) => wAt(addDays(wDay, -k))).filter((x): x is number => x !== null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; })();
@@ -336,7 +336,7 @@ export function WeightCard({ data, d }: Props) {
             { label: $t("Pesée du jour"), value: wAt(wDay) === null ? '—' : num(wAt(wDay)!, 1) + NBSP + 'kg', color: 'var(--chart-value)', key: true },
             { label: $t("Moyenne 7 jours"), value: wAvg === null ? '—' : num(wAvg, 1) + NBSP + 'kg' },
           ]} />
-          <DayChart points={wWin.map((x) => ({ day: x, v: wAt(x) }))} kind="line" connect sel={wsi} onSel={setWsi} height={110} fmtTick={(v) => num(v, 1)} label={$t("Poids par jour")} dots />
+          <DayChart points={wWin.map((x) => ({ day: x, v: wAt(x) }))} kind="line" connect sel={wsi} onSel={setWsi} onRelease={relW} height={110} fmtTick={(v) => num(v, 1)} label={$t("Poids par jour")} dots />
         </>
       )}
       <Info>{$t("La moyenne sur 7 jours lisse les variations d’hydratation d’un jour à l’autre. Le poids est un simple suivi : il ne modifie aucune charge. Une pesée saisie à la main n’est jamais écrasée par Health Connect.")}</Info>
@@ -364,7 +364,7 @@ export function SleepCard({ data, d }: Props) {
   const first = nightsAll.reduce((m, n) => (n.nightDate < m ? n.nightDate : m), d.today);
   const all = dayRange(first < addDays(d.today, -364) ? first : addDays(d.today, -364), d.today);
   const days = pw.slice(all);
-  const [si, setSi] = useDaySel(days, (x) => !!data.sleep[x] && !data.sleep[x].deleted);
+  const [si, setSi, relS] = useDaySel(days, (x) => !!data.sleep[x] && !data.sleep[x].deleted);
   const [bed, setBed] = useState<number | null>(null);
   const [wake, setWake] = useState<number | null>(null);
   if (nightsAll.length === 0) return null;
@@ -396,7 +396,7 @@ export function SleepCard({ data, d }: Props) {
         { label: $t("Durée"), value: n ? hhSleep(n.durationSec) : '—', color: 'var(--chart-value)', key: true },
         { label: $t("Coucher → lever"), value: n ? timeOf(n.startAt, n.zoneOffsetMinutes) + ' → ' + timeOf(n.endAt, n.zoneOffsetMinutes) : '—' },
       ]} />
-      <DayChart points={days.map((x) => { const r = data.sleep[x]; return { day: x, v: r && !r.deleted ? r.durationSec / 3600 : null, faint: !!r && !r.deleted && !r.fromStages }; })} kind="bars" min={0} max={10} ticks={[0, 2, 4, 6, 8, 10]} fmtTick={(v) => v + ' h'} sel={si} onSel={setSi} height={110} color="var(--chart-value)" label={$t("Durée de sommeil par nuit")} />
+      <DayChart points={days.map((x) => { const r = data.sleep[x]; return { day: x, v: r && !r.deleted ? r.durationSec / 3600 : null, faint: !!r && !r.deleted && !r.fromStages }; })} kind="bars" min={0} max={10} ticks={[0, 2, 4, 6, 8, 10]} fmtTick={(v) => v + ' h'} sel={si} onSel={setSi} onRelease={relS} height={110} color="var(--chart-value)" label={$t("Durée de sommeil par nuit")} />
       <dl className="kv">
         <dt>{$t("Durée moyenne, 7 dernières nuits")}</dt><dd>{st.avg7 === null ? '—' : hhSleep(st.avg7)}</dd>
         <dt>{$t("Écart avec les 3 semaines précédentes")}</dt><dd>{diff === null ? '—' : (diff >= 0 ? '+' : '−') + Math.round(Math.abs(diff) / 60) + NBSP + 'min'}</dd>

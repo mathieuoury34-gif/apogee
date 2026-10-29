@@ -291,7 +291,7 @@ function RaceSheet({ onClose }: { onClose: () => void }) {
         <label className="field"><span className="lbl">{$t("Nom")}</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></label>
         <div className="field"><span className="lbl">{$t("Date")}</span>
           <button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setCal(!cal)}><span>{dayTitle(date)} {date.slice(0, 4)}</span><Icon name="calendar" size={20} /></button>
-          {cal && <DatePicker value={date} onChange={(v) => { setDate(v); setCal(false); }} />}
+          {cal && <DatePicker value={date} onChange={(v) => { setDate(v); setCal(false); }}  onClose={() => setCal(false)} />}
         </div>
         <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
           <div className="field"><span className="lbl">{$t("Natation (m)")}</span><DistanceField label={$t("Natation (m)")} meters value={numOf(swim)} onChange={(m) => setSwim(m === null ? '' : String(m))} loStep={25} hiMax={30} clearable initial={1900} /></div>
@@ -426,7 +426,7 @@ function ZoneSheet({ kind, onClose }: { kind: ZoneKind; onClose: () => void }) {
         <div className="field"><span className="lbl">{$t("Source")}</span><Segmented label={$t("Source")} value={source} onChange={setSource} options={[['test', $t("Test")], ['estimation', $t("Estimation")], ['manual', $t("Saisie")]]} /></div>
         <div className="field"><span className="lbl">{$t("Date")}</span>
           <button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setCal(!cal)}><span>{dayTitle(date)} {date.slice(0, 4)}</span><Icon name="calendar" size={20} /></button>
-          {cal && <DatePicker value={date} onChange={(x) => { setDate(x); setCal(false); }} />}
+          {cal && <DatePicker value={date} onChange={(x) => { setDate(x); setCal(false); }}  onClose={() => setCal(false)} />}
         </div>
         <label className="field"><span className="lbl">{$t("Note")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><input className="input" value={notes} placeholder={$t("Test demi-Cooper, piste…")} onChange={(e) => setNotes(e.target.value)} /></label>
       </div>

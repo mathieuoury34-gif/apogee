@@ -237,6 +237,7 @@ select.input { appearance: auto; }
 .datepicker .grid button.today { color: var(--primary-fg); font: var(--type-chip); }
 .datepicker .grid button[aria-pressed="true"] { font: var(--type-chip); background: var(--chip-on-bg); color: var(--chip-on-fg); box-shadow: inset 0 0 0 1.5px var(--chip-on-border); }
 .datepicker .grid button:disabled { visibility: hidden; }
+.popup .datepicker { box-shadow: none; border: 1px solid var(--divider-minimal); }
 .datepicker .grid button.out:disabled { visibility: visible; opacity: .3; cursor: default; }
 
 /* ------------------------------------------------------------------ listes */

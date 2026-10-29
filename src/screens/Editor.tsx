@@ -256,7 +256,7 @@ export function PlannedEditorScreen({ id }: { id: string }) {
             <button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} aria-expanded={cal} onClick={() => setCal(!cal)}>
               <span>{dayTitle(draft.plannedDate)} {draft.plannedDate.slice(0, 4)}</span><Icon name="calendar" size={20} style={{ color: 'var(--primary-fg)' }} />
             </button>
-            {cal && <DatePicker value={draft.plannedDate} label={$t("Date de la séance")} onChange={(v) => { setDraft({ ...draft, plannedDate: v }); setCal(false); }} />}
+            {cal && <DatePicker value={draft.plannedDate} label={$t("Date de la séance")} onChange={(v) => { setDraft({ ...draft, plannedDate: v }); setCal(false); }}  onClose={() => setCal(false)} />}
           </div>
           <label className="field">
             <span className="lbl">{$t("Titre")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>

@@ -348,8 +348,13 @@ export function useSwipe(onNext: () => void, onPrev: () => void) {
   };
 }
 
-/** Calendrier (DatePicker) : mois navigable, en-tête vert. */
-export function DatePicker({ value, onChange, label = $t('Date'), max }: { value: string; onChange: (iso: string) => void; label?: string; /** Dernier jour choisissable (les suivants sont grisés). */ max?: string }) {
+/**
+ * Calendrier (DatePicker) : petite fenêtre centrée au-dessus de l'écran, comme les roulettes (Annuler / OK).
+ * Le jour touché est seulement présélectionné ; `onChange` n'est appelé qu'avec OK, `onClose` pour Annuler ou toucher à côté.
+ * Toujours 6 semaines affichées : la fenêtre garde la même hauteur d'un mois à l'autre.
+ */
+export function DatePicker({ value, onChange, onClose, label = $t('Date'), max }: { value: string; onChange: (iso: string) => void; onClose: () => void; label?: string; /** Dernier jour choisissable (les suivants sont grisés). */ max?: string }) {
+  const [draft, setDraft] = useState(value);
   const [view, setView] = useState(value.slice(0, 7));
   const y = +view.slice(0, 4), m = +view.slice(5, 7);
   const first = new Date(Date.UTC(y, m - 1, 1));
@@ -358,35 +363,34 @@ export function DatePicker({ value, onChange, label = $t('Date'), max }: { value
   const MONTHS = MONTHS_TITLE;
   const shift = (k: number) => { let mm = m + k, yy = y; if (mm < 1) { mm = 12; yy--; } if (mm > 12) { mm = 1; yy++; } setView(yy + '-' + String(mm).padStart(2, '0')); };
   const today = new Date().toISOString().slice(0, 10);
-  const long = dayTitle(value);
   const swipe = useSwipe(() => shift(1), () => shift(-1));
   return (
-    <div className="datepicker" data-component="DatePicker" {...swipe}>
-      <div className="head">
-        <span className="overline">{label}</span>
-        <span className="t-h2">{long}</span>
-      </div>
-      <div className="body">
-        <div className="month">
-          <button type="button" className="icon-btn" aria-label={$t('Mois précédent')} onClick={() => shift(-1)}><Icon name="back" size={20} /></button>
-          <span>{MONTHS[m - 1]} {y}</span>
-          <button type="button" className="icon-btn" aria-label={$t('Mois suivant')} onClick={() => shift(1)}><Icon name="next" size={20} /></button>
+    <Popup title={label} onClose={onClose} onOk={() => onChange(draft)}>
+      <div className="datepicker" data-component="DatePicker" {...swipe}>
+        <div className="head">
+          <span className="t-h2">{dayTitle(draft)} {draft.slice(0, 4)}</span>
         </div>
-        <div className="grid">
-          {$t('L,M,M,J,V,S,D').split(',').map((d, i) => <span key={i}>{d}</span>)}
-          {Array.from({ length: offset }, (_, i) => <button key={'b' + i} type="button" disabled tabIndex={-1} />)}
-          {Array.from({ length: days }, (_, i) => {
-            const iso = view + '-' + String(i + 1).padStart(2, '0');
-            const out = !!max && iso > max;
-            return (
-              <button key={iso} type="button" disabled={out} aria-pressed={iso === value} className={(iso === today ? 'today' : '') + (out ? ' out' : '') || undefined} onClick={() => onChange(iso)}>{i + 1}</button>
-            );
-          })}
-          {/* toujours 6 semaines : la fenêtre garde la même hauteur d'un mois à l'autre (plus de saut en glissant) */}
-          {Array.from({ length: Math.max(0, 42 - offset - days) }, (_, i) => <button key={'a' + i} type="button" disabled tabIndex={-1} />)}
+        <div className="body">
+          <div className="month">
+            <button type="button" className="icon-btn" aria-label={$t('Mois précédent')} onClick={() => shift(-1)}><Icon name="back" size={20} /></button>
+            <span>{MONTHS[m - 1]} {y}</span>
+            <button type="button" className="icon-btn" aria-label={$t('Mois suivant')} onClick={() => shift(1)}><Icon name="next" size={20} /></button>
+          </div>
+          <div className="grid">
+            {$t('L,M,M,J,V,S,D').split(',').map((d, i) => <span key={i}>{d}</span>)}
+            {Array.from({ length: offset }, (_, i) => <button key={'b' + i} type="button" disabled tabIndex={-1} />)}
+            {Array.from({ length: days }, (_, i) => {
+              const iso = view + '-' + String(i + 1).padStart(2, '0');
+              const out = !!max && iso > max;
+              return (
+                <button key={iso} type="button" disabled={out} aria-pressed={iso === draft} className={(iso === today ? 'today' : '') + (out ? ' out' : '') || undefined} onClick={() => setDraft(iso)}>{i + 1}</button>
+              );
+            })}
+            {Array.from({ length: Math.max(0, 42 - offset - days) }, (_, i) => <button key={'a' + i} type="button" disabled tabIndex={-1} />)}
+          </div>
         </div>
       </div>
-    </div>
+    </Popup>
   );
 }
 
@@ -410,7 +414,7 @@ export function DateField({ value, onChange, label, max, min, pickerLabel }: { v
         </button>
         <button type="button" className="icon-btn" aria-label={$t("Jour suivant")} disabled={!!max && value >= max} onClick={() => step(1)}><Icon name="next" size={20} /></button>
       </div>
-      {open && <DatePicker value={value} label={pickerLabel ?? label} max={max} onChange={(v) => { onChange(v); setOpen(false); }} />}
+      {open && <DatePicker value={value} label={pickerLabel ?? label} max={max} onChange={(v) => { onChange(v); setOpen(false); }} onClose={() => setOpen(false)} />}
     </div>
   );
 }

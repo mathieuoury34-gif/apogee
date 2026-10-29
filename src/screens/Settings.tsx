@@ -306,7 +306,7 @@ export function ProfileScreen() {
           <label className="field"><span className="lbl">{$t("Prénom")}</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></label>
           <div className="field"><span className="lbl">{$t("Date de naissance")}</span>
             <button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setCal(!cal)}><span>{birth ? $t("{0} · {1} ans", { 0: dateFr(birth), 1: ageAt(birth) }) : $t("Choisir")}</span><Icon name="calendar" size={20} /></button>
-            {cal && <DatePicker value={birth || '1990-01-01'} onChange={(v) => { setBirth(v); setCal(false); }} />}
+            {cal && <DatePicker value={birth || '1990-01-01'} onChange={(v) => { setBirth(v); setCal(false); }}  onClose={() => setCal(false)} />}
             <span className="hint">{$t("Sert à estimer la FC max (Tanaka) tant qu’aucune valeur testée n’est déclarée.")}</span>
           </div>
           <div className="field"><span className="lbl">{$t("Sexe")}</span>

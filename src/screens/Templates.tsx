@@ -2,7 +2,7 @@
 // Les modèles sont une collection synchronisée (« templates ») : ils suivent ton compte comme le reste.
 import { $t } from '../i18n';
 import { useState } from 'react';
-import { DatePicker, Sheet, showToast } from '../ui/kit';
+import { DateField, Sheet, showToast } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { closeSheet, useRoute } from '../ui/router';
 import { useCalc } from '../data/store';
@@ -60,7 +60,7 @@ export function WeekActionsSheet({ monday, sh }: { monday: string; sh: Ctl }) {
         <Row icon="copy" title={$t("Copier cette semaine vers…")} sub={$t("Les séances prévues, au même jour de la semaine choisie")} open={mode === 'copy'} onClick={() => setMode(mode === 'copy' ? null : 'copy')} />
         {mode === 'copy' && (
           <div className="stack-8" style={{ padding: 'var(--space-8) 0' }}>
-            <DatePicker value={target} label={$t("Semaine de destination")} onChange={setTarget} />
+            <DateField value={target} label={$t("Semaine de destination")} onChange={setTarget} />
             <p className="t-caption c-neutral">{here.length ? $t("{0} séance(s) seront ajoutées à la semaine du {1}.", { 0: here.length, 1: dateFr(dst) }) : $t("Cette semaine n’a aucune séance prévue à copier.")}{dstCount > 0 ? ' ' + $t("Elle contient déjà {0} séance(s) prévue(s) : elles sont conservées, rien n’est écrasé.", { 0: dstCount }) : ''}</p>
             <button type="button" className="btn btn-primary" disabled={!here.length || dst === monday} onClick={doCopy}>{$t("Copier")}</button>
           </div>

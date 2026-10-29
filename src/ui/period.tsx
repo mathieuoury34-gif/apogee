@@ -64,10 +64,11 @@ export function PeriodBar({ p, total, from, to, label, children }: { p: PeriodWi
 }
 
 /** Jour lu par le curseur d'un graphe : mémorisé par date, donc il reste en place quand on change de fenêtre s'il y est encore, sinon retour au dernier jour. */
-export function useDaySel(days: string[], hasData?: (day: string) => boolean): [number, (i: number) => void] {
+export function useDaySel(days: string[], hasData?: (day: string) => boolean): [number, (i: number) => void, () => void] {
   const [sel, setSel] = useState<string | null>(null);
   const i = sel === null ? -1 : days.indexOf(sel);
   let dflt = Math.max(0, days.length - 1);
   if (hasData) for (let k = days.length - 1; k >= 0; k--) if (hasData(days[k])) { dflt = k; break; }
-  return [i >= 0 ? i : dflt, (k: number) => setSel(days[k] ?? null)];
+  /** Le troisième élément (`release`) est à passer à `onRelease` du graphe : le doigt lâché, le curseur revient sur le dernier jour (aujourd’hui). */
+  return [i >= 0 ? i : dflt, (k: number) => setSel(days[k] ?? null), () => setSel(null)];
 }

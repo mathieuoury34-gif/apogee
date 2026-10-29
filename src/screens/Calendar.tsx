@@ -333,7 +333,7 @@ export function PlannedDetailScreen({ id }: { id: string }) {
             if (picker === 'move') { const snap = movePlanned(p.id, date); showToast($t("Séance déplacée au ") + dateFr(date), { undo: () => restore(snap) }); }
             else { const c = duplicatePlanned(p.id, date); if (c) showToast($t("Séance dupliquée au ") + dateFr(date), { undo: () => restore([{ coll: 'planned', id: c.id, rec: undefined }]) }); }
             setPicker(null);
-          }} />}
+          }} onClose={() => setPicker(null)} />}
           {!confirm ? <button type="button" className="btn btn-tertiary" style={{ color: 'var(--critical-text)', alignSelf: 'center' }} onClick={() => setConfirm(true)}><Icon name="trash" size={18} />{$t("Supprimer la séance")}</button> : (
             <div className="row wrap" style={{ justifyContent: 'center' }}>
               <button type="button" className="btn btn-danger" onClick={remove}>{$t("Supprimer")}</button>

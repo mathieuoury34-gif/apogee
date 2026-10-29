@@ -76,7 +76,7 @@ export function ReadinessCard() {
   const days = pw.slice(all);
   const key = days[0] + days.length;
   const pts = useMemo(() => days.map((day) => ({ day, r: readiness(data, d, day) })), [data, d, key]);
-  const [si, setSi] = useDaySel(days, (x) => !!pts.find((q) => q.day === x)?.r);
+  const [si, setSi, relSel] = useDaySel(days, (x) => !!pts.find((q) => q.day === x)?.r);
   const cur = pts[si];
   const r = cur?.r ?? null;
   const missingSel = useMemo(() => (cur ? readinessFactors(data, d, cur.day).missing : []), [data, d, cur?.day]);
@@ -85,7 +85,7 @@ export function ReadinessCard() {
       <h2>{$t("Disponibilité à l’entraînement")}<InfoToggle /></h2>
       <PeriodBar p={pw} total={all.length} from={days[0]} to={days[days.length - 1]} />
       <Readout when={cur ? (cur.day === d.today ? $t("Aujourd’hui") : dayTitle(cur.day)) : ''} cols={1} cells={[{ label: r ? R_LABEL[r.level] : $t("Pas assez de données"), value: r ? r.score : '—', color: r ? R_COLOR[r.level] : undefined, key: true, valueColor: r ? R_COLOR[r.level] : undefined }]} />
-      <DayChart points={pts.map((p) => ({ day: p.day, v: p.r ? p.r.score : null, color: p.r ? R_COLOR[p.r.level] : undefined }))} kind="bars" min={0} max={100} ticks={[0, 25, 50, 75, 100]} sel={si} onSel={setSi} height={110} label={$t("Disponibilité à l’entraînement par jour")} />
+      <DayChart points={pts.map((p) => ({ day: p.day, v: p.r ? p.r.score : null, color: p.r ? R_COLOR[p.r.level] : undefined }))} kind="bars" min={0} max={100} ticks={[0, 25, 50, 75, 100]} sel={si} onSel={setSi} onRelease={relSel} height={110} label={$t("Disponibilité à l’entraînement par jour")} />
       {r ? (
         <>
           <p className="t-caption c-neutral">{R_TEXT[r.level]}</p>
@@ -123,7 +123,7 @@ export function ReserveCard() {
   const days = pw.slice(all);
   const last = days[days.length - 1] ?? d.today;
   const pts = useMemo(() => energyReserve(data, d, days.length || 1, last), [data, d, days.length, last]);
-  const [si, setSi] = useDaySel(pts.map((p) => p.day));
+  const [si, setSi, relSel] = useDaySel(pts.map((p) => p.day));
   const cur = pts[si];
   return (
     <InfoCard className="card g12" aria-label={$t("Réserve d’énergie")} data-anchor="reserve">
@@ -137,7 +137,7 @@ export function ReserveCard() {
             { label: $t("Sommeil"), value: cur.sleepSec === null ? $t("supposé") : hhmm(cur.sleepSec) },
             { label: $t("Charge du jour"), value: num(cur.load, 0) },
           ]} />
-          <DayChart points={pts.map((p) => ({ day: p.day, v: p.wake, lo: p.evening, faint: p.sleepAssumed }))} kind="range" min={0} max={100} ticks={[0, 25, 50, 75, 100]} sel={si} onSel={setSi} height={120} color="var(--form-ready)" label={$t("Réserve d’énergie par jour : réveil et point bas")} />
+          <DayChart points={pts.map((p) => ({ day: p.day, v: p.wake, lo: p.evening, faint: p.sleepAssumed }))} kind="range" min={0} max={100} ticks={[0, 25, 50, 75, 100]} sel={si} onSel={setSi} onRelease={relSel} height={120} color="var(--form-ready)" label={$t("Réserve d’énergie par jour : réveil et point bas")} />
           <div className="legend"><span><span className="dot s10" style={{ background: 'var(--form-ready)' }} />{$t("De l’heure du réveil (haut) au point bas de la journée (bas)")}</span><span><span className="dot s10" style={{ background: 'var(--form-ready)', opacity: 0.45 }} />{$t("Nuit non enregistrée")}</span></div>
         </>
       )}

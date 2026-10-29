@@ -139,7 +139,7 @@ export function ActivityCard() {
   const all = useMemo(() => dayRange(addDays(d.today, -364), d.today), [d.today]);
   const pw = usePeriod();
   const days = pw.slice(all);
-  const [si, setSi] = useDaySel(days);
+  const [si, setSi, relSel] = useDaySel(days);
   const fix = useLocalSheet();
   const val = (x: string) => { const e = data.energy[x]; return e && !e.deleted ? e[what] ?? null : null; };
   const known = days.map(val).filter((x): x is number => !!x);
@@ -158,7 +158,7 @@ export function ActivityCard() {
         { label: what === 'steps' ? $t("Pas") : $t("Étages"), value: val(day) === null ? '—' : num(val(day)!, 0), color: what === 'steps' ? 'var(--chart-7)' : 'var(--chart-4)', key: true },
         { label: $t("Moyenne de la période"), value: avg === null ? '—' : num(avg, 0) },
       ]} />
-      <DayChart points={days.map((x) => ({ day: x, v: val(x) }))} kind="bars" sel={si} onSel={setSi} height={110} color={what === 'steps' ? 'var(--chart-7)' : 'var(--chart-4)'} fmtTick={(v) => num(v, 0)} label={what === 'steps' ? $t("Pas par jour") : $t("Étages par jour")} />
+      <DayChart points={days.map((x) => ({ day: x, v: val(x) }))} kind="bars" sel={si} onSel={setSi} onRelease={relSel} height={110} color={what === 'steps' ? 'var(--chart-7)' : 'var(--chart-4)'} fmtTick={(v) => num(v, 0)} label={what === 'steps' ? $t("Pas par jour") : $t("Étages par jour")} />
       <Info>{$t("Lus dans Health Connect (rien n’est recalculé) : Garmin Connect y dépose le total du jour. Les étages ne sont affichés que si la montre les transmet. « Saisir » / « Modifier » corrige le jour affiché d’après Garmin Connect en cas d’écart net : la valeur saisie n’est plus écrasée par la montre.")}</Info>
       {fix.open && <EnergyEditSheet day={day} parts={['steps', 'floors']} onClose={fix.hide} />}
     </InfoCard>

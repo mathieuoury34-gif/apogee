@@ -573,3 +573,5 @@ prévisionnel ; alerte blessure ; estimation de VMA ; poids et sommeil ; ingesti
 **Addendum 29/10 (seuil à double échelle)** : `DayChart` accepte `second: SecondAxis` (deuxième courbe, axe à droite, `invert` pour l’allure) ; les deux axes ont 4 intervalles égaux (`axis4`) pour que les graduations tombent sur les mêmes lignes. `CheckinSheet only="curves"` remplace `'vo2' | 'pred'`. `GraphPrediction` porte aussi `lthrBpm` et `lthPaceSecKm`.
 
 **Addendum 29/10 (stabilité visuelle)** : `DateField` (ui/kit.tsx) = champ date commun (flèches, balayage, calendrier `DatePicker` avec `max`). `DatePicker` remplit toujours 42 cases (6 semaines). `Readout` : valeur et note dans une même ligne (`.valrow`, hauteur minimale fixe). Toute ligne conditionnelle sous un graphe à curseur doit réserver sa place (ex. « Relevé du… »).
+
+**Addendum 29/10 (calendriers en fenêtre)** : `DatePicker` rend un `Popup` (portail, comme `WheelField`) : jour présélectionné, `onChange` seulement avec OK, `onClose` pour Annuler. `useDaySel` renvoie un 3e élément `release` à passer à `onRelease` du `DayChart`.

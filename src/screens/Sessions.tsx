@@ -372,7 +372,7 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
         {s.source === 'health' && <Info>{$t("Une valeur mesurée par la montre que tu corriges passe en « saisie », pour de bon. La séance reste la même (aucun doublon à la prochaine lecture).")}</Info>}
         <div className="field"><span className="lbl">{$t("Date")}</span>
           <button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setCal(!cal)}><span>{dayTitle(date)} {date.slice(0, 4)}</span><Icon name="calendar" size={20} /></button>
-          {cal && <DatePicker value={date} onChange={(v) => { setDate(v); setCal(false); }} />}
+          {cal && <DatePicker value={date} onChange={(v) => { setDate(v); setCal(false); }}  onClose={() => setCal(false)} />}
         </div>
         <div className="field"><span className="lbl">{$t("Discipline")}</span>
           <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>{ACTUAL_DISCIPLINES.map((x) => <button key={x} type="button" className="chip" aria-pressed={disc === x} onClick={() => setDisc(x)}>{DISCIPLINE_LABEL[x]}</button>)}</div>
@@ -481,7 +481,7 @@ export function ManualEntryScreen() {
             <>
               <div className="field"><span className="lbl">{$t("Date")}</span>
                 <button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setCal(!cal)}><span>{dayTitle(date)} {date.slice(0, 4)}</span><Icon name="calendar" size={20} /></button>
-                {cal && <DatePicker value={date} onChange={(v) => { setDate(v); setCal(false); }} />}
+                {cal && <DatePicker value={date} onChange={(v) => { setDate(v); setCal(false); }}  onClose={() => setCal(false)} />}
               </div>
               <div className="field"><span className="lbl">{$t("Discipline")}</span>
                 <div className="disc-picker" role="radiogroup" aria-label={$t("Discipline")}>
