@@ -5,7 +5,7 @@ import { newId, nowIso } from '../domain/ids';
 import { buildManualSession, existingSourceIds, manualSourceId, type ManualInput } from '../domain/manual';
 import { liveRecords, sessionDay } from '../domain/load';
 import { planDedupe } from '../domain/dedupe';
-import type { SessionTemplate, ActualSession, AppData, Athlete, Checkin, CollectionName, Collections, EditableField, Interruption, WeightReading, PlannedSession, Race, SleepNight, TrainingPhase, ZoneReading } from '../domain/types';
+import type { SessionTemplate, ActualSession, AppData, Athlete, Checkin, CollectionName, Collections, EditableField, EnergyDay, EnergyPart, Interruption, WeightReading, PlannedSession, Race, SleepNight, TrainingPhase, ZoneReading } from '../domain/types';
 import { COLLECTIONS } from '../domain/types';
 import { applyPreview, type CoachPlan, type Preview } from '../domain/coach';
 import { purgePlan } from '../domain/purge';
@@ -292,6 +292,38 @@ export function saveSleepNight(nightDate: string, bedSec: number, wakeSec: numbe
 export function resetSleepNight(nightDate: string): Snapshot {
   const s = snapshot([['sleep', nightDate]]);
   commit((tx) => tx.remove('sleep', nightDate));
+  return s;
+}
+
+// ------------------------------------------------------------------ pas, étages, calories : correction d'un jour d'après Garmin Connect
+export interface EnergyEdit { steps?: number | null; floors?: number | null; activeKcal?: number | null; totalKcal?: number | null }
+/** Corrige un jour : seules les valeurs fournies sont écrites et marquées « à la main » ; la montre ne les écrase plus. */
+export function saveEnergyDay(day: string, v: EnergyEdit): Snapshot {
+  const s = snapshot([['energy', day]]);
+  const live = getData().energy[day];
+  const cur: EnergyDay = live && !live.deleted ? live : { id: day, updatedAt: '', day, activeKcal: null, totalKcal: null, source: 'health' };
+  const edited = new Set<EnergyPart>(cur.edited ?? []);
+  const next: EnergyDay = { ...cur, updatedAt: nowIso() };
+  const r = (x: number) => Math.max(0, Math.round(x));
+  if (v.steps != null) { next.steps = r(v.steps); edited.add('steps'); }
+  if (v.floors != null) { next.floors = r(v.floors); edited.add('floors'); }
+  if (v.activeKcal != null && v.totalKcal != null) { next.activeKcal = r(v.activeKcal); next.totalKcal = r(v.totalKcal); next.basalKcal = next.totalKcal - next.activeKcal; edited.add('kcal'); }
+  next.edited = [...edited];
+  commit((tx) => tx.put('energy', next));
+  return s;
+}
+/** Rend des parties du jour à la montre : elles sont vidées et reprises dans Health Connect à la prochaine lecture. */
+export function resetEnergyDay(day: string, parts: EnergyPart[]): Snapshot {
+  const s = snapshot([['energy', day]]);
+  const live = getData().energy[day];
+  if (!live || live.deleted) return s;
+  const next: EnergyDay = { ...live, updatedAt: nowIso(), edited: (live.edited ?? []).filter((p) => !parts.includes(p)) };
+  if (parts.includes('steps')) next.steps = null;
+  if (parts.includes('floors')) next.floors = null;
+  if (parts.includes('kcal')) { next.activeKcal = null; next.totalKcal = null; next.basalKcal = null; }
+  if (!next.edited!.length) delete next.edited;
+  if (!next.activeKcal && !next.totalKcal && !next.steps && !next.floors) commit((tx) => tx.remove('energy', day));
+  else commit((tx) => tx.put('energy', next));
   return s;
 }
 

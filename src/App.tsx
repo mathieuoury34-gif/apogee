@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { HOME, navigate, useRoute } from './ui/router';
 import { TabBar, ToastHost } from './ui/kit';
 import { HomeScreen } from './screens/Home';
+import { EnergyDaySheet } from './screens/Wellness';
 import { AddSheet, CalendarMonthScreen, CalendarWeekScreen, PlannedDetailScreen } from './screens/Calendar';
 import { PlannedEditorScreen } from './screens/Editor';
 import { JournalScreen, ManualEntryScreen, ReviewScreen, StatsScreen } from './screens/Sessions';
@@ -95,6 +96,7 @@ export function App() {
       {!fullScreen && <TabBar />}
       {sheet === 'ajouter' && <AddSheet />}
       {sheet === 'favoris' && <FavoritesSheet />}
+      {sheet === 'jour' && <EnergyDaySheet />}
       <ToastHost />
     </>
   );

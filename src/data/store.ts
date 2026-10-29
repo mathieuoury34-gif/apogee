@@ -159,6 +159,8 @@ export interface Prefs {
   /** Rappel du matin pour valider ou corriger la nuit (APK). Actif par défaut. */
   sleepReminder?: boolean;
   sleepReminderHour?: number;
+  /** Rappel du lundi matin pour corriger la semaine écoulée (pas, étages, calories, sommeil) d'après Garmin Connect (APK). Actif par défaut. */
+  weeklyFixReminder?: boolean;
 }
 const DEFAULT_PREFS: Prefs = { skipLogin: false, provisionalLoad: true, reminderHour: 7 };
 const prefListeners = new Set<() => void>();

@@ -12,20 +12,13 @@ import { DayChart } from '../ui/daychart';
 import { PeriodBar, useDaySel, usePeriod } from '../ui/period';
 import { Readout } from '../ui/readout';
 import {
-  bestEfforts, effortAdjuster, energyReserve, enduranceScore, hillScore, racePredictions, readiness, readinessFactors, trainingEffects, vo2maxEstimate, watchCalibration,
+  bestEfforts, effortAdjuster, energyReserve, enduranceScore, hillScore, readiness, readinessFactors, trainingEffects, vo2maxEstimate,
   readinessLevel, type ReadinessKey, type ReadinessLevel,
 } from '../domain/capacity';
 import type { TeLevel } from '../domain/science';
 import { dayMonth, dayTitle, hhmm, NBSP, num, signed, weekdayShort } from '../ui/format';
 
 const Est = () => <span className="var-chip flat" style={{ alignSelf: 'center' }}>{$t("estimation Apogée")}</span>;
-
-export function clockOf(sec: number | null): string {
-  if (sec === null || !isFinite(sec)) return '—';
-  const s = Math.round(sec);
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
-  return h ? `${h}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}` : `${m}:${String(r).padStart(2, '0')}`;
-}
 
 // ------------------------------------------------------------------ Training Effect (détail d'une séance)
 export const TE_LABEL: Record<TeLevel, string> = { none: $t("Aucun effet"), minor: $t("Effet léger"), maintain: $t("Maintien"), improve: $t("Amélioration"), high: $t("Forte amélioration"), over: $t("Surcharge") };
@@ -172,41 +165,6 @@ export function Vo2Card() {
         </>
       ) : <><p className="t-caption c-moderate">{$t("Il faut ta FC de repos (montre lue par Health Connect) et ta FC max pour estimer la VO₂max. Renseigne ta date de naissance dans Paramètres › Athlète si besoin.")}</p><button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/parametres/profil')}>{$t("Ouvrir le profil")}</button></>}
       <Info>{$t("Méthode publiée : sorties de course à allure stable — coût en oxygène de la course (ACSM) et équivalence entre % de la réserve de FC et % de la réserve de VO₂ (Swain et Leutholtz 1997) ; moyenne des sorties à plat des 60 derniers jours, les plus récentes comptant davantage (demi-vie de 3 semaines), 3 sorties minimum. Sans assez de sorties, repli sur le rapport FC max / FC de repos × 15,3 (Uth 2004). L’erreur typique est de l’ordre de 10 %.")}{hrNote ? ' ' + $t("Ta FC max vient d’une formule : la mesurer (ou la laisser s’affiner avec tes efforts) améliore l’estimation.") : ''}</Info>
-    </InfoCard>
-  );
-}
-
-// ------------------------------------------------------------------ prédictions de course
-export function PredictionsCard() {
-  const { data, d } = useCalc();
-  const efforts = useMemo(() => bestEfforts(data, d.today), [data, d.today]);
-  const v = useMemo(() => vo2maxEstimate(data, d, efforts), [data, d, efforts]);
-  const p = useMemo(() => racePredictions(data, v, efforts, { adjust: effortAdjuster(data, d, d.today), calibration: watchCalibration(data, d) }), [data, d, v, efforts]);
-  const any = p.rows.some((r) => r.riegelSec !== null || r.watchSec !== null);
-  const hasWatch = p.rows.some((r) => r.watchSec !== null);
-  return (
-    <InfoCard className="card g12" aria-label={$t("Prédictions de course")} data-anchor="predictions">
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Prédictions de course")}<InfoToggle /></h2><Est /></div>
-      {!any ? <p className="t-caption c-moderate">{$t("Pas encore d’effort de course sur 90 jours : rien à prédire.")}</p> : (
-        <>
-          <div className="pred-grid" style={{ gridTemplateColumns: `auto repeat(${hasWatch ? 2 : 1}, 1fr)` }} role="table">
-            <span className="t-legal c-moderate" role="columnheader">{$t("Distance")}</span>
-            <span className="t-legal c-moderate" role="columnheader" style={{ textAlign: 'right' }}>{$t("Apogée")}</span>
-            {hasWatch && <span className="t-legal c-moderate" role="columnheader" style={{ textAlign: 'right' }}>{$t("Ta montre")}</span>}
-            {p.rows.map((r) => (
-              <div key={r.dist.key} style={{ display: 'contents' }} role="row">
-                <span className="t-caption-strong" role="cell">{r.dist.label}</span>
-                <span style={{ textAlign: 'right' }} role="cell"><strong>{clockOf(r.riegelSec)}{r.far && r.riegelSec !== null ? ' *' : ''}</strong></span>
-                {hasWatch && <span style={{ textAlign: 'right' }} className="c-neutral" role="cell">{clockOf(r.watchSec)}</span>}
-              </div>
-            ))}
-          </div>
-          {p.calib
-            ? <p className="t-legal c-moderate">{p.calib.n > 1 ? $t("Calées sur tes {0} derniers points de la semaine (le plus récent : semaine du {1}) : à chaque point, Apogée compare ce qu’il annonçait ce jour-là à ta montre. Coefficient ×{2}. Les valeurs évoluent ensuite avec tes sorties.", { 0: p.calib.n, 1: dayMonth(p.calib.week), 2: num(p.calib.factor, 2) }) : $t("Calées sur les prédictions de ta montre du {0} (coefficient ×{1}). Les valeurs évoluent ensuite avec tes sorties.", { 0: dayMonth(p.calib.week), 1: num(p.calib.factor, 2) })}</p>
-            : <p className="t-legal c-moderate">{$t("Pas encore calées sur ta montre : recopie ses prédictions dans le point de la semaine pour rapprocher les chiffres.")}</p>}
-        </>
-      )}
-      <Info>{$t("Méthode : Apogée prend ton meilleur temps des 90 derniers jours sur 3, 5, 10 km ou semi, le ramène à ta forme du jour (le temps d’un effort ancien est corrigé du rapport entre ta VO₂max de l’époque et celle d’aujourd’hui), puis l’extrapole par une loi de puissance, T₂ = T₁ × (D₂ ÷ D₁)^1,12 : Riegel (1981) proposait 1,06 sur des records, mais les coureurs amateurs ralentissent plus vite quand la distance s’allonge (de l’ordre de 1,1 à 1,15 ; les prédictions de Garmin suivent la même pente). Garmin part d’autres données que celles qu’il transmet à Health Connect : pour que les chiffres se rejoignent, Apogée se cale sur ses prédictions quand tu les recopies. Un * signale une extrapolation lointaine (plus de 4 fois la distance de l’effort) : à lire avec prudence.")}</Info>
     </InfoCard>
   );
 }

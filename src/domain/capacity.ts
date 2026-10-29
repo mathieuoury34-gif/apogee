@@ -9,8 +9,8 @@ import { liveRecords, sessionDay, type SessionLoad } from './load';
 import { acuteSeries } from './loadStatus';
 import { bestSegment, trackDistance } from './records';
 import {
-  RACE_DISTANCES, aerobicEffect, anaerobicEffect, clamp, riegel, teLevel, timeOfVdot, vdotOfPerformance, vo2OfRunning, vo2maxFromSubmax, vo2maxUth,
-  type RaceDistance, type TeLevel,
+  aerobicEffect, anaerobicEffect, clamp, teLevel, vdotOfPerformance, vo2OfRunning, vo2maxFromSubmax, vo2maxUth,
+  type TeLevel,
 } from './science';
 import { zoneTimes } from './zones';
 import type { ActualSession, AppData, Checkin } from './types';
@@ -193,128 +193,6 @@ export function effortAdjuster(data: AppData, d: Derived, day: string): (e: Effo
     const then = vo2At(list, e.day);
     return now && then ? clamp(then.value / now.value, 0.9, 1.1) : 1;
   };
-}
-
-// ------------------------------------------------------------------ prédictions de course
-export interface RacePrediction {
-  dist: RaceDistance;
-  /** Temps prévu à partir de la VO₂max (VDOT de Daniels). */
-  vdotSec: number | null;
-  /** Temps prévu à partir du meilleur effort récent (loi de puissance, exposant amateur), et cet effort. */
-  riegelSec: number | null; riegelFrom: Effort | null;
-  /** Extrapolation lointaine (distance prédite > 4,3 fois celle de l'effort) : à lire avec prudence. */
-  far: boolean;
-  /** Prédiction recopiée de la montre. */
-  watchSec: number | null;
-}
-/** Ratio maximal entre la distance prédite et celle de l'effort de départ ; au-delà de 4,3 la prédiction est une extrapolation lointaine. */
-export const RIEGEL_MAX_RATIO = 8.5;
-export const RIEGEL_FAR_RATIO = 4.3;
-/**
- * Exposant de la loi de puissance chez un coureur amateur. Riegel (1981) donne 1,06, ajusté sur des records ; sur des coureurs amateurs, les études
- * trouvent un exposant plus élevé (Vickers et Vertosick 2016 : de l'ordre de 1,1 à 1,15) : le chrono se dégrade plus vite quand la distance s'allonge.
- */
-export const AMATEUR_EXPONENT = 1.12;
-
-export interface RacePredictionOptions {
-  /** Coefficient de calage sur la montre (voir `watchCalibration`) ; null = aucun ; absent = calculé ici. */
-  factor?: number | null;
-  /** Calage déjà mesuré sur plusieurs points datés (prioritaire sur `factor`). */
-  calibration?: Calibration | null;
-  /** Ramène un ancien effort au niveau de forme du jour (voir `effortAdjuster`). */
-  adjust?: (e: Effort) => number;
-}
-
-const PRED_KEYS = { '5k': 'pred5kSec', '10k': 'pred10kSec', half: 'predHalfSec', marathon: 'predMarathonSec' } as const;
-
-/** Prédictions de ta montre (point hebdomadaire le plus récent qui en contient). */
-function watchPredictions(data: AppData): { week: string | null; sec: Record<RaceDistance['key'], number | null> } {
-  const last = liveRecords(data.checkins).sort((a, b) => (a.week < b.week ? 1 : -1));
-  const sec = {} as Record<RaceDistance['key'], number | null>;
-  let week: string | null = null;
-  for (const k of Object.keys(PRED_KEYS) as RaceDistance['key'][]) {
-    const c = last.find((x) => x[PRED_KEYS[k]] !== null);
-    sec[k] = c ? c[PRED_KEYS[k]] : null;
-    if (c && (week === null || c.week > week)) week = c.week;
-  }
-  return { week, sec };
-}
-
-/** Calage sur la montre : rapport médian « montre ÷ Apogée », mesuré à la date de chacun de tes derniers points de la semaine. */
-export interface Calibration { factor: number; week: string; n: number }
-const CALIB_POINTS = 8;
-export const checkinDay = (c: Checkin): string => c.day || addDays(c.week, 6);
-
-function rawRiegel(efforts: Effort[], adjust: (e: Effort) => number): Record<RaceDistance['key'], number | null> {
-  const out = {} as Record<RaceDistance['key'], number | null>;
-  for (const dist of RACE_DISTANCES) {
-    let best: number | null = null;
-    for (const e of efforts) {
-      const ratio = dist.meters / e.distanceM;
-      if (ratio < 0.5 || ratio > RIEGEL_MAX_RATIO) continue;
-      const t = riegel(e.timeSec * adjust(e), e.distanceM, dist.meters, AMATEUR_EXPONENT);
-      if (best === null || t < best) best = t;
-    }
-    out[dist.key] = best;
-  }
-  return out;
-}
-
-/**
- * Chaque point de la semaine compare ce qu'Apogée annonçait CE JOUR-LÀ à ce que ta montre annonçait ; le coefficient est la médiane des
- * rapports sur tes derniers points. Si la montre dit 25:00 là où Apogée disait 24:00, les prédictions suivantes sont alourdies d'autant.
- */
-export function watchCalibration(data: AppData, d: Derived): Calibration | null {
-  const cs = liveRecords(data.checkins)
-    .filter((c) => Object.values(PRED_KEYS).some((k) => c[k] !== null))
-    .sort((a, b) => (checkinDay(a) < checkinDay(b) ? 1 : -1))
-    .slice(0, CALIB_POINTS);
-  const ratios: number[] = [];
-  for (const c of cs) {
-    const day = checkinDay(c) < d.today ? checkinDay(c) : d.today;
-    const raw = rawRiegel(bestEfforts(data, day), effortAdjuster(data, { ...d, today: day } as Derived, day));
-    for (const k of Object.keys(PRED_KEYS) as RaceDistance['key'][]) {
-      const w = c[PRED_KEYS[k]], r = raw[k];
-      if (w !== null && r) ratios.push(w / r);
-    }
-  }
-  const f = ratios.length ? median(ratios) : null;
-  if (f === null || !isFinite(f) || f <= 0.6 || f >= 1.6) return null;
-  return { factor: f, week: cs[0].week, n: cs.length };
-}
-
-export function racePredictions(data: AppData, vo2: Vo2Estimate, efforts: Effort[], opts: RacePredictionOptions = {}): { rows: RacePrediction[]; vdot: number | null; basis: 'estimate' | 'watch' | null; calib: Calibration | null } {
-  const watch = watchPredictions(data);
-  const vdot = vo2.value ?? vo2.watch?.value ?? null;
-  const basis = vo2.value !== null ? 'estimate' : vo2.watch ? 'watch' : null;
-  const adjust = opts.adjust ?? (() => 1);
-  const raw = RACE_DISTANCES.map((dist) => {
-    let best: { t: number; e: Effort } | null = null;
-    for (const e of efforts) {
-      const ratio = dist.meters / e.distanceM;
-      if (ratio < 0.5 || ratio > RIEGEL_MAX_RATIO) continue;
-      const t = riegel(e.timeSec * adjust(e), e.distanceM, dist.meters, AMATEUR_EXPONENT);
-      if (!best || t < best.t) best = { t, e };
-    }
-    return { dist, best };
-  });
-  // Calage fourni par l'appelant (médiane sur plusieurs points datés) ; à défaut, dernier point rapproché des efforts d'aujourd'hui.
-  let factor: number | null;
-  let calibration = opts.calibration ?? null;
-  if (opts.calibration !== undefined) factor = calibration ? calibration.factor : null;
-  else if (opts.factor !== undefined) factor = opts.factor;
-  else {
-    const ratios = raw.map((r) => (r.best && watch.sec[r.dist.key] ? watch.sec[r.dist.key]! / r.best.t : null)).filter((x): x is number => x !== null);
-    factor = ratios.length ? median(ratios)! : null;
-  }
-  const k = factor !== null && isFinite(factor) && factor > 0.6 && factor < 1.6 ? factor : null;
-  if (!calibration && k !== null && watch.week) calibration = { factor: k, week: watch.week, n: 1 };
-  const rows = raw.map(({ dist, best }): RacePrediction => ({
-    dist, vdotSec: vdot === null ? null : timeOfVdot(vdot, dist.meters),
-    riegelSec: best ? best.t * (k ?? 1) : null, riegelFrom: best ? best.e : null,
-    far: !!best && dist.meters / best.e.distanceM > RIEGEL_FAR_RATIO, watchSec: watch.sec[dist.key],
-  }));
-  return { rows, vdot, basis, calib: k !== null ? calibration : null };
 }
 
 // ------------------------------------------------------------------ disponibilité à l'entraînement (Training Readiness)

@@ -2,13 +2,13 @@
 // Tout ce qui vient d'une estimation Apogée ou d'une saisie est étiqueté comme tel ; Apogée ne recalcule pas les indices Garmin.
 import { $t } from '../i18n';
 import { useEffect, useMemo, useState } from 'react';
-import { navigate, useRoute } from '../ui/router';
+import { closeSheet, navigate, useRoute } from '../ui/router';
 import { Disclosure, Segmented, Sheet, showToast, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { DecField, DurationField, IntField, PaceField, numOf } from '../ui/wheels';
 import { useLocalSheet } from '../ui/menu';
 import { useCalc } from '../data/store';
-import { addMeal, deleteMeal, restore, saveCheckin } from '../data/actions';
+import { addMeal, deleteMeal, resetEnergyDay, restore, saveCheckin, saveEnergyDay, type EnergyEdit } from '../data/actions';
 import { addDays, dayRange, mondayOf } from '../domain/dates';
 import { dayEnergy, weekEnergy } from '../domain/energy';
 import { capacityHistory, type CapacityPoint } from '../domain/capacity';
@@ -17,16 +17,97 @@ import { PeriodBar, useDaySel, usePeriod } from '../ui/period';
 import { Readout } from '../ui/readout';
 import { checkinStatus, checkinsSorted, currentCheckin, hasContent, metricSeries, sundayOf, type CheckinMetric } from '../domain/checkin';
 import { liveRecords } from '../domain/load';
-import type { Checkin } from '../domain/types';
+import type { Checkin, EnergyPart } from '../domain/types';
 import { dateFr, dayMonth, dayTitle, NBSP, num, signed, weekdayShort } from '../ui/format';
 
 const KCAL = (v: number | null) => (v === null ? '—' : num(v, 0) + NBSP + 'kcal');
 
+
+// ------------------------------------------------------------------ correction d'un jour : pas, étages, calories
+const intOf = (t: string | undefined): number | null => { const x = (t ?? '').trim(); if (!x) return null; const v = Number(x.replace(',', '.').replace(/[\s\u202f\u00a0]/g, '')); return Number.isFinite(v) ? Math.round(v) : NaN; };
+
+/**
+ * Recopie d'un jour d'après Garmin Connect quand l'écart avec Health Connect est net. Une valeur saisie n'est plus écrasée par la montre ;
+ * « Rétablir » la rend à Health Connect à la prochaine lecture. `pick` : le jour se choisit dans la feuille (entrée du bouton +).
+ */
+export function EnergyEditSheet({ day: day0, parts, pick, onClose }: { day: string; parts: EnergyPart[]; pick?: boolean; onClose?: () => void }) {
+  const { data, d } = useCalc();
+  const close = onClose ?? closeSheet;
+  const [day, setDay] = useState(day0);
+  const cur = data.energy[day] && !data.energy[day].deleted ? data.energy[day] : null;
+  const e = dayEnergy(data, day);
+  const [f, setF] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState(false);
+  useEffect(() => {
+    setTouched(false);
+    const en = dayEnergy(data, day);
+    const c = data.energy[day] && !data.energy[day].deleted ? data.energy[day] : null;
+    setF({ steps: c?.steps ? String(c.steps) : '', floors: c?.floors ? String(c.floors) : '', active: en.active !== null ? String(Math.round(en.active)) : '', total: en.total !== null ? String(Math.round(en.total)) : '' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day]);
+  const steps = intOf(f.steps), floors = intOf(f.floors), active = intOf(f.active), total = intOf(f.total);
+  const has = (p: EnergyPart) => parts.includes(p);
+  const kcalBad = has('kcal') && ((active === null) !== (total === null) || (active !== null && total !== null && (Number.isNaN(active) || Number.isNaN(total) || active < 0 || total < 100 || total > 12000 || active > total)));
+  const bad = (has('steps') && steps !== null && (Number.isNaN(steps) || steps < 0 || steps > 100000)) || (has('floors') && floors !== null && (Number.isNaN(floors) || floors < 0 || floors > 600)) || kcalBad;
+  const patch: EnergyEdit = {};
+  if (has('steps') && steps !== null && !Number.isNaN(steps) && steps !== (cur?.steps ?? null)) patch.steps = steps;
+  if (has('floors') && floors !== null && !Number.isNaN(floors) && floors !== (cur?.floors ?? null)) patch.floors = floors;
+  if (has('kcal') && !kcalBad && active !== null && total !== null && (active !== Math.round(e.active ?? -1) || total !== Math.round(e.total ?? -1))) { patch.activeKcal = active; patch.totalKcal = total; }
+  const changed = Object.keys(patch).length > 0;
+  const save = () => {
+    if (bad || !changed) return;
+    const snap = saveEnergyDay(day, patch);
+    close();
+    showToast($t("Jour corrigé"), { undo: () => restore(snap) });
+  };
+  const handEdited = (cur?.edited ?? []).filter((p) => parts.includes(p));
+  const reset = () => { const snap = resetEnergyDay(day, handEdited); close(); showToast($t("Rendu à la montre"), { undo: () => restore(snap) }); };
+  const title = parts.length === 3 ? $t("Pas, étages, calories") : has('kcal') ? $t("Calories du jour") : $t("Pas et étages du jour");
+  const num2 = (label: string, k: string, unit: string) => (
+    <label className="field"><span className="lbl">{label}</span><input className="input" inputMode="numeric" value={f[k] ?? ''} placeholder={unit} aria-label={label} onChange={(ev) => { setTouched(true); setF({ ...f, [k]: ev.target.value }); }} /></label>
+  );
+  return (
+    <Sheet title={title} onClose={close} footer={<button type="button" className="btn btn-primary block" disabled={bad || !changed} onClick={save}>{$t("Enregistrer")}</button>}>
+      <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
+        {pick
+          ? <label className="field"><span className="lbl">{$t("Jour")}</span><input className="input" type="date" value={day} max={d.today} onChange={(ev) => { const v = ev.target.value; if (/^\d{4}-\d{2}-\d{2}$/.test(v) && v <= d.today) setDay(v); }} /></label>
+          : <span className="t-strong">{day === d.today ? $t("Aujourd’hui") : dateFr(day)}</span>}
+        {(has('steps') || has('floors')) && (
+          <div className="grid-2">
+            {has('steps') && num2($t("Pas"), 'steps', 'pas')}
+            {has('floors') && num2($t("Étages"), 'floors', $t("étages"))}
+          </div>
+        )}
+        {has('kcal') && (
+          <>
+            <div className="grid-2">
+              {num2($t("Calories actives"), 'active', 'kcal')}
+              {num2($t("Calories totales"), 'total', 'kcal')}
+            </div>
+            {kcalBad && touched && <span className="t-caption" style={{ color: 'var(--critical-text)' }}>{$t("Renseigne les deux, avec des actives inférieures au total.")}</span>}
+          </>
+        )}
+        <span className="t-caption c-neutral">{$t("Recopie ce qu’affiche Garmin Connect. Une valeur saisie n’est plus écrasée par la montre.")}</span>
+        {handEdited.length > 0 && <button type="button" className="btn btn-tertiary" onClick={reset}>{$t("Rétablir la valeur de la montre")}</button>}
+      </div>
+    </Sheet>
+  );
+}
+
+/** Feuille du bouton + : choisit le jour puis corrige pas, étages et calories. */
+export function EnergyDaySheet() {
+  const route = useRoute();
+  const { d } = useCalc();
+  const q = route.query.get('date') ?? '';
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(q) && q <= d.today ? q : d.today;
+  return <EnergyEditSheet day={day} parts={['steps', 'floors', 'kcal']} pick />;
+}
 // ------------------------------------------------------------------ calories
 export function CaloriesCard() {
   const { data, d } = useCalc();
   const [day, setDay] = useState(d.today);
   const sheet = useLocalSheet();
+  const fix = useLocalSheet();
   const [kc, setKc] = useState('');
   const [label, setLabel] = useState('');
   const e = dayEnergy(data, day);
@@ -49,7 +130,10 @@ export function CaloriesCard() {
     <InfoCard className="card g12" aria-label={$t("Calories")} data-anchor="calories">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
         <h2>{$t("Calories")}<InfoToggle /></h2>
-        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => sheet.show()}>{$t("Ajouter un repas")}</button>
+        <div className="row wrap" style={{ gap: 'var(--space-8)' }}>
+          <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => fix.show()}>{noEnergy ? $t("Saisir") : $t("Modifier")}</button>
+          <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => sheet.show()}>{$t("Ajouter un repas")}</button>
+        </div>
       </div>
       <div className="between">
         <button type="button" className="icon-btn" aria-label={$t("Jour précédent")} onClick={() => setDay(addDays(day, -1))}><Icon name="back" /></button>
@@ -61,6 +145,7 @@ export function CaloriesCard() {
           <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}>
             <span className="t-h2">{KCAL(e.total)}</span>
             <span className="t-caption c-neutral">{$t("dépensées")}{e.restFrom === 'estimation' ? $t(" (repos estimé)") : ''}</span>
+            {e.restHow === 'manual' && <span className="var-chip flat">{$t("saisies")}</span>}
           </div>
           <dl className="kv">
             <dt>{$t("Actives (mouvement, séances)")}</dt><dd>{KCAL(e.active)}</dd>
@@ -90,7 +175,8 @@ export function CaloriesCard() {
       </div>
       <h3 className="t-strong">{$t("Semaine du {0}", { 0: dayMonth(week.days[0].day) })}</h3>
       <p className="t-legal c-moderate">{$t("Semaine : {0} actives, {1} de repos, {2} mangées sur {3} jour(s) saisi(s).", { 0: KCAL(week.active), 1: KCAL(week.rest), 2: week.mealDays ? KCAL(week.intake) : '—', 3: week.mealDays })}</p>
-      <Info>{$t("Le repos vient de Health Connect quand la montre donne le total ; sinon c’est une estimation (formule de Mifflin-St Jeor, avec ta taille, ton poids, ton âge et ton sexe). Le journal de repas est un simple compteur : tu entres les kcal toi-même, il n’y a pas de base d’aliments. Une estimation reste une estimation : ne la prends pas pour une mesure.")} {$t("Si tu renseignes les calories de repos de ta montre (Paramètres › Profil), le total reste celui de Health Connect et les actives sont calculées comme dans Garmin Connect.")}</Info>
+      <Info>{$t("Le repos vient de Health Connect quand la montre donne le total ; sinon c’est une estimation (formule de Mifflin-St Jeor, avec ta taille, ton poids, ton âge et ton sexe). Le journal de repas est un simple compteur : tu entres les kcal toi-même, il n’y a pas de base d’aliments. Une estimation reste une estimation : ne la prends pas pour une mesure.")} {$t("Si tu renseignes les calories de repos de ta montre (Paramètres › Profil), le total reste celui de Health Connect et les actives sont calculées comme dans Garmin Connect.")} {$t("En cas d’écart net avec Garmin Connect pour un jour, « Saisir » / « Modifier » te laisse recopier ses calories actives et totales : elles ne sont plus écrasées par la montre.")}</Info>
+      {fix.open && <EnergyEditSheet day={day} parts={['kcal']} onClose={fix.hide} />}
       {sheet.open && (
         <Sheet title={$t("Ajouter un repas")} onClose={sheet.hide} footer={<button type="button" className="btn btn-primary block" disabled={!ok} onClick={save}>{$t("Enregistrer")}</button>}>
           <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
@@ -118,6 +204,7 @@ export function ActivityCard() {
   const pw = usePeriod();
   const days = pw.slice(all);
   const [si, setSi] = useDaySel(days);
+  const fix = useLocalSheet();
   const val = (x: string) => { const e = data.energy[x]; return e && !e.deleted ? e[what] ?? null : null; };
   const known = days.map(val).filter((x): x is number => !!x);
   if (!Object.values(data.energy).some((e) => !e.deleted && (e.steps || e.floors))) return null;
@@ -125,15 +212,19 @@ export function ActivityCard() {
   const avg = known.length ? known.reduce((a, b) => a + b, 0) / known.length : null;
   return (
     <InfoCard className="card g12" aria-label={$t("Pas et étages")} data-anchor="pas-etages">
-      <h2>{$t("Pas et étages")}<InfoToggle /></h2>
+      <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
+        <h2>{$t("Pas et étages")}<InfoToggle /></h2>
+        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => fix.show()}>{val(day) === null ? $t("Saisir") : $t("Modifier")}</button>
+      </div>
       <Segmented label={$t("Mesure")} value={what} onChange={setWhat} options={[['steps', $t("Pas")], ['floors', $t("Étages")]]} />
       <PeriodBar p={pw} total={all.length} from={days[0]} to={days[days.length - 1]} />
-      <Readout when={day === d.today ? $t("Aujourd’hui") : dayTitle(day)} cells={[
+      <Readout when={<>{day === d.today ? $t("Aujourd’hui") : dayTitle(day)}{data.energy[day]?.edited?.includes(what) ? <span className="var-chip flat" style={{ marginLeft: 'var(--space-8)' }}>{$t("saisi")}</span> : null}</>} cells={[
         { label: what === 'steps' ? $t("Pas") : $t("Étages"), value: val(day) === null ? '—' : num(val(day)!, 0), color: what === 'steps' ? 'var(--chart-7)' : 'var(--chart-4)', key: true },
         { label: $t("Moyenne de la période"), value: avg === null ? '—' : num(avg, 0) },
       ]} />
       <DayChart points={days.map((x) => ({ day: x, v: val(x) }))} kind="bars" sel={si} onSel={setSi} height={110} color={what === 'steps' ? 'var(--chart-7)' : 'var(--chart-4)'} fmtTick={(v) => num(v, 0)} label={what === 'steps' ? $t("Pas par jour") : $t("Étages par jour")} />
-      <Info>{$t("Lus dans Health Connect (rien n’est recalculé) : Garmin Connect y dépose le total du jour. Les étages ne sont affichés que si la montre les transmet.")}</Info>
+      <Info>{$t("Lus dans Health Connect (rien n’est recalculé) : Garmin Connect y dépose le total du jour. Les étages ne sont affichés que si la montre les transmet. « Saisir » / « Modifier » corrige le jour affiché d’après Garmin Connect en cas d’écart net : la valeur saisie n’est plus écrasée par la montre.")}</Info>
+      {fix.open && <EnergyEditSheet day={day} parts={['steps', 'floors']} onClose={fix.hide} />}
     </InfoCard>
   );
 }
@@ -173,6 +264,15 @@ export function CheckinCard() {
     setSleepF(c.sleepFelt); setRecF(c.recoveryFelt);
   };
   const open = () => { setDateF(maxDay); fill(maxDay); sheet.show(); };
+  // entrée « Point de la semaine » du bouton + : ouvre la feuille directement (une seule fois)
+  const route = useRoute();
+  const asked = route.query.get('point') === '1';
+  useEffect(() => {
+    if (!asked) return;
+    navigate('/progression/capacites', { replace: true });
+    open();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asked]);
   // changer le jour recharge la fiche de cette semaine-là (pour compléter ou corriger un ancien point)
   const onDate = (v: string) => { if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || v > maxDay) return; setDateF(v); fill(v); };
   const vo2 = numOrNull(f.vo2max ?? ''), lthr = numOrNull(f.lthrBpm ?? '');

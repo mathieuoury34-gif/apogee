@@ -24,7 +24,7 @@ import { hm } from '../src/ui/format';
 import { bmrKcal, dayEnergy, weekEnergy } from '../src/domain/energy';
 import { mergeSleepParts } from '../src/domain/health';
 import { loadFocus } from '../src/domain/loadStatus';
-import { AMATEUR_EXPONENT, capacityHistory } from '../src/domain/capacity';
+import { capacityHistory } from '../src/domain/capacity';
 import { ingestEnergy, ingestVitals } from '../src/domain/healthExtra';
 import { checkinStatus, currentCheckin, emptyCheckin, metricSeries, sundayOf } from '../src/domain/checkin';
 import { mergeGarminGraph } from '../src/domain/garminGraph';
@@ -33,7 +33,7 @@ import { acuteSeries, dailyStatus, statusOf, weeklyStatus } from '../src/domain/
 import type { DayLoad } from '../src/domain/load';
 import { applyPreview, buildDossier, parsePlan, preview } from '../src/domain/coach';
 import { RACE_DISTANCES, aerobicEffect, anaerobicEffect, riegel, teLevel, timeOfVdot, vdotOfPerformance, vo2OfRunning, vo2maxFromSubmax, vo2maxUth } from '../src/domain/science';
-import { acuteScore, bestEfforts, energyReserve, enduranceScore, hillScore, racePredictions, readiness, restingScore, sleepScore, trainingEffects, vo2maxEstimate } from '../src/domain/capacity';
+import { acuteScore, bestEfforts, energyReserve, enduranceScore, hillScore, readiness, restingScore, sleepScore, trainingEffects, vo2maxEstimate } from '../src/domain/capacity';
 import { defaultDisp, fromDisp, toDisp } from '../src/ui/targetUnits';
 import type { ActualSession, AppData, Block } from '../src/domain/types';
 
@@ -770,15 +770,6 @@ test('Training Effect, VO₂max estimée, prédictions : cohérents sur un histo
   assert.ok(v.value! > 50 && v.value! < 62, 'VO₂max ' + v.value);
   assert.ok(v.uth !== null && Math.abs(v.uth - 15.3 * 190 / 52) < 3);
   assert.ok(v.vdot!.value > 30 && v.vdot!.value < v.value! + 1, 'le VDOT d\'un entraînement reste une borne basse');
-  const pr = racePredictions(data, v, efforts);
-  assert.equal(pr.rows.length, 4); assert.equal(pr.basis, 'estimate');
-  const r10 = pr.rows[1];
-  assert.ok(r10.vdotSec! > 1800 && r10.vdotSec! < 3300);
-  assert.ok(r10.riegelSec! > 2800 && r10.riegelSec! < 4200 && r10.riegelFrom!.distanceM <= 10000 * 2);
-  assert.ok(pr.rows[0].vdotSec! < r10.vdotSec! && r10.vdotSec! < pr.rows[2].vdotSec! && pr.rows[2].vdotSec! < pr.rows[3].vdotSec!);
-  // prédiction de la montre recopiée
-  data.checkins['2026-10-26'] = { id: '2026-10-26', week: '2026-10-26', updatedAt: 'x', vo2max: 55, pred5kSec: 1500 } as never;
-  assert.equal(racePredictions(data, vo2maxEstimate(data, d, efforts), efforts).rows[0].watchSec, 1500);
   // endurance et côtes
   const en = enduranceScore(data, d.today, v.value)!;
   assert.ok(en.score > 0 && en.score <= 100 && en.aerobic !== null);
@@ -860,7 +851,6 @@ test('répartition de la charge : le renforcement compte en anaérobie', () => {
   const loads = new Map([['f', { load: 60 } as never]]);
   const f = loadFocus(d, loads, 188, '2026-10-27');
   assert.equal(f.anaerobic, 60); assert.equal(f.low, 0); assert.equal(f.total, 60);
-  assert.ok(AMATEUR_EXPONENT > 1.06 && AMATEUR_EXPONENT < 1.2);
 });
 
 test('modèle d\'effort (type EPOC) : seuil à 50 % de la FC max, saturation, et une séance courte et dure pèse plus qu\'une longue et facile', () => {
@@ -917,20 +907,6 @@ test('courbes de capacité : un point par jour, et la VO₂max suit les sorties 
   assert.ok(maxRun <= 3, 'jamais plus de 3 jours identiques de suite (séances tous les 2 jours) : ' + maxRun);
   const efforts = bestEfforts(data, d.today);
   assert.equal(h[39].vo2max, vo2maxEstimate(data, d, efforts).value, 'dernier point = valeur du jour');
-});
-
-test('prédictions : calage sur les prédictions de la montre', () => {
-  const data = runnerData();
-  const d = derive(data, SETTINGS, new Date('2026-10-27T12:00:00Z'));
-  const efforts = bestEfforts(data, d.today);
-  const v = vo2maxEstimate(data, d, efforts);
-  const raw = racePredictions(data, v, efforts);
-  assert.equal(raw.calib, null);
-  data.checkins['2026-10-26'] = { id: '2026-10-26', week: '2026-10-26', updatedAt: 'x', vo2max: 55, pred5kSec: 1356, pred10kSec: 2939 } as never;
-  const cal = racePredictions(data, v, efforts);
-  assert.ok(cal.calib && cal.calib.factor > 0.6);
-  const ratio = (cal.rows[0].riegelSec as number) / (raw.rows[0].riegelSec as number);
-  assert.ok(Math.abs(ratio - cal.calib!.factor) < 1e-9);
 });
 
 test('calories : la dépense de base de la montre donne le repos ; le réglage du profil reste prioritaire', () => {
@@ -1033,4 +1009,20 @@ test('effacer l’historique avant une date : seulement les données datées, s�
   d.zones.z = { id: 'z', updatedAt: 'x' } as never;
   const keys = purgePlan(d, '2026-08-02').map((k) => k.join(':')).sort();
   assert.deepEqual(keys, ['actual:a1', 'bricks:b1', 'checkins:2026-07-13', 'energy:2026-08-01', 'series:a1', 'sleep:2026-07-30']);
+});
+
+test('pas, étages, calories : une valeur saisie à la main n\'est jamais écrasée par la montre', () => {
+  const d = emptyData();
+  d.energy['2026-10-26'] = { id: '2026-10-26', updatedAt: 'x', day: '2026-10-26', activeKcal: 1000, totalKcal: 3100, basalKcal: 2100, steps: 20000, floors: 30, edited: ['kcal', 'steps'], source: 'health' };
+  // la montre lit d'autres valeurs : calories et pas corrigés restent, les étages (non corrigés) suivent la montre
+  const out = ingestEnergy(d, [{ day: '2026-10-26', activeKcal: 700, totalKcal: 2800, basalKcal: 2100 }], [{ day: '2026-10-26', steps: 18000, floors: 28 }]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].activeKcal, 1000); assert.equal(out[0].totalKcal, 3100); assert.equal(out[0].steps, 20000); assert.equal(out[0].floors, 28);
+  assert.deepEqual(out[0].edited, ['kcal', 'steps']);
+  // rien ne change côté montre : rien à réécrire
+  assert.equal(ingestEnergy(d, [{ day: '2026-10-26', activeKcal: 700, totalKcal: 2800 }], [{ day: '2026-10-26', steps: 18000, floors: 30 }]).length, 0);
+  // calories saisies : repos = total − actives, sans le calage du profil
+  d.athlete.main = { id: 'main', updatedAt: 'x', restKcal: 2150 } as never;
+  const e = dayEnergy(d, '2026-10-26', 600);
+  assert.equal(e.restHow, 'manual'); assert.equal(e.active, 1000); assert.equal(e.rest, 2100); assert.equal(e.total, 3100);
 });

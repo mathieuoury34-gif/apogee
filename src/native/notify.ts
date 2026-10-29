@@ -67,6 +67,16 @@ export async function scheduleReminders(data: AppData, d: Derived): Promise<void
       list.push({ id: id++, title: $t("Ta nuit"), body: $t("Valide tes heures de coucher et de lever, ou corrige-les si la montre s’est trompée."), schedule: { at: when, allowWhileIdle: true }, extra: { route: '/progression/sante?ancre=sommeil' } });
     }
   }
+  // corrections de la semaine : le lundi à 10 h (les totaux de la veille sont alors déposés par la montre), pour comparer à Garmin Connect
+  if (prefs.weeklyFixReminder !== false) {
+    for (let k = 0; k < 3; k++) {
+      const monday = addDays(mondayOf(t), 7 * k);
+      const [y, m, dd] = monday.split('-').map(Number);
+      const when = new Date(y, m - 1, dd, 10, 0, 0, 0);
+      if (when <= now || suspended(data, monday)) continue;
+      list.push({ id: id++, title: $t("Corrections de la semaine"), body: $t("Compare tes pas, étages, calories et ton sommeil à Garmin Connect, et corrige les jours qui diffèrent nettement."), schedule: { at: when, allowWhileIdle: true }, extra: { route: '/progression/sante?ancre=pas-etages' } });
+    }
+  }
   const key = JSON.stringify(list.map((x) => [x.title, x.body, x.schedule.at.getTime()]));
   if (key === last) return;
   last = key;

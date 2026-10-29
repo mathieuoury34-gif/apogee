@@ -7,7 +7,7 @@ import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, 
 import { FormChart, LoadPanels, StackedWeeks, StepChart } from '../ui/charts';
 import { FitnessCard, SleepCard, WeightCard } from './Analysis';
 import { ActivityCard, CaloriesCard, CapacitiesTrendsCard, CheckinCard } from './Wellness';
-import { EnduranceHillCard, PredictionsCard, ReadinessCard, ReserveCard, Vo2Card } from './Capacity';
+import { EnduranceHillCard, ReadinessCard, ReserveCard, Vo2Card } from './Capacity';
 import { AcuteLoadChart, FocusBars, RatioChart, STATUS_INFO, StatusStrip } from '../ui/loadkit';
 import { DEFAULT_SPAN, PeriodBar, SPANS, usePeriod } from '../ui/period';
 import { acuteSeries, dailyStatus, loadFocus, statusOf, weeklyStatus } from '../domain/loadStatus';
@@ -343,7 +343,6 @@ export function ZonesScreen() {
         <div className="dmasonry">
           <CheckinCard />
           <Vo2Card />
-          <PredictionsCard />
           <EnduranceHillCard />
           <CapacitiesTrendsCard />
         </div>

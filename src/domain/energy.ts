@@ -23,7 +23,7 @@ export interface DayEnergy {
   rest: number | null;
   restFrom: 'health' | 'estimation' | null;
   /** D'où vient le partage repos / actives : réglage de Profil, dépense de base de la montre, ou simple différence des valeurs de Health Connect (peut s'écarter de Garmin Connect). */
-  restHow: 'setting' | 'basal' | 'split' | 'estimation' | null;
+  restHow: 'manual' | 'setting' | 'basal' | 'split' | 'estimation' | null;
   /** Dépense totale = repos + actives. */
   total: number | null;
   /** Valeurs brutes déposées par la montre dans Health Connect (avant tout calage), si elles existent. */
@@ -56,7 +56,11 @@ export function dayEnergy(data: AppData, day: string, nowMin: number = new Date(
   const ath = data.athlete.main && !data.athlete.main.deleted ? data.athlete.main : null;
   const calib = ath?.restKcal && ath.restKcal > 0 ? ath.restKcal : null;
   let totalOverride: number | null = null;
-  if (calib !== null && hc?.totalKcal != null && hc.totalKcal > 0) {
+  if (hc?.edited?.includes('kcal') && hc.totalKcal != null && hc.totalKcal > 0 && hc.activeKcal != null && hc.activeKcal <= hc.totalKcal) {
+    // valeurs recopiées de Garmin Connect : on les prend telles quelles, sans calage (repos = total − actives)
+    active = hc.activeKcal; activeFrom = 'health'; rest = hc.totalKcal - hc.activeKcal; restFrom = 'health'; restHow = 'manual';
+    totalOverride = hc.totalKcal;
+  } else if (calib !== null && hc?.totalKcal != null && hc.totalKcal > 0) {
     // le total de Health Connect est bon ; c'est son partage repos / actives qui diffère de Garmin Connect : on repart du repos de la montre
     // (au prorata de l'heure pour aujourd'hui, comme la montre) et les actives sont le reste
     const frac = day === today() ? Math.min(1, Math.max(0.02, nowMin / 1440)) : 1;

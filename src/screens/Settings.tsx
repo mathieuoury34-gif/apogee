@@ -208,6 +208,12 @@ export function SettingsScreen() {
               </div>
             )}
             {app && (
+              <div className="between" style={{ gap: 'var(--space-12)' }}>
+                <span className="stack"><span className="t-strong" id="lbl-fixrem">{$t("Rappel des corrections")}</span><span className="t-caption c-moderate">{$t("Chaque lundi à 10 h, une notification t’invite à comparer la semaine écoulée (pas, étages, calories, sommeil) à Garmin Connect et à corriger les jours qui diffèrent nettement.")}</span></span>
+                <Switch checked={prefs.weeklyFixReminder !== false} labelledBy="lbl-fixrem" onChange={(v) => setPrefs({ weeklyFixReminder: v })} />
+              </div>
+            )}
+            {app && (
               <div className="field">
                 <span className="lbl">{$t("Heure des rappels de séance")}</span>
                 <IntField label={$t("Heure des rappels de séance")} unit="h" value={prefs.reminderHour} onChange={(x) => setPrefs({ reminderHour: x ?? 8 })} min={0} max={23} />

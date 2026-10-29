@@ -253,6 +253,8 @@ export interface SessionTemplate extends Rec {
   createdAt: string;
 }
 
+export type EnergyPart = 'steps' | 'floors' | 'kcal';
+
 /** Activité du jour (id = day), lue dans Health Connect : calories actives et totales (repos compris), pas et étages. */
 export interface EnergyDay extends Rec {
   day: string;
@@ -263,6 +265,8 @@ export interface EnergyDay extends Rec {
   /** Pas et étages montés du jour (Health Connect), si la montre les dépose. */
   steps?: number | null;
   floors?: number | null;
+  /** Parties du jour corrigées à la main d'après Garmin Connect (pas, étages, calories) : la synchronisation Health Connect ne les écrase plus. */
+  edited?: EnergyPart[];
   source: 'health';
 }
 

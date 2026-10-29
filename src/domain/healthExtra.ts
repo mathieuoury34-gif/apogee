@@ -1,7 +1,7 @@
 // Données Health Connect « annexes » : dépense énergétique du jour, VO₂max et variabilité cardiaque (HRV) quand la montre
 // les dépose. Lecture seule ; chaque jour n'est réécrit que si la valeur a changé.
 import { localDay, today } from './dates';
-import type { AppData, EnergyDay, Vitals } from './types';
+import type { AppData, EnergyDay, EnergyPart, Vitals } from './types';
 import { nowIso } from './ids';
 
 export interface NativeEnergyDay { day: string; activeKcal: number | null; totalKcal: number | null; basalKcal?: number | null }
@@ -22,12 +22,15 @@ export function ingestEnergy(data: AppData, rows: NativeEnergyDay[], activity: N
   for (const [day, { e, a }] of days) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day > today()) continue;
     const cur = data.energy[day] && !data.energy[day].deleted ? data.energy[day] : undefined;
-    const active = e ? r1(e.activeKcal) : cur?.activeKcal ?? null, total = e ? r1(e.totalKcal) : cur?.totalKcal ?? null;
-    const basal = e && e.basalKcal !== undefined ? r1(e.basalKcal) : cur?.basalKcal ?? null;
-    const steps = a && a.steps !== undefined ? r1(a.steps) : cur?.steps ?? null, floors = a && a.floors !== undefined ? r1(a.floors) : cur?.floors ?? null;
+    // les parties corrigées à la main (voir `saveEnergyDay`) ne sont jamais écrasées par la montre
+    const ed = cur?.edited ?? [];
+    const hand = (part: EnergyPart) => ed.includes(part);
+    const active = e && !hand('kcal') ? r1(e.activeKcal) : cur?.activeKcal ?? null, total = e && !hand('kcal') ? r1(e.totalKcal) : cur?.totalKcal ?? null;
+    const basal = e && e.basalKcal !== undefined && !hand('kcal') ? r1(e.basalKcal) : cur?.basalKcal ?? null;
+    const steps = a && a.steps !== undefined && !hand('steps') ? r1(a.steps) : cur?.steps ?? null, floors = a && a.floors !== undefined && !hand('floors') ? r1(a.floors) : cur?.floors ?? null;
     if (!active && !total && !steps && !floors) continue;
     if (cur && cur.activeKcal === active && cur.totalKcal === total && (cur.basalKcal ?? null) === basal && (cur.steps ?? null) === steps && (cur.floors ?? null) === floors) continue;
-    out.push({ id: day, updatedAt: now, day, activeKcal: active, totalKcal: total, basalKcal: basal, steps, floors, source: 'health' });
+    out.push({ id: day, updatedAt: now, day, activeKcal: active, totalKcal: total, basalKcal: basal, steps, floors, ...(ed.length ? { edited: ed } : {}), source: 'health' });
   }
   return out;
 }
