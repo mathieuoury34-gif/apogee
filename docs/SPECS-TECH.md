@@ -575,3 +575,5 @@ prévisionnel ; alerte blessure ; estimation de VMA ; poids et sommeil ; ingesti
 **Addendum 29/10 (stabilité visuelle)** : `DateField` (ui/kit.tsx) = champ date commun (flèches, balayage, calendrier `DatePicker` avec `max`). `DatePicker` remplit toujours 42 cases (6 semaines). `Readout` : valeur et note dans une même ligne (`.valrow`, hauteur minimale fixe). Toute ligne conditionnelle sous un graphe à curseur doit réserver sa place (ex. « Relevé du… »).
 
 **Addendum 29/10 (calendriers en fenêtre)** : `DatePicker` rend un `Popup` (portail, comme `WheelField`) : jour présélectionné, `onChange` seulement avec OK, `onClose` pour Annuler. `useDaySel` renvoie un 3e élément `release` à passer à `onRelease` du `DayChart`.
+
+**Addendum 29/10 (agencement PC)** : onglet Charge = un seul `.dmasonry` (2 colonnes CSS équilibrées) ; onglet Capacités = `.dcols` (2 colonnes explicites `.dcol`, empilées sur téléphone dans le même ordre qu’avant). Chaque carte garde son propre `usePeriod`.

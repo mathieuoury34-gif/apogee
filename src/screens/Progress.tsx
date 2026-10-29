@@ -34,13 +34,17 @@ export function LoadScreen() {
   const route = useRoute();
   const { data, d } = useCalc();
   const [view, setView] = useState<'charge' | 'forme'>(route.query.get('vue') === 'forme' ? 'forme' : 'charge');
+  // une période par carte : Statut + Charge aiguë (pw), Évolution (ew), Répartition (fw) sont indépendantes
   const pw = usePeriod();
+  const ew = usePeriod();
   const fw = usePeriod();
   const c = d.constat;
   const total = d.series.days.length;
-  const days = pw.slice(d.series.days);
+  const days = ew.slice(d.series.days);
   const formDays = days.map((x) => x.day);
   const winFrom = days[0]?.day, winTo = days[days.length - 1]?.day;
+  const sDays = pw.slice(d.series.days);
+  const sFrom = sDays[0]?.day, sTo = sDays[sDays.length - 1]?.day;
   const weeks = weeklyVolume(data, d.today, 12);
   const [withOther] = useWithOther();
   const form = d.form ?? d.lastForm;
@@ -66,7 +70,7 @@ export function LoadScreen() {
       <SubNav items={NAV} label={$t("Sections Progression")} />
       <main className="content dgrid">
         <div className="dmasonry">
-        <Hero className="dspan-5" label={$t("Forme de fond")} value={c.fitness === null ? '—' : num(c.fitness, 0)} chip={c.fitnessDelta === null ? undefined : $t("{0} en 7 jours", { 0: signed(c.fitnessDelta, 0) })}>
+        <Hero label={$t("Forme de fond")} value={c.fitness === null ? '—' : num(c.fitness, 0)} chip={c.fitnessDelta === null ? undefined : $t("{0} en 7 jours", { 0: signed(c.fitnessDelta, 0) })}>
           <div className="foot">
             <span>{$t("Fatigue")} <strong>{c.fatigue === null ? '—' : num(c.fatigue, 0)}</strong></span>
             <span>{$t("Fraîcheur")} <strong>{c.freshness === null ? '—' : signed(c.freshness, 0)}</strong></span>
@@ -74,10 +78,10 @@ export function LoadScreen() {
           </div>
         </Hero>
 
-        <InfoCard className="card g12 dspan-7" aria-label={$t("Statut d’entraînement")} data-anchor="statut">
+        <InfoCard className="card g12" aria-label={$t("Statut d’entraînement")} data-anchor="statut">
           <h2>{$t("Statut d’entraînement")}<InfoToggle /></h2>
           {!curStatus && <p className="t-caption c-moderate">{$t("Disponible après 28 jours d’historique")}{d.series.firstDay ? $t(" (dès le {0})", { 0: dateFr(addDays(d.series.firstDay, 28)) }) : ''}.</p>}
-          <PeriodBar p={pw} total={total} from={winFrom} to={winTo} />
+          <PeriodBar p={pw} total={total} from={sFrom} to={sTo} />
           <StatusStrip weeks={statusCells} />
           <Info>{$t("Chaque case est un jour (jusqu’à 1 mois) ou une semaine. Le statut croise ta charge des 7 jours avec ta charge habituelle (4 semaines) et la tendance de ta forme de fond. Touche une case pour le détail.")}</Info>
           <div className="stack-12" data-anchor="charge-aigue">
@@ -91,12 +95,11 @@ export function LoadScreen() {
             {d.series.isPriming && <div className="note"><Icon name="info" size={20} /><span>{$t("Historique court : forme et fatigue sont amorcées sur ta charge habituelle des 14 premiers jours, et se stabilisent vers le")} {dateFr(d.series.primingEndsOn!)}.</span></div>}
           </div>
         </InfoCard>
-        </div>
 
-        <InfoCard className="card g12 dspan-12" aria-label={$t("Évolution")} data-anchor="evolution">
+        <InfoCard className="card g12" aria-label={$t("Évolution")} data-anchor="evolution">
           <h2>{$t("Forme de fond, fatigue et fraîcheur")}<InfoToggle /></h2>
           <Segmented label={$t("Courbe")} value={view} onChange={setView} options={[['charge', $t("Charge")], ['forme', $t("Forme du jour")]]} />
-          <PeriodBar p={pw} total={total} from={winFrom} to={winTo} />
+          <PeriodBar p={ew} total={total} from={winFrom} to={winTo} />
           {view === 'charge' ? <LoadPanels days={days} today={d.today} /> : (
             <>
               <FormChart days={formDays} forms={d.formByDay} />
@@ -105,7 +108,7 @@ export function LoadScreen() {
           )}
         </InfoCard>
 
-        <InfoCard className="card g12 dspan-12" aria-label={$t("Répartition de la charge")} data-anchor="repartition">
+        <InfoCard className="card g12" aria-label={$t("Répartition de la charge")} data-anchor="repartition">
           <h2>{$t("Répartition de la charge")}<InfoToggle /></h2>
           <Info>{$t("D’où vient ta charge sur la période choisie (1 semaine par défaut) : sorties tranquilles, efforts soutenus ou intensité maximale, d’après ta fréquence cardiaque.")}</Info>
           <PeriodBar p={fw} total={total} from={addDays(focusEnd, -(fspan - 1))} to={focusEnd} />
@@ -113,8 +116,6 @@ export function LoadScreen() {
         </InfoCard>
 
         <ForecastCard />
-
-        <div className="dmasonry">
         <FitnessCard data={data} d={d} />
         </div>
 
@@ -335,16 +336,16 @@ export function ZonesScreen() {
       <ErrorBanner />
       <SubNav items={NAV} label={$t("Sections Progression")} />
       <main className="content dgrid">
-        <div className="dmasonry">
-          <CapacitiesTrendsCard />
-          <EnduranceHillCard />
-        </div>
-        <ZoneSuggestions />
+        <div className="dcols">
+          <div className="dcol"><CapacitiesTrendsCard /></div>
+          <div className="dcol">
+            <EnduranceHillCard />
+            <ZoneSuggestions />
         {(['vma', 'ftp', 'css', 'hr_max'] as ZoneKind[]).map((k) => {
           const h = zoneHistory(data, k);
           const z = h[0];
           return (
-            <section key={k} className="card g8 dspan-6 list-card" aria-label={KIND_INFO[k].long}>
+            <section key={k} className="card g8 list-card" aria-label={KIND_INFO[k].long}>
               <div className="between">
                 <button type="button" className="row-btn grow" style={{ padding: 0 }} onClick={() => navigate('/progression/capacites/' + KIND_ROUTE[k])}>
                   <span className="stack grow"><span className="t-label">{KIND_INFO[k].label}</span><span className="t-caption c-moderate">{KIND_INFO[k].long}</span></span>
@@ -368,6 +369,8 @@ export function ZonesScreen() {
             </section>
           );
         })}
+          </div>
+        </div>
         <Info>{$t("Chaque valeur est historisée, jamais écrasée. La plus récente sert aux cibles relatives des séances (% VMA, % FTP, % CSS) et au calcul de la charge.")}</Info>
       </main>
       {adding && <ZoneSheet kind={adding} onClose={() => { setAdding(null); if (ask) navigate('/progression/capacites', { replace: true }); }} />}
@@ -443,7 +446,7 @@ function ForecastCard() {
   const past = d.series.days.slice(-15, -1);
   const days: DayLoad[] = [...past, ...f.days.map((x) => ({ day: x.day, load: x.load, estimated: true, interruptionFill: false, fitness: x.fitness, fatigue: x.fatigue, freshness: x.freshness }))];
   return (
-    <InfoCard className="card g12 dspan-12" aria-label={$t("Prévisionnel de charge")} data-anchor="prevision">
+    <InfoCard className="card g12" aria-label={$t("Prévisionnel de charge")} data-anchor="prevision">
       <div className="between">
         <h2>{$t("Prévisionnel de charge")}<InfoToggle /></h2>
       </div>
@@ -478,7 +481,7 @@ function ZoneSuggestions() {
   if (!sugg.length) return null;
   const show = (k: 'vma' | 'css', v: number) => (k === 'vma' ? num(v * 3.6, 1) + NBSP + $t("km/h") : mmss(100 / v) + NBSP + '/100' + NBSP + 'm');
   return (
-    <InfoCard className="card g12 dspan-12" aria-label={$t("Estimations suggérées")}>
+    <InfoCard className="card g12" aria-label={$t("Estimations suggérées")}>
       <h2>{$t("Estimations suggérées")}<InfoToggle /></h2>
       {sugg.map((s) => (
         <div key={s.kind} className="between wrap" style={{ gap: 'var(--space-8)' }}>

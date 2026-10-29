@@ -78,7 +78,7 @@ export function HomeScreen() {
 
         <WeekCard />
 
-        <section aria-labelledby="h-load" className="card dspan-7" onClick={() => navigate('/progression?ancre=charge-aigue')} style={{ cursor: 'pointer' }}>
+        <section aria-labelledby="h-load" className="card dspan-7" onClick={() => navigate('/progression?vue=charge&ancre=evolution')} style={{ cursor: 'pointer' }}>
           <div className="between"><h2 id="h-load">{$t("Charge — 4 semaines")}</h2><Icon name="next" size={20} style={{ color: 'var(--text-moderate)' }} /></div>
           <LoadChart days={d.series.days.slice(-28)} height={110} compact />
           <LoadLegend />
