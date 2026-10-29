@@ -4,6 +4,7 @@
 import { $t } from '../i18n';
 import { useEffect, useState, type ReactNode } from 'react';
 import { ClockField } from '../ui/wheels';
+import { DateField } from '../ui/kit';
 import { useCalc } from '../data/store';
 import { dayEnergy } from '../domain/energy';
 import { resetEnergyDay, resetSleepNight, saveEnergyDay, saveSleepNight, type EnergyEdit } from '../data/actions';
@@ -70,7 +71,7 @@ export function useDayFix(day0: string, parts: FixPart[], pick = false) {
   const node: ReactNode = (
     <div className="stack" style={{ gap: 'var(--space-16)' }}>
       {pick
-        ? <label className="field"><span className="lbl">{$t("Jour à corriger")}</span><input className="input" type="date" value={day} max={d.today} onChange={(ev) => { const v = ev.target.value; if (/^\d{4}-\d{2}-\d{2}$/.test(v) && v <= d.today) setDay(v); }} /></label>
+        ? <DateField label={$t("Jour à corriger")} value={day} max={d.today} onChange={setDay} />
         : <span className="t-strong">{day === d.today ? $t("Aujourd’hui") : dateFr(day)}</span>}
       {(has('steps') || has('floors')) && (
         <div className="grid-2">

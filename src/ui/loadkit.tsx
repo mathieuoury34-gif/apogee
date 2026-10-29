@@ -132,7 +132,6 @@ export function StatusStrip({ weeks }: { weeks: WeekStatus[] }) {
         <div role="status" aria-live="polite" className="status-detail">
           <div className="between wrap"><span className="t-strong" style={{ color: info?.color }}>{info ? info.label : $t("Pas encore de statut")}</span><span className="t-caption c-moderate">{daily ? dayMonth(w.start) : $t("Semaine du {0}", { 0: dayMonth(w.start) })}{w.partial ? $t(" (en cours)") : ''}</span></div>
           <p className="t-caption c-neutral">{info ? info.text : $t("Il faut 28 jours d’historique pour situer la semaine.")}</p>
-          {w.ratio !== null && <p className="t-legal c-moderate">{daily ? $t("Charge des 7 jours {0} · rapport {1}", { 0: num(w.load, 0), 1: num(w.ratio, 2) }) : $t("Charge de la semaine {0} · rapport {1}", { 0: num(w.load, 0), 1: num(w.ratio, 2) })}</p>}
         </div>
       )}
       {present.length > 0 && <div className="legend">{present.map((k) => <span key={k}><span className="dot s10" style={{ background: STATUS_INFO[k].color }} />{STATUS_INFO[k].label}</span>)}</div>}

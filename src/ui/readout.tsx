@@ -14,8 +14,7 @@ export function Readout({ when, cells, cols }: { when: ReactNode; cells: Readout
             {c.color && <span className="sw" style={c.dashed ? { borderTop: `2.5px dashed ${c.color}`, height: 0 } : { background: c.color }} />}
             <span>{c.label}</span>
           </span>
-          <strong className="val" style={c.valueColor ? { color: c.valueColor } : undefined}>{c.value}</strong>
-          {c.note && <em>{c.note}</em>}
+          <span className="valrow"><strong className="val" style={c.valueColor ? { color: c.valueColor } : undefined}>{c.value}</strong>{c.note && <em>{c.note}</em>}</span>
         </span>
       ))}
     </div>

@@ -3,7 +3,7 @@
 import { $t } from '../i18n';
 import { useEffect, useMemo, useState } from 'react';
 import { navigate, useRoute } from '../ui/router';
-import { Disclosure, Segmented, Sheet, showToast, Info, InfoCard, InfoToggle } from '../ui/kit';
+import { DateField, Disclosure, Segmented, Sheet, showToast, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { DecField, DurationField, IntField, PaceField, numOf } from '../ui/wheels';
 import { useLocalSheet } from '../ui/menu';
@@ -233,7 +233,7 @@ export function CheckinSheet({ onClose, only }: { onClose: () => void; only?: 'c
   return (
     <Sheet title={only ? $t("Courbes de capacité") : $t("Point de la semaine")} onClose={onClose} footer={<button type="button" className="btn btn-primary block" disabled={!canSave} onClick={save}>{$t("Enregistrer")}</button>}>
       <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
-        <label className="field"><span className="lbl">{$t("Jour du relevé")}</span><input className="input" type="date" value={dateF} max={maxDay} onChange={(ev) => onDate(ev.target.value)} /></label>
+        <DateField label={$t("Jour du relevé")} value={dateF} max={maxDay} onChange={onDate} />
         <span className="t-caption c-neutral">{$t("Par défaut le prochain dimanche. Choisis un jour passé pour recopier un ancien relevé de ta montre (une fiche par semaine : semaine du {0}). Laisse vide ce que ta montre ne donne pas.", { 0: dateFr(cur.week) })}</span>
         <h3 className="t-strong">{$t("Capacités")}</h3>
         <div className="grid-2">
@@ -359,8 +359,8 @@ function MetricChart({ label, pts, fmt, better, time, sel, onSel, onRelease, est
         </span>
       </div>
       <DayChart points={pts} kind="line" sel={sel} onSel={onSel} onRelease={onRelease} height={86} label={label} min={lo - pad} max={hi + pad} fmtTick={fmt} ticks={time ? timeTicks(lo - pad, hi + pad) : undefined} dots={holdLast ? true : pts.length <= 31 ? true : false} connect={holdLast} />
-      {heldFrom && <span className="t-legal c-moderate">{$t("Relevé du {0}", { 0: dayMonth(heldFrom) })}</span>}
-      {estimated && cur && cur.v === null && <span className="t-legal c-moderate">{$t("Pas de valeur ce jour-là.")}</span>}
+      {/* la ligne est toujours là (même vide) : sinon elle apparaît et disparaît en glissant le curseur et fait osciller la page */}
+      {(holdLast || estimated) && <span className="t-legal c-moderate" style={{ minHeight: 18 }}>{heldFrom ? $t("Relevé du {0}", { 0: dayMonth(heldFrom) }) : estimated && cur && cur.v === null ? $t("Pas de valeur ce jour-là.") : NBSP}</span>}
     </li>
   );
 }
@@ -415,7 +415,7 @@ function ThresholdChart({ days, sel, onSel, onRelease }: { days: string[]; sel: 
         <span><span className="dot s10" style={{ background: C1 }} />{$t("Fréquence cardiaque")}</span>
         <span><span className="dot s10" style={{ background: C2 }} />{$t("Allure")}</span>
       </div>
-      {fromDay && <span className="t-legal c-moderate">{$t("Relevé du {0}", { 0: dayMonth(fromDay) })}</span>}
+      <span className="t-legal c-moderate" style={{ minHeight: 18 }}>{fromDay ? $t("Relevé du {0}", { 0: dayMonth(fromDay) }) : NBSP}</span>
     </li>
   );
 }

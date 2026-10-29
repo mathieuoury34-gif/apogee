@@ -349,7 +349,7 @@ export function useSwipe(onNext: () => void, onPrev: () => void) {
 }
 
 /** Calendrier (DatePicker) : mois navigable, en-tête vert. */
-export function DatePicker({ value, onChange, label = $t('Date') }: { value: string; onChange: (iso: string) => void; label?: string }) {
+export function DatePicker({ value, onChange, label = $t('Date'), max }: { value: string; onChange: (iso: string) => void; label?: string; /** Dernier jour choisissable (les suivants sont grisés). */ max?: string }) {
   const [view, setView] = useState(value.slice(0, 7));
   const y = +view.slice(0, 4), m = +view.slice(5, 7);
   const first = new Date(Date.UTC(y, m - 1, 1));
@@ -377,12 +377,40 @@ export function DatePicker({ value, onChange, label = $t('Date') }: { value: str
           {Array.from({ length: offset }, (_, i) => <button key={'b' + i} type="button" disabled tabIndex={-1} />)}
           {Array.from({ length: days }, (_, i) => {
             const iso = view + '-' + String(i + 1).padStart(2, '0');
+            const out = !!max && iso > max;
             return (
-              <button key={iso} type="button" aria-pressed={iso === value} className={iso === today ? 'today' : undefined} onClick={() => onChange(iso)}>{i + 1}</button>
+              <button key={iso} type="button" disabled={out} aria-pressed={iso === value} className={(iso === today ? 'today' : '') + (out ? ' out' : '') || undefined} onClick={() => onChange(iso)}>{i + 1}</button>
             );
           })}
+          {/* toujours 6 semaines : la fenêtre garde la même hauteur d'un mois à l'autre (plus de saut en glissant) */}
+          {Array.from({ length: Math.max(0, 42 - offset - days) }, (_, i) => <button key={'a' + i} type="button" disabled tabIndex={-1} />)}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Champ date commun : appuyer ouvre le calendrier (mois qu'on fait glisser) ; sans l'ouvrir, on glisse le doigt sur le champ (ou les flèches) pour changer de jour. */
+export function DateField({ value, onChange, label, max, min, pickerLabel }: { value: string; onChange: (iso: string) => void; label: string; max?: string; min?: string; pickerLabel?: string }) {
+  const [open, setOpen] = useState(false);
+  const step = (k: number) => {
+    const d = new Date(value + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + k);
+    const v = d.toISOString().slice(0, 10);
+    if ((max && v > max) || (min && v < min)) return;
+    onChange(v);
+  };
+  const swipe = useSwipe(() => step(1), () => step(-1));
+  return (
+    <div className="field" data-component="DateField">
+      <span className="lbl">{label}</span>
+      <div className="row" style={{ gap: 'var(--space-4)', alignItems: 'stretch' }}>
+        <button type="button" className="icon-btn" aria-label={$t("Jour précédent")} disabled={!!min && value <= min} onClick={() => step(-1)}><Icon name="back" size={20} /></button>
+        <button type="button" className="select-btn" style={{ flex: 1, gridTemplateColumns: '1fr 20px', touchAction: 'pan-y' }} aria-expanded={open} onClick={() => setOpen(!open)} {...swipe}>
+          <span>{dayTitle(value)} {value.slice(0, 4)}</span><Icon name="calendar" size={20} style={{ color: 'var(--primary-fg)' }} />
+        </button>
+        <button type="button" className="icon-btn" aria-label={$t("Jour suivant")} disabled={!!max && value >= max} onClick={() => step(1)}><Icon name="next" size={20} /></button>
+      </div>
+      {open && <DatePicker value={value} label={pickerLabel ?? label} max={max} onChange={(v) => { onChange(v); setOpen(false); }} />}
     </div>
   );
 }

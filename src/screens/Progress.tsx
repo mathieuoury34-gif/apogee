@@ -3,7 +3,7 @@
 // (décision du 31/08) : l'écran juxtapose les chiffres.
 import { $t } from '../i18n';
 import { useState } from 'react';
-import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast, OtherToggle, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
+import { AppHeader, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast, OtherToggle, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { FormChart, LoadPanels, StackedWeeks, StepChart } from '../ui/charts';
 import { FitnessCard, SleepCard, WeightCard } from './Analysis';
 import { ActivityCard, CaloriesCard, CapacitiesTrendsCard } from './Wellness';
@@ -444,9 +444,11 @@ function ForecastCard() {
   const days: DayLoad[] = [...past, ...f.days.map((x) => ({ day: x.day, load: x.load, estimated: true, interruptionFill: false, fitness: x.fitness, fatigue: x.fatigue, freshness: x.freshness }))];
   return (
     <InfoCard className="card g12 dspan-12" aria-label={$t("Prévisionnel de charge")} data-anchor="prevision">
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
+      <div className="between">
         <h2>{$t("Prévisionnel de charge")}<InfoToggle /></h2>
-        <ChipGroup label={$t("Horizon")} value={String(h)} onChange={(v) => setH(Number(v))} options={SPANS.map(([n, l]) => [String(n), n === 0 ? $t("Tout le plan") : l] as [string, string])} />
+      </div>
+      <div role="group" aria-label={$t("Horizon")} className="period-spans">
+        {SPANS.map(([n, l]) => <button key={n} type="button" className="chip" aria-pressed={h === n} onClick={() => setH(n)}>{n === 0 ? $t("Tout le plan") : l}</button>)}
       </div>
       {!hasPlan || d.series.days.length < 2 ? <p className="t-caption c-moderate">{$t("Aucune séance prévue à venir : importe un plan du coach ou ajoute des séances au calendrier pour voir la projection.")}</p> : (
         <>
