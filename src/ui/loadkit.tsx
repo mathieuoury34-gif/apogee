@@ -51,7 +51,6 @@ export function AcuteLoadChart({ points, today }: { points: AcutePoint[]; today:
     <div className="stack-8" data-component="AcuteLoadChart">
       <Readout when={hp.day === today && hover === null ? $t("Aujourd’hui") : dayMonth(hp.day)} cells={[
         { label: $t("Charge aiguë (7 j)"), value: num(hp.acute, 0), color: 'var(--text)', key: true, valueColor: ratioColor(hp.ratio) },
-        { label: $t("Rapport de charge"), value: hp.ratio === null ? '—' : num(hp.ratio, 2), color: ratioColor(hp.ratio), key: true, valueColor: ratioColor(hp.ratio) },
         { label: $t("Zone optimale"), value: hp.lo === null ? '—' : num(hp.lo, 0) + '–' + num(hp.hi!, 0), color: 'var(--success)' },
       ]} />
       <div ref={ref} className="chart" style={{ height: B + 22 }}>

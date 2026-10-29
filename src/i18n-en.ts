@@ -1520,4 +1520,9 @@ export const EN: Record<string, string> = {
   "Courbes de capacité enregistrées": "Capacity curves saved",
   "Seuil de lactate": "Lactate threshold",
   "Fréquence cardiaque": "Heart rate",
+  "Jour de la pesée": "Weigh-in day",
+  "Poids (kg)": "Weight (kg)",
+  "Supprimer cette pesée": "Delete this weigh-in",
+  "Nuit": "Night",
+  "Jour du réveil": "Wake-up day",
 };

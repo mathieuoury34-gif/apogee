@@ -3,7 +3,7 @@
 // Chaque carte dit comment elle calcule : aucun nombre sans sa méthode.
 import { $t } from '../i18n';
 import { Fragment, useState } from 'react';
-import { AppHeader, Disclosure, Empty, ErrorBanner, OtherToggle, Segmented, Sheet, SubNav, showToast, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
+import { AppHeader, DateField, Disclosure, Empty, ErrorBanner, OtherToggle, Segmented, Sheet, SubNav, showToast, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { useLocalSheet } from '../ui/menu';
 import { FITNESS_COLOR, FITNESS_LABEL, SplitBars, StackedFitness } from '../ui/charts2';
 import { navigate } from '../ui/router';
@@ -310,11 +310,14 @@ export function WeightCard({ data, d }: Props) {
   const wAvg = (() => { const v = Array.from({ length: 7 }, (_, k) => wAt(addDays(wDay, -k))).filter((x): x is number => x !== null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; })();
   const sheet = useLocalSheet();
   const [val, setVal] = useState('');
+  const [wd, setWd] = useState(d.today);
+  const wdRec = data.weight[wd] && !data.weight[wd].deleted ? data.weight[wd] : null;
+  const pickW = (x: string) => { setWd(x); const r = data.weight[x]; setVal(r && !r.deleted ? String(r.kg).replace('.', ',') : t.latest ? String(t.latest.kg).replace('.', ',') : ''); };
   const kg = Number(val.replace(',', '.'));
   const ok = Number.isFinite(kg) && kg >= 25 && kg <= 300;
   const save = () => {
     if (!ok) return;
-    const snap = saveWeight(d.today, kg);
+    const snap = saveWeight(wd, kg);
     sheet.hide();
     showToast($t("Pesée enregistrée"), { undo: () => restore(snap) });
   };
@@ -322,7 +325,7 @@ export function WeightCard({ data, d }: Props) {
     <InfoCard className="card g12" aria-label={$t("Poids")} data-anchor="poids">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
         <h2>{$t("Poids")}<InfoToggle /></h2>
-        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => { setVal(t.latest ? String(t.latest.kg).replace('.', ',') : ''); sheet.show(); }}>{$t("Saisir une pesée")}</button>
+        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => { setWd(d.today); setVal(data.weight[d.today] && !data.weight[d.today].deleted ? String(data.weight[d.today].kg).replace('.', ',') : t.latest ? String(t.latest.kg).replace('.', ',') : ''); sheet.show(); }}>{$t("Saisir une pesée")}</button>
       </div>
       {!t.latest ? <p className="t-caption c-moderate">{$t("Aucune pesée. Saisis-la à la main ; elle vient aussi de Health Connect si une balance connectée l’y dépose (Garmin ne l’envoie pas).")}</p> : (
         <>
@@ -343,8 +346,9 @@ export function WeightCard({ data, d }: Props) {
       {sheet.open && (
         <Sheet title={$t("Saisir une pesée")} onClose={sheet.hide} footer={<button type="button" className="btn btn-primary block" disabled={!ok} onClick={save}>{$t("Enregistrer")}</button>}>
           <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
-            <div className="field"><span className="lbl">{$t("Poids (kg), aujourd’hui")}</span><DecField label={$t("Poids (kg), aujourd’hui")} unit="kg" value={numOf(val)} onChange={(x) => setVal(x === null ? '' : String(x).replace('.', ','))} hiMax={200} initial={t.latest ? t.latest.kg : 70} /></div>
-            {t.latest?.day === d.today && t.latest.source === 'manual' && <button type="button" className="btn btn-tertiary" style={{ color: 'var(--critical-text)' }} onClick={() => { const snap = deleteWeight(d.today); sheet.hide(); showToast($t("Pesée supprimée"), { undo: () => restore(snap) }); }}>{$t("Supprimer la pesée d’aujourd’hui")}</button>}
+            <DateField label={$t("Jour de la pesée")} value={wd} max={d.today} onChange={pickW} />
+            <div className="field"><span className="lbl">{$t("Poids (kg)")}</span><DecField label={$t("Poids (kg)")} unit="kg" value={numOf(val)} onChange={(x) => setVal(x === null ? '' : String(x).replace('.', ','))} hiMax={200} initial={t.latest ? t.latest.kg : 70} /></div>
+            {wdRec && wdRec.source === 'manual' && <button type="button" className="btn btn-tertiary" style={{ color: 'var(--critical-text)' }} onClick={() => { const snap = deleteWeight(wd); sheet.hide(); showToast($t("Pesée supprimée"), { undo: () => restore(snap) }); }}>{$t("Supprimer cette pesée")}</button>}
           </div>
         </Sheet>
       )}
@@ -367,9 +371,12 @@ export function SleepCard({ data, d }: Props) {
   const [si, setSi, relS] = useDaySel(days, (x) => !!data.sleep[x] && !data.sleep[x].deleted);
   const [bed, setBed] = useState<number | null>(null);
   const [wake, setWake] = useState<number | null>(null);
+  // jour de réveil de la nuit qu'on corrige : celui du curseur à l'ouverture, modifiable dans la fenêtre
+  const [eday, setEday] = useState(d.today);
   if (nightsAll.length === 0) return null;
   const day = days[si] ?? d.today;
-  const n = data.sleep[day] && !data.sleep[day].deleted ? data.sleep[day] : null;
+  const n = data.sleep[eday] && !data.sleep[eday].deleted ? data.sleep[eday] : null;
+  const shown = data.sleep[day] && !data.sleep[day].deleted ? data.sleep[day] : null;
   const offset = n?.zoneOffsetMinutes ?? -new Date().getTimezoneOffset();
   const diff = st.avg7 !== null && st.avgBefore !== null ? st.avg7 - st.avgBefore : null;
   const clock = (m: number) => { const x = Math.round(m) % 1440; return String(Math.floor(x / 60)).padStart(2, '0') + NBSP + 'h' + String(x % 60).padStart(2, '0'); };
@@ -377,24 +384,25 @@ export function SleepCard({ data, d }: Props) {
   const wakeS = wake ?? (n ? clockSec(n.endAt, n.zoneOffsetMinutes) : 7 * 3600);
   const durS = (bedS <= wakeS ? wakeS - bedS : 86400 - bedS + wakeS);
   const ok = durS >= 3600 && durS <= 16 * 3600;
-  const openEdit = () => { setBed(null); setWake(null); sheet.show(); };
+  const openEdit = () => { setBed(null); setWake(null); setEday(day); sheet.show(); };
+  const pickNight = (x: string) => { setEday(x); setBed(null); setWake(null); };
   const save = () => {
     if (!ok) return;
-    const snap = saveSleepNight(day, bedS, wakeS, offset);
+    const snap = saveSleepNight(eday, bedS, wakeS, offset);
     sheet.hide();
     showToast($t("Nuit enregistrée"), { undo: () => restore(snap) });
   };
-  const reset = () => { const snap = resetSleepNight(day); sheet.hide(); showToast($t("Nuit rendue à la montre"), { undo: () => restore(snap) }); };
+  const reset = () => { const snap = resetSleepNight(eday); sheet.hide(); showToast($t("Nuit rendue à la montre"), { undo: () => restore(snap) }); };
   return (
     <InfoCard className="card g12" aria-label={$t("Sommeil")} data-anchor="sommeil">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
         <h2>{$t("Sommeil")}<InfoToggle /></h2>
-        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={openEdit}>{n ? $t("Modifier la nuit") : $t("Saisir la nuit")}</button>
+        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={openEdit}>{shown ? $t("Modifier la nuit") : $t("Saisir la nuit")}</button>
       </div>
       <PeriodBar p={pw} total={all.length} from={days[0]} to={days[days.length - 1]} />
-      <Readout when={<>{day === d.today ? $t("Cette nuit (réveil aujourd’hui)") : $t("Réveil le {0}", { 0: dayTitle(day) })}{n?.edited ? <span className="var-chip flat" style={{ marginLeft: 'var(--space-8)' }}>{$t("validée")}</span> : null}</>} cells={[
-        { label: $t("Durée"), value: n ? hhSleep(n.durationSec) : '—', color: 'var(--chart-value)', key: true },
-        { label: $t("Coucher → lever"), value: n ? timeOf(n.startAt, n.zoneOffsetMinutes) + ' → ' + timeOf(n.endAt, n.zoneOffsetMinutes) : '—' },
+      <Readout when={<>{day === d.today ? $t("Cette nuit (réveil aujourd’hui)") : $t("Réveil le {0}", { 0: dayTitle(day) })}{shown?.edited ? <span className="var-chip flat" style={{ marginLeft: 'var(--space-8)' }}>{$t("validée")}</span> : null}</>} cells={[
+        { label: $t("Durée"), value: shown ? hhSleep(shown.durationSec) : '—', color: 'var(--chart-value)', key: true },
+        { label: $t("Coucher → lever"), value: shown ? timeOf(shown.startAt, shown.zoneOffsetMinutes) + ' → ' + timeOf(shown.endAt, shown.zoneOffsetMinutes) : '—' },
       ]} />
       <DayChart points={days.map((x) => { const r = data.sleep[x]; return { day: x, v: r && !r.deleted ? r.durationSec / 3600 : null, faint: !!r && !r.deleted && !r.fromStages }; })} kind="bars" min={0} max={10} ticks={[0, 2, 4, 6, 8, 10]} fmtTick={(v) => v + ' h'} sel={si} onSel={setSi} onRelease={relS} height={110} color="var(--chart-value)" label={$t("Durée de sommeil par nuit")} />
       <dl className="kv">
@@ -405,14 +413,15 @@ export function SleepCard({ data, d }: Props) {
       </dl>
       <Info>{$t("Jour de réveil, comme dans Garmin Connect. Touche une nuit du graphe pour la lire ; « Modifier la nuit » corrige le coucher et le lever (par exemple si tu n’avais pas la montre au poignet) : la nuit corrigée n’est plus écrasée par la montre. Un rappel le matin te propose de la valider (réglable dans Paramètres). La durée est le temps réellement endormi (éveils exclus) quand Health Connect donne les étapes du sommeil ; une barre pâle est un temps passé au lit. Le coucher habituel se calcule sur les 14 dernières nuits (5 minimum) ; plus l’écart-type est petit, plus tes nuits sont régulières. La durée de la nuit compte déjà dans la forme du jour.")}</Info>
       {sheet.open && (
-        <Sheet title={$t("Nuit du réveil du {0}", { 0: dayMonth(day) })} onClose={sheet.hide} footer={<button type="button" className="btn btn-primary block" disabled={!ok} onClick={save}>{$t("Enregistrer")}</button>}>
+        <Sheet title={$t("Nuit")} onClose={sheet.hide} footer={<button type="button" className="btn btn-primary block" disabled={!ok} onClick={save}>{$t("Enregistrer")}</button>}>
           <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
+            <DateField label={$t("Jour du réveil")} value={eday} max={d.today} onChange={pickNight} />
             <div className="grid-2">
               <div className="field"><span className="lbl">{$t("Coucher")}</span><ClockField label={$t("Coucher")} value={bedS} onChange={setBed} /></div>
               <div className="field"><span className="lbl">{$t("Lever")}</span><ClockField label={$t("Lever")} value={wakeS} onChange={setWake} /></div>
             </div>
             <span className="t-caption c-neutral">{ok ? $t("Durée : {0}", { 0: hhSleep(durS) }) : $t("Durée improbable : entre 1 h et 16 h.")}</span>
-            {n?.edited && d.today <= addDays(day, 2) && <button type="button" className="btn btn-tertiary" onClick={reset}>{$t("Rétablir la valeur de la montre")}</button>}
+            {n?.edited && d.today <= addDays(eday, 2) && <button type="button" className="btn btn-tertiary" onClick={reset}>{$t("Rétablir la valeur de la montre")}</button>}
           </div>
         </Sheet>
       )}

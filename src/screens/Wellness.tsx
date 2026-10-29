@@ -27,9 +27,9 @@ const KCAL = (v: number | null) => (v === null ? '—' : num(v, 0) + NBSP + 'kca
 // ------------------------------------------------------------------ correction d'un jour : pas, étages, calories
 /** Feuille « Saisir / Modifier » d'une carte (calories ; ou pas et étages) : recopie d'un jour d'après Garmin Connect. */
 export function EnergyEditSheet({ day: day0, parts, onClose }: { day: string; parts: EnergyPart[]; onClose: () => void }) {
-  const fix = useDayFix(day0, parts);
+  const fix = useDayFix(day0, parts, true);
   const done = (msg: string, snaps: Snapshot[]) => { onClose(); showToast(msg, { undo: () => snaps.slice().reverse().forEach((x) => restore(x)) }); };
-  const title = parts.includes('kcal') ? $t("Calories du jour") : $t("Pas et étages du jour");
+  const title = parts.includes('kcal') ? $t("Calories") : $t("Pas et étages");
   return (
     <Sheet title={title} onClose={onClose} footer={<button type="button" className="btn btn-primary block" disabled={fix.bad || !fix.changed} onClick={() => { if (fix.bad || !fix.changed) return; done($t("Jour corrigé"), fix.save()); }}>{$t("Enregistrer")}</button>}>
       <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
@@ -104,7 +104,7 @@ export function CaloriesCard() {
         </ul>
       )}
       <PeriodBar p={cp} total={cAll.length} from={cDays[0]} to={cDays[cDays.length - 1]} />
-      <DayChart points={cDays.map((x) => { const en = dayEnergy(data, x); return { day: x, v: en.active ?? (en.total !== null ? 0 : null), lo: en.rest ?? 0 }; })} kind="stack" sel={Math.max(0, cDays.indexOf(day))} onSel={(i) => setDay(cDays[i])} height={110} color="var(--chart-kcal-active)" color2="var(--chart-kcal-rest)" fmtTick={(v) => num(v, 0)} label={$t("Dépense par jour : repos et actives")} />
+      <DayChart points={cDays.map((x) => { const en = dayEnergy(data, x); return { day: x, v: en.active ?? (en.total !== null ? 0 : null), lo: en.rest ?? 0 }; })} kind="stack" sel={Math.max(0, cDays.indexOf(day))} onSel={(i) => setDay(cDays[i])} onRelease={() => setDay(d.today)} height={110} color="var(--chart-kcal-active)" color2="var(--chart-kcal-rest)" fmtTick={(v) => num(v, 0)} label={$t("Dépense par jour : repos et actives")} />
       <div className="legend">
         <span><span className="dot s10" style={{ background: 'var(--chart-kcal-active)' }} />{$t("Actives")}</span>
         <span><span className="dot s10" style={{ background: 'var(--chart-kcal-rest)' }} />{$t("Repos")}</span>
