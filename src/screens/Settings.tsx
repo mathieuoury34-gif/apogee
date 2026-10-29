@@ -8,7 +8,7 @@ import { IntField, numOf } from '../ui/wheels';
 import { navigate, useRoute } from '../ui/router';
 import { getData, getPrefs, setPrefs, useCalc, usePrefs } from '../data/store';
 import { deleteCloud, signIn, signOut, syncNow, useSync } from '../data/sync';
-import { backupBlob, dossierMessage, importDossier, readJsonFile, restoreBackup } from '../data/backup';
+import { backupBlob, dossierMessage, importDossier, importGarminGraph, readJsonFile, restoreBackup } from '../data/backup';
 import { deleteEverything, restore, saveAthlete } from '../data/actions';
 import { native } from '../native/bridge';
 import { HealthCard } from './Health';
@@ -78,6 +78,7 @@ export function SettingsScreen() {
       const prev = getData();
       const file = readJsonFile(await f.text());
       if (file.kind === 'dossier') showToast(dossierMessage(importDossier(file.dossier)), { undo: () => restoreBackup(prev) });
+      else if (file.kind === 'garmin') showToast(importGarminGraph(file.file), { undo: () => restoreBackup(prev) });
       else { restoreBackup(file.data); showToast($t("Sauvegarde restaurée"), { undo: () => restoreBackup(prev) }); }
     } catch (e) { showToast($t("Lecture impossible : ") + (e as Error).message, { error: true }); }
   };

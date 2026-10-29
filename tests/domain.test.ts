@@ -26,7 +26,8 @@ import { mergeSleepParts } from '../src/domain/health';
 import { loadFocus } from '../src/domain/loadStatus';
 import { AMATEUR_EXPONENT, capacityHistory } from '../src/domain/capacity';
 import { ingestEnergy, ingestVitals } from '../src/domain/healthExtra';
-import { currentCheckin, metricSeries } from '../src/domain/checkin';
+import { checkinStatus, currentCheckin, emptyCheckin, metricSeries, sundayOf } from '../src/domain/checkin';
+import { mergeGarminGraph } from '../src/domain/garminGraph';
 import { acuteSeries, dailyStatus, statusOf, weeklyStatus } from '../src/domain/loadStatus';
 import type { DayLoad } from '../src/domain/load';
 import { applyPreview, buildDossier, parsePlan, preview } from '../src/domain/coach';
@@ -684,7 +685,7 @@ test('Health Connect annexes : dépense du jour, VO₂max et HRV, sans réécrir
   assert.equal(c.week, '2026-10-19'); assert.equal(c.saved, null);
   assert.equal(c.draft.vo2max, 51);
   d.checkins['2026-10-19'] = { ...c.draft, updatedAt: 'x', pred5kSec: 1500 } as never;
-  assert.deepEqual(metricSeries(d, 'pred5kSec'), [{ week: '2026-10-19', v: 1500 }]);
+  assert.deepEqual(metricSeries(d, 'pred5kSec'), [{ week: '2026-10-19', day: '2026-10-19', v: 1500 }]);
   assert.equal(currentCheckin(d, '2026-10-22').saved?.pred5kSec, 1500);
 });
 
@@ -950,4 +951,59 @@ test('statut d\'entraînement par jour : une case par jour, même règle que par
   assert.ok(cells.every((c) => c.daily && c.status !== null));
   assert.equal(cells[6].start, '2026-09-29');
   assert.ok(cells[6].ratio !== null && Math.abs(cells[6].ratio! - 1) < 0.01, 'charge constante : rapport ≈ 1');
+});
+
+test('point de la semaine : statut fait / à faire et prochain dimanche', () => {
+  const d = emptyData();
+  // jeudi 29/10/2026 : le dimanche de la semaine est le 01/11
+  assert.equal(sundayOf('2026-10-29'), '2026-11-01');
+  assert.equal(sundayOf('2026-11-01'), '2026-11-01');
+  assert.deepEqual(checkinStatus(d, '2026-10-29'), { done: false, doneDay: null, next: '2026-11-01' });
+  d.checkins['2026-10-26'] = { ...emptyCheckin('2026-10-26'), day: '2026-11-01', pred5kSec: 1350, updatedAt: 'x' } as never;
+  const st = checkinStatus(d, '2026-10-29');
+  assert.equal(st.done, true);
+  assert.equal(st.next, '2026-11-08');
+  // un point de la semaine passée ne compte pas pour la semaine en cours
+  assert.equal(checkinStatus(d, '2026-11-03').done, false);
+  // la courbe est datée du jour saisi, pas du lundi
+  assert.equal(metricSeries(d, 'pred5kSec')[0].day, '2026-11-01');
+});
+
+test('relevés Garmin repris sans rien écraser', () => {
+  const d = emptyData();
+  d.energy['2026-10-20'] = { id: '2026-10-20', updatedAt: 'x', day: '2026-10-20', activeKcal: 900, totalKcal: 3050, basalKcal: 2150, steps: null, floors: null, source: 'health' };
+  const file = {
+    format: 'apogee-garmin/1' as const,
+    energy: [
+      { day: '2026-10-19', totalKcal: 2800, restKcal: 2150, steps: 9000, floors: 12 },
+      { day: '2026-10-20', totalKcal: 2999, restKcal: 2100, steps: 11000, floors: 15 },
+      { day: '2999-01-01', totalKcal: 1, steps: 1 },
+    ],
+    predictions: [
+      { day: '2026-10-18', pred5kSec: 1360, pred10kSec: 2970, predHalfSec: 6700, predMarathonSec: 14900 },
+      { day: '2026-10-17', pred5kSec: 1, pred10kSec: 1, predHalfSec: 1, predMarathonSec: 1 },
+    ],
+  };
+  const r = mergeGarminGraph(d, file);
+  assert.equal(r.report.energyAdded, 1);
+  assert.equal(r.report.energyFilled, 1);
+  const added = r.energy.find((x) => x.day === '2026-10-19')!;
+  assert.equal(added.activeKcal, 650);
+  assert.equal(added.steps, 9000);
+  const filled = r.energy.find((x) => x.day === '2026-10-20')!;
+  // calories déjà lues : conservées ; pas et étages manquants : comblés
+  assert.equal(filled.totalKcal, 3050);
+  assert.equal(filled.activeKcal, 900);
+  assert.equal(filled.steps, 11000);
+  assert.equal(r.energy.some((x) => x.day === '2999-01-01'), false);
+  // une seule fiche par semaine, le relevé le plus tardif l'emporte
+  assert.equal(r.checkins.length, 1);
+  assert.equal(r.checkins[0].week, '2026-10-12');
+  assert.equal(r.checkins[0].day, '2026-10-18');
+  assert.equal(r.checkins[0].pred5kSec, 1360);
+  // un point déjà saisi n'est pas écrasé
+  d.checkins['2026-10-12'] = { ...emptyCheckin('2026-10-12'), pred5kSec: 1400, updatedAt: 'x' } as never;
+  const again = mergeGarminGraph(d, file);
+  assert.equal(again.checkins[0].pred5kSec, 1400);
+  assert.equal(again.checkins[0].pred10kSec, 2970);
 });

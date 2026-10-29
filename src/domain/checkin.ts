@@ -8,7 +8,7 @@ import type { AppData, Checkin } from './types';
 export const emptyCheckin = (week: string): Omit<Checkin, 'updatedAt'> => ({ id: week, week, vo2max: null, lthrBpm: null, lthPaceSecKm: null, hrvMs: null, hrvStatus: null, sleepFelt: null, recoveryFelt: null, pred5kSec: null, pred10kSec: null, predHalfSec: null, predMarathonSec: null, note: null });
 
 export function checkinsSorted(data: AppData): Checkin[] {
-  return liveRecords(data.checkins).sort((a, b) => (a.week < b.week ? -1 : 1));
+  return liveRecords(data.checkins).sort((a, b) => ((a.day || a.week) < (b.day || b.week) ? -1 : 1));
 }
 
 export function hasContent(c: Omit<Checkin, 'id' | 'updatedAt' | 'week' | 'deleted'>): boolean {
@@ -34,7 +34,18 @@ export function checkinMissing(data: AppData, day: string): boolean {
   return !c || !!c.deleted;
 }
 
+/** Dimanche de la semaine de `day` (le jour même s'il est dimanche) : jour proposé par défaut pour recopier la montre. */
+export const sundayOf = (day: string): string => addDays(mondayOf(day), 6);
+
+/** État du rendez-vous hebdomadaire : fait pour la semaine en cours ou non, et date du prochain point. */
+export function checkinStatus(data: AppData, today: string): { done: boolean; doneDay: string | null; next: string } {
+  const week = mondayOf(today);
+  const c = data.checkins[week];
+  const done = !!c && !c.deleted;
+  return { done, doneDay: done ? (c.day || null) : null, next: done ? addDays(sundayOf(today), 7) : sundayOf(today) };
+}
+
 export type CheckinMetric = 'vo2max' | 'lthrBpm' | 'lthPaceSecKm' | 'sleepFelt' | 'recoveryFelt' | 'pred5kSec' | 'pred10kSec' | 'predHalfSec' | 'predMarathonSec';
-export function metricSeries(data: AppData, k: CheckinMetric): { week: string; v: number }[] {
-  return checkinsSorted(data).filter((c) => c[k] !== null).map((c) => ({ week: c.week, v: c[k] as number }));
+export function metricSeries(data: AppData, k: CheckinMetric): { week: string; day: string; v: number }[] {
+  return checkinsSorted(data).filter((c) => c[k] !== null).map((c) => ({ week: c.week, day: c.day || c.week, v: c[k] as number }));
 }

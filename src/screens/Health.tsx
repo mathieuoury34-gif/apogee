@@ -157,8 +157,8 @@ function WatchKv({ st }: { st: ReturnType<typeof useWatchStats> }) {
   );
 }
 
-type DiagKind = { records?: number; overlaps?: number; lastEnd?: number; days?: { day: string; raw: number; clean: number }[] };
-type Diag = { origins?: string[]; apps?: { app: string; steps: number }[]; kinds?: Record<string, DiagKind> };
+type DiagKind = { records?: number; overlaps?: number; lastEnd?: number; days?: { day: string; raw: number; clean: number }[]; error?: string; agg?: { day: string; v: number | null }[]; aggError?: string };
+type Diag = { origins?: string[]; apps?: { app: string; steps: number }[]; kinds?: Record<string, DiagKind>; stepsError?: string };
 const DIAG_KINDS: [string, string][] = [['steps', $t("Pas")], ['floors', $t("Étages")], ['active', $t("Calories actives (kcal)")], ['total', $t("Calories totales (kcal)")]];
 
 /** Ce que Garmin dépose réellement dans Health Connect sur les 7 derniers jours, pour comprendre un écart avec Garmin Connect. */
@@ -184,15 +184,17 @@ export function GarminDiagnostic() {
         <div className="stack-8">
           <span className="t-legal c-moderate">{$t("Sources lues :")} {(diag.origins ?? []).length ? (diag.origins ?? []).join(', ') : $t("aucune source Garmin trouvée (toutes sources mélangées)")}</span>
           <span className="t-legal c-moderate">{$t("Applications qui écrivent des pas :")} {(diag.apps ?? []).map((a) => a.app + ' (' + a.steps + ')').join(', ') || $t("aucune")}</span>
+          {diag.stepsError && <span className="t-legal" style={{ color: 'var(--critical-text)' }}>{$t("Lecture des pas refusée :")} {diag.stepsError}</span>}
           {DIAG_KINDS.map(([k, label]) => {
             const x = diag.kinds?.[k];
-            if (!x || !x.days) return <span key={k} className="t-legal c-moderate">{label} : {$t("non lisible")}</span>;
+            if (!x || !x.days) return <span key={k} className="t-legal c-moderate">{label} : {$t("non lisible")}{x?.error ? ' — ' + x.error : ''}{x?.agg?.length ? ' · ' + $t("total du jour par Health Connect :") + ' ' + x.agg.map((a) => dateFr(a.day).slice(0, 5) + ' ' + (a.v === null ? '—' : num(a.v, 0))).join(', ') : ''}{x?.aggError ? ' · ' + x.aggError : ''}</span>;
+            const agg = new Map((x.agg ?? []).map((a) => [a.day, a.v]));
             return (
               <div key={k} className="stack-4">
                 <span className="t-caption-strong">{label}</span>
                 <span className="t-legal c-moderate">{$t("{0} mesure(s), dont {1} qui en recouvre une autre · dernière à {2}", { 0: x.records ?? 0, 1: x.overlaps ?? 0, 2: x.lastEnd ? new Date(x.lastEnd * 1000).toLocaleString() : '—' })}</span>
                 <dl className="kv">
-                  {x.days.map((d) => <><dt key={d.day + 'a'}>{dateFr(d.day)}</dt><dd key={d.day + 'b'} className="t-caption">{num(d.clean, 0)}{Math.abs(d.raw - d.clean) >= 1 ? ' ' + $t("(somme brute {0})", { 0: num(d.raw, 0) }) : ''}</dd></>)}
+                  {x.days.map((d) => <><dt key={d.day + 'a'}>{dateFr(d.day)}</dt><dd key={d.day + 'b'} className="t-caption">{num(d.clean, 0)}{Math.abs(d.raw - d.clean) >= 1 ? ' ' + $t("(somme brute {0})", { 0: num(d.raw, 0) }) : ''}{agg.get(d.day) != null && Math.abs((agg.get(d.day) ?? 0) - d.clean) >= 1 ? ' ' + $t("(total Health Connect {0})", { 0: num(agg.get(d.day) ?? 0, 0) }) : ''}</dd></>)}
                 </dl>
               </div>
             );

@@ -284,6 +284,8 @@ export type HrvStatus = 'poor' | 'low' | 'unbalanced' | 'balanced';
 /** Point hebdomadaire saisi (ou pré-rempli depuis Health Connect) : capacités et ressenti (id = lundi de la semaine). */
 export interface Checkin extends Rec {
   week: string;
+  /** Jour de la saisie (date à laquelle la montre affichait ces valeurs) ; absent sur les anciennes fiches : on prend la semaine. */
+  day?: string | null;
   vo2max: number | null;
   /** Seuil de lactate : FC (bpm) et allure (s/km). */
   lthrBpm: number | null;

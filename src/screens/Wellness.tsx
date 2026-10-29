@@ -15,7 +15,7 @@ import { capacityHistory, type CapacityPoint } from '../domain/capacity';
 import { DayChart } from '../ui/daychart';
 import { PeriodBar, useDaySel, usePeriod } from '../ui/period';
 import { Readout } from '../ui/readout';
-import { currentCheckin, hasContent, metricSeries, type CheckinMetric } from '../domain/checkin';
+import { checkinStatus, checkinsSorted, currentCheckin, hasContent, metricSeries, sundayOf, type CheckinMetric } from '../domain/checkin';
 import { liveRecords } from '../domain/load';
 import type { Checkin } from '../domain/types';
 import { dateFr, dayMonth, dayTitle, NBSP, num, signed, weekdayShort } from '../ui/format';
@@ -83,10 +83,10 @@ export function CaloriesCard() {
         </ul>
       )}
       <PeriodBar p={cp} total={cAll.length} from={cDays[0]} to={cDays[cDays.length - 1]} />
-      <DayChart points={cDays.map((x) => { const en = dayEnergy(data, x); return { day: x, v: en.active ?? (en.total !== null ? 0 : null), lo: en.rest ?? 0 }; })} kind="stack" sel={Math.max(0, cDays.indexOf(day))} onSel={(i) => setDay(cDays[i])} height={110} color="var(--chart-1)" color2="var(--chart-other)" fmtTick={(v) => num(v, 0)} label={$t("Dépense par jour : repos et actives")} />
+      <DayChart points={cDays.map((x) => { const en = dayEnergy(data, x); return { day: x, v: en.active ?? (en.total !== null ? 0 : null), lo: en.rest ?? 0 }; })} kind="stack" sel={Math.max(0, cDays.indexOf(day))} onSel={(i) => setDay(cDays[i])} height={110} color="var(--chart-kcal-active)" color2="var(--chart-kcal-rest)" fmtTick={(v) => num(v, 0)} label={$t("Dépense par jour : repos et actives")} />
       <div className="legend">
-        <span><span className="dot s10" style={{ background: 'var(--chart-1)' }} />{$t("Actives")}</span>
-        <span><span className="dot s10" style={{ background: 'var(--chart-other)' }} />{$t("Repos")}</span>
+        <span><span className="dot s10" style={{ background: 'var(--chart-kcal-active)' }} />{$t("Actives")}</span>
+        <span><span className="dot s10" style={{ background: 'var(--chart-kcal-rest)' }} />{$t("Repos")}</span>
       </div>
       <h3 className="t-strong">{$t("Semaine du {0}", { 0: dayMonth(week.days[0].day) })}</h3>
       <p className="t-legal c-moderate">{$t("Semaine : {0} actives, {1} de repos, {2} mangées sur {3} jour(s) saisi(s).", { 0: KCAL(week.active), 1: KCAL(week.rest), 2: week.mealDays ? KCAL(week.intake) : '—', 3: week.mealDays })}</p>
@@ -157,34 +157,41 @@ const numOrNull = (t: string): number | null => { const s = t.trim(); if (!s) re
 export function CheckinCard() {
   const { data, d } = useCalc();
   const sheet = useLocalSheet();
-  const cur = currentCheckin(data, d.today);
+  const st = checkinStatus(data, d.today);
+  const maxDay = sundayOf(d.today);
+  const [dateF, setDateF] = useState('');
+  const cur = currentCheckin(data, dateF || maxDay);
   const [f, setF] = useState<Record<string, string>>({});
   const [sleepF, setSleepF] = useState<number | null>(null);
   const [recF, setRecF] = useState<number | null>(null);
-  const open = () => {
-    const c = cur.draft;
+  const fill = (day: string) => {
+    const c = currentCheckin(data, day).draft;
     setF({
       vo2max: c.vo2max?.toString().replace('.', ',') ?? '', lthrBpm: c.lthrBpm?.toString() ?? '', lthPace: clock(c.lthPaceSecKm),
       p5: clock(c.pred5kSec), p10: clock(c.pred10kSec), ph: clock(c.predHalfSec), pm: clock(c.predMarathonSec), note: c.note ?? '',
     });
     setSleepF(c.sleepFelt); setRecF(c.recoveryFelt);
-    sheet.show();
   };
+  const open = () => { setDateF(maxDay); fill(maxDay); sheet.show(); };
+  // changer le jour recharge la fiche de cette semaine-là (pour compléter ou corriger un ancien point)
+  const onDate = (v: string) => { if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || v > maxDay) return; setDateF(v); fill(v); };
   const vo2 = numOrNull(f.vo2max ?? ''), lthr = numOrNull(f.lthrBpm ?? '');
   const lthp = parseClock(f.lthPace ?? ''), p5 = parseClock(f.p5 ?? ''), p10 = parseClock(f.p10 ?? ''), ph = parseClock(f.ph ?? ''), pm = parseClock(f.pm ?? '');
   const bad = [vo2, lthr, lthp, p5, p10, ph, pm].some((x) => Number.isNaN(x))
     || (vo2 !== null && (vo2 < 15 || vo2 > 90)) || (lthr !== null && (lthr < 80 || lthr > 230));
   const next: Omit<Checkin, 'updatedAt'> = {
-    id: cur.week, week: cur.week, vo2max: vo2, lthrBpm: lthr, lthPaceSecKm: lthp, hrvMs: cur.saved?.hrvMs ?? null, hrvStatus: cur.saved?.hrvStatus ?? null, sleepFelt: sleepF, recoveryFelt: recF,
+    id: cur.week, week: cur.week, day: dateF || maxDay, vo2max: vo2, lthrBpm: lthr, lthPaceSecKm: lthp, hrvMs: cur.saved?.hrvMs ?? null, hrvStatus: cur.saved?.hrvStatus ?? null, sleepFelt: sleepF, recoveryFelt: recF,
     pred5kSec: p5, pred10kSec: p10, predHalfSec: ph, predMarathonSec: pm, note: (f.note ?? '').trim() || null,
   };
   const save = () => {
-    if (bad || !hasContent({ ...next, id: undefined } as never)) return;
+    const { id: _i, week: _w, day: _d, ...content } = next;
+    if (bad || !hasContent(content)) return;
     const snap = saveCheckin(next);
     sheet.hide();
     showToast($t("Point de la semaine enregistré"), { undo: () => restore(snap) });
   };
-  const s = cur.saved;
+  const all = checkinsSorted(data);
+  const s = all.length ? all[all.length - 1] : null;
   const clk = (x: number | null) => (x !== null && Number.isFinite(x) ? x : null);
   const set = (k: string) => (ev: { target: { value: string } }) => setF({ ...f, [k]: ev.target.value });
   const scale = (val: number | null, on: (v: number | null) => void, label: string) => (
@@ -198,11 +205,18 @@ export function CheckinCard() {
     <InfoCard className="card g12" aria-label={$t("Point de la semaine")} data-anchor="point-semaine">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
         <h2>{$t("Point de la semaine")}<InfoToggle /></h2>
-        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={open}>{s ? $t("Modifier") : $t("Remplir")}</button>
+        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={open}>{st.done ? $t("Modifier") : $t("Remplir")}</button>
+      </div>
+      <div className="stack-4" data-checkin={st.done ? 'done' : 'todo'}>
+        {st.done
+          ? <span className="row t-caption-strong c-success" style={{ gap: 'var(--space-8)', alignItems: 'center' }}><Icon name="check" size={20} />{$t("Fait cette semaine")}</span>
+          : <span className="t-caption-strong c-moderate">{$t("Pas encore fait cette semaine")}</span>}
+        <span className="t-caption c-moderate">{st.done ? $t("Prochain point : dimanche {0}", { 0: dayMonth(st.next) }) : $t("À faire avant dimanche {0}", { 0: dayMonth(st.next) })}</span>
       </div>
       <Info>{$t("Une fois par semaine, recopie ce que ta montre affiche : VO₂max, seuil de lactate, prédictions de course, et ton ressenti. Apogée en trace les courbes. Un rappel te le propose le dimanche.")}</Info>
       {s ? (
         <dl className="kv">
+          <dt>{$t("Dernier point")}</dt><dd>{dateFr(s.day || s.week)}</dd>
           {s.vo2max !== null && <><dt>{$t("VO₂max")}</dt><dd>{num(s.vo2max, 0, 1)}</dd></>}
           {s.lthrBpm !== null && <><dt>{$t("Seuil de lactate : FC")}</dt><dd>{s.lthrBpm}{NBSP}bpm</dd></>}
           {s.lthPaceSecKm !== null && <><dt>{$t("Seuil de lactate : allure")}</dt><dd>{clock(s.lthPaceSecKm)}{NBSP}/km</dd></>}
@@ -213,11 +227,12 @@ export function CheckinCard() {
           {s.predHalfSec !== null && <><dt>{$t("Prédiction semi")}</dt><dd>{clock(s.predHalfSec)}</dd></>}
           {s.predMarathonSec !== null && <><dt>{$t("Prédiction marathon")}</dt><dd>{clock(s.predMarathonSec)}</dd></>}
         </dl>
-      ) : <p className="t-caption c-moderate">{$t("Pas encore rempli cette semaine (semaine du {0}).", { 0: dayMonth(cur.week) })}</p>}
+      ) : <p className="t-caption c-moderate">{$t("Aucun point enregistré pour l’instant.")}</p>}
       {sheet.open && (
         <Sheet title={$t("Point de la semaine")} onClose={sheet.hide} footer={<button type="button" className="btn btn-primary block" disabled={bad} onClick={save}>{$t("Enregistrer")}</button>}>
           <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
-            <span className="t-caption c-neutral">{$t("Semaine du {0}. Laisse vide ce que ta montre ne donne pas.", { 0: dateFr(cur.week) })}</span>
+            <label className="field"><span className="lbl">{$t("Jour du relevé")}</span><input className="input" type="date" value={dateF} max={maxDay} onChange={(ev) => onDate(ev.target.value)} /></label>
+            <span className="t-caption c-neutral">{$t("Par défaut le prochain dimanche. Choisis un jour passé pour recopier un ancien relevé de ta montre (une fiche par semaine : semaine du {0}). Laisse vide ce que ta montre ne donne pas.", { 0: dateFr(cur.week) })}</span>
             <h3 className="t-strong">{$t("Capacités")}</h3>
             <div className="grid-2">
               <div className="field"><span className="lbl">{$t("VO₂max")}</span><DecField label={$t("VO₂max")} value={numOf(f.vo2max ?? '')} onChange={(x) => setF({ ...f, vo2max: x === null ? '' : String(x).replace('.', ',') })} hiMax={90} clearable initial={50} /></div>
@@ -297,7 +312,7 @@ function WatchTrend({ k, label, fmt, better, time }: { k: CheckinMetric; label: 
   if (!s.length) return null;
   const i = Math.min(sel ?? s.length - 1, s.length - 1);
   return (
-    <MetricChart label={label} pts={s.map((x) => ({ day: x.week, v: x.v }))} fmt={fmt} better={better} time={time} sel={i} onSel={setSel} />
+    <MetricChart label={label} pts={s.map((x) => ({ day: x.day, v: x.v }))} fmt={fmt} better={better} time={time} sel={i} onSel={setSel} />
   );
 }
 

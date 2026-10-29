@@ -219,6 +219,8 @@ export const AMATEUR_EXPONENT = 1.12;
 export interface RacePredictionOptions {
   /** Coefficient de calage sur la montre (voir `watchCalibration`) ; null = aucun ; absent = calculé ici. */
   factor?: number | null;
+  /** Calage déjà mesuré sur plusieurs points datés (prioritaire sur `factor`). */
+  calibration?: Calibration | null;
   /** Ramène un ancien effort au niveau de forme du jour (voir `effortAdjuster`). */
   adjust?: (e: Effort) => number;
 }
@@ -238,7 +240,50 @@ function watchPredictions(data: AppData): { week: string | null; sec: Record<Rac
   return { week, sec };
 }
 
-export function racePredictions(data: AppData, vo2: Vo2Estimate, efforts: Effort[], opts: RacePredictionOptions = {}): { rows: RacePrediction[]; vdot: number | null; basis: 'estimate' | 'watch' | null; calib: { factor: number; week: string } | null } {
+/** Calage sur la montre : rapport médian « montre ÷ Apogée », mesuré à la date de chacun de tes derniers points de la semaine. */
+export interface Calibration { factor: number; week: string; n: number }
+const CALIB_POINTS = 8;
+export const checkinDay = (c: Checkin): string => c.day || addDays(c.week, 6);
+
+function rawRiegel(efforts: Effort[], adjust: (e: Effort) => number): Record<RaceDistance['key'], number | null> {
+  const out = {} as Record<RaceDistance['key'], number | null>;
+  for (const dist of RACE_DISTANCES) {
+    let best: number | null = null;
+    for (const e of efforts) {
+      const ratio = dist.meters / e.distanceM;
+      if (ratio < 0.5 || ratio > RIEGEL_MAX_RATIO) continue;
+      const t = riegel(e.timeSec * adjust(e), e.distanceM, dist.meters, AMATEUR_EXPONENT);
+      if (best === null || t < best) best = t;
+    }
+    out[dist.key] = best;
+  }
+  return out;
+}
+
+/**
+ * Chaque point de la semaine compare ce qu'Apogée annonçait CE JOUR-LÀ à ce que ta montre annonçait ; le coefficient est la médiane des
+ * rapports sur tes derniers points. Si la montre dit 25:00 là où Apogée disait 24:00, les prédictions suivantes sont alourdies d'autant.
+ */
+export function watchCalibration(data: AppData, d: Derived): Calibration | null {
+  const cs = liveRecords(data.checkins)
+    .filter((c) => Object.values(PRED_KEYS).some((k) => c[k] !== null))
+    .sort((a, b) => (checkinDay(a) < checkinDay(b) ? 1 : -1))
+    .slice(0, CALIB_POINTS);
+  const ratios: number[] = [];
+  for (const c of cs) {
+    const day = checkinDay(c) < d.today ? checkinDay(c) : d.today;
+    const raw = rawRiegel(bestEfforts(data, day), effortAdjuster(data, { ...d, today: day } as Derived, day));
+    for (const k of Object.keys(PRED_KEYS) as RaceDistance['key'][]) {
+      const w = c[PRED_KEYS[k]], r = raw[k];
+      if (w !== null && r) ratios.push(w / r);
+    }
+  }
+  const f = ratios.length ? median(ratios) : null;
+  if (f === null || !isFinite(f) || f <= 0.6 || f >= 1.6) return null;
+  return { factor: f, week: cs[0].week, n: cs.length };
+}
+
+export function racePredictions(data: AppData, vo2: Vo2Estimate, efforts: Effort[], opts: RacePredictionOptions = {}): { rows: RacePrediction[]; vdot: number | null; basis: 'estimate' | 'watch' | null; calib: Calibration | null } {
   const watch = watchPredictions(data);
   const vdot = vo2.value ?? vo2.watch?.value ?? null;
   const basis = vo2.value !== null ? 'estimate' : vo2.watch ? 'watch' : null;
@@ -253,20 +298,23 @@ export function racePredictions(data: AppData, vo2: Vo2Estimate, efforts: Effort
     }
     return { dist, best };
   });
-  // Calage : rapport médian entre les prédictions de la montre et celles d'Apogée, au jour du dernier point hebdomadaire.
+  // Calage fourni par l'appelant (médiane sur plusieurs points datés) ; à défaut, dernier point rapproché des efforts d'aujourd'hui.
   let factor: number | null;
-  if (opts.factor !== undefined) factor = opts.factor;
+  let calibration = opts.calibration ?? null;
+  if (opts.calibration !== undefined) factor = calibration ? calibration.factor : null;
+  else if (opts.factor !== undefined) factor = opts.factor;
   else {
     const ratios = raw.map((r) => (r.best && watch.sec[r.dist.key] ? watch.sec[r.dist.key]! / r.best.t : null)).filter((x): x is number => x !== null);
     factor = ratios.length ? median(ratios)! : null;
   }
   const k = factor !== null && isFinite(factor) && factor > 0.6 && factor < 1.6 ? factor : null;
+  if (!calibration && k !== null && watch.week) calibration = { factor: k, week: watch.week, n: 1 };
   const rows = raw.map(({ dist, best }): RacePrediction => ({
     dist, vdotSec: vdot === null ? null : timeOfVdot(vdot, dist.meters),
     riegelSec: best ? best.t * (k ?? 1) : null, riegelFrom: best ? best.e : null,
     far: !!best && dist.meters / best.e.distanceM > RIEGEL_FAR_RATIO, watchSec: watch.sec[dist.key],
   }));
-  return { rows, vdot, basis, calib: k !== null && watch.week ? { factor: k, week: watch.week } : null };
+  return { rows, vdot, basis, calib: k !== null ? calibration : null };
 }
 
 // ------------------------------------------------------------------ disponibilité à l'entraînement (Training Readiness)
@@ -436,15 +484,13 @@ export interface CapacityPoint {
  */
 export function capacityHistory(data: AppData, d: Derived, days = 84): CapacityPoint[] {
   const out: CapacityPoint[] = [];
-  const todayEfforts = bestEfforts(data, d.today);
-  const nowV = vo2maxEstimate(data, d, todayEfforts);
-  const calib = racePredictions(data, nowV, todayEfforts, { adjust: effortAdjuster(data, d, d.today) }).calib;
+  const calib = watchCalibration(data, d);
   for (let k = days - 1; k >= 0; k--) {
     const day = addDays(d.today, -k);
     const at = { ...d, today: day } as Derived;
     const efforts = bestEfforts(data, day);
     const v = vo2maxEstimate(data, at, efforts);
-    const p = racePredictions(data, v, efforts, { factor: calib ? calib.factor : null, adjust: effortAdjuster(data, at, day) });
+    const p = racePredictions(data, v, efforts, { calibration: calib, adjust: effortAdjuster(data, at, day) });
     const pred = Object.fromEntries(p.rows.map((r) => [r.dist.key, r.riegelSec])) as CapacityPoint['pred'];
     out.push({ day, vo2max: v.value, pred });
   }

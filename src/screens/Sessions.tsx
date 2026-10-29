@@ -24,7 +24,7 @@ import { ACTUAL_DISCIPLINES } from '../domain/types';
 import { DISCIPLINE_SHORT, bpm, dateFr, dateTimeFr, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, elevation, hm, hours, kcal, km, mmss, monthLong, num, paceFor, parseNum, pct, pctSigned, signed, speedKmh, timeOf, toInput, NBSP } from '../ui/format';
 import { cleanHr } from '../domain/hr';
 import { polarSplit, zoneTimes } from '../domain/zones';
-import { BricksCard, ComplianceCard, EfficiencyCard, RecordsCard, WeekCard, ZonesCard } from './Analysis';
+import { BricksCard, ComplianceCard, EfficiencyCard, RecordsCard, ZonesCard } from './Analysis';
 import { SplitBars } from '../ui/charts2';
 import { PeriodBar, usePeriod } from '../ui/period';
 
@@ -536,11 +536,6 @@ export function StatsScreen() {
       <SubNav items={NAV} label={$t("Sections Séances")} />
       <main className="content with-fab dgrid">
         <div className="dmasonry">
-          <WeekCard data={data} d={d} />
-          <ComplianceCard data={data} d={d} />
-        </div>
-
-        <div className="dmasonry">
         <Hero className="dspan-5" label={ov.firstDay ? $t("Bilan depuis le ") + dateFr(ov.firstDay) : $t("Bilan global")} value={hours(ov.seconds)} chip={$t("{0} séances · {1} semaines · {2}", { 0: ov.sessions, 1: ov.weeks, 2: km(ov.metres, 0) })}>
           <div className="foot">
             <span><strong>{ov.weeks ? hm(ov.seconds / ov.weeks) : '—'}</strong> {$t("par semaine")}</span>
@@ -631,6 +626,7 @@ export function StatsScreen() {
         )}
         <div className="dmasonry">
           <ZonesCard data={data} d={d} />
+          <ComplianceCard data={data} d={d} />
           <RecordsCard data={data} d={d} />
           <EfficiencyCard data={data} d={d} />
           <BricksCard data={data} d={d} />

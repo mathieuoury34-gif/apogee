@@ -5,7 +5,7 @@ import { $t } from '../i18n';
 import { useState } from 'react';
 import { AppHeader, ChipGroup, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast, OtherToggle, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { FormChart, LoadPanels, StackedWeeks, StepChart } from '../ui/charts';
-import { ComplianceCard, FitnessCard, SleepCard, WeightCard } from './Analysis';
+import { FitnessCard, SleepCard, WeightCard } from './Analysis';
 import { ActivityCard, CaloriesCard, CapacitiesTrendsCard, CheckinCard } from './Wellness';
 import { EnduranceHillCard, PredictionsCard, ReadinessCard, ReserveCard, Vo2Card } from './Capacity';
 import { AcuteLoadChart, FocusBars, RatioChart, STATUS_INFO, StatusStrip } from '../ui/loadkit';
@@ -197,7 +197,7 @@ export function ObjectiveScreen() {
   if (!race) {
     return (
       <div className="screen" data-screen="objectif"><AppHeader title={$t("Progression")} /><ErrorBanner /><SubNav items={NAV} label={$t("Sections Progression")} />
-        <main className="content stack-16"><Empty icon="flag" title={$t("Aucune course objectif")} text={$t("Renseigne ta course : date, distances et chrono visé. L’écran décompose le chrono en allures et les met en face de tes indicateurs.")} action={<button type="button" className="btn btn-primary" onClick={() => setEditing(true)}>{$t("Renseigner ma course")}</button>} /><ComplianceCard data={data} d={d} /></main>
+        <main className="content stack-16"><Empty icon="flag" title={$t("Aucune course objectif")} text={$t("Renseigne ta course : date, distances et chrono visé. L’écran décompose le chrono en allures et les met en face de tes indicateurs.")} action={<button type="button" className="btn btn-primary" onClick={() => setEditing(true)}>{$t("Renseigner ma course")}</button>} /></main>
         {editing && <RaceSheet onClose={() => setEditing(false)} />}
       </div>
     );
@@ -241,7 +241,6 @@ export function ObjectiveScreen() {
           <PaceCard p={rp.run} />
         </div>
         <Info>{$t("Les allures requises et tes indicateurs sont mis côte à côte, sans jugement de faisabilité : c’est au coach d’en tirer un plan.")}</Info>
-        <div className="dspan-12"><ComplianceCard data={data} d={d} /></div>
       </main>
       {editing && <RaceSheet onClose={() => setEditing(false)} />}
     </div>
@@ -342,11 +341,11 @@ export function ZonesScreen() {
       <SubNav items={NAV} label={$t("Sections Progression")} />
       <main className="content dgrid">
         <div className="dmasonry">
+          <CheckinCard />
           <Vo2Card />
           <PredictionsCard />
           <EnduranceHillCard />
           <CapacitiesTrendsCard />
-          <CheckinCard />
         </div>
         <ZoneSuggestions />
         {(['vma', 'ftp', 'css', 'hr_max'] as ZoneKind[]).map((k) => {

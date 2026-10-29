@@ -12,7 +12,7 @@ import { DayChart } from '../ui/daychart';
 import { PeriodBar, useDaySel, usePeriod } from '../ui/period';
 import { Readout } from '../ui/readout';
 import {
-  bestEfforts, effortAdjuster, energyReserve, enduranceScore, hillScore, racePredictions, readiness, readinessFactors, trainingEffects, vo2maxEstimate,
+  bestEfforts, effortAdjuster, energyReserve, enduranceScore, hillScore, racePredictions, readiness, readinessFactors, trainingEffects, vo2maxEstimate, watchCalibration,
   readinessLevel, type ReadinessKey, type ReadinessLevel,
 } from '../domain/capacity';
 import type { TeLevel } from '../domain/science';
@@ -181,7 +181,7 @@ export function PredictionsCard() {
   const { data, d } = useCalc();
   const efforts = useMemo(() => bestEfforts(data, d.today), [data, d.today]);
   const v = useMemo(() => vo2maxEstimate(data, d, efforts), [data, d, efforts]);
-  const p = useMemo(() => racePredictions(data, v, efforts, { adjust: effortAdjuster(data, d, d.today) }), [data, d, v, efforts]);
+  const p = useMemo(() => racePredictions(data, v, efforts, { adjust: effortAdjuster(data, d, d.today), calibration: watchCalibration(data, d) }), [data, d, v, efforts]);
   const any = p.rows.some((r) => r.riegelSec !== null || r.watchSec !== null);
   const hasWatch = p.rows.some((r) => r.watchSec !== null);
   return (
@@ -202,7 +202,7 @@ export function PredictionsCard() {
             ))}
           </div>
           {p.calib
-            ? <p className="t-legal c-moderate">{$t("Calées sur les prédictions de ta montre du {0} (coefficient ×{1}). Les valeurs évoluent ensuite avec tes sorties.", { 0: dayMonth(p.calib.week), 1: num(p.calib.factor, 2) })}</p>
+            ? <p className="t-legal c-moderate">{p.calib.n > 1 ? $t("Calées sur tes {0} derniers points de la semaine (le plus récent : semaine du {1}) : à chaque point, Apogée compare ce qu’il annonçait ce jour-là à ta montre. Coefficient ×{2}. Les valeurs évoluent ensuite avec tes sorties.", { 0: p.calib.n, 1: dayMonth(p.calib.week), 2: num(p.calib.factor, 2) }) : $t("Calées sur les prédictions de ta montre du {0} (coefficient ×{1}). Les valeurs évoluent ensuite avec tes sorties.", { 0: dayMonth(p.calib.week), 1: num(p.calib.factor, 2) })}</p>
             : <p className="t-legal c-moderate">{$t("Pas encore calées sur ta montre : recopie ses prédictions dans le point de la semaine pour rapprocher les chiffres.")}</p>}
         </>
       )}

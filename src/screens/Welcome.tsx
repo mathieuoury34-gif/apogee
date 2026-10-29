@@ -3,7 +3,7 @@ import { $t } from '../i18n';
 import { useRef, useState } from 'react';
 import { useSync, signIn } from '../data/sync';
 import { getData } from '../data/store';
-import { dossierMessage, importDossier, importLegacy, readJsonFile, restoreBackup } from '../data/backup';
+import { dossierMessage, importDossier, importGarminGraph, importLegacy, readJsonFile, restoreBackup } from '../data/backup';
 import { navigate, openSheet } from '../ui/router';
 import { showToast } from '../ui/kit';
 import { Icon } from '../ui/icons';
@@ -27,6 +27,7 @@ export function WelcomeCard({ className = '' }: { className?: string }) {
       const prev = getData();
       const file = readJsonFile(await f.text());
       if (file.kind === 'dossier') showToast(dossierMessage(importDossier(file.dossier)), { undo: () => restoreBackup(prev) });
+      else if (file.kind === 'garmin') showToast(importGarminGraph(file.file), { undo: () => restoreBackup(prev) });
       else { restoreBackup(file.data); showToast($t("Sauvegarde restaurée"), { undo: () => restoreBackup(prev) }); }
     } catch (e) { showToast($t("Lecture impossible : ") + (e as Error).message, { error: true }); }
   };

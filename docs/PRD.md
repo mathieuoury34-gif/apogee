@@ -319,3 +319,8 @@ Pas de nouvelle fonctionnalité hors MVP. Règles de produit ajoutées : (1) tou
 ## Addendum 29/10/2026 — agencement des onglets (validé par Mathieu)
 
 Séances : Journal (résumé de la période) · Statistiques (bilan de semaine, respect du plan, bilan global + répartition du temps, détail par discipline, zones FC, records, efficacité, enchaînements). Progression : Charge, Santé, Capacités, Objectif, avec les données les plus utiles en haut (voir ETAT.md §2 ter, lot E septies). Aucune fonctionnalité hors MVP ajoutée.
+
+
+## Addendum 29/10/2026 (5e série) — ordre des cartes, point de la semaine daté
+
+Pas de nouvelle fonctionnalité hors MVP. Statistiques : le bilan de semaine disparaît (il reste sur l'Accueil) et le respect du plan suit le temps par zone de FC. Objectif : le respect du plan est retiré. Capacités : le point de la semaine passe en premier, montre une coche verte quand il est fait et la date du prochain rendez-vous (dimanche). Le relevé porte une date (par défaut le prochain dimanche, un jour passé est permis) pour recopier d'anciennes prédictions de la montre : à chaque relevé daté, Apogée compare ce qu'il annonçait ce jour-là à la montre et corrige ses prédictions de l'écart médian. L'histogramme des calories utilise des couleurs chaudes. Un fichier de relevés Garmin mesurés sur captures d'écran peut être importé sans rien écraser (valeurs approchées).

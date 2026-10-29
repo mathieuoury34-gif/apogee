@@ -140,6 +140,8 @@
   --chart-fatigue: #3F58A8;
   --chart-fresh-pos: #4FBE98;
   --chart-fresh-neg: #6B49A8;
+  --chart-kcal-active: #D6451F;
+  --chart-kcal-rest: #E39A2D;
   --chart-load: #CDAA72;
   --chart-value: #2A87A0;
   --chart-value-area: #2A87A026;
@@ -277,6 +279,8 @@
   --chart-fatigue: #9BB4EE;
   --chart-fresh-pos: #7DE0BC;
   --chart-fresh-neg: #AD92E6;
+  --chart-kcal-active: #F0764F;
+  --chart-kcal-rest: #E6B24A;
   --chart-load: #C9A46A;
   --chart-value: #4DBBD0;
   --chart-value-area: #4DBBD02E;

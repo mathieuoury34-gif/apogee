@@ -3,6 +3,7 @@ import { $t } from '../i18n';
 import { emptyData, importLegacyDb, type LegacyReport } from '../domain/legacy';
 import { liveRecords } from '../domain/load';
 import { importDossierData, isDossier, type Dossier, type DossierReport } from '../domain/dossier';
+import { graphMessage, isGarminGraph, mergeGarminGraph, type GarminGraphFile } from '../domain/garminGraph';
 import type { AppData } from '../domain/types';
 import { COLLECTIONS } from '../domain/types';
 import { commit, getData, replaceAll } from './store';
@@ -72,11 +73,19 @@ export function importDossier(dossier: Dossier): DossierReport {
   return report;
 }
 
-/** Lit un fichier JSON choisi par l'utilisateur : sauvegarde Apogée ou dossier coach de l'ancienne app. */
-export function readJsonFile(text: string): { kind: 'backup'; data: AppData } | { kind: 'dossier'; dossier: Dossier } {
+/** Reprend des relevés Garmin mesurés sur des captures (pas, étages, calories, prédictions) : ne remplace rien, comble seulement ce qui manque. */
+export function importGarminGraph(file: GarminGraphFile): string {
+  const { energy, checkins, report } = mergeGarminGraph(getData(), file);
+  commit((tx) => { energy.forEach((x) => tx.put('energy', x)); checkins.forEach((x) => tx.put('checkins', x)); });
+  return graphMessage(report) || $t("Rien à ajouter : tout était déjà là");
+}
+
+/** Lit un fichier JSON choisi par l'utilisateur : sauvegarde Apogée, dossier coach de l'ancienne app ou relevés Garmin mesurés. */
+export function readJsonFile(text: string): { kind: 'backup'; data: AppData } | { kind: 'dossier'; dossier: Dossier } | { kind: 'garmin'; file: GarminGraphFile } {
   let j: unknown;
   try { j = JSON.parse(text); } catch { throw new Error($t("ce fichier n’est pas un JSON lisible")); }
   if (isDossier(j)) return { kind: 'dossier', dossier: j };
+  if (isGarminGraph(j)) return { kind: 'garmin', file: j };
   return { kind: 'backup', data: parseBackup(text) };
 }
 

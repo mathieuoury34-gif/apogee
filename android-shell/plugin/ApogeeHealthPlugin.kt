@@ -125,11 +125,11 @@ class ApogeeHealthPlugin : Plugin() {
         } catch (e: Exception) { call.reject(e.message ?: "Réglages Health Connect introuvables") }
     }
 
-    private suspend fun <T : Record> readAll(c: HealthConnectClient, type: KClass<T>, start: Instant, end: Instant): List<T> {
+    private suspend fun <T : Record> readAll(c: HealthConnectClient, type: KClass<T>, start: Instant, end: Instant, page: Int = 1000): List<T> {
         val out = ArrayList<T>()
         var token: String? = null
         do {
-            val res = c.readRecords(ReadRecordsRequest(type, TimeRangeFilter.between(start, end), pageSize = 1000, pageToken = token))
+            val res = c.readRecords(ReadRecordsRequest(type, TimeRangeFilter.between(start, end), pageSize = page, pageToken = token))
             out.addAll(res.records)
             token = res.pageToken
         } while (!token.isNullOrEmpty())
@@ -232,21 +232,22 @@ class ApogeeHealthPlugin : Plugin() {
     private suspend fun pieces(c: HealthConnectClient, kind: String, start: Instant, end: Instant, origins: Set<DataOrigin>): List<Piece> {
         val names = origins.map { it.packageName }.toSet()
         return when (kind) {
-            "steps" -> readAll(c, StepsRecord::class, start, end).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.count.toDouble()) }
-            "floors" -> readAll(c, FloorsClimbedRecord::class, start, end).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.floors) }
+            "steps" -> readAll(c, StepsRecord::class, start, end, 300).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.count.toDouble()) }
+            "floors" -> readAll(c, FloorsClimbedRecord::class, start, end, 300).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.floors) }
             "active" -> readAll(c, ActiveCaloriesBurnedRecord::class, start, end).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.energy.inKilocalories) }
             else -> readAll(c, TotalCaloriesBurnedRecord::class, start, end).filter { names.isEmpty() || names.contains(it.metadata.dataOrigin.packageName) }.map { Piece(it.startTime, it.endTime, it.energy.inKilocalories) }
         }
     }
 
     /** Lit un type par tranches de 30 jours (mémoire) et en tire un total par jour local. */
-    private suspend fun dailyOf(c: HealthConnectClient, kind: String, from: java.time.LocalDateTime, to: java.time.LocalDateTime, origins: Set<DataOrigin>, zone: java.time.ZoneId): DayTotals? {
+    private suspend fun dailyOf(c: HealthConnectClient, kind: String, from: java.time.LocalDateTime, to: java.time.LocalDateTime, origins: Set<DataOrigin>, zone: java.time.ZoneId, errors: MutableList<String>? = null): DayTotals? {
         val all = ArrayList<Piece>()
         var a = from
+        val span = if (kind == "steps" || kind == "floors") 7L else 30L
         while (a < to) {
-            val b = if (a.plusDays(30) < to) a.plusDays(30) else to
+            val b = if (a.plusDays(span) < to) a.plusDays(span) else to
             // une mesure à cheval sur deux tranches est lue deux fois : on la garde une fois (début dans la tranche)
-            val got = safe { pieces(c, kind, a.atZone(zone).toInstant(), b.atZone(zone).toInstant(), origins) } ?: return null
+            val got = try { pieces(c, kind, a.atZone(zone).toInstant(), b.atZone(zone).toInstant(), origins) } catch (e: Exception) { errors?.add(kind + " : " + e.javaClass.simpleName + " " + (e.message ?: "")); return null }
             all.addAll(got)
             a = b
         }
@@ -417,22 +418,24 @@ class ApogeeHealthPlugin : Plugin() {
                 val to = java.time.LocalDateTime.ofInstant(end, zone)
                 val days = JSArray()
                 val origins = garminOrigins(c, end)
-                val steps = if (origins.isEmpty()) null else dailyOf(c, "steps", from, to, origins, zone)
-                val floors = if (origins.isEmpty()) null else dailyOf(c, "floors", from, to, origins, zone)
-                if (origins.isNotEmpty() && (steps != null || floors != null)) {
-                    val keys = java.util.TreeSet<String>()
-                    if (steps != null) keys.addAll(steps.days.keys)
-                    if (floors != null) keys.addAll(floors.days.keys)
-                    for (day in keys) days.put(JSObject().put("day", day).putN("steps", steps?.days?.get(day)).putN("floors", floors?.days?.get(day)))
-                } else {
-                    val st = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(StepsRecord.COUNT_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1), origins)) }
-                    val fl = safe { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1), origins)) }
-                    val byDay = linkedMapOf<String, JSObject>()
-                    for (g in st ?: emptyList()) byDay.getOrPut(g.startTime.toLocalDate().toString()) { JSObject() }.putN("steps", g.result[StepsRecord.COUNT_TOTAL])
-                    for (g in fl ?: emptyList()) byDay.getOrPut(g.startTime.toLocalDate().toString()) { JSObject() }.putN("floors", g.result[FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL])
-                    for ((day, o) in byDay) days.put(o.put("day", day))
+                val errors = ArrayList<String>()
+                // pas et étages : mesures Garmin sans doublon ; si la lecture détaillée échoue, total du jour calculé par Health Connect (mêmes sources)
+                val steps = if (origins.isEmpty()) null else dailyOf(c, "steps", from, to, origins, zone, errors)
+                val floors = if (origins.isEmpty()) null else dailyOf(c, "floors", from, to, origins, zone, errors)
+                val byDay = java.util.TreeMap<String, JSObject>()
+                fun put(day: String, k: String, v: Double?) { byDay.getOrPut(day) { JSObject() }.putN(k, v) }
+                if (steps != null) { for ((day, v) in steps.days) put(day, "steps", v) }
+                else {
+                    val st = try { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(StepsRecord.COUNT_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1), origins)) } catch (e: Exception) { errors.add("pas (total du jour) : " + e.javaClass.simpleName + " " + (e.message ?: "")); null }
+                    for (g in st ?: emptyList()) put(g.startTime.toLocalDate().toString(), "steps", g.result[StepsRecord.COUNT_TOTAL]?.toDouble())
                 }
-                call.resolve(JSObject().put("days", days).put("origins", strArray(origins.map { it.packageName })).put("version", 2))
+                if (floors != null) { for ((day, v) in floors.days) put(day, "floors", v) }
+                else {
+                    val fl = try { c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL), TimeRangeFilter.between(from, to), java.time.Period.ofDays(1), origins)) } catch (e: Exception) { errors.add("étages (total du jour) : " + e.javaClass.simpleName + " " + (e.message ?: "")); null }
+                    for (g in fl ?: emptyList()) put(g.startTime.toLocalDate().toString(), "floors", g.result[FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL])
+                }
+                for ((day, o) in byDay) days.put(o.put("day", day))
+                call.resolve(JSObject().put("days", days).put("origins", strArray(origins.map { it.packageName })).put("errors", strArray(errors)).put("version", 3))
             } catch (e: Exception) { call.reject(e.message ?: "Lecture des pas et étages impossible") }
         }
     }
@@ -451,16 +454,16 @@ class ApogeeHealthPlugin : Plugin() {
                 val out = JSObject()
                 out.put("origins", strArray(origins.map { it.packageName }))
                 val apps = HashMap<String, Int>()
-                val allSteps = safe { readAll(c, StepsRecord::class, from.atZone(zone).toInstant(), end) }
+                val allSteps = try { readAll(c, StepsRecord::class, from.atZone(zone).toInstant(), end, 300) } catch (e: Exception) { out.put("stepsError", e.javaClass.simpleName + " " + (e.message ?: "")); null }
                 if (allSteps != null) for (r in allSteps) { val k = r.metadata.dataOrigin.packageName; apps[k] = (apps[k] ?: 0) + 1 }
                 val appList = JSArray()
                 for ((k, n) in apps) appList.put(JSObject().put("app", k).put("steps", n))
                 out.put("apps", appList)
                 val kinds = JSObject()
                 for (kind in listOf("steps", "floors", "active", "total")) {
-                    val got = safe { pieces(c, kind, from.atZone(zone).toInstant(), end, origins) }
                     val k = JSObject()
-                    if (got != null) {
+                    try {
+                        val got = pieces(c, kind, from.atZone(zone).toInstant(), end, origins)
                         val t = dayTotals(got, zone)
                         k.put("records", got.size).put("overlaps", t.overlaps)
                         var last = 0L
@@ -469,7 +472,20 @@ class ApogeeHealthPlugin : Plugin() {
                         val dd = JSArray()
                         for (day in java.util.TreeSet(t.naive.keys)) dd.put(JSObject().put("day", day).put("raw", t.naive[day] ?: 0.0).put("clean", t.days[day] ?: 0.0))
                         k.put("days", dd)
-                    }
+                    } catch (e: Exception) { k.put("error", e.javaClass.simpleName + " " + (e.message ?: "")) }
+                    // total du jour calculé par Health Connect lui-même (mêmes sources), pour comparer
+                    try {
+                        val per = java.time.Period.ofDays(1)
+                        val rng = TimeRangeFilter.between(from, to)
+                        val ag = JSArray()
+                        when (kind) {
+                            "steps" -> for (x in c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(StepsRecord.COUNT_TOTAL), rng, per, origins))) ag.put(JSObject().put("day", x.startTime.toLocalDate().toString()).putN("v", x.result[StepsRecord.COUNT_TOTAL]?.toDouble()))
+                            "floors" -> for (x in c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL), rng, per, origins))) ag.put(JSObject().put("day", x.startTime.toLocalDate().toString()).putN("v", x.result[FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL]))
+                            "active" -> for (x in c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL), rng, per, origins))) ag.put(JSObject().put("day", x.startTime.toLocalDate().toString()).putN("v", x.result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories))
+                            else -> for (x in c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(setOf(TotalCaloriesBurnedRecord.ENERGY_TOTAL), rng, per, origins))) ag.put(JSObject().put("day", x.startTime.toLocalDate().toString()).putN("v", x.result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories))
+                        }
+                        k.put("agg", ag)
+                    } catch (e: Exception) { k.put("aggError", e.javaClass.simpleName + " " + (e.message ?: "")) }
                     kinds.put(kind, k)
                 }
                 out.put("kinds", kinds)
