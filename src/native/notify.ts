@@ -46,13 +46,16 @@ export async function scheduleReminders(data: AppData, d: Derived): Promise<void
     while (o < t) o = addDays(o, OVERDUE_REPEAT);
     overdue(o);
   }
-  // point hebdomadaire : dimanche à 18 h, seulement s'il n'est pas déjà rempli pour la semaine
+  // point hebdomadaire : dimanche à 18 h, seulement s'il n'est pas déjà rempli pour la semaine ; avec lui, le rappel des corrections
   for (let k = 0; k < 2; k++) {
     const sunday = addDays(mondayOf(addDays(t, 7 * k)), 6);
     const [y, m, dd] = sunday.split('-').map(Number);
     const when = new Date(y, m - 1, dd, 18, 0, 0, 0);
     const c = data.checkins[mondayOf(sunday)];
-    if (when <= now || (c && !c.deleted) || suspended(data, sunday)) continue;
+    if (when <= now || suspended(data, sunday)) continue;
+    // corrections de la semaine (pas, étages, calories, sommeil) : au même moment que le point, qu'il soit rempli ou non
+    if (getPrefs().weeklyFixReminder !== false) list.push({ id: id++, title: $t("Corrections de la semaine"), body: $t("Compare tes pas, étages, calories et ton sommeil à Garmin Connect, et corrige les jours qui diffèrent nettement."), schedule: { at: when, allowWhileIdle: true }, extra: { route: '/progression/sante?ancre=pas-etages' } });
+    if (c && !c.deleted) continue;
     list.push({ id: id++, title: $t("Point de la semaine"), body: $t("Deux minutes pour noter VO₂max, ressenti et prédictions : tes courbes se complètent."), schedule: { at: when, allowWhileIdle: true }, extra: { route: '/progression/capacites?ancre=point-semaine' } });
   }
   // sommeil : chaque matin, une invitation à valider (ou corriger) les heures de coucher et de lever
@@ -65,16 +68,6 @@ export async function scheduleReminders(data: AppData, d: Derived): Promise<void
       const when = new Date(y, m - 1, dd, sh, 0, 0, 0);
       if (when <= now || suspended(data, day)) continue;
       list.push({ id: id++, title: $t("Ta nuit"), body: $t("Valide tes heures de coucher et de lever, ou corrige-les si la montre s’est trompée."), schedule: { at: when, allowWhileIdle: true }, extra: { route: '/progression/sante?ancre=sommeil' } });
-    }
-  }
-  // corrections de la semaine : le lundi à 10 h (les totaux de la veille sont alors déposés par la montre), pour comparer à Garmin Connect
-  if (prefs.weeklyFixReminder !== false) {
-    for (let k = 0; k < 3; k++) {
-      const monday = addDays(mondayOf(t), 7 * k);
-      const [y, m, dd] = monday.split('-').map(Number);
-      const when = new Date(y, m - 1, dd, 10, 0, 0, 0);
-      if (when <= now || suspended(data, monday)) continue;
-      list.push({ id: id++, title: $t("Corrections de la semaine"), body: $t("Compare tes pas, étages, calories et ton sommeil à Garmin Connect, et corrige les jours qui diffèrent nettement."), schedule: { at: when, allowWhileIdle: true }, extra: { route: '/progression/sante?ancre=pas-etages' } });
     }
   }
   const key = JSON.stringify(list.map((x) => [x.title, x.body, x.schedule.at.getTime()]));

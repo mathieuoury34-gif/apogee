@@ -1501,5 +1501,5 @@ export const EN: Record<string, string> = {
   "Corrections de la semaine": "This week's corrections",
   "Compare tes pas, étages, calories et ton sommeil à Garmin Connect, et corrige les jours qui diffèrent nettement.": "Compare your steps, floors, calories and sleep with Garmin Connect, and correct the days that clearly differ.",
   "Rappel des corrections": "Corrections reminder",
-  "Chaque lundi à 10 h, une notification t’invite à comparer la semaine écoulée (pas, étages, calories, sommeil) à Garmin Connect et à corriger les jours qui diffèrent nettement.": "Every Monday at 10 am, a notification invites you to compare the past week (steps, floors, calories, sleep) with Garmin Connect and correct the days that clearly differ.",
+  "Chaque dimanche à 18 h, en même temps que le point de la semaine, une notification t’invite à comparer la semaine (pas, étages, calories, sommeil) à Garmin Connect et à corriger les jours qui diffèrent nettement.": "Every Sunday at 6 pm, together with the weekly check-in, a notification invites you to compare the week (steps, floors, calories, sleep) with Garmin Connect and correct the days that clearly differ.",
 };
