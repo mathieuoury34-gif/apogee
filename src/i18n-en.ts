@@ -1515,4 +1515,6 @@ export const EN: Record<string, string> = {
   "Jour à corriger": "Day to correct",
   "Nuit du réveil de ce jour": "Night ending that day",
   "Pas de nuit lue : règle le coucher et le lever pour la saisir.": "No night read: set bedtime and wake time to enter it.",
+  "VO₂max enregistrée": "VO₂max saved",
+  "Prédictions enregistrées": "Predictions saved",
 };

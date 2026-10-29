@@ -66,12 +66,9 @@ export function CaloriesCard() {
   const cDays = cp.slice(cAll);
   return (
     <InfoCard className="card g12" aria-label={$t("Calories")} data-anchor="calories">
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
+      <div className="between">
         <h2>{$t("Calories")}<InfoToggle /></h2>
-        <div className="row wrap" style={{ gap: 'var(--space-8)' }}>
-          <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => fix.show()}>{noEnergy ? $t("Saisir") : $t("Modifier")}</button>
-          <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => sheet.show()}>{$t("Ajouter un repas")}</button>
-        </div>
+        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => fix.show()}>{noEnergy ? $t("Saisir") : $t("Modifier")}</button>
       </div>
       <div className="between">
         <button type="button" className="icon-btn" aria-label={$t("Jour précédent")} onClick={() => setDay(addDays(day, -1))}><Icon name="back" /></button>
@@ -96,6 +93,7 @@ export function CaloriesCard() {
         <dt>{$t("Mangées (journal)")}</dt><dd>{e.meals ? KCAL(e.intake) : '—'}</dd>
         {e.balance !== null && (<><dt>{$t("Bilan du jour")}</dt><dd style={{ color: e.balance > 0 ? 'var(--warning-text)' : 'var(--success-text)' }}>{signed(e.balance, 0)}{NBSP}kcal</dd></>)}
       </dl>
+      <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start', height: 36 }} onClick={() => sheet.show()}>{$t("Ajouter un repas")}</button>
       {meals.length > 0 && (
         <ul className="stack" style={{ gap: 'var(--space-4)' }}>
           {meals.map((m) => (
@@ -150,7 +148,7 @@ export function ActivityCard() {
   const avg = known.length ? known.reduce((a, b) => a + b, 0) / known.length : null;
   return (
     <InfoCard className="card g12" aria-label={$t("Pas et étages")} data-anchor="pas-etages">
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
+      <div className="between">
         <h2>{$t("Pas et étages")}<InfoToggle /></h2>
         <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => fix.show()}>{val(day) === null ? $t("Saisir") : $t("Modifier")}</button>
       </div>
@@ -184,7 +182,8 @@ export function parseClock(t: string): number | null {
 const numOrNull = (t: string): number | null => { const s = t.trim(); if (!s) return null; const v = Number(s.replace(',', '.')); return Number.isFinite(v) ? v : NaN; };
 
 /** Formulaire du point de la semaine : relevé daté de la montre (VO₂max, seuil, ressenti, prédictions) et correction d'un jour (pas, étages, calories, sommeil). */
-export function CheckinSheet({ onClose }: { onClose: () => void }) {
+/** `only` : fenêtre réduite à un seul sujet (VO₂max ou prédictions) ; sans `only`, c’est le point de la semaine complet. */
+export function CheckinSheet({ onClose, only }: { onClose: () => void; only?: 'vo2' | 'pred' }) {
   const { data, d } = useCalc();
   const maxDay = sundayOf(d.today);
   const [dateF, setDateF] = useState(maxDay);
@@ -210,7 +209,7 @@ export function CheckinSheet({ onClose }: { onClose: () => void }) {
     id: cur.week, week: cur.week, day: dateF, vo2max: vo2, lthrBpm: lthr, lthPaceSecKm: lthp, hrvMs: cur.saved?.hrvMs ?? null, hrvStatus: cur.saved?.hrvStatus ?? null, sleepFelt: sleepF, recoveryFelt: recF,
     pred5kSec: p5, pred10kSec: p10, predHalfSec: ph, predMarathonSec: pm, note: (f.note ?? '').trim() || null,
   };
-  const fix = useDayFix(d.today, ['steps', 'floors', 'kcal', 'sleep'], true);
+  const fix = useDayFix(d.today, only ? [] : ['steps', 'floors', 'kcal', 'sleep'], true);
   const { id: _i, week: _w, day: _d, ...content } = next;
   const withCheckin = hasContent(content);
   const canSave = !bad && !fix.bad && (withCheckin || fix.changed);
@@ -220,7 +219,7 @@ export function CheckinSheet({ onClose }: { onClose: () => void }) {
     if (withCheckin) snaps.push(saveCheckin(next));
     snaps.push(...fix.save());
     onClose();
-    showToast($t("Point de la semaine enregistré"), { undo: () => snaps.slice().reverse().forEach((x) => restore(x)) });
+    showToast(only === "vo2" ? $t("VO₂max enregistrée") : only === "pred" ? $t("Prédictions enregistrées") : $t("Point de la semaine enregistré"), { undo: () => snaps.slice().reverse().forEach((x) => restore(x)) });
   };
   const clk = (x: number | null) => (x !== null && Number.isFinite(x) ? x : null);
   const set = (k: string) => (ev: { target: { value: string } }) => setF({ ...f, [k]: ev.target.value });
@@ -232,29 +231,35 @@ export function CheckinSheet({ onClose }: { onClose: () => void }) {
     </div>
   );
   return (
-    <Sheet title={$t("Point de la semaine")} onClose={onClose} footer={<button type="button" className="btn btn-primary block" disabled={!canSave} onClick={save}>{$t("Enregistrer")}</button>}>
+    <Sheet title={only === "vo2" ? $t("VO₂max") : only === "pred" ? $t("Prédictions de course") : $t("Point de la semaine")} onClose={onClose} footer={<button type="button" className="btn btn-primary block" disabled={!canSave} onClick={save}>{$t("Enregistrer")}</button>}>
       <div className="stack" style={{ gap: 'var(--space-16)', paddingBottom: 'var(--space-16)' }}>
         <label className="field"><span className="lbl">{$t("Jour du relevé")}</span><input className="input" type="date" value={dateF} max={maxDay} onChange={(ev) => onDate(ev.target.value)} /></label>
         <span className="t-caption c-neutral">{$t("Par défaut le prochain dimanche. Choisis un jour passé pour recopier un ancien relevé de ta montre (une fiche par semaine : semaine du {0}). Laisse vide ce que ta montre ne donne pas.", { 0: dateFr(cur.week) })}</span>
-        <h3 className="t-strong">{$t("Capacités")}</h3>
-        <div className="grid-2">
-          <div className="field"><span className="lbl">{$t("VO₂max")}</span><DecField label={$t("VO₂max")} value={numOf(f.vo2max ?? '')} onChange={(x) => setF({ ...f, vo2max: x === null ? '' : String(x).replace('.', ',') })} hiMax={90} clearable initial={50} /></div>
-          <div className="field"><span className="lbl">{$t("Seuil : FC (bpm)")}</span><IntField label={$t("Seuil : FC (bpm)")} unit="bpm" value={numOf(f.lthrBpm ?? '')} onChange={(x) => setF({ ...f, lthrBpm: x === null ? '' : String(x) })} min={80} max={230} clearable initial={170} /></div>
+        {!only && <h3 className="t-strong">{$t("Capacités")}</h3>}
+        <div className={only ? undefined : "grid-2"} hidden={only === "pred"}>
+          {only !== "pred" && <div className="field"><span className="lbl">{$t("VO₂max")}</span><DecField label={$t("VO₂max")} value={numOf(f.vo2max ?? '')} onChange={(x) => setF({ ...f, vo2max: x === null ? '' : String(x).replace('.', ',') })} hiMax={90} clearable initial={50} /></div>}
+          {!only && <div className="field"><span className="lbl">{$t("Seuil : FC (bpm)")}</span><IntField label={$t("Seuil : FC (bpm)")} unit="bpm" value={numOf(f.lthrBpm ?? '')} onChange={(x) => setF({ ...f, lthrBpm: x === null ? '' : String(x) })} min={80} max={230} clearable initial={170} /></div>}
         </div>
-        <div className="field"><span className="lbl">{$t("Seuil : allure (min:s /km)")}</span><PaceField label={$t("Seuil : allure (min:s /km)")} value={clk(lthp)} onChange={(x) => setF({ ...f, lthPace: x === null ? '' : clock(x) })} clearable initial={275} /></div>
+        {!only && <div className="field"><span className="lbl">{$t("Seuil : allure (min:s /km)")}</span><PaceField label={$t("Seuil : allure (min:s /km)")} value={clk(lthp)} onChange={(x) => setF({ ...f, lthPace: x === null ? '' : clock(x) })} clearable initial={275} /></div>}
+        {!only && <>
         <h3 className="t-strong">{$t("Ressenti de la semaine")}</h3>
         {scale(sleepF, setSleepF, $t("Sommeil"))}
         {scale(recF, setRecF, $t("Récupération"))}
-        <h3 className="t-strong">{$t("Prédictions de course de la montre")}</h3>
+        </>}
+        {only !== "vo2" && <>
+        {!only && <h3 className="t-strong">{$t("Prédictions de course de la montre")}</h3>}
         <div className="grid-2">
           <div className="field"><span className="lbl">{$t("5 km")}</span><DurationField label={$t("5 km")} hours={false} value={clk(p5)} onChange={(x) => setF({ ...f, p5: x === null ? '' : clock(x) })} clearable initial={1500} /></div>
           <div className="field"><span className="lbl">{$t("10 km")}</span><DurationField label={$t("10 km")} hours={true} value={clk(p10)} onChange={(x) => setF({ ...f, p10: x === null ? '' : clock(x) })} clearable initial={3100} /></div>
           <div className="field"><span className="lbl">{$t("Semi")}</span><DurationField label={$t("Semi")} hours={true} value={clk(ph)} onChange={(x) => setF({ ...f, ph: x === null ? '' : clock(x) })} clearable initial={6600} /></div>
           <div className="field"><span className="lbl">{$t("Marathon")}</span><DurationField label={$t("Marathon")} hours={true} value={clk(pm)} onChange={(x) => setF({ ...f, pm: x === null ? '' : clock(x) })} clearable initial={14100} /></div>
         </div>
+        </>}
+        {!only && <>
         <h3 className="t-strong">{$t("Corriger un jour d’après Garmin Connect")}</h3>
         {fix.node}
-        <label className="field"><span className="lbl">{$t("Note")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><input className="input" value={f.note ?? ''} onChange={set('note')} /></label>
+        </>}
+        {!only && <label className="field"><span className="lbl">{$t("Note")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><input className="input" value={f.note ?? ''} onChange={set('note')} /></label>}
         {bad && <span className="t-caption" style={{ color: 'var(--critical-text)' }}>{$t("Une valeur est illisible ou hors limites.")}</span>}
       </div>
     </Sheet>
@@ -389,11 +394,11 @@ export function CapacitiesTrendsCard() {
   const watchRows = TRENDS.filter((t) => metricSeries(data, t.k).length > 0);
   return (
     <InfoCard className="card g12" aria-label={$t("Courbes de capacité")} data-anchor="courbes-capacite">
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
+      <div className="between">
         <h2>{$t("Courbes de capacité")}<InfoToggle /></h2>
-        <div className="row" style={{ gap: 'var(--space-8)', alignItems: 'center' }}>{own.length > 0 && <span className="var-chip flat">{$t("estimation Apogée")}</span>}<button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => sheet.show()}>{$t("Saisir")}</button></div>
+        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => sheet.show()}>{$t("Saisir")}</button>
       </div>
-      {sheet.open && <CheckinSheet onClose={sheet.hide} />}
+      {sheet.open && <CheckinSheet only="pred" onClose={sheet.hide} />}
       {own.length === 0 && watchRows.length === 0 ? <p className="t-caption c-moderate">{$t("Les courbes apparaîtront dès qu’Apogée aura assez de sorties de course pour estimer ta VO₂max, ou dès que tu auras rempli ton point de la semaine.")}</p> : (
         <>
           <PeriodBar p={pw} total={hist.length} from={win[0]?.day} to={win[win.length - 1]?.day} />

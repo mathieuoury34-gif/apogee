@@ -46,9 +46,8 @@ export function LoadScreen() {
   const form = d.form ?? d.lastForm;
   const acwr = c.acuteChronicRatio;
   const acutePts = acuteSeries(d.series.days);
-  const sw = usePeriod();
-  const statusEnd = addDays(d.today, -sw.offset);
-  const statusCells = sw.span !== 0 && sw.span <= 31 ? dailyStatus(d.series.days, statusEnd, sw.span) : weeklyStatus(d.series.days, statusEnd, Math.max(1, Math.ceil((sw.span || total) / 7)));
+  const statusEnd = addDays(d.today, -pw.offset);
+  const statusCells = pw.span !== 0 && pw.span <= 31 ? dailyStatus(d.series.days, statusEnd, pw.span) : weeklyStatus(d.series.days, statusEnd, Math.max(1, Math.ceil((pw.span || total) / 7)));
   const curStatus = statusOf(acwr, c.fitnessDelta);
   const focusEnd = addDays(d.today, -fw.offset);
   const fspan = fw.span || Math.max(1, total);
@@ -76,27 +75,23 @@ export function LoadScreen() {
         </Hero>
 
         <InfoCard className="card g12 dspan-7" aria-label={$t("Statut d’entraînement")} data-anchor="statut">
-          <div className="between"><h2>{$t("Statut d’entraînement")}<InfoToggle /></h2><span className="t-legal c-moderate">{$t("estimation Apogée")}</span></div>
+          <h2>{$t("Statut d’entraînement")}<InfoToggle /></h2>
           {!curStatus && <p className="t-caption c-moderate">{$t("Disponible après 28 jours d’historique")}{d.series.firstDay ? $t(" (dès le {0})", { 0: dateFr(addDays(d.series.firstDay, 28)) }) : ''}.</p>}
-          <PeriodBar p={sw} total={total} from={statusCells[0]?.start} to={statusEnd} />
+          <PeriodBar p={pw} total={total} from={winFrom} to={winTo} />
           <StatusStrip weeks={statusCells} />
           <Info>{$t("Chaque case est un jour (jusqu’à 1 mois) ou une semaine. Le statut croise ta charge des 7 jours avec ta charge habituelle (4 semaines) et la tendance de ta forme de fond. Touche une case pour le détail.")}</Info>
+          <div className="stack-12" data-anchor="charge-aigue">
+            <h3 className="t-strong">{$t("Charge aiguë et zone optimale")}</h3>
+            <Info>{$t("Le trait noir est ta charge des 7 derniers jours. La bande verte est la zone où elle progresse sans excès : entre 0,8 et 1,3 fois ta charge hebdomadaire habituelle. Dans la bande orange, c’est élevé ; au-delà, le risque de blessure monte.")}</Info>
+            <AcuteLoadChart points={pw.slice(acutePts)} today={d.today} />
+            <h3 className="t-strong">{$t("Rapport de charge")}</h3>
+            <Info>{$t("Charge des 7 jours divisée par ta charge hebdomadaire habituelle. Entre 0,8 et 1,3 (vert) : tu progresses sans te griller. Sous 0,8 (bleu) : semaine légère. Au-dessus de 1,3 : tu montes trop vite.")}</Info>
+            <RatioChart points={pw.slice(acutePts)} today={d.today} />
+            {c.heaviestDay && c.heaviestDay.share >= 0.2 && <div className="note"><Icon name="info" size={20} /><span>{$t("Une seule journée pèse beaucoup dans les 28 derniers jours : le {0} ({1}, soit {2} du total). Si cette charge est surévaluée, le rapport est écrasé. Vérifie-la dans le bilan de la séance (ressenti ou FC).", { 0: dayTitle(c.heaviestDay.day), 1: num(c.heaviestDay.load, 0), 2: pct(c.heaviestDay.share) })}</span></div>}
+            {d.series.isPriming && <div className="note"><Icon name="info" size={20} /><span>{$t("Historique court : forme et fatigue sont amorcées sur ta charge habituelle des 14 premiers jours, et se stabilisent vers le")} {dateFr(d.series.primingEndsOn!)}.</span></div>}
+          </div>
         </InfoCard>
         </div>
-
-        <InfoCard className="card g12 dspan-12" aria-label={$t("Charge aiguë")} data-anchor="charge-aigue">
-          <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
-            <h2>{$t("Charge aiguë et zone optimale")}<InfoToggle /></h2>
-          </div>
-          <Info>{$t("Le trait noir est ta charge des 7 derniers jours. La bande verte est la zone où elle progresse sans excès : entre 0,8 et 1,3 fois ta charge hebdomadaire habituelle. Dans la bande orange, c’est élevé ; au-delà, le risque de blessure monte.")}</Info>
-          <PeriodBar p={pw} total={total} from={winFrom} to={winTo} />
-          <AcuteLoadChart points={pw.slice(acutePts)} today={d.today} />
-          <h3 className="t-strong">{$t("Rapport de charge")}</h3>
-          <Info>{$t("Charge des 7 jours divisée par ta charge hebdomadaire habituelle. Entre 0,8 et 1,3 (vert) : tu progresses sans te griller. Sous 0,8 (bleu) : semaine légère. Au-dessus de 1,3 : tu montes trop vite.")}</Info>
-          <RatioChart points={pw.slice(acutePts)} today={d.today} />
-          {c.heaviestDay && c.heaviestDay.share >= 0.2 && <div className="note"><Icon name="info" size={20} /><span>{$t("Une seule journée pèse beaucoup dans les 28 derniers jours : le {0} ({1}, soit {2} du total). Si cette charge est surévaluée, le rapport est écrasé. Vérifie-la dans le bilan de la séance (ressenti ou FC).", { 0: dayTitle(c.heaviestDay.day), 1: num(c.heaviestDay.load, 0), 2: pct(c.heaviestDay.share) })}</span></div>}
-          {d.series.isPriming && <div className="note"><Icon name="info" size={20} /><span>{$t("Historique court : forme et fatigue sont amorcées sur ta charge habituelle des 14 premiers jours, et se stabilisent vers le")} {dateFr(d.series.primingEndsOn!)}.</span></div>}
-        </InfoCard>
 
         <InfoCard className="card g12 dspan-12" aria-label={$t("Évolution")} data-anchor="evolution">
           <h2>{$t("Forme de fond, fatigue et fraîcheur")}<InfoToggle /></h2>

@@ -1,6 +1,6 @@
 // Fenêtres « à la Garmin » calculées par Apogée avec des méthodes publiées (domain/science.ts, domain/capacity.ts) :
 // disponibilité à l'entraînement, réserve d'énergie, VO₂max estimée, prédictions de course, endurance, côtes,
-// Training Effect d'une séance. Toutes sont étiquetées « estimation Apogée » : ce ne sont pas les indices de Garmin.
+// Training Effect d'une séance. Ce sont des estimations Apogée, pas les indices de Garmin.
 import { $t } from '../i18n';
 import { useMemo } from 'react';
 import { useCalc } from '../data/store';
@@ -20,8 +20,6 @@ import {
 import type { TeLevel } from '../domain/science';
 import { dayMonth, dayTitle, hhmm, NBSP, num, signed, weekdayShort } from '../ui/format';
 
-const Est = () => <span className="var-chip flat" style={{ alignSelf: 'center' }}>{$t("estimation Apogée")}</span>;
-
 // ------------------------------------------------------------------ Training Effect (détail d'une séance)
 export const TE_LABEL: Record<TeLevel, string> = { none: $t("Aucun effet"), minor: $t("Effet léger"), maintain: $t("Maintien"), improve: $t("Amélioration"), high: $t("Forte amélioration"), over: $t("Surcharge") };
 const TE_COLOR: Record<TeLevel, string> = { none: 'var(--text-moderate)', minor: 'var(--form-strained)', maintain: 'var(--form-steady)', improve: 'var(--form-ready)', high: 'var(--form-fresh)', over: 'var(--critical)' };
@@ -38,7 +36,7 @@ export function TrainingEffectCard({ id }: { id: string }) {
   );
   return (
     <InfoCard className="card g12 dspan-5" aria-label={$t("Effet de la séance")}>
-      <div className="between"><h2>{$t("Effet de la séance")}<InfoToggle /></h2><Est /></div>
+      <h2>{$t("Effet de la séance")}<InfoToggle /></h2>
       {row($t("Aérobie"), e.aerobic, e.level)}
       {row($t("Anaérobie"), e.anaerobic, e.anaerobicLevel)}
       <Info>{$t("Échelle de 0 à 5 comme sur les montres. Aérobie : charge de la séance (modèle d’effort de type EPOC, la dépense d’oxygène après l’effort) comparée à une séance solide de tes 90 derniers jours ({0}).", { 0: e.refIsDefault ? $t("valeur type : historique trop court") : num(e.refLoad, 0) })}{e.anaerobic === null ? '' : $t(" Anaérobie : temps passé à 90 % de la FC max ou plus ({0}), approximation d’Apogée.", { 0: Math.round((e.zone5Sec ?? 0) / 60) + NBSP + 'min' })}</Info>
@@ -86,7 +84,7 @@ export function ReadinessCard() {
   const missingSel = useMemo(() => (cur ? readinessFactors(data, d, cur.day).missing : []), [data, d, cur?.day]);
   return (
     <InfoCard className="card g12" aria-label={$t("Disponibilité à l’entraînement")} data-anchor="disponibilite">
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Disponibilité à l’entraînement")}<InfoToggle /></h2><Est /></div>
+      <h2>{$t("Disponibilité à l’entraînement")}<InfoToggle /></h2>
       <PeriodBar p={pw} total={all.length} from={days[0]} to={days[days.length - 1]} />
       <Readout when={cur ? (cur.day === d.today ? $t("Aujourd’hui") : dayTitle(cur.day)) : ''} cols={1} cells={[{ label: r ? R_LABEL[r.level] : $t("Pas assez de données"), value: r ? r.score : '—', color: r ? R_COLOR[r.level] : undefined, key: true, valueColor: r ? R_COLOR[r.level] : undefined }]} />
       <DayChart points={pts.map((p) => ({ day: p.day, v: p.r ? p.r.score : null, color: p.r ? R_COLOR[p.r.level] : undefined }))} kind="bars" min={0} max={100} ticks={[0, 25, 50, 75, 100]} sel={si} onSel={setSi} height={110} label={$t("Disponibilité à l’entraînement par jour")} />
@@ -131,7 +129,7 @@ export function ReserveCard() {
   const cur = pts[si];
   return (
     <InfoCard className="card g12" aria-label={$t("Réserve d’énergie")} data-anchor="reserve">
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Réserve d’énergie")}<InfoToggle /></h2><Est /></div>
+      <h2>{$t("Réserve d’énergie")}<InfoToggle /></h2>
       {!cur || pts.every((p) => p.sleepAssumed) ? <p className="t-caption c-moderate">{$t("Il faut des nuits de sommeil (montre lue par Health Connect) pour estimer la réserve.")}</p> : (
         <>
           <PeriodBar p={pw} total={all.length} from={pts[0].day} to={pts[pts.length - 1].day} />
@@ -159,11 +157,11 @@ export function Vo2Card() {
   const sheet = useLocalSheet();
   return (
     <InfoCard className="card g12" aria-label={$t("VO₂max estimée")} data-anchor="vo2max">
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
+      <div className="between">
         <h2>{$t("VO₂max")}<InfoToggle /></h2>
-        <div className="row" style={{ gap: 'var(--space-8)', alignItems: 'center' }}><Est /><button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => sheet.show()}>{v.watch ? $t("Modifier") : $t("Saisir")}</button></div>
+        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => sheet.show()}>{v.watch ? $t("Modifier") : $t("Saisir")}</button>
       </div>
-      {sheet.open && <CheckinSheet onClose={sheet.hide} />}
+      {sheet.open && <CheckinSheet only="vo2" onClose={sheet.hide} />}
       {v.value !== null ? (
         <>
           <div className="row" style={{ gap: 'var(--space-8)', alignItems: 'baseline' }}><span className="t-h2">{num(v.value, 0, 1)}</span><span className="t-caption c-moderate">ml/kg/min · {v.method === 'submax' ? $t("d’après tes sorties de course") : $t("d’après FC max / FC de repos")}</span></div>
@@ -188,7 +186,7 @@ export function EnduranceHillCard() {
   );
   return (
     <InfoCard className="card g16" aria-label={$t("Endurance et côtes")}>
-      <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Endurance et côtes")}<InfoToggle /></h2><Est /></div>
+      <h2>{$t("Endurance et côtes")}<InfoToggle /></h2>
       <div className="stack" style={{ gap: 'var(--space-10)' }}>
         <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2">{en ? en.score : '—'}</span><span className="t-strong">{$t("Indice d’endurance")}</span></div>
         {en ? (
