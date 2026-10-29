@@ -472,27 +472,15 @@ export function hillScore(data: AppData, todayDay: string): HillScore | null {
 // ------------------------------------------------------------------ courbes de capacité calculées par Apogée
 export interface CapacityPoint {
   day: string;
+  /** VO₂max estimée sur les sorties de course du jour ; null tant qu'il n'y en a pas assez (jamais de valeur « de repli » sur la courbe). */
   vo2max: number | null;
-  /** Temps prévus (s) : 5 km, 10 km, semi, marathon. */
-  pred: Record<RaceDistance['key'], number | null>;
 }
-
-/**
- * Une valeur par jour sur `days` jours (le dernier : aujourd'hui), chaque point recalculé avec les seules séances connues ce jour-là.
- * VO₂max : moyenne des sorties des 60 jours précédents pondérée par l'ancienneté. Prédictions : meilleurs efforts des 90 jours précédents,
- * ramenés au niveau de forme du jour par le rapport des VO₂max, puis calés sur ta montre (même coefficient sur toute la courbe).
- */
 export function capacityHistory(data: AppData, d: Derived, days = 84): CapacityPoint[] {
   const out: CapacityPoint[] = [];
-  const calib = watchCalibration(data, d);
   for (let k = days - 1; k >= 0; k--) {
     const day = addDays(d.today, -k);
-    const at = { ...d, today: day } as Derived;
-    const efforts = bestEfforts(data, day);
-    const v = vo2maxEstimate(data, at, efforts);
-    const p = racePredictions(data, v, efforts, { calibration: calib, adjust: effortAdjuster(data, at, day) });
-    const pred = Object.fromEntries(p.rows.map((r) => [r.dist.key, r.riegelSec])) as CapacityPoint['pred'];
-    out.push({ day, vo2max: v.value, pred });
+    const v = vo2maxEstimate(data, { ...d, today: day } as Derived, bestEfforts(data, day));
+    out.push({ day, vo2max: v.method === 'submax' ? v.value : null });
   }
   return out;
 }

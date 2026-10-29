@@ -187,6 +187,13 @@ export function GarminDiagnostic() {
           {diag.stepsError && <span className="t-legal" style={{ color: 'var(--critical-text)' }}>{$t("Lecture des pas refusée :")} {diag.stepsError}</span>}
           {DIAG_KINDS.map(([k, label]) => {
             const x = diag.kinds?.[k];
+            if (x && !x.days && !x.error && x.agg?.length) return (
+              <div key={k} className="stack-4">
+                <span className="t-caption-strong">{label}</span>
+                <span className="t-legal c-moderate">{$t("Total du jour calculé par Health Connect (sources Garmin) :")}</span>
+                <dl className="kv">{x.agg.map((a) => <><dt key={a.day + 'a'}>{dateFr(a.day)}</dt><dd key={a.day + 'b'} className="t-caption">{a.v === null ? '—' : num(a.v, 0)}</dd></>)}</dl>
+              </div>
+            );
             if (!x || !x.days) return <span key={k} className="t-legal c-moderate">{label} : {$t("non lisible")}{x?.error ? ' — ' + x.error : ''}{x?.agg?.length ? ' · ' + $t("total du jour par Health Connect :") + ' ' + x.agg.map((a) => dateFr(a.day).slice(0, 5) + ' ' + (a.v === null ? '—' : num(a.v, 0))).join(', ') : ''}{x?.aggError ? ' · ' + x.aggError : ''}</span>;
             const agg = new Map((x.agg ?? []).map((a) => [a.day, a.v]));
             return (

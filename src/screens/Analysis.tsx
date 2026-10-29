@@ -3,7 +3,7 @@
 // Chaque carte dit comment elle calcule : aucun nombre sans sa méthode.
 import { $t } from '../i18n';
 import { Fragment, useState } from 'react';
-import { AppHeader, Empty, ErrorBanner, OtherToggle, Segmented, Sheet, SubNav, showToast, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
+import { AppHeader, Disclosure, Empty, ErrorBanner, OtherToggle, Segmented, Sheet, SubNav, showToast, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { useLocalSheet } from '../ui/menu';
 import { FITNESS_COLOR, FITNESS_LABEL, SplitBars, StackedFitness } from '../ui/charts2';
 import { navigate } from '../ui/router';
@@ -252,7 +252,7 @@ export function EfficiencyCard({ d, data }: Props) {
           ) : null}
           {ef.weeks.length >= 2 && <Spark values={ef.weeks.map((w) => w.ef)} />}
           {ef.weeks.length >= 2 && <div className="between t-legal c-moderate"><span>{dateShort(ef.weeks[0].start)}</span><span>{$t("{0} séances comparables", { 0: ef.points.length })}</span><span>{dateShort(ef.weeks[ef.weeks.length - 1].start)}</span></div>}
-          <h3 className="t-strong">{$t("Dernières séances comparables")}</h3>
+          <Disclosure title={$t("Dernières séances comparables")}>
           <ul>
             {recent.map((p) => (
               <li key={p.sessionId} className="rec-row">
@@ -263,6 +263,7 @@ export function EfficiencyCard({ d, data }: Props) {
               </li>
             ))}
           </ul>
+          </Disclosure>
         </>
       )}
       <Info>{disc === 'RUN' ? $t("Efficacité = mètres parcourus par battement (vitesse ÷ FC moyenne). On compare des séances à effort égal : FC moyenne entre 65 et 85 % de ta FC max, 20 min minimum, dénivelé inférieur à 2 %. La colonne de droite ramène chaque séance à la même FC (la FC habituelle de ces séances) pour qu’elles soient comparables. Chaleur, fatigue, vent ou revêtement la font varier : lis une tendance, pas une séance.") : $t("Efficacité = mètres parcourus par battement (vitesse ÷ FC moyenne). À vélo : FC moyenne entre 55 et 85 % de ta FC max, 20 min minimum, dénivelé inférieur à 3 %. La colonne de droite ramène chaque sortie à la même FC (la FC habituelle de ces sorties) pour qu’elles soient comparables. Vent, relief, arrêts et groupe la font varier : lis une tendance, pas une sortie.")}</Info>

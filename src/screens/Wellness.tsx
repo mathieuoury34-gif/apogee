@@ -320,25 +320,21 @@ function WatchTrend({ k, label, fmt, better, time, days, sel, onSel }: { k: Chec
 
 export function CapacitiesTrendsCard() {
   const { data, d } = useCalc();
-  const pw = usePeriod();
-  // courbes calculées par Apogée sur tes séances, sans rien recopier : un point par jour
+  const pw = usePeriod(30);
+  // VO₂max calculée par Apogée sur tes séances, sans rien recopier : un point par jour
   const hist = useMemo(() => capacityHistory(data, d, 365), [data, d]);
   const win = pw.slice(hist);
   const [si, setSi] = useDaySel(win.map((p) => p.day));
   type Own = { label: string; fmt: (v: number) => string; better: 'up' | 'down'; time?: boolean; pick: (p: CapacityPoint) => number | null };
   const ownAll: Own[] = [
     { label: $t("VO₂max"), fmt: (v) => num(v, 0, 1), better: 'up', pick: (p) => p.vo2max },
-    { label: $t("Prédiction 5 km"), fmt: clock as (v: number) => string, better: 'down', time: true, pick: (p) => p.pred['5k'] },
-    { label: $t("Prédiction 10 km"), fmt: clock as (v: number) => string, better: 'down', time: true, pick: (p) => p.pred['10k'] },
-    { label: $t("Prédiction semi"), fmt: clock as (v: number) => string, better: 'down', time: true, pick: (p) => p.pred.half },
-    { label: $t("Prédiction marathon"), fmt: clock as (v: number) => string, better: 'down', time: true, pick: (p) => p.pred.marathon },
   ];
   const own = ownAll.filter((m) => win.filter((p) => m.pick(p) !== null).length >= 2);
   const watchRows = TRENDS.filter((t) => metricSeries(data, t.k).length > 0);
   return (
     <InfoCard className="card g12" aria-label={$t("Courbes de capacité")} data-anchor="courbes-capacite">
       <div className="between wrap" style={{ gap: 'var(--space-8)' }}><h2>{$t("Courbes de capacité")}<InfoToggle /></h2>{own.length > 0 && <span className="var-chip flat" style={{ alignSelf: 'center' }}>{$t("estimation Apogée")}</span>}</div>
-      {own.length === 0 && watchRows.length === 0 ? <p className="t-caption c-moderate">{$t("Les courbes apparaîtront dès qu’Apogée aura assez de sorties de course pour estimer ta VO₂max ou tes prédictions, ou dès que tu auras rempli ton point de la semaine.")}</p> : (
+      {own.length === 0 && watchRows.length === 0 ? <p className="t-caption c-moderate">{$t("Les courbes apparaîtront dès qu’Apogée aura assez de sorties de course pour estimer ta VO₂max, ou dès que tu auras rempli ton point de la semaine.")}</p> : (
         <>
           <PeriodBar p={pw} total={hist.length} from={win[0]?.day} to={win[win.length - 1]?.day} />
           <Readout when={win[si] ? (win[si].day === d.today ? $t("Aujourd’hui") : dayMonth(win[si].day)) : ''} cols={1} cells={[]} />
@@ -353,7 +349,7 @@ export function CapacitiesTrendsCard() {
           </ul>}
         </>
       )}
-      <Info>{$t("Courbes calculées par Apogée sur tes propres séances, un point par jour : chaque point est recalculé avec les séances connues à cette date (VO₂max : sorties de course à allure stable des 60 jours précédents, les plus récentes comptant davantage ; prédictions : meilleur effort des 90 jours précédents, ramené à ta forme du jour, puis calé sur ta montre). Touche ou fais glisser un graphe : le curseur se déplace sur tous, et les flèches reculent d’une période. Plus bas, les valeurs que tu recopies de ta montre (un relevé par semaine, reliés entre eux ; le curseur lit le dernier relevé connu). Les deux ne sont pas comparables un à un : Garmin utilise ses propres modèles.")}</Info>
+      <Info>{$t("VO₂max calculée par Apogée sur tes propres séances, un point par jour : chaque point est recalculé avec les sorties de course à allure stable des 60 jours précédents, les plus récentes comptant davantage. Aucune valeur n’est tracée tant qu’il n’y a pas assez de sorties. Touche ou fais glisser un graphe : le curseur se déplace sur tous, et les flèches reculent d’une période. Plus bas, les valeurs que tu recopies de ta montre (un relevé par semaine, reliés entre eux ; le curseur lit le dernier relevé connu), dont tes prédictions de course. Les deux ne sont pas comparables un à un : Garmin utilise ses propres modèles.")}</Info>
     </InfoCard>
   );
 }

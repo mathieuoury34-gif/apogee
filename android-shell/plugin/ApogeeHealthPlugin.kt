@@ -450,15 +450,14 @@ class ApogeeHealthPlugin : Plugin() {
                 val out = JSObject()
                 out.put("origins", strArray(origins.map { it.packageName }))
                 val apps = HashMap<String, Int>()
-                val allSteps = try { readAll(c, StepsRecord::class, from.atZone(zone).toInstant(), end, 300) } catch (e: Exception) { out.put("stepsError", e.javaClass.simpleName + " " + (e.message ?: "")); null }
-                if (allSteps != null) for (r in allSteps) { val k = r.metadata.dataOrigin.packageName; apps[k] = (apps[k] ?: 0) + 1 }
+                // pas : jamais lus mesure par mesure (une mesure à 0 pas fait planter la lecture) ; origines et totaux viennent de l'agrégat du jour
                 val appList = JSArray()
                 for ((k, n) in apps) appList.put(JSObject().put("app", k).put("steps", n))
                 out.put("apps", appList)
                 val kinds = JSObject()
                 for (kind in listOf("steps", "floors", "active", "total")) {
                     val k = JSObject()
-                    try {
+                    if (kind != "steps") try {
                         val got = pieces(c, kind, from.atZone(zone).toInstant(), end, origins)
                         val t = dayTotals(got, zone)
                         k.put("records", got.size).put("overlaps", t.overlaps)

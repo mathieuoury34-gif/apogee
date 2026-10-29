@@ -9,7 +9,8 @@ import { navigate, useRoute } from '../ui/router';
 import { getData, getPrefs, setPrefs, useCalc, usePrefs } from '../data/store';
 import { deleteCloud, signIn, signOut, syncNow, useSync } from '../data/sync';
 import { backupBlob, dossierMessage, importDossier, importGarminGraph, readJsonFile, restoreBackup } from '../data/backup';
-import { deleteEverything, restore, saveAthlete } from '../data/actions';
+import { deleteEverything, purgeBefore, restore, saveAthlete } from '../data/actions';
+import { purgePlan } from '../domain/purge';
 import { native } from '../native/bridge';
 import { HealthCard } from './Health';
 import { openHealthSettings, requestHealthPermissions, runHealthSync, useHealth } from '../native/healthSync';
@@ -51,6 +52,7 @@ export function SettingsScreen() {
   const prefs = usePrefs();
   const [busy, setBusy] = useState('');
   const [reset, setReset] = useState(false);
+  const [cut, setCut] = useState<string | null>(null);
   const [typed, setTyped] = useState('');
   const [theme, setTheme] = useState<ThemePref>(themePref());
   const jsonInput = useRef<HTMLInputElement>(null);
@@ -219,6 +221,18 @@ export function SettingsScreen() {
           <div className="card g8" style={{ borderRadius: 'var(--radius-12)' }}>
             <span data-component="AppLogo"><Logo size={18} /></span>
             <span className="t-caption c-neutral">{$t("Application personnelle de suivi d’entraînement multisport. Les données restent les tiennes : sur cet appareil et, si tu te connectes, dans ton espace Firebase privé. Version 2.0.")}</span>
+            {cut === null
+              ? <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start', whiteSpace: 'normal', textAlign: 'left' }} onClick={() => setCut('2026-08-02')}>{$t("Effacer l’historique avant une date")}</button>
+              : (
+                <div className="stack-8">
+                  <label className="field"><span className="lbl">{$t("Effacer tout ce qui est daté avant le")}</span><input className="input" type="date" value={cut} max={d.today} onChange={(e) => setCut(e.target.value)} /></label>
+                  {/^\d{4}-\d{2}-\d{2}$/.test(cut) && <span className="t-caption-strong c-critical">{$t("{0} enregistrement(s) seront effacés : séances, plans, sommeil, poids, calories, pas, relevés… Le profil, la course, les zones et les modèles restent.", { 0: purgePlan(getData(), cut).length })}{sync.user ? $t(" Effacé aussi sur tes autres appareils.") : ''}</span>}
+                  <div className="row wrap">
+                    <button type="button" className="btn btn-danger" disabled={!/^\d{4}-\d{2}-\d{2}$/.test(cut) || purgePlan(getData(), cut).length === 0} onClick={() => { const r = purgeBefore(cut); setCut(null); showToast($t("{0} enregistrement(s) effacé(s)", { 0: r.count }), { undo: () => restore(r.snap) }); }}>{$t("Effacer")}</button>
+                    <button type="button" className="btn btn-secondary" onClick={() => setCut(null)}>{$t("Annuler")}</button>
+                  </div>
+                </div>
+              )}
             {!reset
               ? <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start', color: 'var(--critical-text)', whiteSpace: 'normal', textAlign: 'left' }} onClick={() => { setReset(true); setTyped(''); }}>{$t("Effacer toutes mes données")}</button>
               : (

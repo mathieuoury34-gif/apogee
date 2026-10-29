@@ -8,6 +8,7 @@ import { planDedupe } from '../domain/dedupe';
 import type { SessionTemplate, ActualSession, AppData, Athlete, Checkin, CollectionName, Collections, EditableField, Interruption, WeightReading, PlannedSession, Race, SleepNight, TrainingPhase, ZoneReading } from '../domain/types';
 import { COLLECTIONS } from '../domain/types';
 import { applyPreview, type CoachPlan, type Preview } from '../domain/coach';
+import { purgePlan } from '../domain/purge';
 import { commit, getData } from './store';
 
 type Snapshot = { coll: CollectionName; id: string; rec: unknown }[];
@@ -227,6 +228,14 @@ export function deleteEverything(): number {
   let n = 0;
   commit((tx) => { for (const c of COLLECTIONS) for (const id of Object.keys(d[c])) { tx.remove(c, id); n++; } });
   return n;
+}
+
+/** Efface tout l'historique daté avant `cutoff` (voir domain/purge.ts) ; renvoie de quoi annuler. */
+export function purgeBefore(cutoff: string): { snap: Snapshot; count: number } {
+  const keys = purgePlan(getData(), cutoff);
+  const snap = snapshot(keys);
+  commit((tx) => { for (const [c, id] of keys) tx.remove(c, id); });
+  return { snap, count: keys.length };
 }
 
 export function blank<K extends CollectionName>(_c: K, rec: Omit<Collections[K], 'id' | 'updatedAt'>): Collections[K] {

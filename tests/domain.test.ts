@@ -28,6 +28,7 @@ import { AMATEUR_EXPONENT, capacityHistory } from '../src/domain/capacity';
 import { ingestEnergy, ingestVitals } from '../src/domain/healthExtra';
 import { checkinStatus, currentCheckin, emptyCheckin, metricSeries, sundayOf } from '../src/domain/checkin';
 import { mergeGarminGraph } from '../src/domain/garminGraph';
+import { purgePlan } from '../src/domain/purge';
 import { acuteSeries, dailyStatus, statusOf, weeklyStatus } from '../src/domain/loadStatus';
 import type { DayLoad } from '../src/domain/load';
 import { applyPreview, buildDossier, parsePlan, preview } from '../src/domain/coach';
@@ -1016,4 +1017,20 @@ test('relevés Garmin repris sans rien écraser', () => {
   const again = mergeGarminGraph(d, file);
   assert.equal(again.checkins[0].pred5kSec, 1400);
   assert.equal(again.checkins[0].pred10kSec, 2970);
+});
+
+test('effacer l’historique avant une date : seulement les données datées, séries et enchaînements avec leurs séances', () => {
+  const d = emptyData();
+  const mk = (id: string, day: string) => ({ id, updatedAt: 'x', sourceId: id, source: 'manual', discipline: 'RUN', rawExerciseType: 'manual', startAt: day + 'T08:00:00.000Z', endAt: day + 'T09:00:00.000Z', zoneOffsetMinutes: 0 }) as never;
+  d.actual.a1 = mk('a1', '2026-07-20'); d.actual.a2 = mk('a2', '2026-08-05');
+  d.series.a1 = { id: 'a1', updatedAt: 'x' } as never; d.series.a2 = { id: 'a2', updatedAt: 'x' } as never;
+  d.bricks.b1 = { id: 'b1', updatedAt: 'x', firstId: 'a1', secondId: 'a2', day: '2026-07-20' } as never;
+  d.sleep['2026-07-30'] = { id: '2026-07-30', updatedAt: 'x', nightDate: '2026-07-30' } as never;
+  d.energy['2026-08-02'] = { id: '2026-08-02', updatedAt: 'x', day: '2026-08-02', activeKcal: 1, totalKcal: 2, source: 'health' };
+  d.energy['2026-08-01'] = { id: '2026-08-01', updatedAt: 'x', day: '2026-08-01', activeKcal: 1, totalKcal: 2, source: 'health' };
+  d.checkins['2026-07-27'] = { ...emptyCheckin('2026-07-27'), day: '2026-08-02', updatedAt: 'x' } as never;
+  d.checkins['2026-07-13'] = { ...emptyCheckin('2026-07-13'), day: '2026-07-19', updatedAt: 'x' } as never;
+  d.zones.z = { id: 'z', updatedAt: 'x' } as never;
+  const keys = purgePlan(d, '2026-08-02').map((k) => k.join(':')).sort();
+  assert.deepEqual(keys, ['actual:a1', 'bricks:b1', 'checkins:2026-07-13', 'energy:2026-08-01', 'series:a1', 'sleep:2026-07-30']);
 });
