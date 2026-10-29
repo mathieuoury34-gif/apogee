@@ -24,9 +24,9 @@ export interface PeriodWindow {
 }
 
 /** `offset` = nombre de jours entre la fin de la fenêtre et aujourd'hui. On avance par pas d'une fenêtre entière. `span` 0 = tout l'historique. */
-export function usePeriod(defaultSpan: number = DEFAULT_SPAN): PeriodWindow {
+export function usePeriod(defaultSpan: number = DEFAULT_SPAN, initialOffset = 0): PeriodWindow {
   const [span, setSpanRaw] = useState(defaultSpan);
-  const [offset, setOffset] = useState(0);
+  const [offset, setOffset] = useState(initialOffset);
   const maxOffset = (total: number) => (span === 0 ? 0 : Math.max(0, total - span));
   return {
     span, offset,

@@ -26,18 +26,40 @@ import { cleanHr } from '../domain/hr';
 import { polarSplit, zoneTimes } from '../domain/zones';
 import { BricksCard, ComplianceCard, EfficiencyCard, RecordsCard, ZonesCard } from './Analysis';
 import { SplitBars } from '../ui/charts2';
-import { PeriodBar, usePeriod } from '../ui/period';
+import { DEFAULT_SPAN, PeriodBar, usePeriod } from '../ui/period';
 
 const NAV = [{ to: '/seances', label: $t("Journal") }, { to: '/seances/stats', label: $t("Statistiques") }];
 
 // ------------------------------------------------------------------ Journal
+/**
+ * État du journal mémorisé quand on ouvre le détail d'une séance : au retour, on retrouve la période, le filtre, la recherche et la
+ * position de défilement. Une visite normale (onglet, lien) repart de zéro.
+ */
+const journalMemo = { keep: false, span: DEFAULT_SPAN as number, offset: 0, filter: 'all' as 'all' | ActualDiscipline | 'rpe', months: 3, query: '', scrollY: 0 };
+
 export function JournalScreen() {
   const route = useRoute();
   const { data, d } = useCalc();
-  const [filter, setFilter] = useState<'all' | ActualDiscipline | 'rpe'>(route.query.get('filtre') === 'ressenti' ? 'rpe' : 'all');
-  const [months, setMonths] = useState(3);
-  const [query, setQuery] = useState('');
-  const pw = usePeriod();
+  const restored = useRef(journalMemo.keep);
+  if (restored.current) journalMemo.keep = false;
+  const start = restored.current ? journalMemo : null;
+  const [filter, setFilter] = useState<'all' | ActualDiscipline | 'rpe'>(start ? start.filter : route.query.get('filtre') === 'ressenti' ? 'rpe' : 'all');
+  const [months, setMonths] = useState(start ? start.months : 3);
+  const [query, setQuery] = useState(start ? start.query : '');
+  const pw = usePeriod(start ? start.span : DEFAULT_SPAN, start ? start.offset : 0);
+  // mémorise l'état courant, et la position de défilement tant qu'on est bien sur le journal
+  Object.assign(journalMemo, { span: pw.span, offset: pw.offset, filter, months, query });
+  useEffect(() => {
+    const onScroll = () => { if (/^#\/seances\/?(\?.*)?$/.test(location.hash)) journalMemo.scrollY = window.scrollY; };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    if (restored.current && journalMemo.scrollY > 0) { const y = journalMemo.scrollY; requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y))); }
+    else journalMemo.scrollY = 0;
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      // on quitte vers le détail d'une séance : on garde l'état pour le retour
+      journalMemo.keep = /^#\/seances\/(?!stats|saisie)[^/?]+/.test(location.hash);
+    };
+  }, []);
   const [swiped, setSwiped] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const all = liveRecords(data.actual).sort((a, b) => (a.startAt < b.startAt ? 1 : -1));
