@@ -36,8 +36,10 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+      # une panne de GitHub Pages ne doit pas empêcher de construire l'APK (qui embarque l'app) : l'échec reste visible en avertissement
       - id: deploy
         uses: actions/deploy-pages@v4
+        continue-on-error: true
 
   apk:
     needs: web
