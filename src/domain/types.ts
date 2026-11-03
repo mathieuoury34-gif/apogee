@@ -243,7 +243,7 @@ export interface CoachExchange extends Rec {
   error: string | null;
 }
 
-/** Séance (favorite) ou semaine type réutilisable : copiée dans le calendrier avec de nouveaux identifiants. */
+/** Semaine type réutilisable (les anciennes « séances favorites », kind « session », ne sont plus proposées) : copiée dans le calendrier avec de nouveaux identifiants. */
 export interface TemplateItem { offset: number; discipline: PlannedDiscipline; title: string | null; notes: string | null; blocks: Block[] }
 export interface SessionTemplate extends Rec {
   name: string;

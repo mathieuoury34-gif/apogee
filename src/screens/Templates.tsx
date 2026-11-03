@@ -1,10 +1,9 @@
-// Copier une semaine, semaines types et séances favorites (calendrier).
+// Copier une semaine et semaines types (calendrier).
 // Les modèles sont une collection synchronisée (« templates ») : ils suivent ton compte comme le reste.
 import { $t } from '../i18n';
 import { useState } from 'react';
 import { DateField, Sheet, showToast } from '../ui/kit';
 import { Icon } from '../ui/icons';
-import { closeSheet, useRoute } from '../ui/router';
 import { useCalc } from '../data/store';
 import { applyTemplate, copyWeek, deleteTemplate, restore, templateFromWeek, weekPlanned } from '../data/actions';
 import { addDays, mondayOf } from '../domain/dates';
@@ -86,28 +85,6 @@ export function WeekActionsSheet({ monday, sh }: { monday: string; sh: Ctl }) {
           </ul>
         )}
       </div>
-    </Sheet>
-  );
-}
-
-// ------------------------------------------------------------------ séances favorites (feuille « favoris »)
-export function FavoritesSheet() {
-  const route = useRoute();
-  const { data, d } = useCalc();
-  const date = route.query.get('date') || d.today;
-  const list = templates(data, 'session');
-  return (
-    <Sheet title={$t("Mes séances favorites")} head={<span className="t-caption c-moderate">{$t("Ajout le {0}", { 0: dateFr(date) })}</span>}>
-      <ul className="stack-8" style={{ padding: '0 var(--space-16) calc(var(--safe-bottom) + var(--space-16))' }}>
-        {list.length === 0 && <li className="t-caption c-moderate">{$t("Aucun favori pour l’instant. Appuie longuement sur une séance prévue, puis « Ajouter aux favoris ».")}</li>}
-        {list.map((t) => (
-          <li key={t.id} className="between" style={{ gap: 'var(--space-8)' }}>
-            <span className="stack-4 grow"><span className="t-strong">{t.name}</span><span className="t-caption c-moderate">{templateSummary(t, d)}</span></span>
-            <button type="button" className="btn btn-secondary" onClick={() => { const { snap } = applyTemplate(t, date); closeSheet(); showToast($t("Séance ajoutée au {0}", { 0: dateFr(date) }), { undo: () => restore(snap) }); }}>{$t("Ajouter")}</button>
-            <button type="button" className="icon-btn" aria-label={$t("Supprimer ce favori")} onClick={() => { const snap = deleteTemplate(t.id); showToast($t("Favori supprimé"), { undo: () => restore(snap) }); }}><Icon name="trash" size={20} /></button>
-          </li>
-        ))}
-      </ul>
     </Sheet>
   );
 }

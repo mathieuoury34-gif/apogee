@@ -81,7 +81,7 @@ par enregistrement avec Firestore. Tout enregistrement : `{ id: string, updatedA
 | `sleep` | nuit : `nightDate (jour du réveil), startAt, endAt, zoneOffsetMinutes, durationSec, sourceId` | = nightDate |
 | `resting` | FC de repos du jour : `day, bpm` | = day |
 | `weight` | pesée du jour : `day, kg, source ('health'|'manual')` ; une saisie manuelle n'est jamais écrasée, une pesée supprimée n'est pas ré-importée | = day |
-| `templates` | séance favorite ou semaine type : `name, kind ('session'|'week'), items ({offset, discipline, title, notes, blocks}[]), createdAt` | id |
+| `templates` | semaine type (les anciennes séances favorites, `kind 'session'`, ne sont plus proposées ni créées) : `name, kind ('session'|'week'), items ({offset, discipline, title, notes, blocks}[]), createdAt` | id |
 | `energy` | dépense, pas et étages du jour lus dans Health Connect : `day, activeKcal, totalKcal (repos compris), steps?, floors?, source 'health'` (agrégat Health Connect, doublons entre applications écartés par Android) | = day |
 | `meals` | journal de repas : `day, kcal, label` (aucune base d'aliments) | id |
 | `vitals` | VO₂max et HRV du jour **si la montre les dépose** dans Health Connect : `day, vo2max, hrvMs` (HRV = moyenne des RMSSD du jour) | = day |
@@ -566,7 +566,7 @@ prévisionnel ; alerte blessure ; estimation de VMA ; poids et sommeil ; ingesti
 - **Préférences** : `sessionReminder` + `reminderHour`, `sleepReminder` + `sleepReminderHour`, `weeklyReminder` + `weeklyReminderHour`, `weeklyPromptAck`. Paramètres : section « Calculs » (charge provisoire) et « Rappels et notifications » (APK seulement).
 - **Import `apogee-garmin/2`** (`garminGraph.ts`, `correctFromGarmin`) : `energy` (`totalKcal`, `restKcal`, `steps`, `floors`) et `sleep` (`night` = jour du réveil, `durationMin`). Seuils : `FIX_KCAL_TOTAL` 3 % (min 60 kcal), actives 60 kcal, pas 4 % (min 400), étages ≥ 2, nuit ≥ 10 min. Nuit existante : même lever, coucher = lever − durée ; nuit absente : lever à 7 h locale. Les prédictions du fichier ne comblent que des champs vides. Les valeurs écrites sont marquées `edited` (jamais réécrites par `ingestEnergy` ni par la lecture du sommeil).
 - **Courbes de capacité** : `DayChart.onRelease` (pointeur relâché ou repris par le défilement) ; la carte rend alors le curseur au dernier jour.
-- **Menu +** (`AddSheet`) : deux tuiles. `FavoritesSheet` (`?sheet=favoris`) n'a plus de point d'entrée dans l'interface.
+- **Menu +** (`AddSheet`) : deux tuiles (les favoris ont été supprimés le 03/11).
 
 **Addendum 29/10 (fenêtres ciblées)** : `CheckinSheet` accepte `only?: 'vo2' | 'pred'`. Sans `only` : point de la semaine complet (Accueil). Avec `only`, seuls le jour du relevé et le sujet choisi (VO₂max, ou les 4 prédictions) sont affichés ; les autres champs du point de la semaine restent préremplis et conservés à l’enregistrement ; la correction de jour (`useDayFix`) est désactivée. L’écran Charge fusionne Statut et Charge aiguë dans une seule `InfoCard` (une seule `usePeriod`).
 
@@ -579,3 +579,5 @@ prévisionnel ; alerte blessure ; estimation de VMA ; poids et sommeil ; ingesti
 **Addendum 29/10 (agencement PC)** : onglet Charge = un seul `.dmasonry` (2 colonnes CSS équilibrées) ; onglet Capacités = `.dcols` (2 colonnes explicites `.dcol`, empilées sur téléphone dans le même ordre qu’avant). Chaque carte garde son propre `usePeriod`.
 
 **Addendum 03/11 (VO₂max Garmin, export coach)** : plus aucune VO₂max calculée : `latestVo2max(data, upTo?)` (capacity.ts) lit le dernier point hebdomadaire contenant une VO₂max ; `enduranceScore` la reçoit en paramètre. `garminGraph.ts` : `mergeReadings(data, rows, 'fill' | 'replace')` regroupe par semaine, pour chaque mesure le relevé le plus tardif ; v1 = `fill`, v2 (`correctFromGarmin`) = `replace` (`report.checkinsAdded` / `checkinsFixed`) ; `GraphPrediction.vo2max` arrondie à 0,1 (15–90). `buildDossier` (coach.ts) ajoute `watchReadings` (`latest` avec `readingDay` par mesure, `weekly` 26 semaines, durées en secondes + `…Clock`) et `recentHealth` ; texte `instructions()` complété. Contrat `apogee/1` inchangé (champs additifs).
+
+**Addendum 03/11 (favoris retirés)** : suppression de l'appui long « Ajouter aux favoris », de `FavoritesSheet` (`?sheet=favoris`) et de `templateFromSession`. La collection `templates` ne sert plus qu'aux semaines types ; d'anciens enregistrements `kind 'session'` restent dans les sauvegardes sans effet.

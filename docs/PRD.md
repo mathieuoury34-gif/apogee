@@ -157,8 +157,8 @@ Thèmes clair et sombre. Annuler proposé après toute suppression, modification
    séance prévue (détail au niveau du bloc) ; **éditeur de blocs** (glisser-déposer entre séries, duplication
    d'un bloc/série, couleurs par type, nom du bloc, intensité) ; **appui long** sur une séance (dupliquer vers un
    autre jour, déplacer, modifier, supprimer ; titre, bilan, dupliquer le prévu lié pour une séance réalisée) ;
-   **réutilisation** : copier une semaine vers une autre, semaines types et **séances favorites** (collection
-   `templates`, écran Séances types), « Ajouter aux favoris » depuis l'appui long ; **export .FIT** d'une séance
+   **réutilisation** : copier une semaine vers une autre, semaines types (collection
+   `templates`) ; les **séances favorites ont été retirées le 03/11/2026** (décision de Mathieu : ne jamais rouvrir ce système) ; **export .FIT** d'une séance
    prévue pour la montre (voir 13) ;
    **périodisation** (blocs datés : passés / courant / à venir / course ; création et édition ; jamais de
    chevauchement) ; bandeau d'interruption.
@@ -281,7 +281,7 @@ résolution de `ONE_RM` en kilos (aucun 1RM stocké) ; lecture de la montre sur 
 - Cache de l'analyse cardiaque par série (recalcul ≈ 5× plus rapide) ; textes corrigés ; recherche et période dans le journal.
 - Analyse : respect du plan, zones de FC (80/20), forme par discipline, records, efficacité, bilan de semaine,
   enchaînements vélo → course, prévisionnel de charge, estimations VMA / CSS, alerte blessure.
-- Réutilisation : copier une semaine, semaines types, séances favorites.
+- Réutilisation : copier une semaine, semaines types. (Séances favorites : retirées le 03/11/2026, à ne pas reproposer.)
 - APK : poids (saisie à la main) et sommeil (lecture). Puissance vélo, variabilité cardiaque et tracé GPS livrés puis **retirés** le jour même (Garmin ne les envoie pas à Health Connect).
 - Export `.FIT` des séances prévues (entraînement structuré, copie manuelle par USB).
 - Écarté pour l'instant : fond de carte (aucun service externe), envoi automatique vers la montre.

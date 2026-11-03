@@ -67,7 +67,7 @@ export function weekPlanned(monday: string): PlannedSession[] {
   return Object.values(getData().planned).filter((p) => !p.deleted && p.plannedDate >= monday && p.plannedDate <= addDays(monday, 6));
 }
 
-// ------------------------------------------------------------------ séances favorites et semaines types
+// ------------------------------------------------------------------ semaines types
 export function saveTemplate(t: { name: string; kind: 'session' | 'week'; items: SessionTemplate['items'] }): SessionTemplate {
   const now = nowIso();
   const rec: SessionTemplate = { id: newId(), updatedAt: now, createdAt: now, name: t.name.trim(), kind: t.kind, items: structuredClone(t.items) };
@@ -79,17 +79,12 @@ export function templateFromWeek(name: string, monday: string): SessionTemplate 
   if (!list.length) return null;
   return saveTemplate({ name, kind: 'week', items: list.map((p) => ({ offset: daysBetween(monday, p.plannedDate), discipline: p.discipline, title: p.title, notes: p.notes, blocks: p.blocks })) });
 }
-export function templateFromSession(id: string, name?: string): SessionTemplate | null {
-  const p = getData().planned[id];
-  if (!p || p.deleted) return null;
-  return saveTemplate({ name: name?.trim() || p.title || p.discipline, kind: 'session', items: [{ offset: 0, discipline: p.discipline, title: p.title, notes: p.notes, blocks: p.blocks }] });
-}
 export function deleteTemplate(id: string): Snapshot {
   const s = snapshot([['templates', id]]);
   commit((tx) => tx.remove('templates', id));
   return s;
 }
-/** Ajoute au calendrier les séances d'un modèle : `date` est le jour (séance favorite) ou le lundi (semaine type). */
+/** Ajoute au calendrier les séances d'un modèle : `date` est un jour de la semaine à remplir (le lundi sert de base). */
 export function applyTemplate(t: SessionTemplate, date: string): { snap: Snapshot; count: number } {
   const now = nowIso();
   const base = t.kind === 'week' ? mondayOf(date) : date;
