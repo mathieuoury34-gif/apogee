@@ -220,9 +220,8 @@ Thèmes clair et sombre. Annuler proposé après toute suppression, modification
     Training Readiness, Endurance Score, Hill Score, Training Effect, statut HRV…) ne sont **pas** reproductibles à l'identique : Apogée en calcule des équivalents (item 16) et les valeurs de la montre se recopient via le point de
     la semaine (Health Connect ne les envoie pas, constaté le 27/10). Interruptions : saisies depuis le Calendrier.
 
-16. **Fenêtres à méthodes publiées (27/10/2026, demande de Mathieu)** — Training Effect par séance, VO₂max estimée, prédictions de course (5 km → marathon),
-    disponibilité à l'entraînement, réserve d'énergie, indice d'endurance, indice de côtes : calculés par Apogée à partir de formules de la littérature
-    (méthode citée sur chaque carte, étiquetés « estimation Apogée », non comparables à Garmin). **Pas de statut HRV** (décision de Mathieu) ; Health Connect ne transmet
+16. **Fenêtres à méthodes publiées (27/10/2026, demande de Mathieu)** — Training Effect par séance, disponibilité à l'entraînement, réserve d'énergie, indice d'endurance, indice de côtes : calculés par Apogée à partir de formules de la littérature
+    (méthode citée sur chaque carte, étiquetés « estimation Apogée », non comparables à Garmin). **Pas de statut HRV** (décision de Mathieu) ; **03/11/2026 : VO₂max et prédictions de course ne sont jamais calculées par Apogée, seules celles de la montre Garmin comptent (décision de Mathieu)** ; Health Connect ne transmet
     ni VO₂max ni HRV chez lui, le point hebdomadaire manuel reste la source des valeurs de la montre.
 
 ### Écartés (définitivement, ne pas reproposer)
@@ -328,3 +327,5 @@ Pas de nouvelle fonctionnalité hors MVP. Statistiques : le bilan de semaine dis
 **29/10/2026 (soir)** — Hors nouvelle fonctionnalité, dans le périmètre existant (suivi santé) : suppression des prédictions de course calculées ; boutons « Saisir / Modifier » sur calories, pas et étages (corriger un jour d'après Garmin Connect) ; entrées « Point de la semaine » et « Pas, étages, calories » dans le menu + ; rappel du dimanche (avec le point de la semaine) pour les corrections de la semaine (pas, étages, calories, sommeil), désactivable.
 
 **29/10/2026 (nuit)** — Dans le périmètre existant (suivi santé et rappels) : fichier et import de corrections d'après Garmin Connect ; Point de la semaine déplacé en bas de l'Accueil avec un éditeur de jour (pas, étages, calories, sommeil) ; « Saisir » pour la VO₂max et les prédictions ; ouverture directe du formulaire après le rappel du dimanche ; Paramètres › Rappels et notifications (séance, sommeil, point de la semaine) ; menu + réduit à Planifier et Séance faite. Point à décider : les séances favorites n'ont plus d'entrée dans l'interface.
+
+**03/11/2026** — Dans le périmètre existant : VO₂max Garmin seule (calcul Apogée retiré) ; import Garmin v2 où la montre remplace les valeurs de l’appli (VO₂max, seuil, prédictions) ; export coach complété (valeurs Garmin + historique + santé récente). Rien hors MVP.

@@ -33,7 +33,7 @@ import { acuteSeries, dailyStatus, statusOf, weeklyStatus } from '../src/domain/
 import type { DayLoad } from '../src/domain/load';
 import { applyPreview, buildDossier, parsePlan, preview } from '../src/domain/coach';
 import { RACE_DISTANCES, aerobicEffect, anaerobicEffect, riegel, teLevel, timeOfVdot, vdotOfPerformance, vo2OfRunning, vo2maxFromSubmax, vo2maxUth } from '../src/domain/science';
-import { acuteScore, bestEfforts, energyReserve, enduranceScore, hillScore, readiness, restingScore, sleepScore, trainingEffects, vo2maxEstimate } from '../src/domain/capacity';
+import { acuteScore, energyReserve, enduranceScore, hillScore, latestVo2max, readiness, restingScore, sleepScore, trainingEffects } from '../src/domain/capacity';
 import { defaultDisp, fromDisp, toDisp } from '../src/ui/targetUnits';
 import type { ActualSession, AppData, Block } from '../src/domain/types';
 
@@ -753,7 +753,7 @@ function runnerData(): AppData {
   return data;
 }
 
-test('Training Effect, VO₂max estimée, prédictions : cohérents sur un historique régulier', () => {
+test('Training Effect, VO₂max Garmin, endurance : cohérents sur un historique régulier', () => {
   const data = runnerData();
   const d = derive(data, SETTINGS, new Date('2026-10-27T12:00:00Z'));
   const fx = trainingEffects(data, d);
@@ -762,16 +762,15 @@ test('Training Effect, VO₂max estimée, prédictions : cohérents sur un histo
   assert.equal(e.refIsDefault, false);
   assert.ok(e.zone5Sec === 0 && e.anaerobic === 0, 'FC à 79–86 % : pas de zone 5');
   assert.equal(fx, trainingEffects(data, d), 'résultat en cache');
-  // VO₂max : FC de réserve ≈ (152-52)/(190-52) = 72 % ; VO₂ ≈ 0,2 × 192 + 3,5 = 41,9 -> ≈ 56
-  const efforts = bestEfforts(data, d.today);
-  assert.ok(efforts.some((x) => x.distanceM === 5000) && efforts.some((x) => x.distanceM === 10000));
-  const v = vo2maxEstimate(data, d, efforts);
-  assert.equal(v.method, 'submax');
-  assert.ok(v.value! > 50 && v.value! < 62, 'VO₂max ' + v.value);
-  assert.ok(v.uth !== null && Math.abs(v.uth - 15.3 * 190 / 52) < 3);
-  assert.ok(v.vdot!.value > 30 && v.vdot!.value < v.value! + 1, 'le VDOT d\'un entraînement reste une borne basse');
+  // VO₂max : jamais recalculée, seule la valeur Garmin du point hebdomadaire compte (la plus récente à la date donnée)
+  assert.equal(latestVo2max(data, d.today), null);
+  data.checkins['2026-10-19'] = { ...emptyCheckin('2026-10-19'), day: '2026-10-25', vo2max: 54.1, updatedAt: 'x' };
+  data.checkins['2026-10-26'] = { ...emptyCheckin('2026-10-26'), day: '2026-11-01', vo2max: 54.5, updatedAt: 'x' };
+  assert.equal(latestVo2max(data, '2026-10-30')!.value, 54.1);
+  assert.equal(latestVo2max(data, '2026-11-03')!.value, 54.5);
+  const v = latestVo2max(data, d.today);
   // endurance et côtes
-  const en = enduranceScore(data, d.today, v.value)!;
+  const en = enduranceScore(data, d.today, v?.value ?? null)!;
   assert.ok(en.score > 0 && en.score <= 100 && en.aerobic !== null);
   assert.equal(enduranceScore(emptyData(), d.today, null), null);
   const hs = hillScore(data, d.today)!;
@@ -891,22 +890,6 @@ test('pas et étages : fusionnés par jour avec la dépense, et réécrits seule
   // seuls les pas arrivent (étages non transmis) : les calories déjà connues sont conservées
   rows = ingestEnergy(d, [], [{ day, steps: 13000 }]);
   assert.equal(rows[0].steps, 13000); assert.equal(rows[0].totalKcal, 3000); assert.equal(rows[0].floors, 17);
-});
-
-test('courbes de capacité : un point par jour, et la VO₂max suit les sorties récentes au lieu de rester sur un palier', () => {
-  const data = runnerData();
-  const d = derive(data, SETTINGS, new Date('2026-10-27T12:00:00Z'));
-  const h = capacityHistory(data, d, 40);
-  assert.equal(h.length, 40);
-  assert.equal(h[39].day, '2026-10-27');
-  const v = h.map((p) => p.vo2max).filter((x): x is number => x !== null);
-  assert.ok(v.length > 20);
-  assert.ok(new Set(v.map((x) => Math.round(x * 100))).size >= 6, 'valeurs distinctes : pas de paliers');
-  let run = 1, maxRun = 1;
-  for (let i = 1; i < v.length; i++) { run = Math.abs(v[i] - v[i - 1]) < 0.005 ? run + 1 : 1; maxRun = Math.max(maxRun, run); }
-  assert.ok(maxRun <= 3, 'jamais plus de 3 jours identiques de suite (séances tous les 2 jours) : ' + maxRun);
-  const efforts = bestEfforts(data, d.today);
-  assert.equal(h[39].vo2max, vo2maxEstimate(data, d, efforts).value, 'dernier point = valeur du jour');
 });
 
 test('calories : la dépense de base de la montre donne le repos ; le réglage du profil reste prioritaire', () => {
@@ -1066,4 +1049,61 @@ test('import Garmin : le seuil de lactate (FC, allure) est repris dans le point 
   d.checkins[a.week] = { ...a, lthrBpm: 190 };
   const again = mergeGarminGraph(d, file);
   assert.equal(again.checkins.find((x) => x.week === a.week), undefined);
+});
+
+test('import Garmin v2 : VO₂max et prédictions de la montre remplacent celles de l\'appli, sans toucher au ressenti', () => {
+  const d = emptyData();
+  d.checkins['2026-10-19'] = { ...emptyCheckin('2026-10-19'), day: '2026-10-25', vo2max: 53.9, pred5kSec: 1380, sleepFelt: 4, note: 'ok', updatedAt: 'x' };
+  const file = {
+    format: 'apogee-garmin/2' as const,
+    predictions: [
+      { day: '2026-10-25', vo2max: 54.1, pred5kSec: 1370, pred10kSec: 2977 },
+      { day: '2026-11-01', vo2max: 54.46, pred5kSec: 1319 },
+      { day: '2026-11-03', pred5kSec: 1305, predMarathonSec: 14178 },
+    ],
+  };
+  const r = correctFromGarmin(d, file, 0);
+  const byWeek = new Map(r.checkins.map((c) => [c.week, c]));
+  const fixed = byWeek.get('2026-10-19')!;
+  assert.equal(fixed.vo2max, 54.1, 'VO₂max remplacée');
+  assert.equal(fixed.pred5kSec, 1370);
+  assert.equal(fixed.pred10kSec, 2977);
+  assert.equal(fixed.sleepFelt, 4, 'ressenti conservé'); assert.equal(fixed.note, 'ok');
+  const sun = byWeek.get('2026-10-26')!;
+  assert.equal(sun.vo2max, 54.5, 'une décimale'); assert.equal(sun.pred5kSec, 1319);
+  const now = byWeek.get('2026-11-02')!;
+  assert.equal(now.pred5kSec, 1305); assert.equal(now.day, '2026-11-03'); assert.equal(now.vo2max, null);
+  assert.equal(r.report.checkinsFixed, 1); assert.equal(r.report.checkinsAdded, 2);
+  // deuxième passage : tout est déjà conforme
+  for (const c of r.checkins) d.checkins[c.week] = c;
+  assert.equal(correctFromGarmin(d, file, 0).checkins.length, 0);
+  // la version 1 ne remplace jamais
+  const v1 = mergeGarminGraph({ ...emptyData(), checkins: { '2026-10-19': { ...emptyCheckin('2026-10-19'), vo2max: 53.9, updatedAt: 'x' } } }, { format: 'apogee-garmin/1', predictions: [{ day: '2026-10-25', vo2max: 54.1 }] });
+  assert.equal(v1.checkins.length, 0);
+});
+
+test('coach : le dossier contient les valeurs Garmin (VO₂max, seuil, prédictions) et la santé récente', () => {
+  const data = runnerData();
+  data.checkins['2026-10-26'] = { ...emptyCheckin('2026-10-26'), day: '2026-11-01', vo2max: 54.5, lthrBpm: 184, lthPaceSecKm: 279, pred5kSec: 1319, pred10kSec: 2860, predHalfSec: 6467, predMarathonSec: 14317, sleepFelt: 4, updatedAt: 'x' };
+  data.checkins['2026-11-02'] = { ...emptyCheckin('2026-11-02'), day: '2026-11-03', pred5kSec: 1305, pred10kSec: 2833, predHalfSec: 6397, predMarathonSec: 14178, updatedAt: 'x' };
+  const now = new Date('2026-11-03T10:00:00Z');
+  const dossier = buildDossier(data, derive(data, SETTINGS, now), [], now);
+  const w = dossier.watchReadings;
+  assert.equal(w.latest.vo2max!.value, 54.5);
+  assert.equal(w.latest.vo2max!.readingDay, '2026-11-01', 'VO₂max : dernier relevé qui en contient une, pas le plus récent des points');
+  assert.equal(w.latest.racePredictions.fiveKm!.seconds, 1305);
+  assert.equal(w.latest.racePredictions.fiveKm!.clock, '21:45');
+  assert.equal(w.latest.racePredictions.marathon!.clock, '3:56:18');
+  assert.equal(w.latest.lactateThreshold!.hrBpm, 184);
+  assert.equal(w.latest.lactateThreshold!.paceClock, '4:39');
+  assert.equal(w.latest.feel.sleep1to5!.value, 4);
+  assert.equal(w.weekly.length, 2);
+  assert.equal(w.weekly[1].pred10kClock, '47:13');
+  assert.equal(dossier.recentHealth.windowDays, 7);
+  assert.ok('avgSleepHours' in dossier.recentHealth && 'restingHrBpm' in dossier.recentHealth && 'lastWeightKg' in dossier.recentHealth);
+  assert.match(dossier.responseContract.instructions, /watchReadings/);
+  // sans point hebdomadaire : sections présentes mais vides, rien ne plante
+  const empty = buildDossier(emptyData(), derive(emptyData(), SETTINGS, now), [], now);
+  assert.equal(empty.watchReadings.latest.vo2max, null);
+  assert.equal(empty.watchReadings.weekly.length, 0);
 });

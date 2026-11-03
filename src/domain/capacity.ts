@@ -1,5 +1,5 @@
 // Fenêtres « à la Garmin » calculées par Apogée à partir de méthodes publiées (voir science.ts) :
-// Training Effect par séance, VO₂max estimée, prédictions de course, disponibilité à l'entraînement,
+// Training Effect par séance, disponibilité à l'entraînement,
 // réserve d'énergie, indice d'endurance et indice de côtes. Rien n'est stocké : tout est recalculé.
 // Les entrées de chaque calcul sont publiées ; les échelles de lecture (0–100, niveaux) sont propres à Apogée.
 import { addDays } from './dates';
@@ -7,9 +7,8 @@ import type { Derived } from './engine';
 import { analyzeHr, mean, median, percentile } from './hr';
 import { liveRecords, sessionDay, type SessionLoad } from './load';
 import { acuteSeries } from './loadStatus';
-import { bestSegment, trackDistance } from './records';
 import {
-  aerobicEffect, anaerobicEffect, clamp, teLevel, vdotOfPerformance, vo2OfRunning, vo2maxFromSubmax, vo2maxUth,
+  aerobicEffect, anaerobicEffect, clamp, teLevel,
   type TeLevel,
 } from './science';
 import { zoneTimes } from './zones';
@@ -57,142 +56,13 @@ export function trainingEffects(data: AppData, d: Derived): Map<string, SessionE
   return out;
 }
 
-// ------------------------------------------------------------------ meilleurs efforts de course (pour VDOT et Riegel)
-export const EFFORT_DISTANCES = [3000, 5000, 10000, 21097.5];
-export const EFFORT_WINDOW_DAYS = 90;
-export interface Effort { distanceM: number; timeSec: number; day: string; sessionId: string }
-
-const effortCache = new WeakMap<object, { series: object; list: Effort[] }>();
-/** Meilleur temps de chaque course sur chaque distance (mêmes garde-fous que les records), calculé une fois par jeu de données. */
-function sessionEfforts(data: AppData): Effort[] {
-  const hit = effortCache.get(data.actual);
-  if (hit && hit.series === data.series) return hit.list;
-  const list: Effort[] = [];
-  for (const s of liveRecords(data.actual)) {
-    if (s.discipline !== 'RUN' || !s.distanceM) continue;
-    const day = sessionDay(s);
-    const ser = data.series[s.id];
-    const curve = ser && !ser.deleted ? ser.speed : [];
-    const total = trackDistance(curve);
-    const ratio = total > 0 ? s.distanceM / total : 0;
-    for (const dist of EFFORT_DISTANCES) {
-      if (s.distanceM < dist) continue;
-      let t: number | null = null;
-      if (ratio >= 0.85 && ratio <= 1.15) t = bestSegment(curve, dist, ratio);
-      if (t === null && Math.abs(s.distanceM - dist) / dist <= 0.03 && s.durationSec > 0) t = s.durationSec * (dist / s.distanceM);
-      if (t === null || dist / t > 7.5) continue;
-      list.push({ distanceM: dist, timeSec: t, day, sessionId: s.id });
-    }
-  }
-  effortCache.set(data.actual, { series: data.series, list });
-  return list;
-}
-
-/** Meilleur temps de déplacement sur chaque distance, sur les 90 derniers jours. */
-export function bestEfforts(data: AppData, todayDay: string): Effort[] {
-  const from = addDays(todayDay, -EFFORT_WINDOW_DAYS);
-  const best = new Map<number, Effort>();
-  for (const e of sessionEfforts(data)) {
-    if (e.day < from || e.day > todayDay) continue;
-    const cur = best.get(e.distanceM);
-    if (!cur || e.timeSec < cur.timeSec) best.set(e.distanceM, e);
-  }
-  return [...best.values()].sort((a, b) => a.distanceM - b.distanceM);
-}
-
-// ------------------------------------------------------------------ VO₂max
-export const VO2_WINDOW_DAYS = 60;
-export const VO2_MIN_SESSIONS = 3;
-export const VO2_MIN_SEC = 20 * 60;
-export const VO2_MAX_CLIMB = 0.02;
-export const VO2_MAX_DRIFT = 0.08;
-
-export interface Vo2Estimate {
-  value: number | null;
-  method: 'submax' | 'uth' | null;
-  /** Courses à allure stable : FC de réserve ↔ VO₂ de réserve. */
-  submax: { value: number; n: number } | null;
-  /** FCmax / FCrepos (Uth). */
-  uth: number | null;
-  /** Meilleur effort récent converti en VDOT (borne basse : un entraînement n'est pas une course). */
-  vdot: { value: number; effort: Effort } | null;
-  /** Valeur recopiée de la montre dans le point hebdomadaire. */
-  watch: { value: number; week: string } | null;
-}
-
-export function latestWatchVo2(data: AppData): { value: number; week: string } | null {
-  const c = liveRecords(data.checkins).filter((x): x is Checkin & { vo2max: number } => x.vo2max !== null).sort((a, b) => (a.week < b.week ? 1 : -1))[0];
-  return c ? { value: c.vo2max, week: c.week } : null;
-}
-
-/** Demi-vie du poids d'une sortie dans l'estimation de VO₂max : une sortie d'il y a trois semaines compte moitié moins qu'une sortie du jour. */
-export const VO2_HALF_LIFE_DAYS = 21;
-interface SessionVo2 { day: string; v: number }
-const vo2Cache = new WeakMap<object, SessionVo2[]>();
-/** VO₂max déduite de chaque sortie de course admissible (allure stable à plat, FC de réserve) ; calculée une fois par jeu de données. */
-function sessionVo2(data: AppData, d: Derived): SessionVo2[] {
-  const hit = vo2Cache.get(d.loads);
-  if (hit) return hit;
-  const out: SessionVo2[] = [];
-  const hrMax = d.ctx.hrMax.bpm;
-  if (hrMax) {
-    for (const s of liveRecords(data.actual)) {
-      if (s.discipline !== 'RUN' || s.durationSec < VO2_MIN_SEC || !s.distanceM || !s.avgHrBpm) continue;
-      if (s.elevationGainM && s.elevationGainM / s.distanceM > VO2_MAX_CLIMB) continue;
-      const drift = d.loads.get(s.id)?.drift;
-      if (drift !== null && drift !== undefined && Math.abs(drift) > VO2_MAX_DRIFT) continue;
-      const sd = sessionDay(s);
-      const rest = d.ctx.resting.at(sd);
-      if (rest === null) continue;
-      const speed = s.avgSpeedMs && s.avgSpeedMs > 1 ? s.avgSpeedMs : s.distanceM / s.durationSec;
-      const v = vo2maxFromSubmax(vo2OfRunning(speed), s.avgHrBpm, rest, hrMax);
-      if (v !== null && v > 25 && v < 85) out.push({ day: sd, v });
-    }
-  }
-  out.sort((a, b) => (a.day < b.day ? -1 : 1));
-  vo2Cache.set(d.loads, out);
-  return out;
-}
-
-/** VO₂max d'un jour donné : moyenne des sorties des 60 jours précédents, pondérée par leur ancienneté (les valeurs très éloignées de la médiane sont écartées). */
-function vo2At(list: SessionVo2[], day: string): { value: number; n: number } | null {
-  const from = addDays(day, -VO2_WINDOW_DAYS);
-  const win = list.filter((x) => x.day >= from && x.day <= day);
-  if (win.length < VO2_MIN_SESSIONS) return null;
-  const med = median(win.map((x) => x.v))!;
-  let sw = 0, sv = 0, n = 0;
-  for (const x of win) {
-    if (Math.abs(x.v - med) > med * 0.15) continue;
-    const age = (Date.parse(day) - Date.parse(x.day)) / 86400000;
-    const w = Math.pow(0.5, age / VO2_HALF_LIFE_DAYS);
-    sw += w; sv += w * x.v; n++;
-  }
-  return sw > 0 ? { value: sv / sw, n } : null;
-}
-
-export function vo2maxEstimate(data: AppData, d: Derived, efforts: Effort[]): Vo2Estimate {
-  const day = d.today;
-  const hrMax = d.ctx.hrMax.bpm;
-  const submax = vo2At(sessionVo2(data, d), day);
-  const restNow = d.ctx.resting.at(day);
-  const uth = hrMax && restNow ? vo2maxUth(hrMax, restNow) : null;
-  let vdot: Vo2Estimate['vdot'] = null;
-  for (const e of efforts) {
-    const v = vdotOfPerformance(e.distanceM, e.timeSec);
-    if (v !== null && (!vdot || v > vdot.value)) vdot = { value: v, effort: e };
-  }
-  const value = submax ? submax.value : uth;
-  return { value, method: submax ? 'submax' : uth !== null ? 'uth' : null, submax, uth, vdot, watch: latestWatchVo2(data) };
-}
-
-/** Facteur qui ramène le temps d'un ancien effort au niveau de forme du jour : temps × (VO₂max de l'époque ÷ VO₂max actuelle), borné à ±10 %. */
-export function effortAdjuster(data: AppData, d: Derived, day: string): (e: Effort) => number {
-  const list = sessionVo2(data, d);
-  const now = vo2At(list, day);
-  return (e) => {
-    const then = vo2At(list, e.day);
-    return now && then ? clamp(then.value / now.value, 0.9, 1.1) : 1;
-  };
+// ------------------------------------------------------------------ VO₂max : celle de la montre, jamais recalculée
+/** Dernière VO₂max de Garmin connue (point hebdomadaire), au plus tard le jour donné. Apogée ne l'estime plus lui-même. */
+export function latestVo2max(data: AppData, upTo?: string): { value: number; week: string; day: string } | null {
+  const c = liveRecords(data.checkins)
+    .filter((x): x is Checkin & { vo2max: number } => x.vo2max !== null && (!upTo || (x.day || x.week) <= upTo))
+    .sort((x, y) => ((x.day || x.week) < (y.day || y.week) ? 1 : -1))[0];
+  return c ? { value: c.vo2max, week: c.week, day: c.day || c.week } : null;
 }
 
 // ------------------------------------------------------------------ disponibilité à l'entraînement (Training Readiness)
@@ -345,20 +215,4 @@ export function hillScore(data: AppData, todayDay: string): HillScore | null {
   const vamScore = best ? clamp(bestScore * 100, 0, 100) : null;
   const score = vamScore === null ? volume : 0.5 * volume + 0.5 * vamScore;
   return { score: Math.round(score), weeklyGain, volume: Math.round(volume), bestVam: best?.vam ?? null, vamScore: vamScore === null ? null : Math.round(vamScore), best };
-}
-
-// ------------------------------------------------------------------ courbes de capacité calculées par Apogée
-export interface CapacityPoint {
-  day: string;
-  /** VO₂max estimée sur les sorties de course du jour ; null tant qu'il n'y en a pas assez (jamais de valeur « de repli » sur la courbe). */
-  vo2max: number | null;
-}
-export function capacityHistory(data: AppData, d: Derived, days = 84): CapacityPoint[] {
-  const out: CapacityPoint[] = [];
-  for (let k = days - 1; k >= 0; k--) {
-    const day = addDays(d.today, -k);
-    const v = vo2maxEstimate(data, { ...d, today: day } as Derived, bestEfforts(data, day));
-    out.push({ day, vo2max: v.method === 'submax' ? v.value : null });
-  }
-  return out;
 }

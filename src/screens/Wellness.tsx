@@ -12,7 +12,6 @@ import { addMeal, deleteMeal, restore, saveCheckin, type Snapshot } from '../dat
 import { useDayFix } from './dayfix';
 import { addDays, dayRange, mondayOf } from '../domain/dates';
 import { dayEnergy, weekEnergy } from '../domain/energy';
-import { capacityHistory, type CapacityPoint } from '../domain/capacity';
 import { DayChart } from '../ui/daychart';
 import { PeriodBar, useDaySel, usePeriod } from '../ui/period';
 import { Readout } from '../ui/readout';
@@ -337,7 +336,7 @@ function timeTicks(lo: number, hi: number): number[] {
 }
 
 /** Courbe d'une métrique avec son curseur : valeur lue, écart sur la période, graphe. */
-function MetricChart({ label, pts, fmt, better, time, sel, onSel, onRelease, estimated, holdLast }: { label: string; pts: { day: string; v: number | null }[]; fmt: (v: number) => string; better: 'up' | 'down' | null; time?: boolean; sel: number; onSel: (i: number) => void; onRelease?: () => void; estimated?: boolean; holdLast?: boolean }) {
+function MetricChart({ label, pts, fmt, better, time, sel, onSel, onRelease, holdLast }: { label: string; pts: { day: string; v: number | null }[]; fmt: (v: number) => string; better: 'up' | 'down' | null; time?: boolean; sel: number; onSel: (i: number) => void; onRelease?: () => void; holdLast?: boolean }) {
   const known = pts.filter((p) => p.v !== null).map((p) => p.v as number);
   if (!known.length) return <li className="stack-4"><span className="t-caption-strong">{label}</span><span className="t-legal c-moderate">{$t("Aucun relevé sur cette période.")}</span></li>;
   const at = Math.min(sel, pts.length - 1);
@@ -360,7 +359,7 @@ function MetricChart({ label, pts, fmt, better, time, sel, onSel, onRelease, est
       </div>
       <DayChart points={pts} kind="line" sel={sel} onSel={onSel} onRelease={onRelease} height={86} label={label} min={lo - pad} max={hi + pad} fmtTick={fmt} ticks={time ? timeTicks(lo - pad, hi + pad) : undefined} dots={holdLast ? true : pts.length <= 31 ? true : false} connect={holdLast} />
       {/* la ligne est toujours là (même vide) : sinon elle apparaît et disparaît en glissant le curseur et fait osciller la page */}
-      {(holdLast || estimated) && <span className="t-legal c-moderate" style={{ minHeight: 18 }}>{heldFrom ? $t("Relevé du {0}", { 0: dayMonth(heldFrom) }) : estimated && cur && cur.v === null ? $t("Pas de valeur ce jour-là.") : NBSP}</span>}
+      {holdLast && <span className="t-legal c-moderate" style={{ minHeight: 18 }}>{heldFrom ? $t("Relevé du {0}", { 0: dayMonth(heldFrom) }) : NBSP}</span>}
     </li>
   );
 }
@@ -424,20 +423,14 @@ export function CapacitiesTrendsCard() {
   const { data, d } = useCalc();
   const pw = usePeriod(30);
   const sheet = useLocalSheet();
-  // VO₂max calculée par Apogée sur tes séances, sans rien recopier : un point par jour
-  const hist = useMemo(() => capacityHistory(data, d, 365), [data, d]);
-  const win = pw.slice(hist);
+  // un jour par case (un an) : les relevés de la montre sont hebdomadaires, le curseur lit le dernier relevé connu
+  const all = useMemo(() => dayRange(addDays(d.today, -364), d.today), [d.today]);
+  const win = pw.slice(all);
   // le curseur ne reste pas où le doigt l'a laissé : au relâchement, il revient sur aujourd'hui (dernier jour de la période)
   const [pick, setPick] = useState<string | null>(null);
-  const wd = win.map((p) => p.day);
-  const si = pick !== null && wd.includes(pick) ? wd.indexOf(pick) : Math.max(0, wd.length - 1);
-  const setSi = (i: number) => setPick(wd[i] ?? null);
+  const si = pick !== null && win.includes(pick) ? win.indexOf(pick) : Math.max(0, win.length - 1);
+  const setSi = (i: number) => setPick(win[i] ?? null);
   const back = () => setPick(null);
-  type Own = { label: string; fmt: (v: number) => string; better: 'up' | 'down'; time?: boolean; pick: (p: CapacityPoint) => number | null };
-  const ownAll: Own[] = [
-    { label: $t("VO₂max"), fmt: (v) => num(v, 0, 1), better: 'up', pick: (p) => p.vo2max },
-  ];
-  const own = ownAll.filter((m) => win.filter((p) => m.pick(p) !== null).length >= 2);
   const hasThr = metricSeries(data, 'lthrBpm').length > 0 || metricSeries(data, 'lthPaceSecKm').length > 0;
   const watchRows = TRENDS.filter((t) => t.k === 'lthrBpm' ? hasThr : t.k === 'lthPaceSecKm' ? false : metricSeries(data, t.k).length > 0);
   return (
@@ -447,25 +440,18 @@ export function CapacitiesTrendsCard() {
         <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => sheet.show()}>{$t("Saisir")}</button>
       </div>
       {sheet.open && <CheckinSheet only="curves" onClose={sheet.hide} />}
-      {own.length === 0 && watchRows.length === 0 ? <p className="t-caption c-moderate">{$t("Les courbes apparaîtront dès qu’Apogée aura assez de sorties de course pour estimer ta VO₂max, ou dès que tu auras rempli ton point de la semaine.")}</p> : (
+      {watchRows.length === 0 ? <p className="t-caption c-moderate">{$t("Les courbes apparaîtront dès que tu auras importé ou saisi les valeurs de ta montre (VO₂max, seuil de lactate, prédictions de course).")}</p> : (
         <>
-          <PeriodBar p={pw} total={hist.length} from={win[0]?.day} to={win[win.length - 1]?.day} />
-          <Readout when={win[si] ? (win[si].day === d.today ? $t("Aujourd’hui") : dayMonth(win[si].day)) : ''} cols={1} cells={[]} />
-          {own.length > 0 && (
-            <ul className="stack" style={{ gap: 'var(--space-16)' }}>
-              {own.map((m) => <MetricChart key={m.label} label={m.label} pts={win.map((p) => ({ day: p.day, v: m.pick(p) }))} fmt={m.fmt} better={m.better} time={m.time} sel={si} onSel={setSi} onRelease={back} estimated />)}
-            </ul>
-          )}
-          {watchRows.length > 0 && <h3 className="t-strong">{$t("Recopié de ta montre")}</h3>}
-          {watchRows.length > 0 && <ul className="stack" style={{ gap: 'var(--space-16)' }}>
+          <PeriodBar p={pw} total={all.length} from={win[0]} to={win[win.length - 1]} />
+          <Readout when={win[si] ? (win[si] === d.today ? $t("Aujourd’hui") : dayMonth(win[si])) : ''} cols={1} cells={[]} />
+          <ul className="stack" style={{ gap: 'var(--space-16)' }}>
             {watchRows.map((t) => t.k === 'lthPaceSecKm' ? null : t.k === 'lthrBpm'
-              ? <ThresholdChart key="seuil" days={win.map((p) => p.day)} sel={si} onSel={setSi} onRelease={back} />
-              : <WatchTrend key={t.k} k={t.k} label={t.label} fmt={t.fmt} better={t.better} time={t.k.startsWith('pred')} days={win.map((p) => p.day)} sel={si} onSel={setSi} onRelease={back} />)}
-          </ul>}
+              ? <ThresholdChart key="seuil" days={win} sel={si} onSel={setSi} onRelease={back} />
+              : <WatchTrend key={t.k} k={t.k} label={t.label} fmt={t.fmt} better={t.better} time={t.k.startsWith('pred')} days={win} sel={si} onSel={setSi} onRelease={back} />)}
+          </ul>
         </>
       )}
-      <Info>{$t("VO₂max calculée par Apogée sur tes propres séances, un point par jour : chaque point est recalculé avec les sorties de course à allure stable des 60 jours précédents, les plus récentes comptant davantage. Aucune valeur n’est tracée tant qu’il n’y a pas assez de sorties. Touche ou fais glisser un graphe : le curseur se déplace sur tous, et les flèches reculent d’une période. Plus bas, les valeurs que tu recopies de ta montre (un relevé par semaine, reliés entre eux ; le curseur lit le dernier relevé connu), dont tes prédictions de course. Les deux ne sont pas comparables un à un : Garmin utilise ses propres modèles.")}</Info>
-      <Info>{$t("Méthode publiée : sorties de course à allure stable — coût en oxygène de la course (ACSM) et équivalence entre % de la réserve de FC et % de la réserve de VO₂ (Swain et Leutholtz 1997) ; moyenne des sorties à plat des 60 derniers jours, les plus récentes comptant davantage (demi-vie de 3 semaines), 3 sorties minimum. Sans assez de sorties, repli sur le rapport FC max / FC de repos × 15,3 (Uth 2004). L’erreur typique est de l’ordre de 10 %.")}</Info>
+      <Info>{$t("Toutes ces valeurs viennent de ta montre Garmin : Apogée ne les recalcule pas (VO₂max, seuil de lactate, prédictions de course), il les reprend telles que Garmin les affiche, un relevé par semaine, reliés entre eux. Touche ou fais glisser un graphe : le curseur se déplace sur tous et lit le dernier relevé connu à cette date ; les flèches reculent d’une période. Tu peux les saisir à la main avec « Saisir » ou les importer d’un fichier (Paramètres › Données › Importer un JSON).")}</Info>
     </InfoCard>
   );
 }

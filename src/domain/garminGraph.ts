@@ -11,7 +11,8 @@ export const GRAPH_FORMAT = 'apogee-garmin/1';
 export const GRAPH_FORMAT_V2 = 'apogee-garmin/2';
 
 export interface GraphEnergyDay { day: string; totalKcal?: number | null; restKcal?: number | null; steps?: number | null; floors?: number | null }
-export interface GraphPrediction { day: string; lthrBpm?: number | null; lthPaceSecKm?: number | null; pred5kSec?: number | null; pred10kSec?: number | null; predHalfSec?: number | null; predMarathonSec?: number | null }
+/** Un relevé de la montre un jour donné : VO₂max (1 décimale), seuil de lactate, prédictions de course (secondes). */
+export interface GraphPrediction { day: string; vo2max?: number | null; lthrBpm?: number | null; lthPaceSecKm?: number | null; pred5kSec?: number | null; pred10kSec?: number | null; predHalfSec?: number | null; predMarathonSec?: number | null }
 /** Une nuit de Garmin Connect : jour du réveil et durée réellement endormie. */
 export interface GraphSleep { night: string; durationMin: number }
 export interface GarminGraphFile { format: typeof GRAPH_FORMAT | typeof GRAPH_FORMAT_V2; note?: string; energy?: GraphEnergyDay[]; sleep?: GraphSleep[]; predictions?: GraphPrediction[] }
@@ -24,6 +25,54 @@ export function isGarminGraph(j: unknown): j is GarminGraphFile {
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : null);
+const vo2 = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v >= 15 && v <= 90 ? Math.round(v * 10) / 10 : null);
+
+// ------------------------------------------------------------------ relevés hebdomadaires de la montre (VO₂max, seuil, prédictions)
+const READING_KEYS = ['vo2max', 'lthrBpm', 'lthPaceSecKm', 'pred5kSec', 'pred10kSec', 'predHalfSec', 'predMarathonSec'] as const;
+type ReadingKey = (typeof READING_KEYS)[number];
+
+/**
+ * Un point par semaine : pour chaque valeur, le relevé le plus tardif de la semaine (en pratique le dimanche, ou le jour le plus récent de la semaine en cours).
+ * `fill` ne comble que ce qui manque ; `replace` remplace les valeurs de l'appli quand elles diffèrent de celles de Garmin (la montre fait foi).
+ */
+function mergeReadings(data: AppData, rows: GraphPrediction[] | undefined, mode: 'fill' | 'replace'): { checkins: Checkin[]; added: number; filled: number; kept: number } {
+  const now = nowIso(), limit = today();
+  const weeks = new Map<string, { day: string; vals: Partial<Record<ReadingKey, { v: number; day: string }>> }>();
+  for (const p of rows ?? []) {
+    if (!DAY.test(p.day) || p.day > limit) continue;
+    const got: Record<ReadingKey, number | null> = { vo2max: vo2(p.vo2max), lthrBpm: num(p.lthrBpm), lthPaceSecKm: num(p.lthPaceSecKm), pred5kSec: num(p.pred5kSec), pred10kSec: num(p.pred10kSec), predHalfSec: num(p.predHalfSec), predMarathonSec: num(p.predMarathonSec) };
+    const week = mondayOf(p.day);
+    for (const k of READING_KEYS) {
+      const v = got[k];
+      if (v === null) continue;
+      const w = weeks.get(week) ?? { day: p.day, vals: {} };
+      const prev = w.vals[k];
+      if (!prev || prev.day < p.day) w.vals[k] = { v, day: p.day };
+      if (w.day < p.day) w.day = p.day;
+      weeks.set(week, w);
+    }
+  }
+  const checkins: Checkin[] = [];
+  let added = 0, filled = 0, kept = 0;
+  for (const [week, { day, vals }] of weeks) {
+    const cur = data.checkins[week] && !data.checkins[week].deleted ? data.checkins[week] : null;
+    if (!cur) {
+      const fresh: Checkin = { ...emptyCheckin(week), day, updatedAt: now };
+      for (const k of READING_KEYS) { const r = vals[k]; if (r) fresh[k] = r.v; }
+      checkins.push(fresh); added++; continue;
+    }
+    const next: Checkin = { ...cur, updatedAt: now };
+    let changed = false;
+    for (const k of READING_KEYS) {
+      const r = vals[k];
+      if (!r) continue;
+      if (cur[k] === null || cur[k] === undefined) { next[k] = r.v; changed = true; }
+      else if (mode === 'replace' && cur[k] !== r.v) { next[k] = r.v; changed = true; }
+    }
+    if (changed) { if (mode === 'replace' || !cur.day) next.day = day; checkins.push(next); filled++; } else kept++;
+  }
+  return { checkins, added, filled, kept };
+}
 
 export function mergeGarminGraph(data: AppData, file: GarminGraphFile): { energy: EnergyDay[]; checkins: Checkin[]; report: GraphReport } {
   const report: GraphReport = { energyAdded: 0, energyFilled: 0, energyKept: 0, checkinsAdded: 0, checkinsFilled: 0, checkinsKept: 0 };
@@ -50,24 +99,8 @@ export function mergeGarminGraph(data: AppData, file: GarminGraphFile): { energy
     fill('steps', steps); fill('floors', floors);
     if (filled) { energy.push(next); report.energyFilled++; } else report.energyKept++;
   }
-  const checkins: Checkin[] = [];
-  // une fiche par semaine : on retient le relevé le plus tardif de chaque semaine (en pratique le dimanche)
-  const latest = new Map<string, { day: string; vals: Record<'lthrBpm' | 'lthPaceSecKm' | 'pred5kSec' | 'pred10kSec' | 'predHalfSec' | 'predMarathonSec', number | null> }>();
-  for (const p of file.predictions ?? []) {
-    if (!DAY.test(p.day) || p.day > limit) continue;
-    const vals = { lthrBpm: num(p.lthrBpm), lthPaceSecKm: num(p.lthPaceSecKm), pred5kSec: num(p.pred5kSec), pred10kSec: num(p.pred10kSec), predHalfSec: num(p.predHalfSec), predMarathonSec: num(p.predMarathonSec) };
-    if (Object.values(vals).every((v) => v === null)) continue;
-    const week = mondayOf(p.day), prev = latest.get(week);
-    if (!prev || prev.day < p.day) latest.set(week, { day: p.day, vals });
-  }
-  for (const [week, { day, vals }] of latest) {
-    const cur = data.checkins[week] && !data.checkins[week].deleted ? data.checkins[week] : null;
-    if (!cur) { checkins.push({ ...emptyCheckin(week), day, ...vals, updatedAt: now }); report.checkinsAdded++; continue; }
-    const next: Checkin = { ...cur, updatedAt: now };
-    let filled = false;
-    for (const k of Object.keys(vals) as (keyof typeof vals)[]) if (vals[k] !== null && cur[k] === null) { next[k] = vals[k]; filled = true; }
-    if (filled) { checkins.push(next); report.checkinsFilled++; } else report.checkinsKept++;
-  }
+  const { checkins, added, filled, kept } = mergeReadings(data, file.predictions, 'fill');
+  report.checkinsAdded = added; report.checkinsFilled = filled; report.checkinsKept = kept;
   return { energy, checkins, report };
 }
 
@@ -86,12 +119,14 @@ export function graphMessage(r: GraphReport): string {
 export interface CorrectionReport {
   kcalFixed: number; stepsFixed: number; floorsFixed: number; daysAdded: number;
   sleepFixed: number; sleepAdded: number; kept: number; handKept: number;
+  /** Points hebdomadaires créés / dont des valeurs ont été remplacées par celles de Garmin. */
+  checkinsAdded: number; checkinsFixed: number;
 }
 /** Écarts jugés nets (le relevé sur graphique est exact à environ 1 %). */
 export const FIX_KCAL_TOTAL = 0.03, FIX_KCAL_MIN = 60, FIX_KCAL_ACTIVE = 60, FIX_STEPS_RATIO = 0.04, FIX_STEPS_MIN = 400, FIX_FLOORS = 2, FIX_SLEEP_MIN = 10;
 
 export function correctFromGarmin(data: AppData, file: GarminGraphFile, offsetMin: number = -new Date().getTimezoneOffset()): { energy: EnergyDay[]; sleep: SleepNight[]; checkins: Checkin[]; report: CorrectionReport } {
-  const report: CorrectionReport = { kcalFixed: 0, stepsFixed: 0, floorsFixed: 0, daysAdded: 0, sleepFixed: 0, sleepAdded: 0, kept: 0, handKept: 0 };
+  const report: CorrectionReport = { kcalFixed: 0, stepsFixed: 0, floorsFixed: 0, daysAdded: 0, sleepFixed: 0, sleepAdded: 0, kept: 0, handKept: 0, checkinsAdded: 0, checkinsFixed: 0 };
   const now = nowIso(), limit = today();
   const energy: EnergyDay[] = [];
   for (const g of file.energy ?? []) {
@@ -135,9 +170,10 @@ export function correctFromGarmin(data: AppData, file: GarminGraphFile, offsetMi
     sleep.push({ id: n.night, updatedAt: now, nightDate: n.night, startAt: new Date(endMs - durationSec * 1000).toISOString(), endAt: new Date(endMs).toISOString(), zoneOffsetMinutes: live?.zoneOffsetMinutes ?? offsetMin, durationSec, fromStages: true, edited: true, sourceId: 'garmin-graph' });
     if (live) report.sleepFixed++; else report.sleepAdded++;
   }
-  // les prédictions de la montre se comblent comme dans la version 1 (rien d'écrasé)
-  const { checkins } = mergeGarminGraph(data, { format: GRAPH_FORMAT, predictions: file.predictions });
-  return { energy, sleep, checkins, report };
+  // VO₂max, seuil et prédictions : la montre fait foi, ses valeurs remplacent celles de l'appli quand elles diffèrent
+  const m = mergeReadings(data, file.predictions, 'replace');
+  report.checkinsAdded = m.added; report.checkinsFixed = m.filled;
+  return { energy, sleep, checkins: m.checkins, report };
 }
 
 export function correctionMessage(r: CorrectionReport): string {
@@ -147,6 +183,8 @@ export function correctionMessage(r: CorrectionReport): string {
   if (r.floorsFixed) parts.push(`${r.floorsFixed} d’étages`);
   if (r.sleepFixed) parts.push(`${r.sleepFixed} nuit(s) corrigée(s)`);
   if (r.sleepAdded) parts.push(`${r.sleepAdded} nuit(s) ajoutée(s) (lever à 7 h par défaut)`);
+  if (r.checkinsAdded) parts.push(`${r.checkinsAdded} point(s) de la semaine ajouté(s) (VO₂max, prédictions)`);
+  if (r.checkinsFixed) parts.push(`${r.checkinsFixed} point(s) de la semaine mis à jour d’après Garmin`);
   if (r.kept) parts.push(`${r.kept} valeur(s) déjà conformes`);
   if (r.handKept) parts.push(`${r.handKept} saisie(s) à la main conservée(s)`);
   return parts.join(', ');

@@ -1525,4 +1525,8 @@ export const EN: Record<string, string> = {
   "Supprimer cette pesée": "Delete this weigh-in",
   "Nuit": "Night",
   "Jour du réveil": "Wake-up day",
+  "Les courbes apparaîtront dès que tu auras importé ou saisi les valeurs de ta montre (VO₂max, seuil de lactate, prédictions de course).": "The curves will appear once you have imported or entered your watch values (VO₂max, lactate threshold, race predictions).",
+  "Toutes ces valeurs viennent de ta montre Garmin : Apogée ne les recalcule pas (VO₂max, seuil de lactate, prédictions de course), il les reprend telles que Garmin les affiche, un relevé par semaine, reliés entre eux. Touche ou fais glisser un graphe : le curseur se déplace sur tous et lit le dernier relevé connu à cette date ; les flèches reculent d’une période. Tu peux les saisir à la main avec « Saisir » ou les importer d’un fichier (Paramètres › Données › Importer un JSON).": "All these values come from your Garmin watch: Apogée does not recompute them (VO₂max, lactate threshold, race predictions), it takes them as Garmin shows them, one reading per week, linked together. Touch or drag a chart: the cursor moves on all of them and reads the latest known reading at that date; the arrows go back one period. You can enter them by hand with “Enter” or import them from a file (Settings › Data › Import a JSON).",
+  "Capacité aérobie (VO₂max Garmin)": "Aerobic capacity (Garmin VO₂max)",
+  "Sans VO₂max de ta montre (point de la semaine), l’indice ne repose que sur le volume et la durée des sorties.": "Without your watch’s VO₂max (weekly check-in), the index relies only on volume and session length.",
 };

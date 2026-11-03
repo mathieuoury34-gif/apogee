@@ -9,8 +9,10 @@
 //    lisibles par un coach qui ne connaît que la version précédente.
 import { $t } from '../i18n';
 import { validateSession, type DraftIssueCode } from './blocks';
+import { checkinsSorted } from './checkin';
 import { addDays, mondayOf, today } from './dates';
 import type { Derived } from './engine';
+import { dayEnergy } from './energy';
 import { fnv1a, newId, nowIso } from './ids';
 import { latestZone, liveRecords, sessionDay } from './load';
 import type { AppData, Block, CoachExchange, PlannedDiscipline, PlannedSession, PreviewItem, TrainingPhase } from './types';
@@ -138,6 +140,18 @@ function instructions(): string {
     "qu'aucun prévu n'existait ce jour-là — vérifie aussi \"upcomingPlannedSessions\"",
     "et l'historique connu avant de conclure à une séance non planifiée.",
     '',
+    'À PROPOS DE "watchReadings" (additif, absent des anciens dossiers) :',
+    'valeurs MESURÉES par la montre Garmin de l\'athlète, reprises telles quelles (Apogée ne',
+    'les recalcule pas) : VO₂max, seuil de lactate (FC en bpm, allure en s/km), prédictions',
+    'de course 5 km / 10 km / semi / marathon (secondes ; "…Clock" = même valeur lisible),',
+    'HRV, ressenti 1 à 5 (5 = très bon). "latest" donne la dernière valeur connue de chaque',
+    'mesure avec sa date de relevé ("readingDay") ; "weekly" est l\'historique, un relevé',
+    'par semaine, du plus ancien au plus récent. Une prédiction de la montre est une',
+    'estimation de forme, pas un objectif : confronte-la aux séances réelles avant de t\'en',
+    'servir pour fixer des allures.',
+    '"recentHealth" (additif) : moyennes des 7 derniers jours (sommeil, pas, calories',
+    'actives), FC de repos, FC max retenue et dernière pesée, quand la montre les a fournis.',
+    '',
     'À PROPOS DE "loadMethod" : "trimp" = mesurée sur la série cardio ;',
     '"trimp_avg" = estimée sur la FC moyenne ; "srpe" = estimée depuis le RPE et',
     'recalée sur la même échelle (coefficient loadSummary.srpeFactor) ;',
@@ -166,6 +180,57 @@ function example() {
 }
 
 // ------------------------------------------------------------------ export du dossier-athlète
+const hms = (sec: number | null): string | null => {
+  if (sec === null || !Number.isFinite(sec)) return null;
+  const t = Math.round(sec), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), r = t % 60;
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}` : `${m}:${String(r).padStart(2, '0')}`;
+};
+const WATCH_WEEKS = 26;
+
+/** Mesures de la montre (point hebdomadaire) : dernière valeur connue de chacune, et historique hebdomadaire des 26 dernières semaines. */
+function watchReadings(data: AppData) {
+  const all = checkinsSorted(data);
+  const last = <K extends 'vo2max' | 'lthrBpm' | 'lthPaceSecKm' | 'pred5kSec' | 'pred10kSec' | 'predHalfSec' | 'predMarathonSec' | 'hrvMs' | 'sleepFelt' | 'recoveryFelt'>(k: K) => {
+    for (let i = all.length - 1; i >= 0; i--) if (all[i][k] !== null) return { value: all[i][k] as number, readingDay: all[i].day || all[i].week };
+    return null;
+  };
+  const pred = (k: 'pred5kSec' | 'pred10kSec' | 'predHalfSec' | 'predMarathonSec') => { const r = last(k); return r ? { seconds: r.value, clock: hms(r.value), readingDay: r.readingDay } : null; };
+  const lthr = last('lthrBpm'), lthp = last('lthPaceSecKm'), hrv = last('hrvMs');
+  const latestStatus = [...all].reverse().find((c) => c.hrvStatus !== null);
+  return {
+    source: 'montre Garmin (valeurs recopiées ou importées telles qu\'affichées par Garmin Connect ; Apogée ne recalcule ni la VO₂max ni les prédictions)',
+    latest: {
+      vo2max: last('vo2max'),
+      lactateThreshold: lthr || lthp ? { hrBpm: lthr?.value ?? null, paceSecPerKm: lthp?.value ?? null, paceClock: hms(lthp?.value ?? null), readingDay: lthr?.readingDay ?? lthp?.readingDay ?? null } : null,
+      racePredictions: { fiveKm: pred('pred5kSec'), tenKm: pred('pred10kSec'), halfMarathon: pred('predHalfSec'), marathon: pred('predMarathonSec') },
+      hrv: hrv ? { ms: hrv.value, status: latestStatus?.hrvStatus ?? null, readingDay: hrv.readingDay } : null,
+      feel: { sleep1to5: last('sleepFelt'), recovery1to5: last('recoveryFelt') },
+    },
+    weekly: all.slice(-WATCH_WEEKS).map((c) => ({
+      weekStart: c.week, readingDay: c.day || c.week, vo2max: c.vo2max, lthrBpm: c.lthrBpm, lthPaceSecKm: c.lthPaceSecKm,
+      pred5kSec: c.pred5kSec, pred10kSec: c.pred10kSec, predHalfSec: c.predHalfSec, predMarathonSec: c.predMarathonSec,
+      pred5kClock: hms(c.pred5kSec), pred10kClock: hms(c.pred10kSec), predHalfClock: hms(c.predHalfSec), predMarathonClock: hms(c.predMarathonSec),
+      hrvMs: c.hrvMs, hrvStatus: c.hrvStatus, sleepFelt: c.sleepFelt, recoveryFelt: c.recoveryFelt, note: c.note,
+    })),
+  };
+}
+
+/** Santé des 7 derniers jours : sommeil, pas, calories actives, FC de repos, FC max, poids. */
+function recentHealth(data: AppData, d: Derived, day: string) {
+  const days = Array.from({ length: 7 }, (_, k) => addDays(day, -k));
+  const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((t, x) => t + x, 0) / xs.length) * 10) / 10 : null);
+  const nights = days.map((x) => data.sleep[x]).filter((n) => n && !n.deleted).map((n) => n.durationSec / 3600);
+  const steps = days.map((x) => data.energy[x]).filter((e) => e && !e.deleted && e.steps).map((e) => e.steps as number);
+  const active = days.map((x) => dayEnergy(data, x, 1440).active).filter((v): v is number => v !== null && v > 0);
+  const w = liveRecords(data.weight).sort((x, y) => (x.day < y.day ? 1 : -1))[0];
+  return {
+    windowDays: 7, nightsRecorded: nights.length, avgSleepHours: avg(nights),
+    avgSteps: steps.length ? Math.round(avg(steps)!) : null, avgActiveKcal: active.length ? Math.round(avg(active)!) : null,
+    restingHrBpm: d.ctx.resting.at(day), hrMaxBpm: d.ctx.hrMax.bpm,
+    lastWeightKg: w ? { kg: w.kg, day: w.day } : null,
+  };
+}
+
 export function buildDossier(data: AppData, d: Derived, selected: string[], now: Date = new Date(), periodFrom?: string) {
   const day = today(now);
   const a = data.athlete.main;
@@ -193,6 +258,8 @@ export function buildDossier(data: AppData, d: Derived, selected: string[], now:
     race: race ? { name: race.name, raceDate: race.raceDate, targetTotalSeconds: race.targetTotalSeconds, swimDistanceM: race.swimDistanceM, bikeDistanceM: race.bikeDistanceM, runDistanceM: race.runDistanceM } : null,
     zones: ZONE_KINDS.map((k) => latestZone(data, k)).filter((z) => z).map((z) => ({ kind: z!.kind, value: z!.value, unit: UNIT[z!.kind], measuredAt: z!.measuredAt, source: z!.source })),
     phases: liveRecords(data.phases).sort((x, y) => (x.startDate < y.startDate ? -1 : 1)).map((p) => ({ refKey: refKeyOfPhase(p), label: p.label, phase: p.phase, startDate: p.startDate, endDate: p.endDate, intent: p.intent, objective: p.objective, notes: p.notes })),
+    watchReadings: watchReadings(data),
+    recentHealth: recentHealth(data, d, day),
     interruptions: liveRecords(data.interruptions).map((i) => ({ label: i.label, startDate: i.startDate, endDate: i.endDate, reason: i.reason, dailyLoadOverride: i.dailyLoadOverride })),
     loadSummary: {
       ...d.constat,

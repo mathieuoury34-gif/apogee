@@ -73,7 +73,7 @@ export function importDossier(dossier: Dossier): DossierReport {
   return report;
 }
 
-/** Reprend des relevés Garmin mesurés sur des captures (pas, étages, calories, prédictions) : ne remplace rien, comble seulement ce qui manque. */
+/** Reprend des relevés Garmin mesurés sur des captures ou exportés (pas, étages, calories, sommeil, VO₂max, seuil, prédictions) : version 1 = ne comble que ce qui manque ; version 2 = la montre fait foi, ses valeurs remplacent celles de l'appli. */
 export function importGarminGraph(file: GarminGraphFile): string {
   if (file.format === GRAPH_FORMAT_V2) {
     const r = correctFromGarmin(getData(), file);

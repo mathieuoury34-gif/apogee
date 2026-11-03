@@ -1,5 +1,5 @@
 // Fenêtres « à la Garmin » calculées par Apogée avec des méthodes publiées (domain/science.ts, domain/capacity.ts) :
-// disponibilité à l'entraînement, réserve d'énergie, VO₂max estimée, prédictions de course, endurance, côtes,
+// disponibilité à l'entraînement, réserve d'énergie, endurance, côtes,
 // Training Effect d'une séance. Ce sont des estimations Apogée, pas les indices de Garmin.
 import { $t } from '../i18n';
 import { useMemo } from 'react';
@@ -12,7 +12,7 @@ import { DayChart } from '../ui/daychart';
 import { PeriodBar, useDaySel, usePeriod } from '../ui/period';
 import { Readout } from '../ui/readout';
 import {
-  bestEfforts, effortAdjuster, energyReserve, enduranceScore, hillScore, readiness, readinessFactors, trainingEffects, vo2maxEstimate,
+  energyReserve, enduranceScore, hillScore, latestVo2max, readiness, readinessFactors, trainingEffects,
   readinessLevel, type ReadinessKey, type ReadinessLevel,
 } from '../domain/capacity';
 import type { TeLevel } from '../domain/science';
@@ -149,9 +149,9 @@ export function ReserveCard() {
 // ------------------------------------------------------------------ endurance et côtes
 export function EnduranceHillCard() {
   const { data, d } = useCalc();
-  const efforts = useMemo(() => bestEfforts(data, d.today), [data, d.today]);
-  const v = useMemo(() => vo2maxEstimate(data, d, efforts), [data, d, efforts]);
-  const en = useMemo(() => enduranceScore(data, d.today, v.value ?? v.watch?.value ?? null), [data, d.today, v]);
+  // VO₂max : celle de la montre (dernier relevé connu), jamais recalculée par Apogée
+  const v = useMemo(() => latestVo2max(data, d.today), [data, d.today]);
+  const en = useMemo(() => enduranceScore(data, d.today, v?.value ?? null), [data, d.today, v]);
   const hill = useMemo(() => hillScore(data, d.today), [data, d.today]);
   const bar = (label: string, value: string, pctv: number) => (
     <div className="stack-4"><div className="between t-caption"><span className="t-caption-strong">{label}</span><span className="c-neutral">{value}</span></div><div className="meter"><span style={{ width: `${pctv}%`, background: 'var(--form-ready)' }} /></div></div>
@@ -163,10 +163,10 @@ export function EnduranceHillCard() {
         <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2">{en ? en.score : '—'}</span><span className="t-strong">{$t("Indice d’endurance")}</span></div>
         {en ? (
           <>
-            {en.aerobic !== null && bar($t("Capacité aérobie (VO₂max)"), num(en.vo2 ?? 0, 0, 1), en.aerobic)}
+            {en.aerobic !== null && bar($t("Capacité aérobie (VO₂max Garmin)"), num(en.vo2 ?? 0, 0, 1), en.aerobic)}
             {bar($t("Volume (28 jours)"), num(en.weeklyHours, 1) + NBSP + $t("h / semaine"), en.volume)}
             {bar($t("Sortie la plus longue"), hhmm(en.longestSec), en.longest)}
-            {en.partial && <p className="t-legal c-moderate">{$t("Sans VO₂max estimée, l’indice ne repose que sur le volume et la durée des sorties.")}</p>}
+            {en.partial && <p className="t-legal c-moderate">{$t("Sans VO₂max de ta montre (point de la semaine), l’indice ne repose que sur le volume et la durée des sorties.")}</p>}
           </>
         ) : <p className="t-caption c-moderate">{$t("Aucune séance d’endurance sur 28 jours.")}</p>}
       </div>
