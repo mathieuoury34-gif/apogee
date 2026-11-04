@@ -1,4 +1,5 @@
 // Reprise, depuis les fiches Garmin Connect, du dénivelé exact et de la charge de chaque séance (format apogee-garmin/3).
+// Une ligne retrouve sa séance par identifiant (sessionId) ou, à défaut, par l'heure de début à 5 minutes près.
 // Le dénivelé de Health Connect diffère souvent de celui de la montre ; la charge sert, pour une activité sans capteur
 // cardiaque, à estimer une FC moyenne qui redonne la charge de Garmin (une séance avec courbe garde sa charge calculée).
 import { $t } from '../i18n';
@@ -10,12 +11,16 @@ import { ACTUAL_DISCIPLINES, type ActualSession, type AppData } from './types';
 export interface GraphSession {
   /** Début de la séance (ISO). Sert à retrouver la séance de l'appli, à 5 minutes près. */
   startAt: string;
+  /** Identifiant de la séance dans l'appli : prioritaire sur l'heure (utile pour une saisie à la main, dont l'heure est un repère à midi). */
+  sessionId?: string;
   /** Si renseignée, la séance retrouvée doit être de cette discipline (RUN, BIKE, SWIM, STRENGTH, OTHER). */
   discipline?: string;
   /** Dénivelé positif affiché par Garmin Connect (m). */
   elevationM?: number | null;
   /** Charge d'entraînement affichée par Garmin Connect (« Exercise Load »). */
   loadGarmin?: number | null;
+  /** Charge estimée par Apogée quand Garmin n'en a pas (activité sans capteur cardiaque) ; sert comme loadGarmin, qui garde la priorité. */
+  loadEstimate?: number | null;
   /** Nom de la séance, pour les messages. */
   label?: string;
 }
@@ -43,10 +48,15 @@ export function correctSessions(data: AppData, rows: GraphSession[] | undefined,
     if (!Number.isFinite(t)) { report.notFound.push(label); continue; }
     const disc = (ACTUAL_DISCIPLINES as readonly string[]).includes(r.discipline ?? '') ? r.discipline : null;
     let best: ActualSession | null = null, bestGap = Infinity;
-    for (const s of live) {
-      if (disc && s.discipline !== disc) continue;
-      const gap = Math.abs(Date.parse(s.startAt) - t);
-      if (gap <= MATCH_TOLERANCE_MS && gap < bestGap) { best = s; bestGap = gap; }
+    if (typeof r.sessionId === 'string' && r.sessionId) {
+      const byId = live.find((s) => s.id === r.sessionId);
+      if (byId && (!disc || byId.discipline === disc)) best = byId;
+    } else {
+      for (const s of live) {
+        if (disc && s.discipline !== disc) continue;
+        const gap = Math.abs(Date.parse(s.startAt) - t);
+        if (gap <= MATCH_TOLERANCE_MS && gap < bestGap) { best = s; bestGap = gap; }
+      }
     }
     if (!best) { report.notFound.push(label); continue; }
     report.matched++;
@@ -61,8 +71,9 @@ export function correctSessions(data: AppData, rows: GraphSession[] | undefined,
       else { next = { ...next, elevationGainM: el }; edited.add('elevationGainM'); report.elevationSet++; changed = true; }
     }
 
-    const load = typeof r.loadGarmin === 'number' && Number.isFinite(r.loadGarmin) ? r.loadGarmin : null;
-    if (load !== null && load > 0) {
+    const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
+    const load = num(r.loadGarmin) ?? num(r.loadEstimate);
+    if (load !== null) {
       const ser = data.series[best.id];
       const curve = !!ser && !ser.deleted && analyzeHr(ser.hr).clean.length >= MIN_SAMPLES_FOR_TRIMP;
       if (curve) report.curveKept++;
@@ -84,7 +95,7 @@ export function correctSessions(data: AppData, rows: GraphSession[] | undefined,
 export function sessionsMessage(r: SessionsReport): string {
   const parts: string[] = [];
   if (r.elevationSet) parts.push($t("{0} dénivelé(s) mis à jour d’après Garmin", { 0: r.elevationSet }));
-  if (r.hrEstimated) parts.push($t("{0} FC moyenne(s) estimée(s) pour retrouver la charge Garmin", { 0: r.hrEstimated }));
+  if (r.hrEstimated) parts.push($t("{0} FC moyenne(s) estimée(s) pour retrouver la charge visée (Garmin ou estimation)", { 0: r.hrEstimated }));
   if (r.curveKept) parts.push($t("{0} séance(s) avec courbe cardiaque : charge calculée sur la courbe, inchangée", { 0: r.curveKept }));
   if (r.hrOutOfRange) parts.push($t("{0} charge(s) Garmin trop élevée(s) pour une FC plausible, non estimée(s)", { 0: r.hrOutOfRange }));
   if (r.elevationKept + r.hrKept) parts.push($t("{0} valeur(s) déjà conformes", { 0: r.elevationKept + r.hrKept }));

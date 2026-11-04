@@ -1530,7 +1530,7 @@ export const EN: Record<string, string> = {
   "Capacité aérobie (VO₂max Garmin)": "Aerobic capacity (Garmin VO₂max)",
   "Sans VO₂max de ta montre (point de la semaine), l’indice ne repose que sur le volume et la durée des sorties.": "Without your watch’s VO₂max (weekly check-in), the index relies only on volume and session length.",
   "{0} dénivelé(s) mis à jour d’après Garmin": "{0} elevation gain(s) updated from Garmin",
-  "{0} FC moyenne(s) estimée(s) pour retrouver la charge Garmin": "{0} average HR(s) estimated to match the Garmin load",
+  "{0} FC moyenne(s) estimée(s) pour retrouver la charge visée (Garmin ou estimation)": "{0} average HR(s) estimated to match the target load (Garmin or estimate)",
   "{0} séance(s) avec courbe cardiaque : charge calculée sur la courbe, inchangée": "{0} session(s) with a heart-rate curve: load computed from the curve, unchanged",
   "{0} charge(s) Garmin trop élevée(s) pour une FC plausible, non estimée(s)": "{0} Garmin load(s) too high for a plausible heart rate, not estimated",
   "{0} valeur(s) déjà conformes": "{0} value(s) already matching",
