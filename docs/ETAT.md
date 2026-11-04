@@ -170,3 +170,5 @@ Décision de Mathieu : **pas de statut HRV** (ni dans les fenêtres ni dans le f
 tous, car cette page n'accepte que des **séances faites** (`.fit` d'activité, `.tcx`, `.gpx`), jamais un entraînement à venir. Ce n'est pas un défaut
 des fichiers (les RPE ne sont pas transmis : étape ouverte, simple avertissement). Voie correcte : copie USB dans `GARMIN/NewFiles` (ou
 `Workouts`). Textes de l'app et aide corrigés. **Validé par Mathieu le 19/10 sur sa montre** : copie dans `GARMIN/NewFiles`, les séances apparaissent. Aide et texte du calendrier précisent ce dossier.
+
+**Validation de la charge (04/11)** — 18 séances comparées à Garmin : écart médian 9,7 %, semaine du 26/10 à −2 % (444 contre 453), constantes inchangées. Le dénivelé n'entre pas dans la charge : pas assez de séances vallonnées pour le calibrer (voir SPECS-TECH, addendum 04/11).
