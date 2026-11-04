@@ -860,11 +860,15 @@ test('modèle d\'effort (type EPOC) : seuil à 50 % de la FC max, saturation, et
   assert.equal(epocRate(0.3), 0);
   const hrMax = 200;
   const hour70 = epocFromSeries(flat(140, 3600), hrMax, 3600)!;
-  // 24,8 × 0,2^1,5 × 44,7 × (1 − e^(−60/44,7)) ≈ 73
-  assert.ok(Math.abs(hour70.value - 73) < 2, 'une heure à 70 % : ' + hour70.value);
+  // 23 × 0,2^1,5 × (44,7 × (1 − e^(−60/44,7)) + 0,075 × 60) ≈ 77
+  assert.ok(Math.abs(hour70.value - 77) < 2, 'une heure à 70 % : ' + hour70.value);
   const longEasy = epocFromSeries(flat(125, 4 * 3600), hrMax, 4 * 3600)!.value;
   const longerEasy = epocFromSeries(flat(125, 8 * 3600), hrMax, 8 * 3600)!.value;
-  assert.ok(longerEasy < longEasy * 1.08, 'la charge sature : doubler la durée ne double pas l\'effort');
+  assert.ok(longerEasy < longEasy * 1.4 && longerEasy > longEasy, 'la charge sature en grande partie : doubler la durée ne double pas l\'effort');
+  // une longue sortie stockée avec une mesure toutes les 80 s pèse comme la même sortie finement mesurée
+  const sparse = Array.from({ length: 270 }, (_, i) => [i * 80, 125] as [number, number]);
+  const sparseLoad = epocFromSeries(sparse, hrMax, 6 * 3600)!.value, denseLoad = epocFromSeries(flat(125, 6 * 3600), hrMax, 6 * 3600)!.value;
+  assert.ok(Math.abs(sparseLoad - denseLoad) / denseLoad < 0.03, 'courbe espacée : ' + sparseLoad + ' vs ' + denseLoad);
   const shortHard = epocFromSeries(flat(180, 1800), hrMax, 1800)!.value;
   assert.ok(shortHard > longEasy, 'une demi-heure à 90 % pèse plus que 4 h à 62 %');
   const viaAvg = epocFromAverage(140, 3600, hrMax)!;
