@@ -105,6 +105,7 @@ Les valeurs n'ont pas la même échelle que Garmin. Valeurs exactes des constant
 **Zones physiologiques (VMA, FTP, CSS, FC max)** : historisées (une ligne par mesure, jamais écrasée), chaque saisie
 porte **obligatoirement** sa source (test / estimation / manuel), sans défaut. Une FC max déclarée l'emporte
 toujours sur la formule de Tanaka ; un pic soutenu observé ne la relève qu'au-delà de 2 bpm.
+**Références datées (04/11/2026)** : chaque séance, réalisée ou prévue, utilise les valeurs en vigueur à sa date (relevé le plus récent daté au plus tard ce jour-là ; avant le premier relevé, le premier relevé). Un nouveau relevé ne modifie jamais le passé : ni les charges, ni les zones de FC, ni les durées estimées des cibles en % VMA / FTP / CSS.
 
 ## 6. Le coach
 

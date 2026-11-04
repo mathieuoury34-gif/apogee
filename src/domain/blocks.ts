@@ -17,6 +17,12 @@ export interface RefValues {
   hrMax: number | null;
 }
 export const NO_REFS: RefValues = { vma: null, css: null, ftp: null, hrMax: null };
+/** Références en vigueur un jour donné (VMA, CSS, FTP, FC max) : une séance prévue utilise celles de sa date, jamais les plus récentes. */
+export type RefsAt = (day: string) => RefValues;
+export type RefsSrc = RefValues | RefsAt;
+export function refsFor(src: RefsSrc, day: string): RefValues {
+  return typeof src === 'function' ? src(day) : src;
+}
 
 export function newBlock(kind: BlockKind = 'WORK'): Block {
   const isSet = kind === 'SET';

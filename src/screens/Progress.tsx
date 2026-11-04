@@ -55,7 +55,7 @@ export function LoadScreen() {
   const curStatus = statusOf(acwr, c.fitnessDelta);
   const focusEnd = addDays(d.today, -fw.offset);
   const fspan = fw.span || Math.max(1, total);
-  const focus = loadFocus(data, d.loads, d.ctx.hrMax.bpm, focusEnd, fspan);
+  const focus = loadFocus(data, d.loads, d.ctx.hrMaxAt, focusEnd, fspan);
   const acwrZone = acwr === null ? null : acwr > 1.5 ? 'critical' : acwr > 1.3 ? 'warning' : acwr < 0.8 ? 'low' : 'ok';
   if (!d.series.days.length) {
     return (
@@ -441,7 +441,7 @@ function ZoneSheet({ kind, onClose }: { kind: ZoneKind; onClose: () => void }) {
 function ForecastCard() {
   const { data, d } = useCalc();
   const [h, setH] = useState<number>(DEFAULT_SPAN);
-  const f = forecastLoad(data, d.series, d.loads, d.links, d.refs, d.today, h === 0 ? 'plan' : h);
+  const f = forecastLoad(data, d.series, d.loads, d.links, d.refsAt, d.today, h === 0 ? 'plan' : h);
   const hasPlan = f.lastPlanned !== null;
   const past = d.series.days.slice(-15, -1);
   const days: DayLoad[] = [...past, ...f.days.map((x) => ({ day: x.day, load: x.load, estimated: true, interruptionFill: false, fitness: x.fitness, fatigue: x.fatigue, freshness: x.freshness }))];

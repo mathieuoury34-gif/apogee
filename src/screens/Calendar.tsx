@@ -165,7 +165,7 @@ function ActualRow({ s }: { s: ActualSession }) {
 
 function PlannedRow({ p, missed }: { p: PlannedSession; missed: boolean }) {
   const { d } = useCalc();
-  const dur = estimateDuration(p.blocks, p.discipline, d.refs);
+  const dur = estimateDuration(p.blocks, p.discipline, d.refsAt(p.plannedDate));
   const { lp, sheet } = usePlannedMenu(p);
   return (
     <li className="op-item">
@@ -267,8 +267,8 @@ export function PlannedDetailScreen({ id }: { id: string }) {
   if (!p || p.deleted) {
     return (<div className="screen"><SubHeader title={$t("Séance prévue")} fallback="/calendrier" /><main className="content"><p className="c-neutral">{$t("Cette séance n’existe plus.")}</p></main></div>);
   }
-  const dur = estimateDuration(p.blocks, p.discipline, d.refs);
-  const dist = estimateDistance(p.blocks, p.discipline, d.refs);
+  const dur = estimateDuration(p.blocks, p.discipline, d.refsAt(p.plannedDate));
+  const dist = estimateDistance(p.blocks, p.discipline, d.refsAt(p.plannedDate));
   const done = (d.links.byPlanned.get(p.id) ?? []).map((x) => data.actual[x]).filter(Boolean);
   const remove = () => {
     const snap = deletePlanned(p.id);
@@ -305,7 +305,7 @@ export function PlannedDetailScreen({ id }: { id: string }) {
             <Info>{$t("Exporte la séance en entraînement structuré (.FIT) : étapes, durées ou distances, cibles d’allure, de puissance ou de FC, répétitions. Où l’envoyer : branche la montre en USB à un ordinateur et copie le fichier dans GARMIN/NewFiles, puis débranche-la ; la séance apparaît dans Entraînement › Séances. Pas par « Importer des données » de Garmin Connect : cette page n’accepte que des séances déjà faites.")}</Info>
             <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={async () => {
               try {
-                const r = await exportWorkoutFit(p, d.refs);
+                const r = await exportWorkoutFit(p, d.refsAt(p.plannedDate));
                 showToast(r.files ? $t("{0} fichier(s) .FIT prêt(s)", { 0: r.files }) + (r.warnings.length ? ' · ' + $t("{0} avertissement(s)", { 0: r.warnings.length }) : '') : $t("Rien à exporter : aucune étape"), { error: !r.files });
                 if (r.warnings.length) setFitWarn(r.warnings);
               } catch (e) { showToast((e as Error).message || $t("Export impossible"), { error: true }); }

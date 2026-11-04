@@ -3,7 +3,7 @@
 import { addDays, mondayOf } from './dates';
 import { analyzeHr, median } from './hr';
 import type { Links } from './links';
-import { liveRecords, sessionDay } from './load';
+import { hrMaxFor, liveRecords, sessionDay, type HrMaxSrc } from './load';
 import type { ActualSession, AppData, ZoneReading } from './types';
 
 type Pts = [number, number][];
@@ -155,7 +155,7 @@ export interface Efficiency {
   diag: { sessions: number; withHr: number; inBand: number; flat: number };
 }
 
-export function efficiency(data: AppData, hrMax: number | null, discipline: 'RUN' | 'BIKE', todayDay: string, spanWeeks = 26): Efficiency {
+export function efficiency(data: AppData, hrMax: HrMaxSrc, discipline: 'RUN' | 'BIKE', todayDay: string, spanWeeks = 26): Efficiency {
   const from = addDays(mondayOf(todayDay), -7 * (spanWeeks - 1));
   const band = discipline === 'BIKE' ? EF_BAND_BIKE : EF_BAND, maxClimb = discipline === 'BIKE' ? EF_MAX_CLIMB_BIKE : EF_MAX_CLIMB;
   const points: EfPoint[] = [];
@@ -167,8 +167,9 @@ export function efficiency(data: AppData, hrMax: number | null, discipline: 'RUN
     diag.sessions++;
     if (!s.avgHrBpm) continue;
     diag.withHr++;
-    if (!hrMax) continue;
-    const r = s.avgHrBpm / hrMax;
+    const hm = hrMaxFor(hrMax, day);
+    if (!hm) continue;
+    const r = s.avgHrBpm / hm;
     if (r < band[0] || r > band[1]) continue;
     diag.inBand++;
     if (s.elevationGainM && s.elevationGainM / s.distanceM > maxClimb) continue;

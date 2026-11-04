@@ -32,7 +32,7 @@ export function weekSummary(data: AppData, d: Derived, start: string): WeekSumma
       ? [...new Set(p.blocks.map((b) => b.discipline).filter((x): x is NonNullable<typeof x> => !!x))].map((x) => ({ k: x as string, blocks: p.blocks.filter((b) => b.discipline === x), disc: x }))
       : [{ k: p.discipline as string, blocks: p.blocks, disc: p.discipline }];
     for (const part of parts) {
-      const e = estimateDuration(part.blocks, part.disc, d.refs);
+      const e = estimateDuration(part.blocks, part.disc, d.refsAt(p.plannedDate));
       if (e.certainty !== 'unknown') row(part.k).plannedSec += e.value;
     }
   }

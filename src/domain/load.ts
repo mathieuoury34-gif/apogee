@@ -41,6 +41,18 @@ export function latestZone(data: AppData, kind: ZoneKind): ZoneReading | null {
   return zoneHistory(data, kind)[0] ?? null;
 }
 
+/**
+ * Référence en vigueur un jour donné : le dernier relevé daté au plus tard ce jour-là. Pour un jour antérieur au premier relevé, le premier relevé
+ * (c'est la meilleure information disponible). Un nouveau relevé ne change donc jamais les séances qui le précèdent.
+ */
+export function zoneAt(data: AppData, kind: ZoneKind, day: string): ZoneReading | null {
+  const asc = zoneHistory(data, kind).slice().reverse();
+  if (!asc.length) return null;
+  let cur: ZoneReading | null = null;
+  for (const z of asc) { if (z.measuredAt.slice(0, 10) <= day) cur = z; else break; }
+  return cur ?? asc[0];
+}
+
 export const HR_MAX_CEILING = 210;
 export const HR_MAX_BUMP = 2;
 
@@ -75,6 +87,47 @@ export function resolveHrMax(data: AppData, now: Date = new Date()): HrMaxInfo {
   return { bpm, origin: observed !== null && observed >= (tanaka ?? 0) ? 'observed' : 'tanaka', tanaka, observed, declared };
 }
 
+/** FC max retenue un jour donné. */
+export type HrMaxAt = (day: string) => number | null;
+/** Une FC max fixe, ou une FC max qui dépend du jour (chaque séance garde celle de son époque). */
+export type HrMaxSrc = number | null | HrMaxAt;
+export function hrMaxFor(src: HrMaxSrc, day: string): number | null {
+  return typeof src === 'function' ? src(day) : src;
+}
+
+/**
+ * Même règle que `resolveHrMax`, mais évaluée au jour de la séance : relevé déclaré en vigueur ce jour-là, pic soutenu observé jusqu'à ce jour-là
+ * (les séances plus tardives ne comptent pas), formule de Tanaka à l'âge du jour. Changer la FC max aujourd'hui ne modifie donc pas le passé.
+ */
+export function hrMaxTimeline(data: AppData): HrMaxAt {
+  const athlete = data.athlete.main;
+  const peaks: { day: string; peak: number }[] = [];
+  for (const s of liveRecords(data.actual)) {
+    if (s.discipline !== 'RUN' && s.discipline !== 'BIKE') continue;
+    const ser = data.series[s.id];
+    if (!ser || ser.deleted) continue;
+    const p = analyzeHr(ser.hr).peak;
+    if (p !== null && p <= HR_MAX_CEILING) peaks.push({ day: sessionDay(s), peak: p });
+  }
+  peaks.sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
+  const cache = new Map<string, number | null>();
+  return (day) => {
+    if (cache.has(day)) return cache.get(day)!;
+    let observed: number | null = null;
+    for (const x of peaks) { if (x.day > day) break; if (observed === null || x.peak > observed) observed = x.peak; }
+    const declared = zoneAt(data, 'hr_max', day);
+    let bpm: number | null;
+    if (declared) bpm = observed !== null && observed >= declared.value + HR_MAX_BUMP ? observed : declared.value;
+    else {
+      const tanaka = athlete?.birthDate ? Math.round((208 - 0.7 * ageAt(athlete.birthDate, new Date(day + 'T12:00:00Z'))) * 10) / 10 : null;
+      const cands = [tanaka, observed].filter((v): v is number => v !== null);
+      bpm = cands.length ? Math.min(HR_MAX_CEILING, Math.max(...cands)) : null;
+    }
+    cache.set(day, bpm);
+    return bpm;
+  };
+}
+
 // ------------------------------------------------------------------ FC de repos (médiane glissante 14 j)
 export const RESTING_WINDOW = 14;
 export interface RestingBaseline { at(day: string): number | null; raw: Map<string, number> }
@@ -103,6 +156,8 @@ export function sessionDay(s: Pick<ActualSession, 'startAt' | 'zoneOffsetMinutes
 
 export interface LoadContext {
   hrMax: HrMaxInfo;
+  /** FC max en vigueur à une date donnée (celle de la séance). */
+  hrMaxAt: HrMaxAt;
   sex: Sex;
   sexDeclared: boolean;
   srpeFactor: number;
@@ -112,6 +167,7 @@ export interface LoadContext {
 
 export function computeSessionLoads(data: AppData, settings: CalcSettings, now: Date = new Date()): { loads: Map<string, SessionLoad>; ctx: LoadContext } {
   const hrMax = resolveHrMax(data, now);
+  const hrMaxAt = hrMaxTimeline(data);
   const athlete = data.athlete.main;
   const sex: Sex = athlete?.sex ?? 'M';
   const resting = restingBaseline(data);
@@ -122,7 +178,7 @@ export function computeSessionLoads(data: AppData, settings: CalcSettings, now: 
   const pending: ActualSession[] = [];
   const ratios: number[] = [];
   for (const s of sessions) {
-    const hrMaxBpm = hrMax.bpm;
+    const hrMaxBpm = hrMaxAt(sessionDay(s));
     const factor = disciplineLoadFactor(s.discipline);
     const ser = data.series[s.id];
     const an = ser && !ser.deleted ? analyzeHr(ser.hr) : null;
@@ -174,7 +230,7 @@ export function computeSessionLoads(data: AppData, settings: CalcSettings, now: 
     loads.set(s.id, load === null ? { load: null, method: 'pending', drift: null, assise: 'none' } : { load, method: 'provisional', drift: null, assise: 'estimated' });
   }
 
-  return { loads, ctx: { hrMax, sex, sexDeclared: !!athlete?.sex, srpeFactor, srpeCalibrationPairs: ratios.length, resting } };
+  return { loads, ctx: { hrMax, hrMaxAt, sex, sexDeclared: !!athlete?.sex, srpeFactor, srpeCalibrationPairs: ratios.length, resting } };
 }
 
 // ------------------------------------------------------------------ Banister (forme normalisée, amorçage « steady »)

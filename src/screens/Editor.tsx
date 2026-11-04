@@ -81,8 +81,8 @@ export function PlannedEditorScreen({ id }: { id: string }) {
   const [addMenu, setAddMenu] = useState<number | null>(null); // -1 = racine, i = enfant de la série i
   const [tried, setTried] = useState(false);
   const issues = useMemo(() => validateSession(draft), [draft]);
-  const dur = estimateDuration(draft.blocks, draft.discipline, d.refs);
-  const dist = estimateDistance(draft.blocks, draft.discipline, d.refs);
+  const dur = estimateDuration(draft.blocks, draft.discipline, d.refsAt(draft.plannedDate));
+  const dist = estimateDistance(draft.blocks, draft.discipline, d.refsAt(draft.plannedDate));
   const setBlocks = (blocks: Block[]) => setDraft({ ...draft, blocks });
   const blockAt = (p: Path): Block => (p.length === 1 ? draft.blocks[p[0]] : draft.blocks[p[0]].children[p[1]]);
   const replaceAt = (p: Path, b: Block | null) => {
@@ -323,7 +323,7 @@ export function PlannedEditorScreen({ id }: { id: string }) {
       </div>
       {drag?.line && <div className="drop-line" aria-hidden="true" style={{ top: drag.line.y - 1.5, left: drag.line.left, width: drag.line.width }} />}
       {edit && blockAt(edit) && (
-        <BlockSheet block={blockAt(edit)} discipline={draft.discipline} isChild={edit.length === 2} refs={d.refs}
+        <BlockSheet block={blockAt(edit)} discipline={draft.discipline} isChild={edit.length === 2} refs={d.refsAt(draft.plannedDate)}
           onClose={closeEdit} onApply={(b) => { replaceAt(edit, b); closeEdit(); }} onDelete={() => { replaceAt(edit, null); closeEdit(); }} onDuplicate={() => { duplicate(edit); closeEdit(); }} />
       )}
     </div>

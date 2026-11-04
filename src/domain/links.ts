@@ -3,7 +3,7 @@
 // données, à l'identique sur chaque appareil. Seul le choix MANUEL est enregistré (sur la séance réalisée).
 // Amélioration : une séance faite la veille ou le lendemain du prévu (séance déplacée) se rattache aussi,
 // avec une confiance plus faible, quand aucun candidat n'existe le jour même.
-import { estimateDuration, type RefValues } from './blocks';
+import { estimateDuration, refsFor, type RefValues, type RefsSrc } from './blocks';
 import { addDays } from './dates';
 import { liveRecords, sessionDay } from './load';
 import type { ActualSession, AppData, CoreDiscipline, PlannedSession } from './types';
@@ -73,7 +73,7 @@ export interface Links {
   byPlanned: Map<string, string[]>;
 }
 
-export function computeLinks(data: AppData, refs: RefValues): Links {
+export function computeLinks(data: AppData, refs: RefsSrc): Links {
   const planned = liveRecords(data.planned);
   const actual = liveRecords(data.actual);
   const byActual = new Map<string, LinkInfo>();
@@ -87,7 +87,7 @@ export function computeLinks(data: AppData, refs: RefValues): Links {
       manualPlanned.add(a.manualPlannedId);
     } else free.push(a); // le prévu choisi a disparu : retour à l'automatique
   }
-  const slots = planned.filter((p) => !manualPlanned.has(p.id)).flatMap((p) => slotsFor(p, refs));
+  const slots = planned.filter((p) => !manualPlanned.has(p.id)).flatMap((p) => slotsFor(p, refsFor(refs, p.plannedDate)));
   const actualsByDay = new Map<string, ActualSession[]>();
   for (const a of free) {
     const d = sessionDay(a);

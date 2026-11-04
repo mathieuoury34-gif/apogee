@@ -48,7 +48,8 @@ export function trainingEffects(data: AppData, d: Derived): Map<string, SessionE
     let zone5Sec: number | null = null;
     const ser = data.series[s.id];
     const hr = ser && !ser.deleted ? analyzeHr(ser.hr).clean : [];
-    if (hr.length >= 10 && d.ctx.hrMax.bpm && s.discipline !== 'STRENGTH') zone5Sec = zoneTimes(hr, d.ctx.hrMax.bpm)[4];
+    const hmAt = d.ctx.hrMaxAt(day);
+    if (hr.length >= 10 && hmAt && s.discipline !== 'STRENGTH') zone5Sec = zoneTimes(hr, hmAt)[4];
     const an = zone5Sec === null ? null : Math.round(anaerobicEffect(zone5Sec) * 10) / 10;
     out.set(s.id, { aerobic, level: teLevel(aerobic), anaerobic: an, anaerobicLevel: an === null ? null : teLevel(an), refLoad, refIsDefault: p75 === null, zone5Sec });
   }

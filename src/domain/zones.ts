@@ -5,7 +5,7 @@
 // ou de seuil, la frontière exacte entre « facile » et « soutenue » varie d'un sportif à l'autre.
 import { addDays, mondayOf } from './dates';
 import { analyzeHr, weightSamples, type Series } from './hr';
-import { liveRecords, sessionDay } from './load';
+import { hrMaxFor, liveRecords, sessionDay, type HrMaxSrc } from './load';
 import type { ActualDiscipline, AppData } from './types';
 
 export const HR_ZONE_EDGES = [0.6, 0.7, 0.8, 0.9] as const;
@@ -40,13 +40,13 @@ export interface ZoneWeek { start: string; zones: ZoneSeconds; sessions: number 
 export interface ZoneReport { weeks: ZoneWeek[]; total: ZoneSeconds; sessions: number; withoutHr: number }
 
 /** Temps par zone sur les `n` dernières semaines (semaine en cours comprise). */
-export function weeklyZones(data: AppData, hrMax: number | null, todayDay: string, n: number, withOther = false, fromDay?: string): ZoneReport {
+export function weeklyZones(data: AppData, hrMax: HrMaxSrc, todayDay: string, n: number, withOther = false, fromDay?: string): ZoneReport {
   const last = mondayOf(todayDay);
   const weeks: ZoneWeek[] = Array.from({ length: n }, (_, i) => ({ start: addDays(last, -7 * (n - 1 - i)), zones: emptyZones(), sessions: 0 }));
   const idx = new Map(weeks.map((w, i) => [w.start, i]));
   const total = emptyZones();
   let sessions = 0, withoutHr = 0;
-  if (!hrMax) return { weeks, total, sessions, withoutHr };
+  if (typeof hrMax !== 'function' && !hrMax) return { weeks, total, sessions, withoutHr };
   for (const s of liveRecords(data.actual)) {
     if (!(ZONE_DISCIPLINES.includes(s.discipline) || (withOther && s.discipline === 'OTHER'))) continue;
     const day = sessionDay(s);
@@ -56,7 +56,9 @@ export function weeklyZones(data: AppData, hrMax: number | null, todayDay: strin
     const ser = data.series[s.id];
     const hr = ser && !ser.deleted ? analyzeHr(ser.hr).clean : [];
     if (hr.length < 10) { withoutHr++; continue; }
-    const z = zoneTimes(hr, hrMax);
+    const hm = hrMaxFor(hrMax, day);
+    if (!hm) { withoutHr++; continue; }
+    const z = zoneTimes(hr, hm);
     weeks[i].sessions++; sessions++;
     for (let k = 0; k < ZONE_COUNT; k++) { weeks[i].zones[k] += z[k]; total[k] += z[k]; }
   }

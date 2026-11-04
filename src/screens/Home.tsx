@@ -181,7 +181,7 @@ function WeekCard() {
     const p = planned.filter((x) => x.plannedDate === day);
     const a = actual.filter((x) => sessionDay(x) === day);
     a.forEach((x) => (doneSec += x.durationSec));
-    p.forEach((x) => (plannedSec += estimateDuration(x.blocks, x.discipline, d.refs).value));
+    p.forEach((x) => (plannedSec += estimateDuration(x.blocks, x.discipline, d.refsAt(x.plannedDate)).value));
     return { day, open: p.filter((x) => !d.links.byPlanned.has(x.id)), done: a };
   });
   return (
@@ -213,8 +213,8 @@ function WeekCard() {
 
 function TodayPlannedRow({ p }: { p: PlannedSession }) {
   const { d } = useCalc();
-  const dur = estimateDuration(p.blocks, p.discipline, d.refs);
-  const dist = estimateDistance(p.blocks, p.discipline, d.refs);
+  const dur = estimateDuration(p.blocks, p.discipline, d.refsAt(p.plannedDate));
+  const dist = estimateDistance(p.blocks, p.discipline, d.refsAt(p.plannedDate));
   const { lp, sheet } = usePlannedMenu(p);
   return (
     <li>
@@ -257,7 +257,7 @@ function TodayDoneRow({ s }: { s: ActualSession }) {
 // ------------------------------------------------------------------ dernière séance
 function LastSessionCard({ s }: { s: ActualSession }) {
   const { data, d } = useCalc();
-  const r = reviewSession(data, d.loads, d.links, d.refs, s);
+  const r = reviewSession(data, d.loads, d.links, d.refsAt, s);
   const pace = paceOf(s);
   const ago = daysBetween(sessionDay(s), d.today);
   const good = r.verdict === 'onPlan' || r.verdict === 'typical';

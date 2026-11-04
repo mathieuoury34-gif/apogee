@@ -5,7 +5,7 @@
 import { $t } from '../i18n';
 import { analyzeHr, avgHrForLoad, disciplineLoadFactor, MIN_SAMPLES_FOR_TRIMP } from './hr';
 import { nowIso } from './ids';
-import { liveRecords } from './load';
+import { hrMaxFor, liveRecords, sessionDay, type HrMaxSrc } from './load';
 import { ACTUAL_DISCIPLINES, type ActualSession, type AppData } from './types';
 
 export interface GraphSession {
@@ -40,7 +40,7 @@ export interface SessionsReport {
   hrOutOfRange: number;
 }
 
-export function correctSessions(data: AppData, rows: GraphSession[] | undefined, hrMaxBpm: number | null): { actual: ActualSession[]; report: SessionsReport } {
+export function correctSessions(data: AppData, rows: GraphSession[] | undefined, hrMaxSrc: HrMaxSrc): { actual: ActualSession[]; report: SessionsReport } {
   const report: SessionsReport = { matched: 0, notFound: [], elevationSet: 0, elevationKept: 0, descentSet: 0, descentKept: 0, hrEstimated: 0, hrKept: 0, curveKept: 0, hrOutOfRange: 0 };
   const live = liveRecords(data.actual);
   const patched = new Map<string, ActualSession>();
@@ -87,6 +87,7 @@ export function correctSessions(data: AppData, rows: GraphSession[] | undefined,
       const curve = !!ser && !ser.deleted && analyzeHr(ser.hr).clean.length >= MIN_SAMPLES_FOR_TRIMP;
       if (curve) report.curveKept++;
       else {
+        const hrMaxBpm = hrMaxFor(hrMaxSrc, sessionDay(cur));
         const est = hrMaxBpm ? avgHrForLoad(load, cur.durationSec, hrMaxBpm, disciplineLoadFactor(cur.discipline)) : null;
         if (est === null) report.hrOutOfRange++;
         else {

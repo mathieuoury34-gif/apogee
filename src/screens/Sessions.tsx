@@ -176,7 +176,7 @@ export function ReviewScreen({ id }: { id: string }) {
   useEffect(() => { if (route.query.get('ressenti') && rpeRef.current) setTimeout(() => rpeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80); }, [route.query]);
   if (!s || s.deleted) return (<div className="screen"><SubHeader title={$t("Séance")} fallback="/seances" /><main className="content"><p className="c-neutral">{$t("Cette séance n’existe plus.")}</p></main></div>);
   const day = sessionDay(s);
-  const r = reviewSession(data, d.loads, d.links, d.refs, s);
+  const r = reviewSession(data, d.loads, d.links, d.refsAt, s);
   const l = d.loads.get(s.id)!;
   const link = d.links.byActual.get(s.id);
   const pace = paceOf(s);
@@ -301,7 +301,8 @@ function HrTrace({ id }: { id: string }) {
   const Y = (v: number) => 4 + H - ((v - lo) / (hi - lo || 1)) * H;
   const step = Math.max(1, Math.round(hr.length / 300));
   const dpath = hr.filter((_, i) => i % step === 0).map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join(' ');
-  const hrMax = d.ctx.hrMax.bpm;
+  const sess = data.actual[id];
+  const hrMax = sess ? d.ctx.hrMaxAt(sessionDay(sess)) : d.ctx.hrMax.bpm;
   const zt = hrMax ? zoneTimes(hr, hrMax) : null;
   const zsum = zt ? zt.reduce((t, x) => t + x, 0) : 0;
   const pol = zt ? polarSplit(zt) : null;

@@ -120,7 +120,7 @@ export function buildWorkbook(data: AppData, d: Derived): Workbook {
   header(pl, 4, ['Date', 'Discipline', 'Titre', 'Durée estimée', 'Distance estimée (km)', 'Statut', 'Origine', 'Blocs']);
   liveRecords(data.planned).sort((a, b) => (a.plannedDate < b.plannedDate ? -1 : 1)).forEach((p, i) => {
     const r = 5 + i;
-    const dur = estimateDuration(p.blocks, p.discipline, d.refs), dist = estimateDistance(p.blocks, p.discipline, d.refs);
+    const dur = estimateDuration(p.blocks, p.discipline, d.refsAt(p.plannedDate)), dist = estimateDistance(p.blocks, p.discipline, d.refsAt(p.plannedDate));
     const done = d.links.byPlanned.has(p.id);
     pl.set(r, 1, dayValue(p.plannedDate), cell({ fmt: DATE }));
     pl.set(r, 2, DISCIPLINE_LABEL[p.discipline], cell({ b: true, color: DISC[p.discipline] }));

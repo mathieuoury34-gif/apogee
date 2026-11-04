@@ -1,7 +1,7 @@
 // Respect du plan : part des séances prévues réellement faites, et part du temps prévu réalisé, par semaine
 // et par mois. Seules les séances dont la date est passée (ou aujourd'hui) comptent ; une séance prévue un jour
 // couvert par une interruption n'est pas comptée comme manquée.
-import { estimateDuration, type RefValues } from './blocks';
+import { estimateDuration, refsFor, type RefsSrc } from './blocks';
 import { addDays, mondayOf, monthOf } from './dates';
 import type { Links } from './links';
 import { liveRecords } from './load';
@@ -22,7 +22,7 @@ export interface ComplianceReport { weeks: Compliance[]; months: Compliance[]; l
 
 const blank = (key: string): Compliance => ({ key, planned: 0, done: 0, plannedSec: 0, doneSec: 0 });
 
-export function planCompliance(data: AppData, links: Links, refs: RefValues, todayDay: string, nWeeks = 12, nMonths = 6): ComplianceReport {
+export function planCompliance(data: AppData, links: Links, refs: RefsSrc, todayDay: string, nWeeks = 12, nMonths = 6): ComplianceReport {
   const firstWeek = addDays(mondayOf(todayDay), -7 * (nWeeks - 1));
   const weeks = new Map<string, Compliance>();
   const months = new Map<string, Compliance>();
@@ -32,7 +32,7 @@ export function planCompliance(data: AppData, links: Links, refs: RefValues, tod
   for (const p of liveRecords(data.planned)) {
     if (p.plannedDate > todayDay) continue;
     if (ints.some((i) => i.startDate <= p.plannedDate && p.plannedDate <= i.endDate)) continue;
-    const est = estimateDuration(p.blocks, p.discipline, refs);
+    const est = estimateDuration(p.blocks, p.discipline, refsFor(refs, p.plannedDate));
     const known = est.certainty !== 'unknown' && est.value > 0;
     const linked = links.byPlanned.get(p.id) ?? [];
     const done = linked.length > 0;

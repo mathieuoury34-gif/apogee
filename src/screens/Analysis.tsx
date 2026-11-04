@@ -80,7 +80,7 @@ function rateBar(c: Compliance) {
 export function ComplianceCard({ d, data }: Props) {
   const pw = usePeriod();
   const end = addDays(d.today, -pw.offset);
-  const rep = planCompliance(data, d.links, d.refs, end, 60, 36);
+  const rep = planCompliance(data, d.links, d.refsAt, end, 60, 36);
   if (!rep.weeks.length && !rep.months.length) {
     return <section className="card g12" aria-label={$t("Respect du plan")}><h2>{$t("Respect du plan")}</h2><Empty icon="calendrier" title={$t("Pas encore de séance prévue échue")} text={$t("Dès que des séances prévues sont passées, tu verras ici la part que tu as réalisée.")} /></section>;
   }
@@ -124,7 +124,7 @@ export function ZonesCard({ d, data }: Props) {
   const end = addDays(d.today, -pw.offset);
   const from = pw.span === 0 ? (d.series.firstDay ?? end) : addDays(end, -(pw.span - 1));
   const nWeeks = Math.min(160, Math.max(1, Math.round((Date.parse(mondayOf(end)) - Date.parse(mondayOf(from))) / (7 * 86400_000)) + 1));
-  const rep = weeklyZones(data, hrMax, end, nWeeks, withOther, from);
+  const rep = weeklyZones(data, d.ctx.hrMaxAt, end, nWeeks, withOther, from);
   const p = polarSplit(rep.total);
   const edges = HR_ZONE_EDGES.map((e) => (hrMax ? Math.round(e * hrMax) : null));
   const range = [`< ${edges[0]}`, `${edges[0]}–${edges[1]}`, `${edges[1]}–${edges[2]}`, `${edges[2]}–${edges[3]}`, `≥ ${edges[3]}`];
@@ -161,7 +161,7 @@ export function ZonesCard({ d, data }: Props) {
           </ul>
         </>
       )}
-      <Info>{$t("Zones en % de ta FC max retenue ({0} bpm) : Z1 < 60 %, Z2 60–70 %, Z3 70–80 %, Z4 80–90 %, Z5 ≥ 90 %. Course, vélo et natation seulement (le renforcement est exclu). Le repère « 80/20 » est générique : sans test de seuil, la vraie frontière varie d’un sportif à l’autre. Les séances sans courbe cardiaque ne sont pas comptées{1}.", { 0: hrMax ? num(hrMax, 0) : '—', 1: rep.withoutHr ? $t(" ({0} sur la période)", { 0: rep.withoutHr }) : '' })}</Info>
+      <Info>{$t("Zones en % de la FC max retenue à la date de chaque séance (aujourd’hui {0} bpm) : Z1 < 60 %, Z2 60–70 %, Z3 70–80 %, Z4 80–90 %, Z5 ≥ 90 %. Course, vélo et natation seulement (le renforcement est exclu). Le repère « 80/20 » est générique : sans test de seuil, la vraie frontière varie d’un sportif à l’autre. Les séances sans courbe cardiaque ne sont pas comptées{1}.", { 0: hrMax ? num(hrMax, 0) : '—', 1: rep.withoutHr ? $t(" ({0} sur la période)", { 0: rep.withoutHr }) : '' })}</Info>
     </InfoCard>
   );
 }
@@ -216,7 +216,7 @@ function Spark({ values }: { values: number[] }) {
 export function EfficiencyCard({ d, data }: Props) {
   const [disc, setDisc] = useState<'RUN' | 'BIKE'>('RUN');
   const hrMax = d.ctx.hrMax.bpm;
-  const ef = efficiency(data, hrMax, disc, d.today);
+  const ef = efficiency(data, d.ctx.hrMaxAt, disc, d.today);
   const fmt = (v: number | null) => (v === null ? '—' : disc === 'RUN' ? mmss(1000 / v) + NBSP + '/km' : speedKmh(v));
   const band = disc === 'BIKE' ? EF_BAND_BIKE : EF_BAND;
   const climb = disc === 'BIKE' ? EF_MAX_CLIMB_BIKE : EF_MAX_CLIMB;

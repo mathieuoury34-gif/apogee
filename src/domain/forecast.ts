@@ -5,7 +5,7 @@
 // HABITUELLE de la discipline (médiane des 90 derniers jours, comme la charge provisoire). L'intensité
 // prévue n'est pas modélisée : une séance de seuil et un footing de même durée valent la même chose. C'est
 // une projection pour comparer des semaines entre elles et négocier un plan, pas une prédiction de forme.
-import { estimateDuration, type RefValues } from './blocks';
+import { estimateDuration, refsFor, type RefsSrc } from './blocks';
 import { addDays, daysBetween, mondayOf } from './dates';
 import { median } from './hr';
 import type { Links } from './links';
@@ -38,14 +38,14 @@ function ratePerMinute(data: AppData, loads: Map<string, SessionLoad>, disciplin
 }
 
 /** Charge estimée d'une séance prévue, ou null si non estimable. */
-export function plannedLoad(p: PlannedSession, data: AppData, loads: Map<string, SessionLoad>, refs: RefValues, today: string): number | null {
+export function plannedLoad(p: PlannedSession, data: AppData, loads: Map<string, SessionLoad>, refs: RefsSrc, today: string): number | null {
   const parts = p.discipline === 'BRICK'
     ? [...new Set(p.blocks.map((b) => b.discipline).filter((d): d is NonNullable<typeof d> => !!d))].map((d) => ({ d, blocks: p.blocks.filter((b) => b.discipline === d) }))
     : [{ d: p.discipline, blocks: p.blocks }];
   if (!parts.length) return null;
   let total = 0;
   for (const part of parts) {
-    const e = estimateDuration(part.blocks, part.d, refs);
+    const e = estimateDuration(part.blocks, part.d, refsFor(refs, p.plannedDate));
     if (e.certainty === 'unknown' || !(e.value > 0)) return null;
     const rate = ratePerMinute(data, loads, part.d, today);
     if (rate === null) return null;
@@ -54,7 +54,7 @@ export function plannedLoad(p: PlannedSession, data: AppData, loads: Map<string,
   return total;
 }
 
-export function forecastLoad(data: AppData, series: LoadSeries, loads: Map<string, SessionLoad>, links: Links, refs: RefValues, today: string, horizonDays: number | 'plan'): Forecast {
+export function forecastLoad(data: AppData, series: LoadSeries, loads: Map<string, SessionLoad>, links: Links, refs: RefsSrc, today: string, horizonDays: number | 'plan'): Forecast {
   const planned = liveRecords(data.planned).filter((p) => p.plannedDate >= today && !links.byPlanned.has(p.id));
   const lastPlanned = planned.reduce<string | null>((m, p) => (m === null || p.plannedDate > m ? p.plannedDate : m), null);
   const todayRow = series.byDay.get(today) ?? series.days[series.days.length - 1];

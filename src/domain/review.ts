@@ -3,7 +3,7 @@
 // de la même discipline (avant : tout l'historique, toutes méthodes de charge confondues) ;
 // l'alerte de hausse de charge rapide (LOAD_RAMP), déclarée mais jamais produite, existe enfin.
 import { $t } from '../i18n';
-import { estimateDistance, estimateDuration, hasSet, type Certainty, type RefValues } from './blocks';
+import { estimateDistance, estimateDuration, hasSet, refsFor, type Certainty, type RefsSrc } from './blocks';
 import { addDays } from './dates';
 import { median } from './hr';
 import type { CoachConstat, SessionLoad } from './load';
@@ -51,7 +51,8 @@ export function blocksFor(planned: PlannedSession, discipline: string | undefine
   return part.length ? { blocks: part, discipline: discipline as PlannedSession['discipline'] } : { blocks: planned.blocks, discipline: planned.discipline };
 }
 
-export function comparePlan(planned: PlannedSession, actual: Pick<ActualSession, 'durationSec' | 'distanceM'> & { discipline?: string }, refs: RefValues): PlanComparison {
+export function comparePlan(planned: PlannedSession, actual: Pick<ActualSession, 'durationSec' | 'distanceM'> & { discipline?: string }, refsSrc: RefsSrc): PlanComparison {
+  const refs = refsFor(refsSrc, planned.plannedDate);
   const part = blocksFor(planned, actual.discipline);
   const dur = estimateDuration(part.blocks, part.discipline, refs);
   const dist = estimateDistance(part.blocks, part.discipline, refs);
@@ -122,7 +123,7 @@ export interface SessionReview {
   alerts: { code: 'HR_DRIFT_HIGH' | 'PLAN_GAP'; value: number }[];
 }
 
-export function reviewSession(data: AppData, loads: Map<string, SessionLoad>, links: Links, refs: RefValues, s: ActualSession): SessionReview {
+export function reviewSession(data: AppData, loads: Map<string, SessionLoad>, links: Links, refs: RefsSrc, s: ActualSession): SessionReview {
   const link = links.byActual.get(s.id);
   const planned = link?.plannedId ? data.planned[link.plannedId] : undefined;
   const plan = planned && !planned.deleted ? comparePlan(planned, s, refs) : null;

@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { estimateDistance, estimateDuration, newBlock, validateSession } from '../src/domain/blocks';
 import { addDays, today, localDay, mondayOf, weeksOfMonth } from '../src/domain/dates';
-import { derive, refsOf } from '../src/domain/engine';
+import { derive, refsAtFn, refsOf } from '../src/domain/engine';
 import { bestSegment, bestSpeedOver, efficiency, personalRecords, suggestZones } from '../src/domain/records';
 import { forecastLoad } from '../src/domain/forecast';
 import { fitnessByDiscipline } from '../src/domain/loadByDiscipline';
@@ -18,7 +18,7 @@ import { encodeFit, fitCrc, fitFileName, toFitWorkouts } from '../src/domain/fit
 import { sleepStats, weightTrend } from '../src/domain/body';
 import { SWIM_LOAD_FACTOR, analyzeHr, avgHrForLoad, cleanHr, epocFromAverage, epocFromSeries, epocRate, hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
 import { importLegacyDb, emptyData } from '../src/domain/legacy';
-import { buildLoadSeries, computeSessionLoads, resolveHrMax } from '../src/domain/load';
+import { buildLoadSeries, computeSessionLoads, hrMaxTimeline, resolveHrMax } from '../src/domain/load';
 import { buildManualSession, parseBulkActual, parseBulkPlanned, parseManualFields } from '../src/domain/manual';
 import { hm } from '../src/ui/format';
 import { bmrKcal, dayEnergy, weekEnergy } from '../src/domain/energy';
@@ -886,6 +886,55 @@ test('natation : la charge est majorée du facteur de natation, pas les autres d
   const { loads } = computeSessionLoads(d, SETTINGS, new Date('2026-09-10T12:00:00Z'));
   assert.ok(Math.abs(loads.get('b')!.load! / loads.get('a')!.load! - SWIM_LOAD_FACTOR) < 0.001);
   assert.ok(Math.abs(avgHrForLoad(60, 3000, 205, SWIM_LOAD_FACTOR)! - avgHrForLoad(60 / SWIM_LOAD_FACTOR, 3000, 205)!) < 0.001, 'l\'inverse tient compte du facteur de natation');
+});
+
+function zoneReading(id: string, kind: 'vma' | 'css' | 'ftp' | 'hr_max', value: number, day: string) {
+  return { id, updatedAt: 'x', kind, value, measuredAt: day + 'T12:00:00.000Z', source: 'test', notes: null } as never;
+}
+
+test('FC max datée : une nouvelle FC max ne change jamais la charge des séances antérieures', () => {
+  const d = emptyData();
+  d.athlete.main = { id: 'main', updatedAt: '', displayName: null, birthDate: '1995-01-01', sex: 'M', availability: [], equipment: [], injuries: [] };
+  d.zones.a = zoneReading('a', 'hr_max', 200, '2026-08-01');
+  d.zones.b = zoneReading('b', 'hr_max', 210, '2026-10-01');
+  for (const [id, day] of [['early', '2026-07-10'], ['mid', '2026-09-10'], ['late', '2026-10-10']] as const) {
+    d.actual[id] = session(id, day, { source: 'health', sourceId: id, hasSeries: true, durationSec: 3600 });
+    d.series[id] = { id, updatedAt: '', hr: Array.from({ length: 360 }, (_, k) => [Date.parse(day + 'T08:00:00Z') / 1000 + k * 10, 150] as [number, number]), speed: [] };
+  }
+  const now = new Date('2026-10-20T12:00:00Z');
+  const first = computeSessionLoads(d, SETTINGS, now);
+  assert.equal(first.ctx.hrMaxAt('2026-07-10'), 200, 'avant le premier relevé : le premier relevé');
+  assert.equal(first.ctx.hrMaxAt('2026-09-10'), 200);
+  assert.equal(first.ctx.hrMaxAt('2026-10-01'), 210, 'le relevé s\'applique dès son jour');
+  const flat = (hrMax: number) => epocFromSeries(d.series.mid.hr, hrMax, 3600)!.value;
+  assert.ok(Math.abs(first.loads.get('mid')!.load! - flat(200)) < 0.01, 'séance de septembre : FC max 200');
+  assert.ok(Math.abs(first.loads.get('late')!.load! - flat(210)) < 0.01, 'séance d\'octobre : FC max 210');
+  assert.ok(first.loads.get('mid')!.load! > first.loads.get('late')!.load!, 'même courbe, FC max plus haute : charge plus basse');
+  // une nouvelle FC max (190) datée du 01/11 ne touche aucune séance déjà faite
+  d.zones.c = zoneReading('c', 'hr_max', 190, '2026-11-01');
+  const second = computeSessionLoads(d, SETTINGS, new Date('2026-11-04T12:00:00Z'));
+  for (const id of ['early', 'mid', 'late']) assert.equal(second.loads.get(id)!.load, first.loads.get(id)!.load, id);
+  assert.equal(second.ctx.hrMaxAt('2026-11-02'), 190);
+  assert.equal(second.ctx.hrMax.bpm, 190, 'la FC max d\'aujourd\'hui reste la dernière');
+});
+
+test('références datées (VMA, CSS, FTP, FC max) : une séance prévue garde celles de sa date', () => {
+  const d = emptyData();
+  d.zones.v1 = zoneReading('v1', 'vma', 4.0, '2026-04-05');
+  d.zones.v2 = zoneReading('v2', 'vma', 4.4, '2026-10-22');
+  d.zones.c1 = zoneReading('c1', 'css', 0.7, '2026-08-01');
+  d.zones.h1 = zoneReading('h1', 'hr_max', 205, '2026-10-22');
+  const at = refsAtFn(d, hrMaxTimeline(d));
+  assert.equal(at('2026-09-01').vma, 4.0);
+  assert.equal(at('2026-10-22').vma, 4.4);
+  assert.equal(at('2026-12-01').vma, 4.4, 'une date future prend la dernière référence');
+  assert.equal(at('2026-03-01').vma, 4.0, 'avant le premier relevé : le premier relevé');
+  assert.equal(at('2026-09-01').css, 0.7);
+  assert.equal(at('2026-09-01').ftp, null);
+  const run: Block = { ...newBlock('WORK'), measure: 'DISTANCE', measureValue: 10000, targetType: 'PACE', targetLow: 80, relativeTo: 'VMA' };
+  const old = estimateDuration([run], 'RUN', at('2026-09-01')).value, recent = estimateDuration([run], 'RUN', at('2026-10-25')).value;
+  assert.ok(Math.abs(old - 10000 / (4.0 * 0.8)) < 0.5 && Math.abs(recent - 10000 / (4.4 * 0.8)) < 0.5, 'durée prévue selon la VMA de la date');
+  assert.ok(old > recent);
 });
 
 test('sommeil corrigé à la main : la lecture de la montre ne l\'écrase plus', () => {
