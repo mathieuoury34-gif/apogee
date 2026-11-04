@@ -100,6 +100,15 @@ export const EPOC_GAIN = 60;
 export const EPOC_SLOW_SHARE = 0.165;
 /** Natation : la FC au poignet dans l'eau est plus basse qu'à sensation égale, Garmin en tient compte (3 séances de référence : 1,22 à 1,47). */
 export const SWIM_LOAD_FACTOR = 1.3;
+/** Facteur propre à la discipline (aujourd'hui : natation seulement). */
+export function disciplineLoadFactor(discipline: string | null | undefined): number {
+  return discipline === 'SWIM' ? SWIM_LOAD_FACTOR : 1;
+}
+/**
+ * Charge depuis la seule FC moyenne : une moyenne lisse les pics et le modèle est convexe, donc la charge est sous-estimée par rapport à celle de la
+ * courbe (médiane des rapports courbe ÷ moyenne sur 50 séances Garmin : 1,20 en course, 1,32 en vélo, 1,35 en natation). Correction moyenne.
+ */
+export const AVG_HR_CORRECTION = 1.25;
 /** Une mesure vaut au plus ce temps avant la suivante (les longues sorties sont stockées avec une mesure toutes les 60 à 90 s). */
 export const EPOC_HOLD_SEC = 120;
 
@@ -140,16 +149,16 @@ function epocConstant(rate: number, durationSec: number): number {
 /** Charge d'une séance depuis sa FC moyenne seulement (estimation : une moyenne lisse les pics, la charge est un peu sous-estimée). */
 export function epocFromAverage(avgBpm: number, durationSec: number, hrMaxBpm: number): number | null {
   if (!(avgBpm > 0) || !(durationSec > 0) || !(hrMaxBpm > 100)) return null;
-  return epocConstant(epocRate(avgBpm / hrMaxBpm), durationSec);
+  return epocConstant(epocRate(avgBpm / hrMaxBpm), durationSec) * AVG_HR_CORRECTION;
 }
 
 /**
  * Inverse de `epocFromAverage` : FC moyenne qui, sur `durationSec`, redonne la charge `load` (utile pour une activité sans capteur
  * dont on connaît la charge d'après la montre). `null` si la charge est nulle ou hors de portée (au-delà d'une FC de 105 % de la FC max).
  */
-export function avgHrForLoad(load: number, durationSec: number, hrMaxBpm: number): number | null {
+export function avgHrForLoad(load: number, durationSec: number, hrMaxBpm: number, factor = 1): number | null {
   if (!(load > 0) || !(durationSec > 0) || !(hrMaxBpm > 100)) return null;
-  const rate = load / epocConstant(1, durationSec);
+  const rate = load / factor / AVG_HR_CORRECTION / epocConstant(1, durationSec);
   if (rate > epocRate(1.05)) return null;
   return (EPOC_ONSET + Math.pow(rate / EPOC_GAIN, 1 / EPOC_EXP)) * hrMaxBpm;
 }

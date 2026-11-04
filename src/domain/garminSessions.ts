@@ -3,7 +3,7 @@
 // Le dénivelé de Health Connect diffère souvent de celui de la montre ; la charge sert, pour une activité sans capteur
 // cardiaque, à estimer une FC moyenne qui redonne la charge de Garmin (une séance avec courbe garde sa charge calculée).
 import { $t } from '../i18n';
-import { analyzeHr, avgHrForLoad, MIN_SAMPLES_FOR_TRIMP } from './hr';
+import { analyzeHr, avgHrForLoad, disciplineLoadFactor, MIN_SAMPLES_FOR_TRIMP } from './hr';
 import { nowIso } from './ids';
 import { liveRecords } from './load';
 import { ACTUAL_DISCIPLINES, type ActualSession, type AppData } from './types';
@@ -87,7 +87,7 @@ export function correctSessions(data: AppData, rows: GraphSession[] | undefined,
       const curve = !!ser && !ser.deleted && analyzeHr(ser.hr).clean.length >= MIN_SAMPLES_FOR_TRIMP;
       if (curve) report.curveKept++;
       else {
-        const est = hrMaxBpm ? avgHrForLoad(load, cur.durationSec, hrMaxBpm) : null;
+        const est = hrMaxBpm ? avgHrForLoad(load, cur.durationSec, hrMaxBpm, disciplineLoadFactor(cur.discipline)) : null;
         if (est === null) report.hrOutOfRange++;
         else {
           const v = Math.round(est * 10) / 10;

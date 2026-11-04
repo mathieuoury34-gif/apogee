@@ -872,7 +872,7 @@ test('modèle d\'effort (type EPOC) : seuil à 50 % de la FC max, saturation, et
   const shortHard = epocFromSeries(flat(180, 1800), hrMax, 1800)!.value;
   assert.ok(shortHard > longEasy, 'une demi-heure à 90 % pèse plus que 4 h à 62 %');
   const viaAvg = epocFromAverage(140, 3600, hrMax)!;
-  assert.ok(Math.abs(viaAvg - hour70.value) < 1, 'FC moyenne constante : même valeur que la courbe');
+  assert.ok(Math.abs(viaAvg / 1.25 - hour70.value) < 1, 'FC moyenne : valeur de la courbe constante, majorée de la correction de moyenne (1,25)');
   assert.equal(epocFromSeries(flat(140, 20), hrMax, 20)?.value ?? null, null, 'moins de 10 mesures : pas de charge mesurée');
 });
 
@@ -885,6 +885,7 @@ test('natation : la charge est majorée du facteur de natation, pas les autres d
   }
   const { loads } = computeSessionLoads(d, SETTINGS, new Date('2026-09-10T12:00:00Z'));
   assert.ok(Math.abs(loads.get('b')!.load! / loads.get('a')!.load! - SWIM_LOAD_FACTOR) < 0.001);
+  assert.ok(Math.abs(avgHrForLoad(60, 3000, 205, SWIM_LOAD_FACTOR)! - avgHrForLoad(60 / SWIM_LOAD_FACTOR, 3000, 205)!) < 0.001, 'l\'inverse tient compte du facteur de natation');
 });
 
 test('sommeil corrigé à la main : la lecture de la montre ne l\'écrase plus', () => {
@@ -1106,7 +1107,7 @@ test('FC moyenne estimée pour une charge donnée : inverse exact de la formule 
     assert.ok(Math.abs(epocFromAverage(hr, min * 60, 205)! - load) < 0.01, 'aller-retour ' + load);
   }
   assert.equal(avgHrForLoad(0, 3000, 205), null); assert.equal(avgHrForLoad(60, 0, 205), null);
-  assert.equal(avgHrForLoad(900, 3600, 205), null, 'charge hors de portée');
+  assert.equal(avgHrForLoad(1200, 3600, 205), null, 'charge hors de portée');
 });
 
 test('import Garmin v3 : dénivelé remplacé, FC estimée seulement sans courbe, charge Garmin retrouvée', () => {

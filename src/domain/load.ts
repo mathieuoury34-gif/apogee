@@ -13,7 +13,7 @@
 import { $t } from '../i18n';
 import type { ActualSession, AppData, CalcSettings, ZoneKind, ZoneReading, ZoneSource } from './types';
 import { addDays, ageAt, daysBetween, localDay } from './dates';
-import { analyzeHr, epocFromAverage, epocFromSeries, median, srpe, SWIM_LOAD_FACTOR, type Sex } from './hr';
+import { analyzeHr, epocFromAverage, epocFromSeries, median, srpe, disciplineLoadFactor, type Sex } from './hr';
 
 export type LoadMethod = 'trimp' | 'trimp_avg' | 'srpe' | 'provisional' | 'pending';
 export type Assise = 'measured' | 'estimated' | 'entered' | 'none';
@@ -123,7 +123,7 @@ export function computeSessionLoads(data: AppData, settings: CalcSettings, now: 
   const ratios: number[] = [];
   for (const s of sessions) {
     const hrMaxBpm = hrMax.bpm;
-    const factor = s.discipline === 'SWIM' ? SWIM_LOAD_FACTOR : 1;
+    const factor = disciplineLoadFactor(s.discipline);
     const ser = data.series[s.id];
     const an = ser && !ser.deleted ? analyzeHr(ser.hr) : null;
     const hr = an ? an.clean : [];
