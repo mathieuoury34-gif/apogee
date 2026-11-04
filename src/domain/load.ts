@@ -13,7 +13,7 @@
 import { $t } from '../i18n';
 import type { ActualSession, AppData, CalcSettings, ZoneKind, ZoneReading, ZoneSource } from './types';
 import { addDays, ageAt, daysBetween, localDay } from './dates';
-import { analyzeHr, epocFromAverage, epocFromSeries, median, srpe, type Sex } from './hr';
+import { analyzeHr, epocFromAverage, epocFromSeries, median, srpe, SWIM_LOAD_FACTOR, type Sex } from './hr';
 
 export type LoadMethod = 'trimp' | 'trimp_avg' | 'srpe' | 'provisional' | 'pending';
 export type Assise = 'measured' | 'estimated' | 'entered' | 'none';
@@ -123,6 +123,7 @@ export function computeSessionLoads(data: AppData, settings: CalcSettings, now: 
   const ratios: number[] = [];
   for (const s of sessions) {
     const hrMaxBpm = hrMax.bpm;
+    const factor = s.discipline === 'SWIM' ? SWIM_LOAD_FACTOR : 1;
     const ser = data.series[s.id];
     const an = ser && !ser.deleted ? analyzeHr(ser.hr) : null;
     const hr = an ? an.clean : [];
@@ -130,12 +131,12 @@ export function computeSessionLoads(data: AppData, settings: CalcSettings, now: 
     let res: SessionLoad | null = null;
     if (hrMaxBpm && hr.length) {
       const t = epocFromSeries(hr, hrMaxBpm, s.durationSec);
-      if (t) res = { load: t.value, method: 'trimp', drift, assise: 'measured' };
+      if (t) res = { load: t.value * factor, method: 'trimp', drift, assise: 'measured' };
     }
     if (res && s.rpe) ratios.push(res.load! / srpe(s.rpe, s.durationSec));
     if (!res && hrMaxBpm && s.avgHrBpm) {
       const t = epocFromAverage(s.avgHrBpm, s.durationSec, hrMaxBpm);
-      if (t !== null) res = { load: t, method: 'trimp_avg', drift, assise: 'estimated' };
+      if (t !== null) res = { load: t * factor, method: 'trimp_avg', drift, assise: 'estimated' };
     }
     if (res) loads.set(s.id, res);
     else pending.push(s);

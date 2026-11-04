@@ -86,17 +86,20 @@ export function trimpFromAverage(avgBpm: number, durationSec: number, c: TrimpCo
 // La charge d'une séance suit l'EPOC (consommation d'oxygène en excès après l'effort) : elle se construit vite avec l'intensité, puis
 // SATURE avec la durée (une sortie de 2 h 15 facile ne pèse pas trois fois une heure : le corps ne s'endette pas indéfiniment). C'est le principe
 // publié de Banister (1991, réponse impulsionnelle) et de Firstbeat (EPOC) ; les valeurs numériques sont ajustées par Apogée sur 43 séances de
-// référence de ta montre Garmin (course, vélo, natation, renforcement, randonnées). Ce n'est pas la formule de Garmin.
+// référence de ta montre Garmin (21 courses, 13 vélos, 3 natations, 3 renforcements, 3 randonnées). Ce n'est pas la formule de Garmin.
 //   taux(x) = EPOC_GAIN · max(0, x − EPOC_ONSET)^EPOC_EXP   (x = FC ÷ FC max ; unités de charge par minute)
 //   E(t) : tend vers taux · τ avec la constante de temps EPOC_TAU_MIN (composante rapide, qui sature) ;
 //   L(t) : s'additionne sans saturer, à hauteur de EPOC_SLOW_SHARE × taux × minutes (composante lente : sur 3 à 6 h la fatigue continue de s'accumuler) ;
 //   la charge de la séance est le pic de E + L.
-// Correction de novembre 2026 : sans composante lente, les sorties de plus de 3 h (randonnées) étaient sous-estimées d'environ 40 % face à Garmin.
-export const EPOC_TAU_MIN = 44.7;
-export const EPOC_ONSET = 0.5;
-export const EPOC_EXP = 1.5;
-export const EPOC_GAIN = 23;
-export const EPOC_SLOW_SHARE = 0.075;
+// Réglage du 04/11/2026 : courbe plus raide (exposant 5) — Garmin pèse nettement plus les efforts durs (fractionné, côtes) que le calcul précédent
+// (exposant 1,5), qui sous-estimait ces séances de 30 à 40 % et surestimait les sorties faciles — et composante lente pour les longues sorties.
+export const EPOC_TAU_MIN = 20;
+export const EPOC_ONSET = 0.195;
+export const EPOC_EXP = 5;
+export const EPOC_GAIN = 60;
+export const EPOC_SLOW_SHARE = 0.165;
+/** Natation : la FC au poignet dans l'eau est plus basse qu'à sensation égale, Garmin en tient compte (3 séances de référence : 1,22 à 1,47). */
+export const SWIM_LOAD_FACTOR = 1.3;
 /** Une mesure vaut au plus ce temps avant la suivante (les longues sorties sont stockées avec une mesure toutes les 60 à 90 s). */
 export const EPOC_HOLD_SEC = 120;
 

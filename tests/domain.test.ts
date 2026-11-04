@@ -16,7 +16,7 @@ import { computeDailyForm } from '../src/domain/form';
 import { ingest } from '../src/domain/health';
 import { encodeFit, fitCrc, fitFileName, toFitWorkouts } from '../src/domain/fit';
 import { sleepStats, weightTrend } from '../src/domain/body';
-import { analyzeHr, avgHrForLoad, cleanHr, epocFromAverage, epocFromSeries, epocRate, hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
+import { SWIM_LOAD_FACTOR, analyzeHr, avgHrForLoad, cleanHr, epocFromAverage, epocFromSeries, epocRate, hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
 import { importLegacyDb, emptyData } from '../src/domain/legacy';
 import { buildLoadSeries, computeSessionLoads, resolveHrMax } from '../src/domain/load';
 import { buildManualSession, parseBulkActual, parseBulkPlanned, parseManualFields } from '../src/domain/manual';
@@ -856,15 +856,15 @@ test('répartition de la charge : le renforcement compte en anaérobie', () => {
 
 test('modèle d\'effort (type EPOC) : seuil à 50 % de la FC max, saturation, et une séance courte et dure pèse plus qu\'une longue et facile', () => {
   const flat = (bpm: number, sec: number): [number, number][] => Array.from({ length: sec / 5 }, (_, i) => [i * 5, bpm] as [number, number]);
-  assert.equal(epocRate(0.5), 0);
-  assert.equal(epocRate(0.3), 0);
+  assert.equal(epocRate(0.15), 0);
+  assert.ok(epocRate(0.9) > 4 * epocRate(0.7), 'courbe raide : un effort dur pèse bien plus qu\'un effort facile');
   const hrMax = 200;
   const hour70 = epocFromSeries(flat(140, 3600), hrMax, 3600)!;
-  // 23 × 0,2^1,5 × (44,7 × (1 − e^(−60/44,7)) + 0,075 × 60) ≈ 77
-  assert.ok(Math.abs(hour70.value - 77) < 2, 'une heure à 70 % : ' + hour70.value);
+  // 60 × 0,505^5 × (20 × (1 − e^(−3)) + 0,165 × 60) ≈ 57
+  assert.ok(Math.abs(hour70.value - 57) < 2, 'une heure à 70 % : ' + hour70.value);
   const longEasy = epocFromSeries(flat(125, 4 * 3600), hrMax, 4 * 3600)!.value;
   const longerEasy = epocFromSeries(flat(125, 8 * 3600), hrMax, 8 * 3600)!.value;
-  assert.ok(longerEasy < longEasy * 1.4 && longerEasy > longEasy, 'la charge sature en grande partie : doubler la durée ne double pas l\'effort');
+  assert.ok(longerEasy < longEasy * 1.9 && longerEasy > longEasy, 'la charge sature en partie : doubler la durée ne double pas l\'effort');
   // une longue sortie stockée avec une mesure toutes les 80 s pèse comme la même sortie finement mesurée
   const sparse = Array.from({ length: 270 }, (_, i) => [i * 80, 125] as [number, number]);
   const sparseLoad = epocFromSeries(sparse, hrMax, 6 * 3600)!.value, denseLoad = epocFromSeries(flat(125, 6 * 3600), hrMax, 6 * 3600)!.value;
@@ -874,6 +874,17 @@ test('modèle d\'effort (type EPOC) : seuil à 50 % de la FC max, saturation, et
   const viaAvg = epocFromAverage(140, 3600, hrMax)!;
   assert.ok(Math.abs(viaAvg - hour70.value) < 1, 'FC moyenne constante : même valeur que la courbe');
   assert.equal(epocFromSeries(flat(140, 20), hrMax, 20)?.value ?? null, null, 'moins de 10 mesures : pas de charge mesurée');
+});
+
+test('natation : la charge est majorée du facteur de natation, pas les autres disciplines', () => {
+  const d = emptyData();
+  d.athlete.main = { id: 'main', updatedAt: '', displayName: null, birthDate: '1995-01-01', sex: 'M', availability: [], equipment: [], injuries: [] };
+  for (const [id, disc] of [['a', 'RUN'], ['b', 'SWIM']] as const) {
+    d.actual[id] = session(id, '2026-09-01', { source: 'health', sourceId: id, discipline: disc, hasSeries: true, durationSec: 3600 });
+    d.series[id] = { id, updatedAt: '', hr: Array.from({ length: 360 }, (_, k) => [1788000000 + k * 10, 140] as [number, number]), speed: [] };
+  }
+  const { loads } = computeSessionLoads(d, SETTINGS, new Date('2026-09-10T12:00:00Z'));
+  assert.ok(Math.abs(loads.get('b')!.load! / loads.get('a')!.load! - SWIM_LOAD_FACTOR) < 0.001);
 });
 
 test('sommeil corrigé à la main : la lecture de la montre ne l\'écrase plus', () => {
