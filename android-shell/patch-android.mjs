@@ -133,12 +133,17 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebViewClient;
 
 public class MainActivity extends BridgeActivity {
+    private boolean retried = false;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // L'écran de lancement (logo sur fond sombre) reste affiché jusqu'à ce que la page web ait dessiné son propre écran de démarrage
@@ -149,6 +154,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ApogeeHealthPlugin.class);
         super.onCreate(savedInstanceState);
         openOfflineIfNeeded();
+        watchNetwork();
+        guardLoadErrors();
     }
 
     private boolean online() {
@@ -178,6 +185,71 @@ public class MainActivity extends BridgeActivity {
         } catch (Exception e) {
             // repli : comportement normal
         }
+    }
+
+    private void applyCacheMode() {
+        try {
+            getBridge().getWebView().getSettings().setCacheMode(online() ? WebSettings.LOAD_DEFAULT : WebSettings.LOAD_CACHE_ELSE_NETWORK);
+        } catch (Exception e) {
+            // rien
+        }
+    }
+
+    // Le réseau peut tomber (mode avion) ou revenir pendant que l'app est ouverte ou en arrière-plan : le mode du cache suit, si bien qu'un
+    // rechargement de la page (processus de la page recyclé par Android, par exemple) se fait depuis la mémoire du téléphone quand il n'y a plus de réseau.
+    private void watchNetwork() {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            cm.registerDefaultNetworkCallback(new ConnectivityManager.NetworkCallback() {
+                @Override
+                public void onAvailable(Network network) { runOnUiThread(() -> applyCacheMode()); }
+
+                @Override
+                public void onLost(Network network) { runOnUiThread(() -> applyCacheMode()); }
+            });
+        } catch (Exception e) {
+            // rien
+        }
+    }
+
+    // Si le chargement de la page échoue quand même : on réessaie une fois depuis la mémoire du téléphone ; sinon un écran simple
+    // (au lieu de « Web page not available ») dit qu'il faut se connecter une première fois.
+    private void guardLoadErrors() {
+        try {
+            getBridge().getWebView().setWebViewClient(new BridgeWebViewClient(getBridge()) {
+                @Override
+                public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                    super.onReceivedError(view, request, error);
+                    if (request == null || !request.isForMainFrame()) return;
+                    if (!retried) {
+                        retried = true;
+                        view.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
+                        view.loadUrl(request.getUrl().toString());
+                    } else {
+                        showOfflinePage(view);
+                    }
+                }
+
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    super.onPageFinished(view, url);
+                    if (url != null && url.startsWith("http")) retried = false;
+                }
+            });
+        } catch (Exception e) {
+            // repli : comportement normal
+        }
+    }
+
+    private void showOfflinePage(WebView view) {
+        String url = getBridge().getConfig().getServerUrl();
+        String html = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'></head>"
+            + "<body style='margin:0;min-height:100vh;display:grid;place-items:center;background:#16181B;color:#FBFAF7;font:16px system-ui,sans-serif;text-align:center;padding:24px'>"
+            + "<main><h2>Hors connexion</h2>"
+            + "<p>Apog&eacute;e n&rsquo;a pas de copie de l&rsquo;application sur ce t&eacute;l&eacute;phone pour le moment.<br>Connecte-toi une fois : elle fonctionnera ensuite hors ligne.</p>"
+            + "<a href='" + url + "' style='display:inline-block;margin-top:16px;line-height:44px;padding:0 24px;border-radius:999px;background:#FBFAF7;color:#16181B;font-weight:600;text-decoration:none'>R&eacute;essayer</a>"
+            + "</main></body></html>";
+        view.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
     }
 }
 `);
