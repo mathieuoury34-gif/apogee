@@ -130,7 +130,7 @@ export interface PlannedSession extends Rec {
 }
 
 /** Champs d'une séance réalisée qu'une édition manuelle peut écraser (leur assise passe à « saisie »). */
-export type EditableField = 'date' | 'discipline' | 'durationSec' | 'distanceM' | 'avgHrBpm' | 'elevationGainM';
+export type EditableField = 'date' | 'discipline' | 'durationSec' | 'distanceM' | 'avgHrBpm' | 'elevationGainM' | 'elevationLossM';
 
 export interface ActualSession extends Rec {
   /** Identifiant d'origine : `clientRecordId` Garmin (Health Connect) ou `manual:<empreinte>`. Immuable. */
@@ -151,6 +151,8 @@ export interface ActualSession extends Rec {
   activeCaloriesJ: number | null;
   totalCaloriesJ: number | null;
   elevationGainM: number | null;
+  /** Dénivelé négatif (descente cumulée, m). Health Connect ne le fournit pas : il vient de la saisie ou d'un import Garmin. */
+  elevationLossM?: number | null;
   avgHrBpm: number | null;
   maxHrBpm: number | null;
   minHrBpm: number | null;

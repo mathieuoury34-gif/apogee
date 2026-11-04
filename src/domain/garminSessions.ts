@@ -1,4 +1,4 @@
-// Reprise, depuis les fiches Garmin Connect, du dénivelé exact et de la charge de chaque séance (format apogee-garmin/3).
+// Reprise, depuis les fiches Garmin Connect, du dénivelé exact (D+ et D−) et de la charge de chaque séance (format apogee-garmin/3).
 // Une ligne retrouve sa séance par identifiant (sessionId) ou, à défaut, par l'heure de début à 5 minutes près.
 // Le dénivelé de Health Connect diffère souvent de celui de la montre ; la charge sert, pour une activité sans capteur
 // cardiaque, à estimer une FC moyenne qui redonne la charge de Garmin (une séance avec courbe garde sa charge calculée).
@@ -17,6 +17,8 @@ export interface GraphSession {
   discipline?: string;
   /** Dénivelé positif affiché par Garmin Connect (m). */
   elevationM?: number | null;
+  /** Dénivelé négatif (descente) affiché par Garmin Connect (m). */
+  descentM?: number | null;
   /** Charge d'entraînement affichée par Garmin Connect (« Exercise Load »). */
   loadGarmin?: number | null;
   /** Charge estimée par Apogée quand Garmin n'en a pas (activité sans capteur cardiaque) ; sert comme loadGarmin, qui garde la priorité. */
@@ -30,6 +32,7 @@ export const MATCH_TOLERANCE_MS = 5 * 60_000;
 export interface SessionsReport {
   matched: number; notFound: string[];
   elevationSet: number; elevationKept: number;
+  descentSet: number; descentKept: number;
   hrEstimated: number; hrKept: number;
   /** Séances avec une courbe cardiaque exploitable : leur charge est calculée sur la courbe, jamais modifiée par l'import. */
   curveKept: number;
@@ -38,7 +41,7 @@ export interface SessionsReport {
 }
 
 export function correctSessions(data: AppData, rows: GraphSession[] | undefined, hrMaxBpm: number | null): { actual: ActualSession[]; report: SessionsReport } {
-  const report: SessionsReport = { matched: 0, notFound: [], elevationSet: 0, elevationKept: 0, hrEstimated: 0, hrKept: 0, curveKept: 0, hrOutOfRange: 0 };
+  const report: SessionsReport = { matched: 0, notFound: [], elevationSet: 0, elevationKept: 0, descentSet: 0, descentKept: 0, hrEstimated: 0, hrKept: 0, curveKept: 0, hrOutOfRange: 0 };
   const live = liveRecords(data.actual);
   const patched = new Map<string, ActualSession>();
   const now = nowIso();
@@ -71,6 +74,12 @@ export function correctSessions(data: AppData, rows: GraphSession[] | undefined,
       else { next = { ...next, elevationGainM: el }; edited.add('elevationGainM'); report.elevationSet++; changed = true; }
     }
 
+    const de = typeof r.descentM === 'number' && Number.isFinite(r.descentM) && r.descentM >= 0 && r.descentM <= 9000 ? Math.round(r.descentM) : null;
+    if (de !== null) {
+      if (cur.elevationLossM !== null && cur.elevationLossM !== undefined && Math.abs(cur.elevationLossM - de) < 0.5) report.descentKept++;
+      else { next = { ...next, elevationLossM: de }; edited.add('elevationLossM'); report.descentSet++; changed = true; }
+    }
+
     const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
     const load = num(r.loadGarmin) ?? num(r.loadEstimate);
     if (load !== null) {
@@ -95,10 +104,11 @@ export function correctSessions(data: AppData, rows: GraphSession[] | undefined,
 export function sessionsMessage(r: SessionsReport): string {
   const parts: string[] = [];
   if (r.elevationSet) parts.push($t("{0} dénivelé(s) mis à jour d’après Garmin", { 0: r.elevationSet }));
+  if (r.descentSet) parts.push($t("{0} descente(s) mise(s) à jour d’après Garmin", { 0: r.descentSet }));
   if (r.hrEstimated) parts.push($t("{0} FC moyenne(s) estimée(s) pour retrouver la charge visée (Garmin ou estimation)", { 0: r.hrEstimated }));
   if (r.curveKept) parts.push($t("{0} séance(s) avec courbe cardiaque : charge calculée sur la courbe, inchangée", { 0: r.curveKept }));
   if (r.hrOutOfRange) parts.push($t("{0} charge(s) Garmin trop élevée(s) pour une FC plausible, non estimée(s)", { 0: r.hrOutOfRange }));
-  if (r.elevationKept + r.hrKept) parts.push($t("{0} valeur(s) déjà conformes", { 0: r.elevationKept + r.hrKept }));
+  if (r.elevationKept + r.descentKept + r.hrKept) parts.push($t("{0} valeur(s) déjà conformes", { 0: r.elevationKept + r.descentKept + r.hrKept }));
   if (r.notFound.length) parts.push($t("{0} séance(s) introuvable(s) dans l’appli ({1})", { 0: r.notFound.length, 1: r.notFound.slice(0, 3).join(', ') + (r.notFound.length > 3 ? '…' : '') }));
   return parts.join(', ');
 }

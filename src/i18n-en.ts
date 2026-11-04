@@ -1535,4 +1535,9 @@ export const EN: Record<string, string> = {
   "{0} charge(s) Garmin trop élevée(s) pour une FC plausible, non estimée(s)": "{0} Garmin load(s) too high for a plausible heart rate, not estimated",
   "{0} valeur(s) déjà conformes": "{0} value(s) already matching",
   "{0} séance(s) introuvable(s) dans l’appli ({1})": "{0} session(s) not found in the app ({1})",
+  "Dénivelé −": "Elevation loss",
+  "Dénivelé − (m)": "Elevation loss (m)",
+  " Descente {0} m.": " Descent {0} m.",
+  "dénivelé négatif invalide : « {0} »": "invalid elevation loss: “{0}”",
+  "{0} descente(s) mise(s) à jour d’après Garmin": "{0} descent value(s) updated from Garmin",
 };

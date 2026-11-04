@@ -61,6 +61,8 @@ export function hours(sec: number): string { return hhmm(sec); }
 
 /** « 1 240 kcal » depuis des joules ou des kcal */
 export function kcal(v: number | null | undefined): string { return v === null || v === undefined || !isFinite(v) ? '—' : num(v, 0) + NBSP + 'kcal'; }
+/** « −320 m » (descente) */
+export function descent(m: number | null | undefined): string { return m === null || m === undefined || !isFinite(m) ? '—' : '−' + num(m, 0) + NBSP + 'm'; }
 /** « +320 m » */
 export function elevation(m: number | null | undefined): string { return m === null || m === undefined || !isFinite(m) ? '—' : '+' + num(m, 0) + NBSP + 'm'; }
 

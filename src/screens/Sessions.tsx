@@ -21,7 +21,7 @@ import { DRIFT_REASON_TEXT, reviewSession, VERDICT_TEXT } from '../domain/review
 import { KCAL_J, disciplineStats, overview, paceOf, weeklyVolume } from '../domain/stats';
 import type { ActualDiscipline, ActualSession, PlannedDiscipline } from '../domain/types';
 import { ACTUAL_DISCIPLINES } from '../domain/types';
-import { DISCIPLINE_SHORT, bpm, dateFr, dateTimeFr, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, elevation, hm, hours, kcal, km, mmss, monthLong, num, paceFor, parseNum, pct, pctSigned, signed, speedKmh, timeOf, toInput, NBSP } from '../ui/format';
+import { DISCIPLINE_SHORT, bpm, dateFr, dateTimeFr, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, descent, elevation, hm, hours, kcal, km, mmss, monthLong, num, paceFor, parseNum, pct, pctSigned, signed, speedKmh, timeOf, toInput, NBSP } from '../ui/format';
 import { cleanHr } from '../domain/hr';
 import { polarSplit, zoneTimes } from '../domain/zones';
 import { BricksCard, ComplianceCard, EfficiencyCard, RecordsCard, ZonesCard } from './Analysis';
@@ -207,9 +207,10 @@ export function ReviewScreen({ id }: { id: string }) {
             <Kpi label={$t("FC max")} value={bpm(s.maxHrBpm)} />
             <Kpi label={$t("Charge")} value={l.load === null ? '—' : num(l.load, 0)} cls={l.assise === 'estimated' ? $t(" est") : ''} />
             {(s.discipline === 'RUN' || s.discipline === 'BIKE' || s.elevationGainM) ? <Kpi label={$t("Dénivelé +")} value={s.elevationGainM ? elevation(s.elevationGainM) : '—'} cls={mark('elevationGainM')} /> : null}
+            {(s.discipline === 'RUN' || s.discipline === 'BIKE' || s.elevationLossM) ? <Kpi label={$t("Dénivelé −")} value={s.elevationLossM ? descent(s.elevationLossM) : '—'} cls={mark('elevationLossM')} /> : null}
             {s.activeCaloriesJ ? <Kpi label={$t("Calories actives")} value={kcal(s.activeCaloriesJ / KCAL_J)} /> : null}
           </div>
-          <Info>{$t("Charge")} {METHOD_LABEL[l.method]}{l.method === 'srpe' ? $t(" (RPE × minutes × {0}, coefficient appris sur {1})", { 0: num(d.ctx.srpeFactor, 2), 1: d.ctx.srpeCalibrationPairs >= 5 ? $t("tes séances") : $t("une valeur type") }) : ''}.{s.edited.length ? $t(" Valeurs soulignées : corrigées à la main.") : ''}{s.elevationGainM ? $t(" Dénivelé {0} m.", { 0: num(s.elevationGainM, 0) }) : ''}{s.activeCaloriesJ ? $t(" {0} kcal actives.", { 0: num(s.activeCaloriesJ / 4184, 0) }) : ''}</Info>
+          <Info>{$t("Charge")} {METHOD_LABEL[l.method]}{l.method === 'srpe' ? $t(" (RPE × minutes × {0}, coefficient appris sur {1})", { 0: num(d.ctx.srpeFactor, 2), 1: d.ctx.srpeCalibrationPairs >= 5 ? $t("tes séances") : $t("une valeur type") }) : ''}.{s.edited.length ? $t(" Valeurs soulignées : corrigées à la main.") : ''}{s.elevationGainM ? $t(" Dénivelé {0} m.", { 0: num(s.elevationGainM, 0) }) : ''}{s.elevationLossM ? $t(" Descente {0} m.", { 0: num(s.elevationLossM, 0) }) : ''}{s.activeCaloriesJ ? $t(" {0} kcal actives.", { 0: num(s.activeCaloriesJ / 4184, 0) }) : ''}</Info>
           <HrTrace id={s.id} />
         </InfoCard>
 
@@ -357,9 +358,10 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
   const [dist, setDist] = useState(s.distanceM ? toInput(s.distanceM / 1000, 2) : '');
   const [hr, setHr] = useState(s.avgHrBpm ? String(Math.round(s.avgHrBpm)) : '');
   const [elev, setElev] = useState(s.elevationGainM ? String(Math.round(s.elevationGainM)) : '');
+  const [desc, setDesc] = useState(s.elevationLossM ? String(Math.round(s.elevationLossM)) : '');
   const [cal, setCal] = useState(false);
   const withElev = disc === 'RUN' || disc === 'BIKE' || disc === 'OTHER';
-  const r = parseManualFields({ date, discipline: disc, durationMin: durSec > 0 ? String(durSec / 60) : '', distanceKm: dist, avgHrBpm: hr, elevationM: withElev ? elev : '' });
+  const r = parseManualFields({ date, discipline: disc, durationMin: durSec > 0 ? String(durSec / 60) : '', distanceKm: dist, avgHrBpm: hr, elevationM: withElev ? elev : '', descentM: withElev ? desc : '' });
   const save = () => {
     if ('error' in r) return;
     const snap = editActual(s.id, { ...r.input, rpe: s.rpe, comment: s.comment, subSport: disc === 'OTHER' ? sub : null, title });
@@ -385,6 +387,7 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
         <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
           <div className="field"><span className="lbl">{$t("Distance")}</span><DistanceField label={$t("Distance")} value={numOf(dist) === null ? null : numOf(dist)! * 1000} onChange={(m) => setDist(m === null || m === 0 ? '' : toInput(m / 1000, 3).replace(/[.,]?0+$/, ''))} clearable hiMax={400} loStep={disc === 'SWIM' ? 25 : 10} /></div>
           {withElev && <div className="field"><span className="lbl">{$t("Dénivelé + (m)")}</span><IntField label={$t("Dénivelé + (m)")} value={numOf(elev)} onChange={(v) => setElev(v === null ? '' : String(v))} clearable min={0} max={9000} step={10} unit="m" /></div>}
+          {withElev && <div className="field"><span className="lbl">{$t("Dénivelé − (m)")}</span><IntField label={$t("Dénivelé − (m)")} value={numOf(desc)} onChange={(v) => setDesc(v === null ? '' : String(v))} clearable min={0} max={9000} step={10} unit="m" /></div>}
           <div className="field"><span className="lbl">{$t("FC moy.")}</span><IntField label={$t("FC moy.")} value={numOf(hr)} onChange={(v) => setHr(v === null ? '' : String(v))} clearable min={30} max={230} unit="bpm" initial={140} /></div>
         </div>
         {'error' in r && <span className="err t-caption-strong c-critical">{r.error}</span>}
@@ -439,11 +442,12 @@ export function ManualEntryScreen() {
   const [dist, setDist] = useState('');
   const [hr, setHr] = useState('');
   const [elev, setElev] = useState('');
+  const [desc, setDesc] = useState('');
   const [rpe, setRpe] = useState<number | null>(null);
   const [comment, setComment] = useState('');
   const [text, setText] = useState('');
   const withElev = disc === 'RUN' || disc === 'BIKE' || disc === 'OTHER';
-  const r = parseManualFields({ date, discipline: disc, durationMin: durSec > 0 ? String(durSec / 60) : '', distanceKm: dist, avgHrBpm: hr, elevationM: withElev ? elev : '' });
+  const r = parseManualFields({ date, discipline: disc, durationMin: durSec > 0 ? String(durSec / 60) : '', distanceKm: dist, avgHrBpm: hr, elevationM: withElev ? elev : '', descentM: withElev ? desc : '' });
   const parsed = useMemo(() => (mode === 'bulk' ? parseBulkActual(text) : mode === 'planned' ? parseBulkPlanned(text) : null), [mode, text]);
   const durMin = durSec > 0 ? durSec / 60 : NaN, distKm = parseNum(dist);
   const submitSingle = () => {
@@ -496,6 +500,7 @@ export function ManualEntryScreen() {
               <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
                 <div className="field"><span className="lbl">{$t("Distance")}</span><DistanceField label={$t("Distance")} value={numOf(dist) === null ? null : numOf(dist)! * 1000} onChange={(m) => setDist(m === null || m === 0 ? '' : toInput(m / 1000, 3).replace(/[.,]?0+$/, ''))} clearable hiMax={400} loStep={disc === 'SWIM' ? 25 : 10} /></div>
                 {withElev && <div className="field"><span className="lbl">{$t("Dénivelé + (m)")}</span><IntField label={$t("Dénivelé + (m)")} value={numOf(elev)} onChange={(v) => setElev(v === null ? '' : String(v))} clearable min={0} max={9000} step={10} unit="m" /></div>}
+          {withElev && <div className="field"><span className="lbl">{$t("Dénivelé − (m)")}</span><IntField label={$t("Dénivelé − (m)")} value={numOf(desc)} onChange={(v) => setDesc(v === null ? '' : String(v))} clearable min={0} max={9000} step={10} unit="m" /></div>}
                 <div className="field"><span className="lbl">{$t("FC moy.")}</span><IntField label={$t("FC moy.")} value={numOf(hr)} onChange={(v) => setHr(v === null ? '' : String(v))} clearable min={30} max={230} unit="bpm" initial={140} /></div>
               </div>
               <div className="field"><span className="lbl">{$t("Ressenti")}</span><RpeScale value={rpe} onChange={setRpe} /></div>

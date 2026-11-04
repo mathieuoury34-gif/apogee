@@ -620,9 +620,10 @@ test('fichier .FIT : structure valide, cibles converties, répétitions, BRICK e
 });
 
 test('saisie manuelle : dénivelé enregistré et borné ; durées longues en 2h05', () => {
-  const ok = parseManualFields({ date: '2026-10-20', discipline: 'BIKE', durationMin: '125', distanceKm: '50', elevationM: '830' });
+  const ok = parseManualFields({ date: '2026-10-20', discipline: 'BIKE', durationMin: '125', distanceKm: '50', elevationM: '830', descentM: '790' });
   assert.ok('input' in ok);
-  if ('input' in ok) assert.equal(buildManualSession(ok.input, 'e1').elevationGainM, 830);
+  if ('input' in ok) { const b = buildManualSession(ok.input, 'e1'); assert.equal(b.elevationGainM, 830); assert.equal(b.elevationLossM, 790); }
+  assert.ok('error' in parseManualFields({ date: '2026-10-20', discipline: 'RUN', durationMin: '30', descentM: '-5' }));
   assert.ok('error' in parseManualFields({ date: '2026-10-20', discipline: 'RUN', durationMin: '30', elevationM: '-5' }));
   assert.ok('error' in parseManualFields({ date: '2026-10-20', discipline: 'RUN', durationMin: '30', elevationM: '99999' }));
   assert.equal(hm(125 * 60), '2h05');
@@ -1102,7 +1103,7 @@ test('import Garmin v3 : dénivelé remplacé, FC estimée seulement sans courbe
   const file = {
     format: 'apogee-garmin/3' as const,
     sessions: [
-      { startAt: '2026-09-22T04:16:00Z', sessionId: 'm2', discipline: 'OTHER', elevationM: 800, loadEstimate: 30, label: 'saisie à midi, par identifiant' },
+      { startAt: '2026-09-22T04:16:00Z', sessionId: 'm2', discipline: 'OTHER', elevationM: 800, descentM: 950, loadEstimate: 30, label: 'saisie à midi, par identifiant' },
       { startAt: '2026-09-22T12:00:00Z', sessionId: 'inconnu', label: 'identifiant inconnu' },
       { startAt: '2026-09-14T07:02:00Z', discipline: 'RUN', elevationM: 12, loadGarmin: 999, label: 'avec courbe' },
       { startAt: '2026-09-20T12:00:00Z', elevationM: 40, loadGarmin: 80, label: 'saisie' },
@@ -1121,7 +1122,8 @@ test('import Garmin v3 : dénivelé remplacé, FC estimée seulement sans courbe
   assert.deepEqual(by.get('m1')!.edited, [], 'saisie à la main : pas de marqueur');
   assert.deepEqual(by.get('h1')!.edited.sort(), ['avgHrBpm', 'durationSec', 'elevationGainM']);
   assert.equal(by.get('h1')!.elevationGainM, 1540);
-  assert.equal(by.get('m2')!.elevationGainM, 800); assert.deepEqual(by.get('m2')!.edited, []);
+  assert.equal(by.get('m2')!.elevationGainM, 800); assert.equal(by.get('m2')!.elevationLossM, 950); assert.deepEqual(by.get('m2')!.edited, []);
+  assert.equal(r.report.descentSet, 1);
   assert.equal(r.report.curveKept, 1); assert.equal(r.report.hrEstimated, 3); assert.equal(r.report.elevationSet, 4);
   assert.deepEqual(r.report.notFound, ['identifiant inconnu', 'mauvaise discipline', 'absente']);
   assert.match(sessionsMessage(r.report), /4 dénivelé\(s\)|4 elevation/);
@@ -1136,7 +1138,7 @@ test('import Garmin v3 : dénivelé remplacé, FC estimée seulement sans courbe
   assert.equal(after.get('r0')!.load, before.get('r0')!.load);
   // deuxième passage : rien à faire
   const again = correctSessions(d, file.sessions, hrMax);
-  assert.equal(again.actual.length, 0); assert.equal(again.report.elevationKept, 4); assert.equal(again.report.hrKept, 3);
+  assert.equal(again.actual.length, 0); assert.equal(again.report.elevationKept, 4); assert.equal(again.report.descentKept, 1); assert.equal(again.report.hrKept, 3);
 });
 
 test('coach : le dossier contient les valeurs Garmin (VO₂max, seuil, prédictions) et la santé récente', () => {
