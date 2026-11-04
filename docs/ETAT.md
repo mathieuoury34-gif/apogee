@@ -172,3 +172,5 @@ des fichiers (les RPE ne sont pas transmis : étape ouverte, simple avertissemen
 `Workouts`). Textes de l'app et aide corrigés. **Validé par Mathieu le 19/10 sur sa montre** : copie dans `GARMIN/NewFiles`, les séances apparaissent. Aide et texte du calendrier précisent ce dossier.
 
 **Validation de la charge (04/11)** — 18 séances comparées à Garmin : écart médian 9,7 %, semaine du 26/10 à −2 % (444 contre 453), constantes inchangées. Le dénivelé n'entre pas dans la charge : pas assez de séances vallonnées pour le calibrer (voir SPECS-TECH, addendum 04/11).
+
+**Import des séances Garmin (04/11)** — nouveau format `apogee-garmin/3` : dénivelé exact de chaque séance d'après Garmin Connect et, pour une activité sans capteur cardiaque, FC moyenne estimée pour retrouver la charge Garmin (une séance avec courbe garde sa charge). Premier fichier : 24 séances du 02/10 au 03/11 (18 dénivelés). **En attente** : captures Garmin des séances d'août à début octobre (courses, vélos, randonnées « Étape », voile) pour compléter le fichier. À tester sur téléphone : Paramètres › Données › Importer un JSON.

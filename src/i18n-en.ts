@@ -1529,4 +1529,10 @@ export const EN: Record<string, string> = {
   "Toutes ces valeurs viennent de ta montre Garmin : Apogée ne les recalcule pas (VO₂max, seuil de lactate, prédictions de course), il les reprend telles que Garmin les affiche, un relevé par semaine, reliés entre eux. Touche ou fais glisser un graphe : le curseur se déplace sur tous et lit le dernier relevé connu à cette date ; les flèches reculent d’une période. Tu peux les saisir à la main avec « Saisir » ou les importer d’un fichier (Paramètres › Données › Importer un JSON).": "All these values come from your Garmin watch: Apogée does not recompute them (VO₂max, lactate threshold, race predictions), it takes them as Garmin shows them, one reading per week, linked together. Touch or drag a chart: the cursor moves on all of them and reads the latest known reading at that date; the arrows go back one period. You can enter them by hand with “Enter” or import them from a file (Settings › Data › Import a JSON).",
   "Capacité aérobie (VO₂max Garmin)": "Aerobic capacity (Garmin VO₂max)",
   "Sans VO₂max de ta montre (point de la semaine), l’indice ne repose que sur le volume et la durée des sorties.": "Without your watch’s VO₂max (weekly check-in), the index relies only on volume and session length.",
+  "{0} dénivelé(s) mis à jour d’après Garmin": "{0} elevation gain(s) updated from Garmin",
+  "{0} FC moyenne(s) estimée(s) pour retrouver la charge Garmin": "{0} average HR(s) estimated to match the Garmin load",
+  "{0} séance(s) avec courbe cardiaque : charge calculée sur la courbe, inchangée": "{0} session(s) with a heart-rate curve: load computed from the curve, unchanged",
+  "{0} charge(s) Garmin trop élevée(s) pour une FC plausible, non estimée(s)": "{0} Garmin load(s) too high for a plausible heart rate, not estimated",
+  "{0} valeur(s) déjà conformes": "{0} value(s) already matching",
+  "{0} séance(s) introuvable(s) dans l’appli ({1})": "{0} session(s) not found in the app ({1})",
 };

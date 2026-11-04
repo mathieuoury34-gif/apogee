@@ -4,23 +4,26 @@ import { mondayOf, today } from './dates';
 import { nowIso } from './ids';
 import { emptyCheckin } from './checkin';
 import { dayEnergy } from './energy';
+import type { GraphSession } from './garminSessions';
 import type { AppData, Checkin, EnergyDay, EnergyPart, SleepNight } from './types';
 
 export const GRAPH_FORMAT = 'apogee-garmin/1';
 /** Version « correctif » : les valeurs de Garmin Connect remplacent celles de Health Connect quand elles divergent nettement (et ne sont plus écrasées ensuite). */
 export const GRAPH_FORMAT_V2 = 'apogee-garmin/2';
+/** Version « séances » : comme la 2, plus le dénivelé exact et la charge de chaque séance d'après Garmin Connect (voir garminSessions.ts). */
+export const GRAPH_FORMAT_V3 = 'apogee-garmin/3';
 
 export interface GraphEnergyDay { day: string; totalKcal?: number | null; restKcal?: number | null; steps?: number | null; floors?: number | null }
 /** Un relevé de la montre un jour donné : VO₂max (1 décimale), seuil de lactate, prédictions de course (secondes). */
 export interface GraphPrediction { day: string; vo2max?: number | null; lthrBpm?: number | null; lthPaceSecKm?: number | null; pred5kSec?: number | null; pred10kSec?: number | null; predHalfSec?: number | null; predMarathonSec?: number | null }
 /** Une nuit de Garmin Connect : jour du réveil et durée réellement endormie. */
 export interface GraphSleep { night: string; durationMin: number }
-export interface GarminGraphFile { format: typeof GRAPH_FORMAT | typeof GRAPH_FORMAT_V2; note?: string; energy?: GraphEnergyDay[]; sleep?: GraphSleep[]; predictions?: GraphPrediction[] }
+export interface GarminGraphFile { format: typeof GRAPH_FORMAT | typeof GRAPH_FORMAT_V2 | typeof GRAPH_FORMAT_V3; note?: string; energy?: GraphEnergyDay[]; sleep?: GraphSleep[]; predictions?: GraphPrediction[]; sessions?: GraphSession[] }
 export interface GraphReport { energyAdded: number; energyFilled: number; energyKept: number; checkinsAdded: number; checkinsFilled: number; checkinsKept: number }
 
 export function isGarminGraph(j: unknown): j is GarminGraphFile {
   const f = j as Partial<GarminGraphFile> | null;
-  return !!f && typeof f === 'object' && (f.format === GRAPH_FORMAT || f.format === GRAPH_FORMAT_V2);
+  return !!f && typeof f === 'object' && (f.format === GRAPH_FORMAT || f.format === GRAPH_FORMAT_V2 || f.format === GRAPH_FORMAT_V3);
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;

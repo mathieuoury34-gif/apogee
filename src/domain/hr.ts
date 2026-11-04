@@ -127,6 +127,17 @@ export function epocFromAverage(avgBpm: number, durationSec: number, hrMaxBpm: n
   return epocRate(avgBpm / hrMaxBpm) * EPOC_TAU_MIN * (1 - Math.exp(-durationSec / 60 / EPOC_TAU_MIN));
 }
 
+/**
+ * Inverse de `epocFromAverage` : FC moyenne qui, sur `durationSec`, redonne la charge `load` (utile pour une activité sans capteur
+ * dont on connaît la charge d'après la montre). `null` si la charge est nulle ou hors de portée (au-delà d'une FC de 105 % de la FC max).
+ */
+export function avgHrForLoad(load: number, durationSec: number, hrMaxBpm: number): number | null {
+  if (!(load > 0) || !(durationSec > 0) || !(hrMaxBpm > 100)) return null;
+  const rate = load / (EPOC_TAU_MIN * (1 - Math.exp(-durationSec / 60 / EPOC_TAU_MIN)));
+  if (rate > epocRate(1.05)) return null;
+  return (EPOC_ONSET + Math.pow(rate / EPOC_GAIN, 1 / EPOC_EXP)) * hrMaxBpm;
+}
+
 /** sRPE de Foster : RPE × minutes (échelle propre, recalée ensuite sur celle du TRIMP). */
 export function srpe(rpe: number, durationSec: number): number {
   return rpe * (durationSec / 60);

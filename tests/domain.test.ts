@@ -16,7 +16,7 @@ import { computeDailyForm } from '../src/domain/form';
 import { ingest } from '../src/domain/health';
 import { encodeFit, fitCrc, fitFileName, toFitWorkouts } from '../src/domain/fit';
 import { sleepStats, weightTrend } from '../src/domain/body';
-import { analyzeHr, cleanHr, epocFromAverage, epocFromSeries, epocRate, hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
+import { analyzeHr, avgHrForLoad, cleanHr, epocFromAverage, epocFromSeries, epocRate, hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
 import { importLegacyDb, emptyData } from '../src/domain/legacy';
 import { buildLoadSeries, computeSessionLoads, resolveHrMax } from '../src/domain/load';
 import { buildManualSession, parseBulkActual, parseBulkPlanned, parseManualFields } from '../src/domain/manual';
@@ -27,7 +27,8 @@ import { loadFocus } from '../src/domain/loadStatus';
 import { capacityHistory } from '../src/domain/capacity';
 import { ingestEnergy, ingestVitals } from '../src/domain/healthExtra';
 import { checkinStatus, currentCheckin, emptyCheckin, metricSeries, sundayOf } from '../src/domain/checkin';
-import { correctFromGarmin, mergeGarminGraph } from '../src/domain/garminGraph';
+import { correctFromGarmin, isGarminGraph, mergeGarminGraph } from '../src/domain/garminGraph';
+import { correctSessions, sessionsMessage } from '../src/domain/garminSessions';
 import { purgePlan } from '../src/domain/purge';
 import { acuteSeries, dailyStatus, statusOf, weeklyStatus } from '../src/domain/loadStatus';
 import type { DayLoad } from '../src/domain/load';
@@ -1080,6 +1081,57 @@ test('import Garmin v2 : VO₂max et prédictions de la montre remplacent celles
   // la version 1 ne remplace jamais
   const v1 = mergeGarminGraph({ ...emptyData(), checkins: { '2026-10-19': { ...emptyCheckin('2026-10-19'), vo2max: 53.9, updatedAt: 'x' } } }, { format: 'apogee-garmin/1', predictions: [{ day: '2026-10-25', vo2max: 54.1 }] });
   assert.equal(v1.checkins.length, 0);
+});
+
+test('FC moyenne estimée pour une charge donnée : inverse exact de la formule sur FC moyenne', () => {
+  for (const [load, min] of [[20, 30], [75, 45], [140, 60], [250, 400], [450, 700]] as const) {
+    const hr = avgHrForLoad(load, min * 60, 205)!;
+    assert.ok(hr > 100 && hr < 215, 'FC plausible ' + hr);
+    assert.ok(Math.abs(epocFromAverage(hr, min * 60, 205)! - load) < 0.01, 'aller-retour ' + load);
+  }
+  assert.equal(avgHrForLoad(0, 3000, 205), null); assert.equal(avgHrForLoad(60, 0, 205), null);
+  assert.equal(avgHrForLoad(900, 3600, 205), null, 'charge hors de portée');
+});
+
+test('import Garmin v3 : dénivelé remplacé, FC estimée seulement sans courbe, charge Garmin retrouvée', () => {
+  const d = runnerData();
+  const base = d.actual['r0'];
+  d.actual['m1'] = { ...base, id: 'm1', sourceId: 'manual:m1', source: 'manual', startAt: '2026-09-20T12:00:00.000Z', durationSec: 3000, avgHrBpm: 100, hasSeries: false, elevationGainM: null, edited: [] } as never;
+  d.actual['h1'] = { ...base, id: 'h1', sourceId: 'h1', source: 'health', startAt: '2026-09-21T03:00:00.000Z', durationSec: 6 * 3600, discipline: 'OTHER', avgHrBpm: 100, hasSeries: false, elevationGainM: 300, edited: ['durationSec'] } as never;
+  const file = {
+    format: 'apogee-garmin/3' as const,
+    sessions: [
+      { startAt: '2026-09-14T07:02:00Z', discipline: 'RUN', elevationM: 12, loadGarmin: 999, label: 'avec courbe' },
+      { startAt: '2026-09-20T12:00:00Z', elevationM: 40, loadGarmin: 80, label: 'saisie' },
+      { startAt: '2026-09-21T03:00:00Z', discipline: 'OTHER', elevationM: 1540, loadGarmin: 120, label: 'rando' },
+      { startAt: '2026-09-21T03:00:00Z', discipline: 'BIKE', elevationM: 5, label: 'mauvaise discipline' },
+      { startAt: '2026-01-01T03:00:00Z', elevationM: 5, label: 'absente' },
+    ],
+  };
+  assert.ok(isGarminGraph(file));
+  const now = new Date('2026-10-27T12:00:00Z');
+  const hrMax = resolveHrMax(d, now).bpm;
+  const r = correctSessions(d, file.sessions, hrMax);
+  const by = new Map(r.actual.map((s) => [s.id, s]));
+  assert.equal(by.get('r0')!.elevationGainM, 12, 'dénivelé remplacé'); assert.equal(by.get('r0')!.avgHrBpm, 152, 'courbe : FC moyenne intacte');
+  assert.deepEqual(by.get('r0')!.edited, ['elevationGainM']);
+  assert.deepEqual(by.get('m1')!.edited, [], 'saisie à la main : pas de marqueur');
+  assert.deepEqual(by.get('h1')!.edited.sort(), ['avgHrBpm', 'durationSec', 'elevationGainM']);
+  assert.equal(by.get('h1')!.elevationGainM, 1540);
+  assert.equal(r.report.curveKept, 1); assert.equal(r.report.hrEstimated, 2); assert.equal(r.report.elevationSet, 3);
+  assert.deepEqual(r.report.notFound, ['mauvaise discipline', 'absente']);
+  assert.match(sessionsMessage(r.report), /3 dénivelé\(s\)|3 elevation/);
+  // la charge de l'appli retombe sur celle de Garmin pour les séances sans courbe, et ne bouge pas pour celle avec courbe
+  const before = computeSessionLoads(d, SETTINGS, now).loads;
+  for (const s of r.actual) d.actual[s.id] = s;
+  const after = computeSessionLoads(d, SETTINGS, now).loads;
+  assert.ok(Math.abs(after.get('m1')!.load! - 80) < 1.5, 'saisie : ' + after.get('m1')!.load);
+  assert.ok(Math.abs(after.get('h1')!.load! - 120) < 1.5, 'rando : ' + after.get('h1')!.load);
+  assert.equal(after.get('h1')!.method, 'trimp_avg');
+  assert.equal(after.get('r0')!.load, before.get('r0')!.load);
+  // deuxième passage : rien à faire
+  const again = correctSessions(d, file.sessions, hrMax);
+  assert.equal(again.actual.length, 0); assert.equal(again.report.elevationKept, 3); assert.equal(again.report.hrKept, 2);
 });
 
 test('coach : le dossier contient les valeurs Garmin (VO₂max, seuil, prédictions) et la santé récente', () => {

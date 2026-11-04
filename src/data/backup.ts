@@ -1,9 +1,10 @@
 // Sauvegarde JSON complète, restauration, reprise de l'ancienne base Android.
 import { $t } from '../i18n';
 import { emptyData, importLegacyDb, type LegacyReport } from '../domain/legacy';
-import { liveRecords } from '../domain/load';
+import { liveRecords, resolveHrMax } from '../domain/load';
+import { correctSessions, sessionsMessage } from '../domain/garminSessions';
 import { importDossierData, isDossier, type Dossier, type DossierReport } from '../domain/dossier';
-import { correctFromGarmin, correctionMessage, GRAPH_FORMAT_V2, graphMessage, isGarminGraph, mergeGarminGraph, type GarminGraphFile } from '../domain/garminGraph';
+import { correctFromGarmin, correctionMessage, GRAPH_FORMAT_V2, GRAPH_FORMAT_V3, graphMessage, isGarminGraph, mergeGarminGraph, type GarminGraphFile } from '../domain/garminGraph';
 import type { AppData } from '../domain/types';
 import { COLLECTIONS } from '../domain/types';
 import { commit, getData, replaceAll } from './store';
@@ -73,12 +74,14 @@ export function importDossier(dossier: Dossier): DossierReport {
   return report;
 }
 
-/** Reprend des relevés Garmin mesurés sur des captures ou exportés (pas, étages, calories, sommeil, VO₂max, seuil, prédictions) : version 1 = ne comble que ce qui manque ; version 2 = la montre fait foi, ses valeurs remplacent celles de l'appli. */
+/** Reprend des relevés Garmin mesurés sur des captures ou exportés (pas, étages, calories, sommeil, VO₂max, seuil, prédictions) : version 1 = ne comble que ce qui manque ; version 2 = la montre fait foi, ses valeurs remplacent celles de l'appli ; version 3 = comme la 2, plus le dénivelé et la charge de chaque séance (FC moyenne estimée pour une activité sans capteur). */
 export function importGarminGraph(file: GarminGraphFile): string {
-  if (file.format === GRAPH_FORMAT_V2) {
-    const r = correctFromGarmin(getData(), file);
-    commit((tx) => { r.energy.forEach((x) => tx.put('energy', x)); r.sleep.forEach((x) => tx.put('sleep', x)); r.checkins.forEach((x) => tx.put('checkins', x)); });
-    return correctionMessage(r.report) || $t("Rien à corriger : tout était déjà conforme à Garmin Connect");
+  if (file.format === GRAPH_FORMAT_V2 || file.format === GRAPH_FORMAT_V3) {
+    const data = getData();
+    const r = correctFromGarmin(data, file);
+    const s = file.format === GRAPH_FORMAT_V3 ? correctSessions(data, file.sessions, resolveHrMax(data).bpm) : null;
+    commit((tx) => { r.energy.forEach((x) => tx.put('energy', x)); r.sleep.forEach((x) => tx.put('sleep', x)); r.checkins.forEach((x) => tx.put('checkins', x)); s?.actual.forEach((x) => tx.put('actual', x)); });
+    return [correctionMessage(r.report), s ? sessionsMessage(s.report) : ''].filter(Boolean).join(', ') || $t("Rien à corriger : tout était déjà conforme à Garmin Connect");
   }
   const { energy, checkins, report } = mergeGarminGraph(getData(), file);
   commit((tx) => { energy.forEach((x) => tx.put('energy', x)); checkins.forEach((x) => tx.put('checkins', x)); });
