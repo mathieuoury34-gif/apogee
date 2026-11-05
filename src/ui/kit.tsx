@@ -496,6 +496,18 @@ export function SplitWheel({ value, onChange, label, base, hiMax, hiUnit = '', l
   );
 }
 
+/** Mètres au mètre près (dénivelé) : colonne des centaines (0, 100, 200…) + colonne 0–99, pour ne pas avoir 9 000 lignes à faire défiler. */
+export function MeterWheel({ value, onChange, label, max = 9000 }: { value: number; onChange: (v: number) => void; label: string; max?: number }) {
+  const v = Math.min(max, Math.max(0, Math.round(value)));
+  const hi = Math.floor(v / 100) * 100, lo = v % 100;
+  return (
+    <div className="wheel" role="group" aria-label={label}>
+      <WheelColumn items={wheelRange(0, Math.floor(max / 100) * 100, 100)} value={hi} unit="" label={label + ' · 100'} fmt={(x) => String(x)} onChange={(x) => onChange(Math.min(max, x + lo))} />
+      <WheelColumn items={wheelRange(0, 99)} value={lo} unit="m" label={label + ' · 1'} fmt={(x) => String(x).padStart(2, '0')} onChange={(x) => onChange(Math.min(max, hi + x))} />
+    </div>
+  );
+}
+
 /** Heures / minutes / secondes à faire rouler du doigt (ou à la molette, ou aux flèches). Valeur en secondes. */
 export function DurationWheel({ value, onChange, label, hours = true, seconds = true }: { value: number; onChange: (sec: number) => void; label: string; hours?: boolean; seconds?: boolean }) {
   const v = Math.max(0, Math.round(value));

@@ -2,7 +2,7 @@
 // Les valeurs sont manipulées dans une unité entière d'affichage (secondes, dixièmes de km/h, dixièmes de kg, watts, bpm, %…) ;
 // `toDisp` / `fromDisp` font le lien avec ce que stocke le bloc (m/s pour la vitesse, kg pour la charge).
 import { $t } from '../i18n';
-import { DurationWheel, IntWheel, SplitWheel, WheelField } from './kit';
+import { DurationWheel, IntWheel, MeterWheel, SplitWheel, WheelField } from './kit';
 import { NBSP, mmss, parseNum, toInput } from './format';
 import type { Block, PlannedDiscipline } from '../domain/types';
 export { defaultDisp, fromDisp, toDisp } from './targetUnits';
@@ -60,6 +60,12 @@ export function ClockField({ label, value, onChange, initial = 0 }: { label: str
 export function IntField({ label, value, onChange, clearable, min, max, step = 1, unit = '', initial }: FieldBase<number> & { min: number; max: number; step?: number; unit?: string; initial?: number }) {
   return <WheelField<number> label={label} value={value ?? initial ?? min} onChange={onChange} text={value === null ? DASH : String(value) + (unit ? NBSP + unit : '')} onClear={clearable && value !== null ? () => onChange(null) : undefined}
     wheel={(d, set) => <IntWheel value={d} onChange={set} label={label} min={min} max={max} step={step} unit={unit} />} />;
+}
+
+/** Dénivelé (ou toute altitude) au mètre près : centaines + 0–99. */
+export function MeterField({ label, value, onChange, clearable, max = 9000, initial = 0 }: FieldBase<number> & { max?: number; initial?: number }) {
+  return <WheelField<number> label={label} value={value ?? initial} onChange={onChange} text={value === null ? DASH : Math.round(value).toLocaleString('fr-FR').replace(/[  ]/g, NBSP) + NBSP + 'm'} onClear={clearable && value !== null ? () => onChange(null) : undefined}
+    wheel={(d, set) => <MeterWheel value={d} onChange={set} label={label} max={max} />} />;
 }
 
 /** Nombre à `decimals` décimales (km, kg, VO₂max, km/h…) : unités puis dixièmes (ou centièmes). */

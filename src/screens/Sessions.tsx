@@ -4,7 +4,7 @@
 import { $t } from '../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppHeader, ChipGroup, DatePicker, DiscIcon, Empty, ErrorBanner, Fab, Hero, Sheet, SportPicker, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
-import { DistanceField, DurationField, IntField, numOf } from '../ui/wheels';
+import { DistanceField, DurationField, IntField, MeterField, numOf } from '../ui/wheels';
 import { Donut, StepChart, WeekBars } from '../ui/charts';
 import { Icon } from '../ui/icons';
 import { useActualMenu } from '../ui/menu';
@@ -387,8 +387,8 @@ function EditSheet({ s, onClose }: { s: ActualSession; onClose: () => void }) {
         <div className="field"><span className="lbl">{$t("Durée")}</span><DurationField value={durSec} onChange={(v) => setDurSec(v ?? 0)} label={$t("Durée")} /></div>
         <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
           <div className="field"><span className="lbl">{$t("Distance")}</span><DistanceField label={$t("Distance")} value={numOf(dist) === null ? null : numOf(dist)! * 1000} onChange={(m) => setDist(m === null || m === 0 ? '' : toInput(m / 1000, 3).replace(/[.,]?0+$/, ''))} clearable hiMax={400} loStep={disc === 'SWIM' ? 25 : 10} /></div>
-          {withElev && <div className="field"><span className="lbl">{$t("Dénivelé + (m)")}</span><IntField label={$t("Dénivelé + (m)")} value={numOf(elev)} onChange={(v) => setElev(v === null ? '' : String(v))} clearable min={0} max={9000} step={10} unit="m" /></div>}
-          {withElev && <div className="field"><span className="lbl">{$t("Dénivelé − (m)")}</span><IntField label={$t("Dénivelé − (m)")} value={numOf(desc)} onChange={(v) => setDesc(v === null ? '' : String(v))} clearable min={0} max={9000} step={10} unit="m" /></div>}
+          {withElev && <div className="field"><span className="lbl">{$t("Dénivelé + (m)")}</span><MeterField label={$t("Dénivelé + (m)")} value={numOf(elev)} onChange={(v) => setElev(v === null ? '' : String(v))} clearable max={9000} /></div>}
+          {withElev && <div className="field"><span className="lbl">{$t("Dénivelé − (m)")}</span><MeterField label={$t("Dénivelé − (m)")} value={numOf(desc)} onChange={(v) => setDesc(v === null ? '' : String(v))} clearable max={9000} /></div>}
           <div className="field"><span className="lbl">{$t("FC moy.")}</span><IntField label={$t("FC moy.")} value={numOf(hr)} onChange={(v) => setHr(v === null ? '' : String(v))} clearable min={30} max={230} unit="bpm" initial={140} /></div>
         </div>
         {'error' in r && <span className="err t-caption-strong c-critical">{r.error}</span>}
@@ -500,8 +500,8 @@ export function ManualEntryScreen() {
               <div className="field"><span className="lbl">{$t("Durée")}</span><DurationField value={durSec} onChange={(v) => setDurSec(v ?? 0)} label={$t("Durée")} /></div>
               <div className="grid-3" style={{ gap: 'var(--space-12)' }}>
                 <div className="field"><span className="lbl">{$t("Distance")}</span><DistanceField label={$t("Distance")} value={numOf(dist) === null ? null : numOf(dist)! * 1000} onChange={(m) => setDist(m === null || m === 0 ? '' : toInput(m / 1000, 3).replace(/[.,]?0+$/, ''))} clearable hiMax={400} loStep={disc === 'SWIM' ? 25 : 10} /></div>
-                {withElev && <div className="field"><span className="lbl">{$t("Dénivelé + (m)")}</span><IntField label={$t("Dénivelé + (m)")} value={numOf(elev)} onChange={(v) => setElev(v === null ? '' : String(v))} clearable min={0} max={9000} step={10} unit="m" /></div>}
-          {withElev && <div className="field"><span className="lbl">{$t("Dénivelé − (m)")}</span><IntField label={$t("Dénivelé − (m)")} value={numOf(desc)} onChange={(v) => setDesc(v === null ? '' : String(v))} clearable min={0} max={9000} step={10} unit="m" /></div>}
+                {withElev && <div className="field"><span className="lbl">{$t("Dénivelé + (m)")}</span><MeterField label={$t("Dénivelé + (m)")} value={numOf(elev)} onChange={(v) => setElev(v === null ? '' : String(v))} clearable max={9000} /></div>}
+          {withElev && <div className="field"><span className="lbl">{$t("Dénivelé − (m)")}</span><MeterField label={$t("Dénivelé − (m)")} value={numOf(desc)} onChange={(v) => setDesc(v === null ? '' : String(v))} clearable max={9000} /></div>}
                 <div className="field"><span className="lbl">{$t("FC moy.")}</span><IntField label={$t("FC moy.")} value={numOf(hr)} onChange={(v) => setHr(v === null ? '' : String(v))} clearable min={30} max={230} unit="bpm" initial={140} /></div>
               </div>
               <div className="field"><span className="lbl">{$t("Ressenti")}</span><RpeScale value={rpe} onChange={setRpe} /></div>
