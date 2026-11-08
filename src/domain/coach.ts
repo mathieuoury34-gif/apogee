@@ -8,6 +8,7 @@
 //  - les champs ajoutés sont additifs (méthode de charge enrichie, `loadSummary.srpeFactor`), donc
 //    lisibles par un coach qui ne connaît que la version précédente.
 import { $t } from '../i18n';
+import { CYCLE_ISSUE_TEXT, CYCLE_KINDS, validateCycles, type CycleIssueCode } from './cycles';
 import { validateSession, type DraftIssueCode } from './blocks';
 import { checkinsSorted } from './checkin';
 import { addDays, mondayOf, today } from './dates';
@@ -15,7 +16,7 @@ import type { Derived } from './engine';
 import { dayEnergy } from './energy';
 import { fnv1a, newId, nowIso } from './ids';
 import { latestZone, liveRecords, sessionDay } from './load';
-import type { AppData, Block, CoachExchange, PlannedDiscipline, PlannedSession, PreviewItem, TrainingPhase } from './types';
+import type { AppData, Block, CoachExchange, PlannedDiscipline, PhaseCycle, PlannedSession, PreviewItem, TrainingPhase } from './types';
 import { BLOCK_KINDS, BLOCK_MEASURES, PLANNED_DISCIPLINES, RELATIVE_REFS, SET_MODES, TARGET_TYPES, ZONE_KINDS } from './types';
 
 export const SCHEMA = 'apogee/1';
@@ -116,8 +117,19 @@ function instructions(): string {
     '  "endDate": "<AAAA-MM-JJ>",',
     '  "intent": "<texte ou null>",',
     '  "objective": "<texte ou null>",',
-    '  "notes": "<texte ou null>"',
+    '  "notes": "<texte ou null>",',
+    '  "cycles": [ { "kind": "<up ou down>", "startDate": "<AAAA-MM-JJ>", "endDate": "<AAAA-MM-JJ>", "label": "<texte ou null>" } ]',
     '}',
+    '"cycles" (facultatif) = les CYCLES DE CHARGE du bloc, ses sous-catégories :',
+    'chaque cycle est une période datée de MONTÉE de la charge ("up") ou de',
+    'DESCENTE ("down", semaine de décharge). Règles : dates comprises dans celles',
+    'du bloc, pas de chevauchement entre cycles, "label" = null (l\'appli écrit',
+    '« Montée 2/3 » ou « Descente »). Une série de "up" consécutifs est colorée',
+    'du bleu (le premier) au violet (le dernier), un "down" est vert clair, et',
+    'le calendrier teinte les jours concernés. Exemple pour un bloc de 4 semaines :',
+    '3 "up" d\'une semaine puis 1 "down". "cycles" absent = on garde les cycles',
+    'actuels du bloc ; "cycles": null ou [] = on les efface ; sinon la liste',
+    'REMPLACE les cycles actuels (renvoie-les tous, même ceux qui ne changent pas).',
     'Pour "delete" : n\'envoie QUE "entity", "action" et "idempotencyKey".',
     'Deux blocs de périodisation ne peuvent jamais se chevaucher (vérifié sur',
     "l'état obtenu APRÈS ton fichier : tu peux décaler plusieurs blocs à la fois).",
@@ -174,7 +186,7 @@ function example() {
         blocks: [B({ kind: 'WARMUP', measureValue: 600, label: 'Échauffement' }), B({ measureValue: 2400, targetType: 'PACE', targetLow: 330, label: 'Corps de séance', notes: 'Allure conversationnelle, sur sensations' }), B({ kind: 'COOLDOWN', measureValue: 300, label: 'Retour au calme' })],
       },
       { entity: 'session', action: 'delete', idempotencyKey: 'session:482' },
-      { entity: 'phase', action: 'update', idempotencyKey: 'phase:12', label: 'Bloc de reprise', phase: 'base', startDate: '2026-09-08', endDate: '2026-09-28', intent: 'Reprendre le volume progressivement', objective: null, notes: null },
+      { entity: 'phase', action: 'update', idempotencyKey: 'phase:12', label: 'Bloc de reprise', phase: 'base', startDate: '2026-09-08', endDate: '2026-09-28', intent: 'Reprendre le volume progressivement', objective: null, notes: null, cycles: [{ kind: 'up', startDate: '2026-09-08', endDate: '2026-09-14', label: null }, { kind: 'up', startDate: '2026-09-15', endDate: '2026-09-21', label: null }, { kind: 'down', startDate: '2026-09-22', endDate: '2026-09-28', label: null }] },
     ],
   };
 }
@@ -257,7 +269,7 @@ export function buildDossier(data: AppData, d: Derived, selected: string[], now:
     },
     race: race ? { name: race.name, raceDate: race.raceDate, targetTotalSeconds: race.targetTotalSeconds, swimDistanceM: race.swimDistanceM, bikeDistanceM: race.bikeDistanceM, runDistanceM: race.runDistanceM } : null,
     zones: ZONE_KINDS.map((k) => latestZone(data, k)).filter((z) => z).map((z) => ({ kind: z!.kind, value: z!.value, unit: UNIT[z!.kind], measuredAt: z!.measuredAt, source: z!.source })),
-    phases: liveRecords(data.phases).sort((x, y) => (x.startDate < y.startDate ? -1 : 1)).map((p) => ({ refKey: refKeyOfPhase(p), label: p.label, phase: p.phase, startDate: p.startDate, endDate: p.endDate, intent: p.intent, objective: p.objective, notes: p.notes })),
+    phases: liveRecords(data.phases).sort((x, y) => (x.startDate < y.startDate ? -1 : 1)).map((p) => ({ refKey: refKeyOfPhase(p), label: p.label, phase: p.phase, startDate: p.startDate, endDate: p.endDate, intent: p.intent, objective: p.objective, notes: p.notes, cycles: (p.cycles ?? []).slice().sort((a, b) => (a.startDate < b.startDate ? -1 : 1)).map((c) => ({ kind: c.kind, startDate: c.startDate, endDate: c.endDate, label: c.label })) })),
     watchReadings: watchReadings(data),
     recentHealth: recentHealth(data, d, day),
     interruptions: liveRecords(data.interruptions).map((i) => ({ label: i.label, startDate: i.startDate, endDate: i.endDate, reason: i.reason, dailyLoadOverride: i.dailyLoadOverride })),
@@ -291,7 +303,7 @@ export function buildDossier(data: AppData, d: Derived, selected: string[], now:
 
 // ------------------------------------------------------------------ lecture du plan
 export interface SessionOp { entity: 'session'; action: 'create' | 'update' | 'delete'; idempotencyKey: string; discipline: PlannedDiscipline | null; plannedDate: string | null; title: string | null; notes: string | null; blocks: Block[] }
-export interface PhaseOp { entity: 'phase'; action: 'create' | 'update' | 'delete'; idempotencyKey: string; label: string | null; phase: string | null; startDate: string | null; endDate: string | null; intent: string | null; objective: string | null; notes: string | null }
+export interface PhaseOp { entity: 'phase'; action: 'create' | 'update' | 'delete'; idempotencyKey: string; label: string | null; phase: string | null; startDate: string | null; endDate: string | null; intent: string | null; objective: string | null; notes: string | null; /** undefined = champ absent (on garde les cycles actuels) ; null ou [] = on les efface. */ cycles?: PhaseCycle[] | null }
 export type CoachOp = SessionOp | PhaseOp;
 export interface CoachPlan { generatedAt: string; planValidUntil: string | null; operations: CoachOp[] }
 export type ParseResult = { ok: true; plan: CoachPlan; malformed: number; hash: string } | { ok: false; code: 'JSON_INVALID' | 'SCHEMA_VERSION_UNSUPPORTED' | 'STRUCTURE_INVALID'; found?: unknown };
@@ -341,7 +353,19 @@ function parseOp(raw: unknown): CoachOp | null {
   if (v.entity === 'phase') {
     if (v.action === 'delete') return { entity: 'phase', ...base, label: null, phase: null, startDate: null, endDate: null, intent: null, objective: null, notes: null };
     if (typeof v.label !== 'string' || !v.label.trim() || typeof v.startDate !== 'string' || !DATE.test(v.startDate) || typeof v.endDate !== 'string' || !DATE.test(v.endDate)) return null;
-    return { entity: 'phase', ...base, label: v.label, phase: str(v.phase), startDate: v.startDate, endDate: v.endDate, intent: str(v.intent), objective: str(v.objective), notes: str(v.notes) };
+    let cycles: PhaseCycle[] | null | undefined;
+    if (v.cycles === undefined) cycles = undefined;
+    else if (v.cycles === null) cycles = null;
+    else if (Array.isArray(v.cycles)) {
+      cycles = [];
+      for (const c of v.cycles) {
+        if (typeof c !== 'object' || c === null) return null;
+        const o = c as Record<string, unknown>;
+        if (!isOneOf(o.kind, CYCLE_KINDS) || typeof o.startDate !== 'string' || !DATE.test(o.startDate) || typeof o.endDate !== 'string' || !DATE.test(o.endDate)) return null;
+        cycles.push({ kind: o.kind, startDate: o.startDate, endDate: o.endDate, label: str(o.label) });
+      }
+    } else return null;
+    return { entity: 'phase', ...base, label: v.label, phase: str(v.phase), startDate: v.startDate, endDate: v.endDate, intent: str(v.intent), objective: str(v.objective), notes: str(v.notes), cycles };
   }
   return null;
 }
@@ -362,19 +386,21 @@ export function parsePlan(raw: string): ParseResult {
 }
 
 // ------------------------------------------------------------------ aperçu et application
-export type PhaseIssueCode = 'PHASE_LABEL_MISSING' | 'PHASE_DATES_INVERTED' | 'PHASE_OVERLAP';
+export type PhaseIssueCode = 'PHASE_LABEL_MISSING' | 'PHASE_DATES_INVERTED' | 'PHASE_OVERLAP' | CycleIssueCode;
 export const PHASE_ISSUE_TEXT: Record<PhaseIssueCode, string> = {
   PHASE_LABEL_MISSING: $t("Le bloc n’a pas de nom."),
   PHASE_DATES_INVERTED: $t("La date de fin précède la date de début."),
   PHASE_OVERLAP: $t("Cette période en chevauche une autre."),
+  ...CYCLE_ISSUE_TEXT,
 };
 export const ISSUE_LABEL = (code: string) => (code in PHASE_ISSUE_TEXT ? PHASE_ISSUE_TEXT[code as PhaseIssueCode] : code);
 
-export function validatePhase(p: Pick<TrainingPhase, 'id' | 'label' | 'startDate' | 'endDate'>, others: Pick<TrainingPhase, 'id' | 'label' | 'startDate' | 'endDate'>[]): { code: PhaseIssueCode; with?: string }[] {
+export function validatePhase(p: Pick<TrainingPhase, 'id' | 'label' | 'startDate' | 'endDate'> & { cycles?: PhaseCycle[] | null }, others: Pick<TrainingPhase, 'id' | 'label' | 'startDate' | 'endDate'>[]): { code: PhaseIssueCode; with?: string }[] {
   const out: { code: PhaseIssueCode; with?: string }[] = [];
   if (!p.label.trim()) out.push({ code: 'PHASE_LABEL_MISSING' });
   if (p.endDate < p.startDate) out.push({ code: 'PHASE_DATES_INVERTED' });
   for (const o of others) if (o.id !== p.id && p.startDate <= o.endDate && o.startDate <= p.endDate) out.push({ code: 'PHASE_OVERLAP', with: o.label });
+  if (p.endDate >= p.startDate) for (const code of validateCycles(p.cycles, p.startDate, p.endDate)) out.push({ code });
   return out;
 }
 
@@ -429,7 +455,7 @@ export function preview(data: AppData, plan: CoachPlan, malformed: number): Prev
       else { pv.deleted.push({ entity: 'phase', idempotencyKey: op.idempotencyKey, label: existing.label + ' · ' + dateFr(existing.startDate), issueCodes: [] }); pv.resolved.push({ op, existingId: existing.id, category: 'delete' }); }
       continue;
     }
-    const me = { id: tmpId, label: op.label ?? '', startDate: op.startDate ?? '', endDate: op.endDate ?? '' };
+    const me = { id: tmpId, label: op.label ?? '', startDate: op.startDate ?? '', endDate: op.endDate ?? '', cycles: op.cycles === undefined ? existing?.cycles ?? null : op.cycles };
     const issues = validatePhase(me, [...phaseState.values()]);
     const withNames = [...new Set(issues.map((i) => i.with).filter(Boolean))];
     const item: PreviewItem = { entity: 'phase', idempotencyKey: op.idempotencyKey, label, issueCodes: [...new Set(issues.map((i) => i.code))], ...(withNames.length ? { detail: $t("En conflit avec : ") + withNames.map((n) => `« ${n} »`).join(', ') } : {}) };
@@ -457,7 +483,8 @@ export function applyPreview(data: AppData, pv: Preview, plan: CoachPlan, hash: 
     } else {
       const o = r.op;
       const prev = r.existingId ? data.phases[r.existingId] : undefined;
-      m.puts.push({ coll: 'phases', rec: { id: r.existingId ?? newId(), updatedAt: now, label: o.label!.trim(), phase: o.phase, startDate: o.startDate!, endDate: o.endDate!, intent: o.intent, objective: o.objective, notes: o.notes, idempotencyKey: prev?.idempotencyKey ?? (o.idempotencyKey.startsWith('phase:') ? null : o.idempotencyKey), coachExchangeId: exchangeId } });
+      const cyc = o.cycles === undefined ? prev?.cycles ?? null : o.cycles;
+      m.puts.push({ coll: 'phases', rec: { id: r.existingId ?? newId(), updatedAt: now, label: o.label!.trim(), phase: o.phase, startDate: o.startDate!, endDate: o.endDate!, intent: o.intent, objective: o.objective, notes: o.notes, cycles: cyc && cyc.length ? cyc : null, idempotencyKey: prev?.idempotencyKey ?? (o.idempotencyKey.startsWith('phase:') ? null : o.idempotencyKey), coachExchangeId: exchangeId } });
     }
   }
   const exchange: CoachExchange = {

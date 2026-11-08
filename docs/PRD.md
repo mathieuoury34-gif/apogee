@@ -162,7 +162,8 @@ Thèmes clair et sombre. Annuler proposé après toute suppression, modification
    `templates`) ; les **séances favorites ont été retirées le 03/11/2026** (décision de Mathieu : ne jamais rouvrir ce système) ; **export .FIT** d'une séance
    prévue pour la montre (voir 13) ;
    **périodisation** (blocs datés : passés / courant / à venir / course ; création et édition ; jamais de
-   chevauchement) ; bandeau d'interruption.
+   chevauchement ; **cycles de charge** (08/11/2026) : sous-catégories d'un bloc, périodes de montée (bleu → violet)
+   ou de descente (vert clair), datées dans le bloc, sans chevauchement, teintant les jours du calendrier du mois ; le coach peut les envoyer) ; bandeau d'interruption.
 3. **Séances** — journal ; **bilan de séance** (prévu vs réalisé, verdict, dérive, courbe cardio, ressenti RPE 1–10
    + commentaire, titre, rattachement manuel ±3 jours ou « n'était pas prévue », « revenir à l'automatique »,
    proposition BRICK) ; **saisie** unique ou en lot (fait / prévu) ; **édition** d'une séance réalisée ; suppression ;

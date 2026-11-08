@@ -11,7 +11,8 @@ import { addDays, daysBetween } from '../domain/dates';
 import { PHASE_ISSUE_TEXT, refKeyOfPhase, validatePhase } from '../domain/coach';
 import { newId } from '../domain/ids';
 import { liveRecords } from '../domain/load';
-import type { TrainingPhase } from '../domain/types';
+import { cycleColor, cycleInfos, weeklyCycles } from '../domain/cycles';
+import type { PhaseCycle, TrainingPhase } from '../domain/types';
 import { dateFr, dayMonth, dayTitle, num, PHASE_TYPES } from '../ui/format';
 
 const PHASE_NAME = Object.fromEntries(PHASE_TYPES) as Record<string, string>;
@@ -42,6 +43,13 @@ export function PeriodizationScreen() {
                 {d.today >= start && d.today <= end && <span className="tl-today" style={{ left: at(d.today) }} />}
                 {race && <span className="tl-race" style={{ left: at(race.raceDate) }} />}
               </div>
+              {phases.some((p) => p.cycles?.length) && (
+                <div className="timeline tl-cycles" role="img" aria-label={$t("Frise des cycles de charge")}>
+                  {phases.flatMap((p) => cycleInfos(p.cycles)).map((c) => <span key={c.cycle.startDate} className="tl-block" style={{ left: at(c.cycle.startDate), width: `calc(${at(addDays(c.cycle.endDate, 1))} - ${at(c.cycle.startDate)})`, background: c.color }} title={c.text} />)}
+                  {d.today >= start && d.today <= end && <span className="tl-today" style={{ left: at(d.today) }} />}
+                </div>
+              )}
+              {phases.some((p) => p.cycles?.length) && <div className="legend"><span><span className="dot s10" style={{ background: cycleColor('up', 0, 3) }} />{$t("Montée")}</span><span><span className="dot s10" style={{ background: cycleColor('up', 2, 3) }} />{$t("Montée (fin de série)")}</span><span><span className="dot s10" style={{ background: cycleColor('down') }} />{$t("Descente")}</span></div>}
               <div className="legend">{[...new Set(phases.map((p) => p.phase).filter(Boolean))].map((k) => <span key={k}><span className="dot s10" style={{ background: PHASE_COLOR[k!] ?? 'var(--brand-primary)' }} />{PHASE_NAME[k!] ?? k}</span>)}</div>
             </section>
             <ul className="stack-12" aria-label={$t("Blocs")}>
@@ -57,6 +65,7 @@ export function PeriodizationScreen() {
                       <span className="t-caption c-neutral">{dayMonth(p.startDate)} → {dayMonth(p.endDate)} · {num(weeks, 0, 1)} {$t("sem.")}{p.phase ? ' · ' + (PHASE_NAME[p.phase] ?? p.phase) : ''}{p.coachExchangeId ? $t(" · coach") : ''}</span>
                       {p.intent && <span className="c-neutral">{p.intent}</span>}
                       {p.objective && <span className="t-caption"><strong>{$t("Objectif :")}</strong> {p.objective}</span>}
+                      {!!p.cycles?.length && <span className="row wrap" style={{ gap: 'var(--space-6)' }}>{cycleInfos(p.cycles).map((c) => <span key={c.cycle.startDate} className="cyc-chip" style={{ ['--cyc' as string]: c.color }}>{c.text} · {dayMonth(c.cycle.startDate)} → {dayMonth(c.cycle.endDate)}</span>)}</span>}
                     </button>
                   </li>
                 );
@@ -79,10 +88,20 @@ function PhaseSheet({ value, all, defaultStart, onClose, onDelete }: { value: Tr
   const [intent, setIntent] = useState(value?.intent ?? '');
   const [objective, setObjective] = useState(value?.objective ?? '');
   const [notes, setNotes] = useState(value?.notes ?? '');
+  const [cycles, setCycles] = useState<PhaseCycle[]>(value?.cycles ?? []);
+  const [cycOpen, setCycOpen] = useState<{ i: number; f: 'start' | 'end' } | null>(null);
   const id = value?.id ?? 'new';
-  const issues = validatePhase({ id, label, startDate: start, endDate: end }, all.filter((p) => p.id !== id));
+  const issues = validatePhase({ id, label, startDate: start, endDate: end, cycles }, all.filter((p) => p.id !== id));
+  const infoOf = new Map(cycleInfos(cycles).map((x) => [x.cycle, x]));
+  const setCycle = (i: number, patch: Partial<PhaseCycle>) => setCycles(cycles.map((c, k) => (k === i ? { ...c, ...patch } : c)));
+  const addCycle = () => {
+    const last = [...cycles].sort((a, b) => (a.endDate < b.endDate ? -1 : 1)).pop();
+    const s0 = last ? addDays(last.endDate, 1) : start;
+    const e0 = addDays(s0, 6) > end ? end : addDays(s0, 6);
+    setCycles([...cycles, { kind: last?.kind === 'up' ? 'down' : 'up', startDate: s0, endDate: e0 < s0 ? s0 : e0, label: null }]);
+  };
   const save = () => {
-    savePhase({ id: value?.id ?? newId(), updatedAt: '', label: label.trim(), phase, startDate: start, endDate: end, intent: intent.trim() || null, objective: objective.trim() || null, notes: notes.trim() || null, idempotencyKey: value?.idempotencyKey ?? null, coachExchangeId: value?.coachExchangeId ?? null });
+    savePhase({ id: value?.id ?? newId(), updatedAt: '', label: label.trim(), phase, startDate: start, endDate: end, intent: intent.trim() || null, objective: objective.trim() || null, notes: notes.trim() || null, cycles: cycles.length ? [...cycles].sort((a, b) => (a.startDate < b.startDate ? -1 : 1)).map((c) => ({ ...c, label: c.label?.trim() || null })) : null, idempotencyKey: value?.idempotencyKey ?? null, coachExchangeId: value?.coachExchangeId ?? null });
     onClose(); showToast($t("Bloc enregistré"));
   };
   return (
@@ -98,6 +117,32 @@ function PhaseSheet({ value, all, defaultStart, onClose, onDelete }: { value: Tr
         </div>
         {open && <DatePicker value={open === 'start' ? start : end} onChange={(v) => { if (open === 'start') { setStart(v); if (end < v) setEnd(addDays(v, 6)); } else setEnd(v); setOpen(null); }}  onClose={() => setOpen(null)} />}
         {[...new Set(issues.map((x) => x.code))].map((code) => { const w = issues.filter((x) => x.code === code && x.with).map((x) => `« ${x.with} »`); return <span key={code} className="t-caption-strong c-critical">{PHASE_ISSUE_TEXT[code]}{w.length ? ` (${w.join(', ')})` : ''}</span>; })}
+        <div className="field">
+          <span className="lbl">{$t("Cycles de charge")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span>
+          <span className="hint">{$t("Découpe le bloc en périodes de montée de la charge (bleu → violet) et de descente (vert). Les jours sont teintés dans le calendrier du mois.")}</span>
+          <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>
+            {[2, 3, 4].map((n) => <button key={n} type="button" className="chip" onClick={() => { setCycles(weeklyCycles(start, end, n)); setCycOpen(null); }}>{n} {$t("sem. de montée + 1 de descente")}</button>)}
+            {cycles.length > 0 && <button type="button" className="chip" onClick={() => { setCycles([]); setCycOpen(null); }}>{$t("Tout effacer")}</button>}
+          </div>
+          {cycles.map((c, i) => {
+            const info = infoOf.get(c);
+            return (
+              <div key={i} className="card g8" style={{ borderLeft: `4px solid ${info?.color ?? cycleColor(c.kind)}` }}>
+                <div className="between">
+                  <div className="chips g6" style={{ margin: 0, padding: 0 }}>{([['up', $t("Montée")], ['down', $t("Descente")]] as const).map(([k, l]) => <button key={k} type="button" className="chip" aria-pressed={c.kind === k} onClick={() => setCycle(i, { kind: k })}>{l}</button>)}</div>
+                  <button type="button" className="icon-btn" aria-label={$t("Supprimer le cycle")} onClick={() => { setCycles(cycles.filter((_, k) => k !== i)); setCycOpen(null); }}><Icon name="trash" size={18} /></button>
+                </div>
+                <div className="grid-2" style={{ gap: 'var(--space-12)' }}>
+                  <div className="field"><span className="lbl">{$t("Du")}</span><button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setCycOpen(cycOpen?.i === i && cycOpen.f === 'start' ? null : { i, f: 'start' })}><span>{dayTitle(c.startDate)}</span><Icon name="calendar" size={20} /></button></div>
+                  <div className="field"><span className="lbl">{$t("Au")}</span><button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setCycOpen(cycOpen?.i === i && cycOpen.f === 'end' ? null : { i, f: 'end' })}><span>{dayTitle(c.endDate)}</span><Icon name="calendar" size={20} /></button></div>
+                </div>
+                {cycOpen?.i === i && <DatePicker value={cycOpen.f === 'start' ? c.startDate : c.endDate} onChange={(v) => { setCycle(i, cycOpen.f === 'start' ? { startDate: v, ...(c.endDate < v ? { endDate: v } : {}) } : { endDate: v }); setCycOpen(null); }} onClose={() => setCycOpen(null)} />}
+                <input className="input" value={c.label ?? ''} maxLength={40} placeholder={info?.text ?? $t("Nom (facultatif)")} onChange={(e) => setCycle(i, { label: e.target.value })} aria-label={$t("Nom du cycle")} />
+              </div>
+            );
+          })}
+          <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start' }} onClick={addCycle}><Icon name="plus" size={18} />{$t("Ajouter un cycle")}</button>
+        </div>
         <label className="field"><span className="lbl">{$t("Intention")}</span><input className="input" value={intent} placeholder={$t("Construire le volume en endurance")} onChange={(e) => setIntent(e.target.value)} /></label>
         <label className="field"><span className="lbl">{$t("Objectif mesurable")}</span><input className="input" value={objective} placeholder={$t("3 sorties longues vélo de plus de 3 h")} onChange={(e) => setObjective(e.target.value)} /></label>
         <label className="field"><span className="lbl">{$t("Notes")}</span><textarea className="input textarea" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>

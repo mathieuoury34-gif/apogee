@@ -3,6 +3,7 @@
 // en FORMULES (SOMME.SI.ENS sur l'onglet Séances) : le fichier reste vivant si tu y ajoutes des lignes.
 import { estimateDistance, estimateDuration } from '../domain/blocks';
 import { addDays, mondayOf } from '../domain/dates';
+import { cycleInfos } from '../domain/cycles';
 import type { Derived } from '../domain/engine';
 import { liveRecords, sessionDay, zoneHistory, METHOD_LABEL } from '../domain/load';
 import type { AppData } from '../domain/types';
@@ -182,8 +183,8 @@ export function buildWorkbook(data: AppData, d: Derived): Workbook {
   [14, 12, 14, 12, 50].forEach((w, i) => zn.width(i + 1, w));
 
   // ---------------------------------------------------------------- Périodisation
-  const ph = page(wb, 'Périodisation', 'Blocs de préparation', 'Une seule échelle de blocs datés, sans chevauchement', 7);
-  header(ph, 4, ['Bloc', 'Phase', 'Début', 'Fin', 'Jours', 'Intention', 'Objectif']);
+  const ph = page(wb, 'Périodisation', 'Blocs de préparation', 'Une seule échelle de blocs datés, sans chevauchement', 8);
+  header(ph, 4, ['Bloc', 'Phase', 'Début', 'Fin', 'Jours', 'Intention', 'Objectif', 'Cycles de charge']);
   liveRecords(data.phases).sort((a, b) => (a.startDate < b.startDate ? -1 : 1)).forEach((p, i) => {
     const r = 5 + i;
     ph.set(r, 1, p.label, cell({ b: true }));
@@ -193,8 +194,9 @@ export function buildWorkbook(data: AppData, d: Derived): Workbook {
     ph.set(r, 5, f(`D${r}-C${r}+1`), cell({ fmt: INT, h: 'right' }));
     ph.set(r, 6, p.intent ?? '', cell());
     ph.set(r, 7, p.objective ?? '', cell());
+    ph.set(r, 8, cycleInfos(p.cycles).map((c) => c.text + ' (' + c.cycle.startDate + ' → ' + c.cycle.endDate + ')').join(' ; '), cell());
   });
-  [22, 16, 11, 11, 7, 40, 40].forEach((w, i) => ph.width(i + 1, w));
+  [22, 16, 11, 11, 7, 40, 40, 60].forEach((w, i) => ph.width(i + 1, w));
   return wb;
 }
 

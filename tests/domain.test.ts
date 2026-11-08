@@ -18,6 +18,7 @@ import { encodeFit, fitCrc, fitFileName, toFitWorkouts } from '../src/domain/fit
 import { sleepStats, weightTrend } from '../src/domain/body';
 import { SWIM_LOAD_FACTOR, analyzeHr, avgHrForLoad, cleanHr, epocFromAverage, epocFromSeries, epocRate, hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
 import { importLegacyDb, emptyData } from '../src/domain/legacy';
+import { cycleAt, cycleColor, cycleInfos, validateCycles, weeklyCycles } from '../src/domain/cycles';
 import { buildLoadSeries, computeSessionLoads, hrMaxTimeline, resolveHrMax } from '../src/domain/load';
 import { buildManualSession, parseBulkActual, parseBulkPlanned, parseManualFields } from '../src/domain/manual';
 import { hm } from '../src/ui/format';
@@ -1230,4 +1231,70 @@ test('coach : le dossier contient les valeurs Garmin (VO₂max, seuil, prédicti
   const empty = buildDossier(emptyData(), derive(emptyData(), SETTINGS, now), [], now);
   assert.equal(empty.watchReadings.latest.vo2max, null);
   assert.equal(empty.watchReadings.weekly.length, 0);
+});
+
+test('cycles de charge : validation, couleurs bleu→violet / vert, semaines générées', () => {
+  const up = (a: string, b: string) => ({ kind: 'up' as const, startDate: a, endDate: b, label: null });
+  const down = (a: string, b: string) => ({ kind: 'down' as const, startDate: a, endDate: b, label: null });
+  // 4 semaines : 3 montées puis 1 descente, depuis un lundi
+  const wk = weeklyCycles('2026-10-05', '2026-11-01', 3);
+  assert.deepEqual(wk.map((c) => c.kind), ['up', 'up', 'up', 'down']);
+  assert.equal(wk[3].endDate, '2026-11-01');
+  const partial = weeklyCycles('2026-10-05', '2026-10-24', 2);
+  assert.deepEqual(partial.map((c) => c.kind), ['up', 'up', 'down']);
+  assert.equal(partial[2].endDate, '2026-10-24', 'la dernière semaine est tronquée à la fin du bloc');
+  assert.deepEqual(validateCycles(wk, '2026-10-05', '2026-11-01'), []);
+  assert.deepEqual(validateCycles(wk, '2026-10-06', '2026-11-01'), ['CYCLE_OUTSIDE_PHASE']);
+  assert.ok(validateCycles([up('2026-10-05', '2026-10-12'), up('2026-10-12', '2026-10-19')], '2026-10-05', '2026-11-01').includes('CYCLE_OVERLAP'));
+  assert.ok(validateCycles([up('2026-10-12', '2026-10-05')], '2026-10-01', '2026-11-01').includes('CYCLE_DATES_INVERTED'));
+  // couleurs : 1re montée bleue, dernière violette, une descente coupe la série et reste verte
+  assert.equal(cycleColor('up', 0, 3), 'hsl(212 68% 62%)');
+  assert.equal(cycleColor('up', 2, 3), 'hsl(276 68% 62%)');
+  assert.equal(cycleColor('up', 0, 1), 'hsl(212 68% 62%)');
+  assert.equal(cycleColor('down'), 'hsl(140 52% 62%)');
+  const infos = cycleInfos([...wk, ...weeklyCycles('2026-11-02', '2026-11-15', 1).map((c) => ({ ...c }))]);
+  assert.deepEqual(infos.map((x) => x.text), ['Montée 1/3', 'Montée 2/3', 'Montée 3/3', 'Descente', 'Montée 1/1', 'Descente']);
+  assert.equal(infos[4].color, cycleColor('up', 0, 1));
+  // cycle d'un jour donné
+  const ph = [{ id: 'p1', updatedAt: '', label: 'Dév.', phase: 'build', startDate: '2026-10-05', endDate: '2026-11-01', intent: null, objective: null, notes: null, cycles: wk, idempotencyKey: null, coachExchangeId: null }];
+  assert.equal(cycleAt(ph, '2026-10-20')?.info.text, 'Montée 3/3');
+  assert.equal(cycleAt(ph, '2026-10-28')?.info.text, 'Descente');
+  assert.equal(cycleAt(ph, '2026-11-05'), null);
+  assert.equal(down('2026-10-01', '2026-10-02').kind, 'down');
+});
+
+test('coach : cycles de charge dans un bloc (absent = on garde, null = on efface, hors bloc = refusé)', () => {
+  const d = legacy();
+  const phaseId = Object.keys(d.phases)[0];
+  const ph = d.phases[phaseId];
+  const cyc = [{ kind: 'up', startDate: ph.startDate, endDate: ph.startDate, label: null }];
+  const run = (op: Record<string, unknown>) => {
+    const parsed = parsePlan(JSON.stringify({ schemaVersion: 'apogee/1', planValidUntil: null, operations: [op] }));
+    assert.ok(parsed.ok);
+    if (!parsed.ok) throw new Error('x');
+    const pv = preview(d, parsed.plan, parsed.malformed);
+    return { pv, applied: applyPreview(d, pv, parsed.plan, parsed.hash) };
+  };
+  const base = { entity: 'phase', action: 'update', idempotencyKey: 'phase:' + phaseId, label: ph.label, startDate: ph.startDate, endDate: ph.endDate };
+  const withCycles = run({ ...base, cycles: cyc });
+  const saved = withCycles.applied.mutations.puts.find((p) => p.coll === 'phases')!.rec as { cycles: unknown };
+  assert.deepEqual(saved.cycles, cyc);
+  // absent : on garde ceux du bloc
+  d.phases[phaseId] = { ...ph, cycles: cyc as never };
+  const kept = run(base).applied.mutations.puts.find((p) => p.coll === 'phases')!.rec as { cycles: unknown };
+  assert.deepEqual(kept.cycles, cyc);
+  // null ou [] : on efface
+  assert.equal((run({ ...base, cycles: null }).applied.mutations.puts.find((p) => p.coll === 'phases')!.rec as { cycles: unknown }).cycles, null);
+  assert.equal((run({ ...base, cycles: [] }).applied.mutations.puts.find((p) => p.coll === 'phases')!.rec as { cycles: unknown }).cycles, null);
+  // cycle hors du bloc : opération refusée avec le bon code
+  const bad = run({ ...base, cycles: [{ kind: 'down', startDate: '2000-01-01', endDate: '2000-01-07', label: null }] });
+  assert.equal(bad.pv.rejected.length, 1);
+  assert.deepEqual(bad.pv.rejected[0].issueCodes, ['CYCLE_OUTSIDE_PHASE']);
+  // cycle mal formé : opération comptée comme illisible
+  const parsedBad = parsePlan(JSON.stringify({ schemaVersion: 'apogee/1', operations: [{ ...base, cycles: [{ kind: 'sideways', startDate: ph.startDate, endDate: ph.endDate }] }] }));
+  assert.ok(parsedBad.ok && parsedBad.malformed === 1);
+  // le dossier exporté donne les cycles au coach
+  const r = derive(d, SETTINGS, new Date('2026-08-30T10:00:00Z'));
+  const dossier = buildDossier(d, r, Object.keys(d.actual), new Date('2026-08-30T10:00:00Z'));
+  assert.deepEqual(dossier.phases[0].cycles, cyc);
 });

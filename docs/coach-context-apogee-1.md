@@ -163,6 +163,16 @@ texte libre, des dates de début et de fin. **Deux blocs ne peuvent jamais se
 chevaucher** — l'app refuse plutôt que de corriger, donc vérifie les dates
 existantes (`phases` du dossier) avant d'en proposer un nouveau.
 
+**Cycles de charge (sous-catégories d'un bloc).** Un bloc peut contenir des
+`cycles` : des périodes datées de **montée** de la charge (`"up"`) ou de
+**descente** (`"down"`, semaine de décharge). Ils servent à rendre visible
+l'ondulation de la charge : l'app colore les jours du calendrier (montées en
+dégradé bleu → violet selon leur rang dans la série, descentes en vert clair).
+Règles : dates comprises dans celles du bloc, aucun chevauchement entre cycles.
+Un exemple courant : un bloc de 4 semaines = 3 montées d'une semaine puis
+1 descente. `"cycles"` absent = les cycles actuels sont conservés ; `null` ou
+`[]` = ils sont effacés ; une liste les REMPLACE tous (renvoie-les tous).
+
 ## 4. Ce que tu dois produire : le plan
 
 Réponds par UN SEUL fichier JSON, de cette forme :
@@ -228,7 +238,12 @@ Un bloc :
   "endDate": "2026-09-21",
   "intent": "Construire la base vélo",
   "objective": "Tenir 90 min à allure modérée sans FC dérivante",
-  "notes": null
+  "notes": null,
+  "cycles": [
+    { "kind": "up",   "startDate": "2026-09-01", "endDate": "2026-09-07", "label": null },
+    { "kind": "up",   "startDate": "2026-09-08", "endDate": "2026-09-14", "label": null },
+    { "kind": "down", "startDate": "2026-09-15", "endDate": "2026-09-21", "label": null }
+  ]
 }
 ```
 

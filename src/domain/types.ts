@@ -103,6 +103,15 @@ export interface ZoneReading extends Rec {
   notes: string | null;
 }
 
+/** Sous-catégorie d'un bloc : une période de montée ou de descente de la charge (semaine de décharge). Voir cycles.ts. */
+export interface PhaseCycle {
+  kind: 'up' | 'down';
+  startDate: string;
+  endDate: string;
+  /** Nom libre (facultatif) ; sans nom, l'appli écrit « Montée 2/3 » ou « Descente ». */
+  label: string | null;
+}
+
 export interface TrainingPhase extends Rec {
   label: string;
   phase: string | null;
@@ -111,6 +120,8 @@ export interface TrainingPhase extends Rec {
   intent: string | null;
   objective: string | null;
   notes: string | null;
+  /** Cycles de charge du bloc (montées / descentes), datés dans le bloc, sans chevauchement. Absent ou null = aucun. */
+  cycles?: PhaseCycle[] | null;
   idempotencyKey: string | null;
   coachExchangeId: string | null;
 }

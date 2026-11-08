@@ -12,6 +12,7 @@ import { exportWorkoutFit } from '../data/exportFit';
 import { deletePlanned, duplicatePlanned, movePlanned, restore } from '../data/actions';
 import { estimateDistance, estimateDuration } from '../domain/blocks';
 import { addDays, daysBetween, mondayOf, weeksOfMonth } from '../domain/dates';
+import { cycleAt } from '../domain/cycles';
 import { liveRecords, sessionDay } from '../domain/load';
 import type { ActualSession, PlannedSession } from '../domain/types';
 import { DISCIPLINE_ICON, blockDetail, blockHead, dateFr, dayLong, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, MONTHS_TITLE, num, WD_LETTER, KIND_LABEL, phaseLabel } from '../ui/format';
@@ -40,11 +41,12 @@ function PhaseRibbon({ day }: { day: string }) {
   const phases = liveRecords(data.phases).sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
   const p = phases.find((x) => x.startDate <= day && day <= x.endDate);
   const idx = p ? phases.indexOf(p) + 1 : 0;
+  const cy = p ? cycleAt([p], day) : null;
   return (
     <button type="button" className="phase-ribbon" onClick={() => navigate('/calendrier/periodisation')}>
       <Icon name="layers" size={18} />
       {p ? (
-        <span className="grow ellipsis"><strong>{p.label}</strong>{p.phase ? ' · ' + phaseLabel(p.phase) : ''} {$t("· bloc")} {idx}/{phases.length} {$t("· jusqu’au")} {dayMonth(p.endDate)}</span>
+        <span className="grow ellipsis"><strong>{p.label}</strong>{p.phase ? ' · ' + phaseLabel(p.phase) : ''} {$t("· bloc")} {idx}/{phases.length} {$t("· jusqu’au")} {dayMonth(p.endDate)}{cy && <> · <span className="cyc-chip" style={{ ['--cyc' as string]: cy.info.color }}>{cy.info.text}</span></>}</span>
       ) : <span className="grow">{$t("Aucun bloc de préparation en cours · Périodisation")}</span>}
       <Icon name="next" size={18} />
     </button>
@@ -200,6 +202,10 @@ export function CalendarMonthScreen() {
   const shift = (k: number) => { setDir(k > 0 ? 'l' : 'r'); let [y, m] = month.split('-').map(Number); m += k; if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } setMonth(y + '-' + String(m).padStart(2, '0')); };
   const swipe = useSwipe(() => shift(1), () => shift(-1));
   const ints = liveRecords(data.interruptions);
+  const phs = liveRecords(data.phases);
+  const monthCycles = new Map<string, NonNullable<ReturnType<typeof cycleAt>>>();
+  for (const w of weeks) for (let i = 0; i < 7; i++) { const day = addDays(w, i); if (day.slice(0, 7) !== month) continue; const cy = cycleAt(phs, day); if (cy) monthCycles.set(cy.phase.id + cy.info.cycle.startDate, cy); }
+  const selCycle = cycleAt(phs, sel);
   let done = 0, total = 0, vol = 0;
   for (const [day, it] of map) {
     if (day.slice(0, 7) !== month) continue;
@@ -227,9 +233,10 @@ export function CalendarMonthScreen() {
               const it = map.get(day);
               const out = day.slice(0, 7) !== month;
               const intr = ints.some((x) => x.startDate <= day && day <= x.endDate);
+              const cy = cycleAt(phs, day);
               const open = (it?.planned ?? []).filter((p) => !links.byPlanned.has(p.id));
               return (
-                <button key={day} type="button" className={'mg-day' + (out ? ' out' : '') + (day === d.today ? ' today' : '') + (day === sel ? ' sel' : '') + (intr ? ' intr' : '')} aria-pressed={day === sel} aria-label={dayLong(day)} onClick={() => setSel(day)}>
+                <button key={day} type="button" className={'mg-day' + (out ? ' out' : '') + (day === d.today ? ' today' : '') + (day === sel ? ' sel' : '') + (intr ? ' intr' : '') + (cy ? ' cyc' : '')} style={cy ? { ['--cyc' as string]: cy.info.color } : undefined} aria-pressed={day === sel} aria-label={dayLong(day) + (cy ? ' · ' + cy.info.text : '')} onClick={() => setSel(day)}>
                   <span className="mg-num">{+day.slice(8, 10)}</span>
                   <span className="wdots">
                     {(it?.done ?? []).slice(0, 3).map((s) => <span key={s.id} className="wdot" style={{ background: dvar(s.discipline), borderColor: dvar(s.discipline) }} />)}
@@ -239,8 +246,10 @@ export function CalendarMonthScreen() {
               );
             })}
           </div>
+          {monthCycles.size > 0 && <div className="legend" aria-label={$t("Cycles de charge du mois")}>{[...monthCycles.values()].map((cy) => <span key={cy.phase.id + cy.info.cycle.startDate} className="cyc-chip" style={{ ['--cyc' as string]: cy.info.color }}>{cy.info.text} · {dayMonth(cy.info.cycle.startDate)} → {dayMonth(cy.info.cycle.endDate)}</span>)}</div>}
         </section>
         <section className="stack-8 dspan-5" aria-label={dayLong(sel)}>
+          {selCycle && <button type="button" className="phase-ribbon" onClick={() => navigate('/calendrier/periodisation')}><Icon name="layers" size={18} /><span className="grow ellipsis"><strong>{selCycle.phase.label}</strong> · <span className="cyc-chip" style={{ ['--cyc' as string]: selCycle.info.color }}>{selCycle.info.text}</span></span><Icon name="next" size={18} /></button>}
           <div className="between"><h2 className="t-h3">{dayTitle(sel)}</h2><button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => openSheet('ajouter', { date: sel })}><Icon name="plus" size={18} />{$t("Ajouter")}</button></div>
           {selItems.done.length + selOpen.length === 0 ? <p className="t-caption c-moderate">{sel < d.today ? $t("Repos") : $t("Rien de prévu ce jour-là.")}</p> : (
             <ul className="op-list" style={{ margin: 0 }}>
