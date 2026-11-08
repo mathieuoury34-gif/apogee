@@ -540,8 +540,11 @@ select.input { appearance: auto; }
 /* Périodisation */
 .timeline { position: relative; height: 36px; border-radius: var(--radius-8); background: var(--bg-surface-minimal); overflow: hidden; }
 .tl-block { position: absolute; top: 6px; bottom: 6px; border-radius: var(--radius-4); opacity: .85; }
-.tl-cycles { margin-top: var(--space-6); height: 22px; }
-.tl-cycles .tl-block { top: 4px; bottom: 4px; opacity: .8; }
+.cstrip { position: relative; height: 18px; border-radius: var(--radius-4); background: var(--bg-surface-minimal); overflow: hidden; }
+.cstrip.thin { height: 8px; }
+.cstrip-seg { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--cyc) 58%, transparent); color: var(--text); font: 600 10px/1 var(--font-body, inherit); overflow: hidden; }
+.cstrip-mark { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--text); }
+.cstrip-mark.sel { margin-left: 0; background: transparent; box-shadow: inset 0 -2px 0 var(--text); }
 .cyc-chip { display: inline-flex; align-items: center; padding: var(--space-2) var(--space-10); border-radius: var(--radius-full); background: color-mix(in srgb, var(--cyc) 30%, transparent); color: var(--text); font: var(--type-chip); white-space: nowrap; }
 .tl-today { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--text); }
 .tl-race { position: absolute; top: 0; bottom: 0; width: 4px; margin-left: -2px; background: var(--critical); }

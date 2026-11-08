@@ -12,6 +12,7 @@ import { PHASE_ISSUE_TEXT, refKeyOfPhase, validatePhase } from '../domain/coach'
 import { newId } from '../domain/ids';
 import { liveRecords } from '../domain/load';
 import { cycleColor, cycleInfos, weeklyCycles } from '../domain/cycles';
+import { CycleStrip } from '../ui/cycleStrip';
 import type { PhaseCycle, TrainingPhase } from '../domain/types';
 import { dateFr, dayMonth, dayTitle, num, PHASE_TYPES } from '../ui/format';
 
@@ -43,13 +44,7 @@ export function PeriodizationScreen() {
                 {d.today >= start && d.today <= end && <span className="tl-today" style={{ left: at(d.today) }} />}
                 {race && <span className="tl-race" style={{ left: at(race.raceDate) }} />}
               </div>
-              {phases.some((p) => p.cycles?.length) && (
-                <div className="timeline tl-cycles" role="img" aria-label={$t("Frise des cycles de charge")}>
-                  {phases.flatMap((p) => cycleInfos(p.cycles)).map((c) => <span key={c.cycle.startDate} className="tl-block" style={{ left: at(c.cycle.startDate), width: `calc(${at(addDays(c.cycle.endDate, 1))} - ${at(c.cycle.startDate)})`, background: c.color }} title={c.text} />)}
-                  {d.today >= start && d.today <= end && <span className="tl-today" style={{ left: at(d.today) }} />}
-                </div>
-              )}
-              {phases.some((p) => p.cycles?.length) && <div className="legend"><span><span className="dot s10" style={{ background: cycleColor('up', 0, 3) }} />{$t("Montée")}</span><span><span className="dot s10" style={{ background: cycleColor('up', 2, 3) }} />{$t("Montée (fin de série)")}</span><span><span className="dot s10" style={{ background: cycleColor('down') }} />{$t("Descente")}</span></div>}
+              {phases.some((p) => p.cycles?.length) && <CycleStrip items={phases.flatMap((p) => cycleInfos(p.cycles))} from={start} to={end} today={d.today} labels={false} thin label={$t("Frise des cycles de charge")} />}
               <div className="legend">{[...new Set(phases.map((p) => p.phase).filter(Boolean))].map((k) => <span key={k}><span className="dot s10" style={{ background: PHASE_COLOR[k!] ?? 'var(--brand-primary)' }} />{PHASE_NAME[k!] ?? k}</span>)}</div>
             </section>
             <ul className="stack-12" aria-label={$t("Blocs")}>
@@ -65,7 +60,7 @@ export function PeriodizationScreen() {
                       <span className="t-caption c-neutral">{dayMonth(p.startDate)} → {dayMonth(p.endDate)} · {num(weeks, 0, 1)} {$t("sem.")}{p.phase ? ' · ' + (PHASE_NAME[p.phase] ?? p.phase) : ''}{p.coachExchangeId ? $t(" · coach") : ''}</span>
                       {p.intent && <span className="c-neutral">{p.intent}</span>}
                       {p.objective && <span className="t-caption"><strong>{$t("Objectif :")}</strong> {p.objective}</span>}
-                      {!!p.cycles?.length && <span className="row wrap" style={{ gap: 'var(--space-6)' }}>{cycleInfos(p.cycles).map((c) => <span key={c.cycle.startDate} className="cyc-chip" style={{ ['--cyc' as string]: c.color }}>{c.text} · {dayMonth(c.cycle.startDate)} → {dayMonth(c.cycle.endDate)}</span>)}</span>}
+                      {!!p.cycles?.length && <CycleStrip items={cycleInfos(p.cycles)} from={p.startDate} to={p.endDate} today={d.today} label={$t("Cycles de charge")} />}
                     </button>
                   </li>
                 );

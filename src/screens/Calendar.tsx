@@ -12,7 +12,8 @@ import { exportWorkoutFit } from '../data/exportFit';
 import { deletePlanned, duplicatePlanned, movePlanned, restore } from '../data/actions';
 import { estimateDistance, estimateDuration } from '../domain/blocks';
 import { addDays, daysBetween, mondayOf, weeksOfMonth } from '../domain/dates';
-import { cycleAt } from '../domain/cycles';
+import { cycleAt, cycleInfos } from '../domain/cycles';
+import { CycleStrip } from '../ui/cycleStrip';
 import { liveRecords, sessionDay } from '../domain/load';
 import type { ActualSession, PlannedSession } from '../domain/types';
 import { DISCIPLINE_ICON, blockDetail, blockHead, dateFr, dayLong, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, MONTHS_TITLE, num, WD_LETTER, KIND_LABEL, phaseLabel } from '../ui/format';
@@ -203,8 +204,9 @@ export function CalendarMonthScreen() {
   const swipe = useSwipe(() => shift(1), () => shift(-1));
   const ints = liveRecords(data.interruptions);
   const phs = liveRecords(data.phases);
-  const monthCycles = new Map<string, NonNullable<ReturnType<typeof cycleAt>>>();
-  for (const w of weeks) for (let i = 0; i < 7; i++) { const day = addDays(w, i); if (day.slice(0, 7) !== month) continue; const cy = cycleAt(phs, day); if (cy) monthCycles.set(cy.phase.id + cy.info.cycle.startDate, cy); }
+  const monthFirst = month + '-01';
+  const monthLast = addDays(monthFirst, new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 0)).getUTCDate() - 1);
+  const monthItems = phs.filter((p) => p.cycles?.length && p.startDate <= monthLast && p.endDate >= monthFirst).flatMap((p) => cycleInfos(p.cycles));
   const selCycle = cycleAt(phs, sel);
   let done = 0, total = 0, vol = 0;
   for (const [day, it] of map) {
@@ -246,10 +248,10 @@ export function CalendarMonthScreen() {
               );
             })}
           </div>
-          {monthCycles.size > 0 && <div className="legend" aria-label={$t("Cycles de charge du mois")}>{[...monthCycles.values()].map((cy) => <span key={cy.phase.id + cy.info.cycle.startDate} className="cyc-chip" style={{ ['--cyc' as string]: cy.info.color }}>{cy.info.text} · {dayMonth(cy.info.cycle.startDate)} → {dayMonth(cy.info.cycle.endDate)}</span>)}</div>}
+          {monthItems.length > 0 && <CycleStrip items={monthItems} from={monthFirst} to={monthLast} today={d.today} marker={sel} label={$t("Cycles de charge du mois")} />}
         </section>
         <section className="stack-8 dspan-5" aria-label={dayLong(sel)}>
-          {selCycle && <button type="button" className="phase-ribbon" onClick={() => navigate('/calendrier/periodisation')}><Icon name="layers" size={18} /><span className="grow ellipsis"><strong>{selCycle.phase.label}</strong> · <span className="cyc-chip" style={{ ['--cyc' as string]: selCycle.info.color }}>{selCycle.info.text}</span></span><Icon name="next" size={18} /></button>}
+          {selCycle && <span className="t-caption c-moderate">{selCycle.phase.label} · {selCycle.info.text}</span>}
           <div className="between"><h2 className="t-h3">{dayTitle(sel)}</h2><button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => openSheet('ajouter', { date: sel })}><Icon name="plus" size={18} />{$t("Ajouter")}</button></div>
           {selItems.done.length + selOpen.length === 0 ? <p className="t-caption c-moderate">{sel < d.today ? $t("Repos") : $t("Rien de prévu ce jour-là.")}</p> : (
             <ul className="op-list" style={{ margin: 0 }}>
