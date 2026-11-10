@@ -15,8 +15,12 @@ import { addDays, mondayOf, today } from './dates';
 import type { Derived } from './engine';
 import { dayEnergy } from './energy';
 import { fnv1a, newId, nowIso } from './ids';
+import { cleanHr } from './hr';
 import { latestZone, liveRecords, sessionDay } from './load';
-import type { AppData, Block, CoachExchange, PlannedDiscipline, PhaseCycle, PlannedSession, PreviewItem, TrainingPhase } from './types';
+import { overlaySteps } from './plannedSteps';
+import { hrView } from './sessionStats';
+import { paceOf } from './stats';
+import type { ActualSession, AppData, Block, CoachExchange, PlannedDiscipline, PhaseCycle, PlannedSession, PreviewItem, TrainingPhase } from './types';
 import { BLOCK_KINDS, BLOCK_MEASURES, PLANNED_DISCIPLINES, RELATIVE_REFS, SET_MODES, TARGET_TYPES, ZONE_KINDS } from './types';
 
 export const SCHEMA = 'apogee/1';
@@ -56,6 +60,10 @@ function instructions(): string {
     "  celles que l'athlète a modifiées ou déplacées après ton dernier plan (`editedByAthleteAt` non nul).",
     "  Pars de ces versions, pas de ce que tu avais écrit : ne les écrase pas sans raison, et dis laquelle dans `notes`.",
     "- `recentPlannedSessions` : séances prévues passées de la période, `status` « done » (réalisée) ou « missed » (non réalisée).",
+    "- `recentActualSessions` : en plus de la durée, de la FC moyenne et de la charge, chaque séance donne `maxHrBpm`, l'allure ou la vitesse moyenne,",
+    "  `hrZones` (secondes passées dans chacune des 5 zones de FC, calculées par la méthode de Karvonen, avec leurs bornes en bpm) et, si la séance est rattachée à une",
+    "  séance prévue entièrement minutée, `plannedStepResults` : le résultat RÉEL de chaque étape prévue (échauffement, efforts, récupérations…) avec durée, distance,",
+    "  allure ou vitesse et FC. `stepsEditedByAthlete` vaut true si l'athlète a corrigé à la main la durée ou l'ordre des étapes. `watchLaps` liste les tours de la montre, s'ils existent.",
     '',
     'FORME EXACTE DU FICHIER À RENVOYER :',
     '{',
@@ -243,6 +251,35 @@ function recentHealth(data: AppData, d: Derived, day: string) {
   };
 }
 
+const r1 = (v: number) => Math.round(v * 10) / 10;
+/**
+ * Détail du compte rendu d'une séance pour le coach : allure/vitesse, FC max, temps par zone de FC (Karvonen), résultat de chaque étape de la séance
+ * prévue rattachée (quand elle est entièrement minutée) et tours de la montre. Tout est recalculé ici, comme dans l'écran de la séance.
+ */
+function sessionDetail(data: AppData, d: Derived, s: ActualSession, planned: PlannedSession | undefined) {
+  const day = sessionDay(s);
+  const ser = data.series[s.id];
+  const hr = ser && !ser.deleted ? cleanHr(ser.hr) : [];
+  const speed = ser && !ser.deleted ? ser.speed : null;
+  const hrMax = d.ctx.hrMaxAt(day), rest = d.ctx.restAt(day);
+  const hv = hrMax ? hrView(hr, hrMax, rest) : null;
+  const pace = paceOf(s);
+  const bike = s.discipline === 'BIKE' || s.discipline === 'OTHER';
+  const per100 = s.discipline === 'SWIM';
+  const paceOut = (ms: number | null) => (ms && ms > 0.05 ? (bike ? { speedKmh: r1(ms * 3.6) } : { paceSec: Math.round((per100 ? 100 : 1000) / ms) }) : null);
+  const steps = planned && !planned.deleted ? overlaySteps(planned, Date.parse(s.startAt) / 1000, s.durationSec, speed ?? null, hr, s.distanceM, s.discipline, s.stepsEdit) : null;
+  const laps = ser && !ser.deleted ? ser.laps ?? [] : [];
+  return {
+    maxHrBpm: s.maxHrBpm,
+    ...(pace && !bike ? { avgPaceSecPer: per100 ? '100m' : 'km', avgPaceSec: Math.round(pace) } : {}),
+    ...(bike && s.distanceM && s.durationSec ? { avgSpeedKmh: r1((s.distanceM / s.durationSec) * 3.6) } : {}),
+    hrZones: hv ? { method: 'Karvonen (réserve de FC : FC max − FC de repos)', hrMaxBpm: hv.hrMax, hrRestBpm: Math.round(hv.hrRest), secondsPerZone: hv.zones.map((x) => Math.round(x)), boundsBpm: hv.ranges.map((x) => [Math.round(x.lo), Math.round(x.hi)]) } : null,
+    plannedStepResults: steps ? steps.map((g) => ({ kind: g.kind, label: g.block.label, rank: g.rank, durationSec: Math.round(g.to - g.from), distanceM: g.metres === null ? null : Math.round(g.metres), ...paceOut(g.ms), avgHrBpm: g.avgHr ? Math.round(g.avgHr) : null, maxHrBpm: g.maxHr ? Math.round(g.maxHr) : null })) : null,
+    stepsEditedByAthlete: !!s.stepsEdit,
+    watchLaps: laps.length >= 2 ? laps.slice(0, 80).map(([a, b, len]) => ({ durationSec: Math.round(Math.max(0, b - a)), distanceM: len === null || len === undefined ? null : Math.round(len) })) : null,
+  };
+}
+
 export function buildDossier(data: AppData, d: Derived, selected: string[], now: Date = new Date(), periodFrom?: string) {
   const day = today(now);
   const a = data.athlete.main;
@@ -296,6 +333,7 @@ export function buildDossier(data: AppData, d: Derived, selected: string[], now:
         discipline: s.discipline, title: s.title?.trim() || null, startAt: s.startAt, durationSec: s.durationSec, distanceM: s.distanceM, avgHrBpm: s.avgHrBpm,
         load: l?.load ?? null, loadMethod: l && l.method !== 'pending' ? l.method : null, hrDrift: l?.drift ?? null,
         rpe: s.rpe, comment: s.comment, matchedPlanned: matched,
+        ...sessionDetail(data, d, s, lp && !lp.deleted ? lp : undefined),
       };
     }),
   };

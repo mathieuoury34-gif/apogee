@@ -1387,3 +1387,33 @@ test('natation : la vitesse est reconstruite à partir des distances par longueu
   const curve = distanceCurve(sp, 375)!;
   assert.ok(Math.abs(distanceAt(curve, 1e9) - 375) < 1e-6);
 });
+
+test('coach : le dossier donne le détail du compte rendu (zones de FC, résultat des étapes prévues, correction de l’athlète)', () => {
+  const wu = { ...newBlock('WARMUP'), measureValue: 300 };
+  const set = { ...newBlock('SET'), setCount: 2, children: [{ ...newBlock('WORK'), measureValue: 60 }, { ...newBlock('RECOVERY'), measureValue: 60 }] };
+  const planned = { id: 'p1', updatedAt: 'x', discipline: 'RUN', plannedDate: '2026-10-01', title: 'Fractionné', notes: null, origin: 'manual', idempotencyKey: null, coachExchangeId: null, blocks: [wu, set], createdAt: 'x' };
+  const t0 = Date.parse('2026-10-01T08:00:00Z') / 1000;
+  const hr: [number, number][] = [], sp: [number, number][] = [];
+  const push = (from: number, sec: number, v: number, h: number) => { for (let i = 0; i < sec; i++) { hr.push([t0 + from + i, h]); sp.push([t0 + from + i, v]); } };
+  push(0, 300, 3, 130); push(300, 60, 5, 170); push(360, 60, 2, 140); push(420, 60, 5, 172); push(480, 60, 2, 141);
+  const actual = { id: 'a1', updatedAt: 'x', sourceId: 'g-a1', source: 'health', discipline: 'RUN', rawExerciseType: '56', startAt: new Date(t0 * 1000).toISOString(), endAt: new Date((t0 + 540) * 1000).toISOString(), durationSec: 540, distanceM: 1740, avgHrBpm: 145, maxHrBpm: 175, rpe: 6, comment: null, hasSeries: true, manualPlannedId: 'p1' };
+  const d = emptyData();
+  (d.planned as Record<string, unknown>).p1 = planned; (d.actual as Record<string, unknown>).a1 = actual;
+  (d.series as Record<string, unknown>).a1 = { id: 'a1', updatedAt: 'x', hr, speed: sp };
+  const now = new Date('2026-10-02T10:00:00Z');
+  const dos = buildDossier(d, derive(d, SETTINGS, now), ['a1'], now);
+  const s = dos.recentActualSessions[0] as unknown as Record<string, unknown>;
+  assert.equal(s.maxHrBpm, 175);
+  const res = s.plannedStepResults as { kind: string; durationSec: number; avgHrBpm: number; paceSec: number }[];
+  assert.equal(res.length, 5);
+  assert.deepEqual(res.map((x) => x.kind), ['WARMUP', 'WORK', 'RECOVERY', 'WORK', 'RECOVERY']);
+  assert.equal(res[1].durationSec, 60); assert.equal(res[1].avgHrBpm, 170); assert.equal(res[1].paceSec, 200);
+  assert.equal(s.stepsEditedByAthlete, false);
+  // l'athlète a corrigé l'ordre : la première étape devient le premier effort
+  (d.actual as Record<string, { stepsEdit?: unknown }>).a1.stepsEdit = [{ i: 1, sec: 60 }, { i: 0, sec: 300 }, { i: 2, sec: 60 }, { i: 3, sec: 60 }, { i: 4, sec: 60 }];
+  const dos2 = buildDossier(d, derive(d, SETTINGS, now), ['a1'], now);
+  const s2 = dos2.recentActualSessions[0] as unknown as Record<string, unknown>;
+  assert.equal(s2.stepsEditedByAthlete, true);
+  assert.equal((s2.plannedStepResults as { kind: string }[])[0].kind, 'WORK');
+  assert.ok('hrZones' in s && 'watchLaps' in s);
+});
