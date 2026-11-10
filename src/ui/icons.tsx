@@ -17,6 +17,7 @@ const P: Record<string, string[]> = {
   plus: ['M5 12h14', 'M12 5v14'],
   minus: ['M5 12h14'],
   close: ['M18 6 6 18', 'm6 6 12 12'],
+  expand: ['M15 3h6v6', 'M9 21H3v-6', 'M21 3l-7 7', 'M3 21l7-7'],
   search: ['circle:11,11,8', 'm21 21-4.3-4.3'],
   sort: ['m21 16-4 4-4-4', 'M17 20V4', 'm3 8 4-4 4 4', 'M7 4v16'],
   plusCircle: ['circle:12,12,10', 'M8 12h8', 'M12 8v8'],

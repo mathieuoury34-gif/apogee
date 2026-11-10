@@ -55,7 +55,7 @@ export function LoadScreen() {
   const curStatus = statusOf(acwr, c.fitnessDelta);
   const focusEnd = addDays(d.today, -fw.offset);
   const fspan = fw.span || Math.max(1, total);
-  const focus = loadFocus(data, d.loads, d.ctx.hrMaxAt, focusEnd, fspan);
+  const focus = loadFocus(data, d.loads, d.ctx.hrMaxAt, focusEnd, fspan, d.ctx.restAt);
   const acwrZone = acwr === null ? null : acwr > 1.5 ? 'critical' : acwr > 1.3 ? 'warning' : acwr < 0.8 ? 'low' : 'ok';
   if (!d.series.days.length) {
     return (

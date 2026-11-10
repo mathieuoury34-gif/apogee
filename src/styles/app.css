@@ -740,3 +740,27 @@ input, textarea, select, [contenteditable="true"], pre, code, .help-f, .help-cod
 @keyframes anchor-flash { 0% { box-shadow: 0 0 0 3px var(--focus-indicator); } 70% { box-shadow: 0 0 0 3px var(--focus-indicator); } 100% { box-shadow: 0 0 0 3px transparent; } }
 .anchor-flash { animation: anchor-flash 2.2s ease-out; border-radius: var(--radius-16); }
 @media (prefers-reduced-motion: reduce) { .anchor-flash { animation: none; box-shadow: 0 0 0 3px var(--focus-indicator); } }
+
+/* ---- bilan de séance « à la Garmin » : échelle des zones, lignes par zone, jauge d'effet, graphique explorable ---- */
+.zscale { display: flex; height: 28px; border-radius: var(--radius-8); overflow: hidden; }
+.zscale > span { display: flex; align-items: center; justify-content: center; min-width: 0; font: var(--type-caption); font-weight: 600; color: var(--text-reverse); }
+.zscale-ticks { position: relative; height: 16px; }
+.zscale-ticks > span { position: absolute; top: 0; transform: translateX(-50%); font: var(--type-legal); color: var(--text-moderate); white-space: nowrap; }
+.zscale-ticks > span:first-child { transform: none; }
+.zscale-ticks > span:last-child { transform: translateX(-100%); }
+.zrows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-12); }
+.zrows li { display: flex; flex-direction: column; gap: var(--space-4); }
+.zrow-bar { height: 8px; border-radius: var(--radius-full); background: var(--bg-grey-minimal); overflow: hidden; }
+.zrow-bar > span { display: block; height: 100%; border-radius: var(--radius-full); min-width: 2px; }
+.tegauge { position: relative; display: flex; gap: 3px; height: 10px; margin: var(--space-8) 0; }
+.tegauge > span { flex: 1; border-radius: var(--radius-full); }
+.tegauge > .over { flex: .25; }
+.tegauge > .dot { position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: var(--radius-full); border: 3px solid var(--bg-surface); box-shadow: var(--shadow-s); }
+.schart { user-select: none; -webkit-user-select: none; }
+.schart .hit { touch-action: pan-y; -webkit-tap-highlight-color: transparent; }
+.schart-t { font: var(--type-legal); fill: var(--chart-axis); }
+.schart .schart-tip { z-index: 2; gap: 2px; }
+.schart-clear { position: absolute; right: 0; top: 0; z-index: 3; width: 28px; height: 28px; border: 0; border-radius: var(--radius-full); background: var(--bg-grey-minimal); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.heads .kpi { padding: var(--space-8) var(--space-12); box-shadow: none; background: var(--bg-grey-minimal); }
+.heads .kpi .label { padding-right: 0; }
+.schart-full { position: fixed; z-index: 40; display: flex; flex-direction: column; gap: var(--space-8); background: var(--bg-surface); overflow: hidden; }

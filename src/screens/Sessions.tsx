@@ -3,7 +3,7 @@
 // Modifier / Supprimer (avec « Annuler »), filtres en pastilles.
 import { $t } from '../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppHeader, ChipGroup, DatePicker, DiscIcon, Empty, ErrorBanner, Fab, Hero, Sheet, SportPicker, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
+import { AppHeader, ChipGroup, DatePicker, Segmented, DiscIcon, Empty, ErrorBanner, Fab, Hero, Sheet, SportPicker, SubHeader, SubNav, showToast, useWidth, OtherToggle, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { DistanceField, DurationField, IntField, MeterField, numOf } from '../ui/wheels';
 import { Donut, StepChart, WeekBars } from '../ui/charts';
 import { Icon } from '../ui/icons';
@@ -16,12 +16,13 @@ import { exerciseLabel } from '../domain/health';
 import { linkCandidates, findBrickSibling } from '../domain/links';
 import { liveRecords, METHOD_LABEL, sessionDay } from '../domain/load';
 import { TrainingEffectCard } from './Capacity';
+import { SessionAnalysis } from './SessionDetail';
 import { parseBulkActual, parseBulkPlanned, parseManualFields, type ManualInput } from '../domain/manual';
 import { DRIFT_REASON_TEXT, reviewSession, VERDICT_TEXT } from '../domain/review';
-import { KCAL_J, disciplineStats, overview, paceOf, weeklyVolume } from '../domain/stats';
+import { KCAL_J, disciplineStats, overview, paceOf, periodTotals, weeklyVolume } from '../domain/stats';
 import type { ActualDiscipline, ActualSession, PlannedDiscipline } from '../domain/types';
 import { ACTUAL_DISCIPLINES } from '../domain/types';
-import { DISCIPLINE_SHORT, bpm, dateFr, dateTimeFr, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, descent, elevation, hm, hours, kcal, km, mmss, monthLong, num, paceFor, parseNum, pct, pctSigned, signed, speedKmh, timeOf, toInput, NBSP } from '../ui/format';
+import { DISCIPLINE_SHORT, bpm, dateFr, dateTimeFr, dayMonth, dayTitle, DISCIPLINE_LABEL, sessionLabel, distanceFor, duration, dvar, descent, elevation, hhmm, hm, hours, kcal, km, mmss, monthLong, num, paceFor, parseNum, pct, pctSigned, signed, speedKmh, timeOf, toInput, NBSP } from '../ui/format';
 import { cleanHr } from '../domain/hr';
 import { polarSplit, zoneTimes } from '../domain/zones';
 import { BricksCard, ComplianceCard, EfficiencyCard, RecordsCard, ZonesCard } from './Analysis';
@@ -211,10 +212,10 @@ export function ReviewScreen({ id }: { id: string }) {
             {s.activeCaloriesJ ? <Kpi label={$t("Calories actives")} value={kcal(s.activeCaloriesJ / KCAL_J)} /> : null}
           </div>
           <Info>{$t("Charge")} {METHOD_LABEL[l.method]}{l.method === 'srpe' ? $t(" (RPE × minutes × {0}, coefficient appris sur {1})", { 0: num(d.ctx.srpeFactor, 2), 1: d.ctx.srpeCalibrationPairs >= 5 ? $t("tes séances") : $t("une valeur type") }) : ''}.{s.edited.length ? $t(" Valeurs soulignées : corrigées à la main.") : ''}{s.elevationGainM ? $t(" Dénivelé {0} m.", { 0: num(s.elevationGainM, 0) }) : ''}{s.elevationLossM ? $t(" Descente {0} m.", { 0: num(s.elevationLossM, 0) }) : ''}{s.activeCaloriesJ ? $t(" {0} kcal actives.", { 0: num(s.activeCaloriesJ / 4184, 0) }) : ''}</Info>
-          <HrTrace id={s.id} />
         </InfoCard>
 
         <TrainingEffectCard id={s.id} />
+        <SessionAnalysis s={s} />
 
         <section className="card g12 dspan-5" aria-label={$t("Verdict")}>
           <h2>{$t("Verdict")}</h2>
@@ -286,44 +287,6 @@ export function ReviewScreen({ id }: { id: string }) {
 
 function Kpi({ label, value, cls = '' }: { label: string; value: string; cls?: string }) {
   return <div className="kpi"><span className="label">{label}</span><span className={'value' + cls}>{value}</span></div>;
-}
-
-function HrTrace({ id }: { id: string }) {
-  const { data, d } = useCalc();
-  const [ref, w] = useWidth<HTMLDivElement>();
-  const ser = data.series[id];
-  const hr = ser && !ser.deleted ? cleanHr(ser.hr) : [];
-  if (hr.length < 20) return null;
-  const t0 = hr[0][0], t1 = hr[hr.length - 1][0];
-  const lo = Math.min(...hr.map((p) => p[1])), hi = Math.max(...hr.map((p) => p[1]));
-  const H = 70;
-  const X = (t: number) => ((t - t0) / (t1 - t0 || 1)) * (w - 36);
-  const Y = (v: number) => 4 + H - ((v - lo) / (hi - lo || 1)) * H;
-  const step = Math.max(1, Math.round(hr.length / 300));
-  const dpath = hr.filter((_, i) => i % step === 0).map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join(' ');
-  const sess = data.actual[id];
-  const hrMax = sess ? d.ctx.hrMaxAt(sessionDay(sess)) : d.ctx.hrMax.bpm;
-  const zt = hrMax ? zoneTimes(hr, hrMax) : null;
-  const zsum = zt ? zt.reduce((t, x) => t + x, 0) : 0;
-  const pol = zt ? polarSplit(zt) : null;
-  return (
-    <>
-    <div ref={ref} className="chart" style={{ height: H + 26 }} aria-label={$t("Fréquence cardiaque pendant la séance")}>
-      <svg width={w} height={H + 26} viewBox={`0 0 ${w} ${H + 26}`} role="img" aria-label={$t("FC de {0} à {1} bpm", { 0: num(lo, 0), 1: num(hi, 0) })}>
-        <path d={dpath} fill="none" strokeWidth="1.75" strokeLinejoin="round" style={{ stroke: 'var(--critical)' }} />
-      </svg>
-      <span className="tick" style={{ left: w - 30, top: Y(hi) - 9 }}>{num(hi, 0)}</span>
-      <span className="tick" style={{ left: w - 30, top: Y(lo) - 9 }}>{num(lo, 0)}</span>
-      <span className="tick" style={{ left: 0, top: H + 8 }}>{$t("FC (bpm) ·")} {duration(t1 - t0)}</span>
-    </div>
-    {zt && pol && zsum > 0 && (
-      <div className="stack-4" aria-label={$t("Temps par zone de FC")}>
-        <SplitBars rows={[{ label: $t("Temps par zone de FC"), easy: pol.easy, hard: pol.hard, intense: pol.intense }]} />
-        <span className="t-caption c-neutral">{zt.map((v, i) => `Z${i + 1} ${pct(v / zsum)}`).join(' · ')}</span>
-      </div>
-    )}
-    </>
-  );
 }
 
 export function RpeScale({ value, onChange }: { value: number | null; onChange: (v: number | null) => void }) {
@@ -553,8 +516,14 @@ export function StatsScreen() {
   const totals: Record<string, number> = {};
   share.forEach((w) => Object.entries(w.byDiscipline).forEach(([k, v]) => (totals[k] = (totals[k] ?? 0) + v)));
   const [withOther] = useWithOther();
+  const [shareMode, setShareMode] = useState<'pct' | 'time' | 'dist'>('pct');
+  const metres = periodTotals(data, sFrom, sEnd).metres;
   const sum = Object.entries(totals).reduce((a, [k, v]) => a + (k === 'OTHER' && !withOther ? 0 : v), 0);
   const order = ['RUN', 'BIKE', 'SWIM', 'STRENGTH', ...(withOther ? ['OTHER'] : [])].filter((k) => totals[k]);
+  const distSum = order.reduce((a, k) => a + (metres[k] ?? 0), 0);
+  const byDist = shareMode === 'dist';
+  const sliceOf = (k: string) => (byDist ? metres[k] ?? 0 : totals[k]);
+  const shareText = (k: string) => (shareMode === 'pct' ? pct(totals[k] / (sum || 1)) : shareMode === 'time' ? hhmm(totals[k]) : metres[k] ? km(metres[k], 1) : '—');
   const ref = st.reference;
   const refText = (v: number) => (disc === 'RUN' ? num(v * 3.6, 1) + NBSP + $t("km/h") : disc === 'SWIM' ? mmss(100 / v) + NBSP + '/100' + NBSP + 'm' : num(v, 0) + NBSP + 'W');
   return (
@@ -574,15 +543,18 @@ export function StatsScreen() {
           </div>
         </Hero>
         <section className="card g12 dspan-7" aria-labelledby="h-share">
-          <h2 id="h-share">{$t("Répartition du temps")}</h2>
+          <h2 id="h-share">{byDist ? $t("Répartition de la distance") : $t("Répartition du temps")}</h2>
           <PeriodBar p={sw} total={Math.max(d.series.days.length, 1)} from={sFrom} to={sEnd} />
-          <OtherToggle />
+          <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
+            <OtherToggle />
+            <Segmented label={$t("Affichage de la répartition")} value={shareMode} onChange={setShareMode} options={[['pct', '%'], ['time', $t("Heures")], ['dist', $t("Distance")]]} />
+          </div>
           <div className="row" style={{ gap: 'var(--space-16)', alignItems: 'center' }}>
-            <Donut size={136} ring={20} label={$t("Répartition du temps par discipline")} slices={order.map((k) => ({ value: totals[k], color: dvar(k as ActualDiscipline) }))}>
-              <span className="t-caption c-moderate">{$t("Total")}</span><span className="t-amount-s">{hm(sum)}</span>
+            <Donut size={136} ring={20} label={byDist ? $t("Répartition de la distance par discipline") : $t("Répartition du temps par discipline")} slices={order.map((k) => ({ value: sliceOf(k), color: dvar(k as ActualDiscipline) }))}>
+              <span className="t-caption c-moderate">{$t("Total")}</span><span className="t-amount-s">{byDist ? (distSum ? km(distSum, 0) : '—') : hm(sum)}</span>
             </Donut>
             <ul className="grow stack t-caption" style={{ gap: 'var(--space-6)' }}>
-              {order.map((k) => <li key={k} className="legend-row" style={{ padding: 0, border: 0 }}><span className="dot s10" style={{ background: dvar(k as ActualDiscipline) }} /><span>{DISCIPLINE_LABEL[k as ActualDiscipline]}</span><span className="t-strong right">{pct(totals[k] / (sum || 1))}</span></li>)}
+              {order.map((k) => <li key={k} className="legend-row" style={{ padding: 0, border: 0 }}><span className="dot s10" style={{ background: dvar(k as ActualDiscipline) }} /><span>{DISCIPLINE_LABEL[k as ActualDiscipline]}</span><span className="t-strong right">{shareText(k)}</span></li>)}
               {!order.length && <li className="c-moderate">{$t("Aucune séance sur la période.")}</li>}
             </ul>
           </div>

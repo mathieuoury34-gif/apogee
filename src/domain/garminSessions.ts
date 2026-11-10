@@ -40,7 +40,7 @@ export interface SessionsReport {
   hrOutOfRange: number;
 }
 
-export function correctSessions(data: AppData, rows: GraphSession[] | undefined, hrMaxSrc: HrMaxSrc): { actual: ActualSession[]; report: SessionsReport } {
+export function correctSessions(data: AppData, rows: GraphSession[] | undefined, hrMaxSrc: HrMaxSrc, restAt?: (day: string) => number | null): { actual: ActualSession[]; report: SessionsReport } {
   const report: SessionsReport = { matched: 0, notFound: [], elevationSet: 0, elevationKept: 0, descentSet: 0, descentKept: 0, hrEstimated: 0, hrKept: 0, curveKept: 0, hrOutOfRange: 0 };
   const live = liveRecords(data.actual);
   const patched = new Map<string, ActualSession>();
@@ -88,7 +88,7 @@ export function correctSessions(data: AppData, rows: GraphSession[] | undefined,
       if (curve) report.curveKept++;
       else {
         const hrMaxBpm = hrMaxFor(hrMaxSrc, sessionDay(cur));
-        const est = hrMaxBpm ? avgHrForLoad(load, cur.durationSec, hrMaxBpm, disciplineLoadFactor(cur.discipline)) : null;
+        const est = hrMaxBpm ? avgHrForLoad(load, cur.durationSec, hrMaxBpm, disciplineLoadFactor(cur.discipline), restAt ? restAt(sessionDay(cur)) : null) : null;
         if (est === null) report.hrOutOfRange++;
         else {
           const v = Math.round(est * 10) / 10;

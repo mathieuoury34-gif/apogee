@@ -21,7 +21,9 @@ import { addDays, dayRange, mondayOf } from '../domain/dates';
 import { fitnessByDiscipline, type LoadKey } from '../domain/loadByDiscipline';
 import { brickAnalysis, efficiency, EF_BAND, EF_BAND_BIKE, EF_MAX_CLIMB, EF_MAX_CLIMB_BIKE, personalRecords, type PersonalRecord } from '../domain/records';
 import { weekSummary, type WeekSummary } from '../domain/summary';
-import { HR_ZONE_EDGES, polarSplit, weeklyZones } from '../domain/zones';
+import { polarSplit, weeklyZones, zoneRanges } from '../domain/zones';
+import { restOrRef } from '../domain/hr';
+import { ZoneScale } from '../ui/zoneviz';
 import { dayTitle, timeOf, dateFr, dateShort, dayMonth, DISCIPLINE_LABEL, duration, mmss, monthLong, num, pct, signed, speedKmh, NBSP } from '../ui/format';
 
 type CalcCtx = ReturnType<typeof useCalc>;
@@ -124,9 +126,11 @@ export function ZonesCard({ d, data }: Props) {
   const end = addDays(d.today, -pw.offset);
   const from = pw.span === 0 ? (d.series.firstDay ?? end) : addDays(end, -(pw.span - 1));
   const nWeeks = Math.min(160, Math.max(1, Math.round((Date.parse(mondayOf(end)) - Date.parse(mondayOf(from))) / (7 * 86400_000)) + 1));
-  const rep = weeklyZones(data, d.ctx.hrMaxAt, end, nWeeks, withOther, from);
+  const rep = weeklyZones(data, d.ctx.hrMaxAt, end, nWeeks, withOther, from, d.ctx.restAt);
   const p = polarSplit(rep.total);
-  const edges = HR_ZONE_EDGES.map((e) => (hrMax ? Math.round(e * hrMax) : null));
+  const restNow = d.ctx.restAt(d.today);
+  const ranges = hrMax ? zoneRanges(hrMax, restNow) : null;
+  const edges = ranges ? ranges.slice(1).map((r) => Math.round(r.lo)) : [];
   const range = [`< ${edges[0]}`, `${edges[0]}–${edges[1]}`, `${edges[1]}–${edges[2]}`, `${edges[2]}–${edges[3]}`, `≥ ${edges[3]}`];
   return (
     <InfoCard className="card g12" aria-label={$t("Temps par zone de FC")}>
@@ -139,8 +143,9 @@ export function ZonesCard({ d, data }: Props) {
         <>
           <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}>
             <span className="t-h2">{pct(p.total ? p.easy / p.total : 0)}</span>
-            <span className="t-caption c-neutral">{$t("du temps en zone facile (moins de 80 % de ta FC max), sur {0} séances ({1})", { 0: rep.sessions, 1: duration(p.total) })}</span>
+            <span className="t-caption c-neutral">{$t("du temps en zone facile (moins de 80 % de ta FC de réserve), sur {0} séances ({1})", { 0: rep.sessions, 1: duration(p.total) })}</span>
           </div>
+          {ranges && <ZoneScale ranges={ranges} />}
           <SplitBars rows={[{ label: $t("Total sur la période"), easy: p.easy, hard: p.hard, intense: p.intense }]} />
           <div className="legend">
             <span><span className="dot s10" style={{ background: 'var(--zone-easy)' }} />{$t("Facile < 80 %")}</span>
@@ -161,7 +166,7 @@ export function ZonesCard({ d, data }: Props) {
           </ul>
         </>
       )}
-      <Info>{$t("Zones en % de la FC max retenue à la date de chaque séance (aujourd’hui {0} bpm) : Z1 < 60 %, Z2 60–70 %, Z3 70–80 %, Z4 80–90 %, Z5 ≥ 90 %. Course, vélo et natation seulement (le renforcement est exclu). Le repère « 80/20 » est générique : sans test de seuil, la vraie frontière varie d’un sportif à l’autre. Les séances sans courbe cardiaque ne sont pas comptées{1}.", { 0: hrMax ? num(hrMax, 0) : '—', 1: rep.withoutHr ? $t(" ({0} sur la période)", { 0: rep.withoutHr }) : '' })}</Info>
+      <Info>{$t("Zones par la méthode de Karvonen, en % de la FC de réserve (FC max − FC de repos), avec la FC max et la FC de repos en vigueur à la date de chaque séance (aujourd’hui FC max {0} bpm, FC de repos {2} bpm) : Z1 < 60 %, Z2 60–70 %, Z3 70–80 %, Z4 80–90 %, Z5 ≥ 90 %. Course, vélo et natation seulement (le renforcement est exclu). Le repère « 80/20 » est générique : sans test de seuil, la vraie frontière varie d’un sportif à l’autre. Les séances sans courbe cardiaque ne sont pas comptées{1}.", { 0: hrMax ? num(hrMax, 0) : '—', 1: rep.withoutHr ? $t(" ({0} sur la période)", { 0: rep.withoutHr }) : '', 2: hrMax ? num(restOrRef(hrMax, restNow), 0) : '—' })}</Info>
     </InfoCard>
   );
 }
@@ -216,7 +221,8 @@ function Spark({ values }: { values: number[] }) {
 export function EfficiencyCard({ d, data }: Props) {
   const [disc, setDisc] = useState<'RUN' | 'BIKE'>('RUN');
   const hrMax = d.ctx.hrMax.bpm;
-  const ef = efficiency(data, d.ctx.hrMaxAt, disc, d.today);
+  const restHr = hrMax ? restOrRef(hrMax, d.ctx.restAt(d.today)) : 0;
+  const ef = efficiency(data, d.ctx.hrMaxAt, disc, d.today, 26, d.ctx.restAt);
   const fmt = (v: number | null) => (v === null ? '—' : disc === 'RUN' ? mmss(1000 / v) + NBSP + '/km' : speedKmh(v));
   const band = disc === 'BIKE' ? EF_BAND_BIKE : EF_BAND;
   const climb = disc === 'BIKE' ? EF_MAX_CLIMB_BIKE : EF_MAX_CLIMB;
@@ -233,7 +239,7 @@ export function EfficiencyCard({ d, data }: Props) {
           <dl className="kv">
             <dt>{$t("{0} de 20 min ou plus avec distance", { 0: DISCIPLINE_LABEL[disc] })}</dt><dd>{ef.diag.sessions}</dd>
             <dt>{$t("dont avec une FC moyenne")}</dt><dd>{ef.diag.withHr}</dd>
-            <dt>{hrMax ? $t("dont FC moyenne entre {0} et {1} bpm", { 0: Math.round(band[0] * hrMax), 1: Math.round(band[1] * hrMax) }) : $t("dont FC moyenne dans la bonne zone")}</dt><dd>{ef.diag.inBand}</dd>
+            <dt>{hrMax ? $t("dont FC moyenne entre {0} et {1} bpm", { 0: Math.round(restHr + band[0] * (hrMax - restHr)), 1: Math.round(restHr + band[1] * (hrMax - restHr)) }) : $t("dont FC moyenne dans la bonne zone")}</dt><dd>{ef.diag.inBand}</dd>
             <dt>{$t("dont relief inférieur à {0} %", { 0: climb * 100 })}</dt><dd>{ef.diag.flat}</dd>
           </dl>
         </>

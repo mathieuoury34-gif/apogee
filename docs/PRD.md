@@ -105,6 +105,8 @@ Les valeurs n'ont pas la même échelle que Garmin. Valeurs exactes des constant
 **Zones physiologiques (VMA, FTP, CSS, FC max)** : historisées (une ligne par mesure, jamais écrasée), chaque saisie
 porte **obligatoirement** sa source (test / estimation / manuel), sans défaut. Une FC max déclarée l'emporte
 toujours sur la formule de Tanaka ; un pic soutenu observé ne la relève qu'au-delà de 2 bpm.
+**Zones de FC et FC de repos (10/11/2026)** : les zones de fréquence cardiaque suivent la méthode de **Karvonen** (pourcentages de la FC de réserve = FC max − FC de repos, FC de repos mesurée sur 14 jours, sinon valeur de référence), avec un petit diagramme des fourchettes en bpm. Le temps par zone, la répartition facile / soutenue / intense, l'anaérobie et la répartition de la charge en dépendent ; la charge elle-même ne change pas.
+**Bilan de séance (10/11/2026)** : le compte rendu d'une séance reprend l'esprit de Garmin Connect avec les seules données reçues (courbes de FC et de vitesse) : graphiques parcourables au doigt (deux doigts = FC moyenne entre les deux), temps par zone, effet d'entraînement et bénéfice principal, statistiques calculées. Ce que la montre ne transmet pas (carte, puissance, SWOLF, séries…) n'est pas affiché. Statistiques › Répartition : vue en % / heures / distance.
 **Références datées (04/11/2026)** : chaque séance, réalisée ou prévue, utilise les valeurs en vigueur à sa date (relevé le plus récent daté au plus tard ce jour-là ; avant le premier relevé, le premier relevé). Un nouveau relevé ne modifie jamais le passé : ni les charges, ni les zones de FC, ni les durées estimées des cibles en % VMA / FTP / CSS.
 
 ## 6. Le coach

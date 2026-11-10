@@ -13,7 +13,7 @@
 import { $t } from '../i18n';
 import type { ActualSession, AppData, CalcSettings, ZoneKind, ZoneReading, ZoneSource } from './types';
 import { addDays, ageAt, daysBetween, localDay } from './dates';
-import { analyzeHr, epocFromAverage, epocFromSeries, median, srpe, disciplineLoadFactor, type Sex } from './hr';
+import { analyzeHr, epocFromAverage, epocFromSeries, median, srpe, disciplineLoadFactor, REST_MAX_BPM, REST_MIN_BPM, type Sex } from './hr';
 
 export type LoadMethod = 'trimp' | 'trimp_avg' | 'srpe' | 'provisional' | 'pending';
 export type Assise = 'measured' | 'estimated' | 'entered' | 'none';
@@ -154,6 +154,12 @@ export function sessionDay(s: Pick<ActualSession, 'startAt' | 'zoneOffsetMinutes
   return localDay(s.startAt, s.zoneOffsetMinutes);
 }
 
+/** FC de repos du jour (médiane glissante), seulement si plausible. */
+export function restAtFn(data: AppData): (day: string) => number | null {
+  const resting = restingBaseline(data);
+  return (day) => { const v = resting.at(day); return v !== null && v >= REST_MIN_BPM && v <= REST_MAX_BPM ? v : null; };
+}
+
 export interface LoadContext {
   hrMax: HrMaxInfo;
   /** FC max en vigueur à une date donnée (celle de la séance). */
@@ -163,6 +169,8 @@ export interface LoadContext {
   srpeFactor: number;
   srpeCalibrationPairs: number;
   resting: RestingBaseline;
+  /** FC de repos en vigueur un jour donné (médiane glissante 14 j), `null` si inconnue ou invraisemblable : sert aux zones et à la charge (Karvonen). */
+  restAt: (day: string) => number | null;
 }
 
 export function computeSessionLoads(data: AppData, settings: CalcSettings, now: Date = new Date()): { loads: Map<string, SessionLoad>; ctx: LoadContext } {
@@ -171,6 +179,7 @@ export function computeSessionLoads(data: AppData, settings: CalcSettings, now: 
   const athlete = data.athlete.main;
   const sex: Sex = athlete?.sex ?? 'M';
   const resting = restingBaseline(data);
+  const restAt = (day: string): number | null => { const v = resting.at(day); return v !== null && v >= REST_MIN_BPM && v <= REST_MAX_BPM ? v : null; };
   const sessions = liveRecords(data.actual).sort((a, b) => (a.startAt < b.startAt ? -1 : 1));
   const loads = new Map<string, SessionLoad>();
 
@@ -186,12 +195,12 @@ export function computeSessionLoads(data: AppData, settings: CalcSettings, now: 
     const drift = an ? an.drift : null;
     let res: SessionLoad | null = null;
     if (hrMaxBpm && hr.length) {
-      const t = epocFromSeries(hr, hrMaxBpm, s.durationSec);
+      const t = epocFromSeries(hr, hrMaxBpm, s.durationSec, restAt(sessionDay(s)));
       if (t) res = { load: t.value * factor, method: 'trimp', drift, assise: 'measured' };
     }
     if (res && s.rpe) ratios.push(res.load! / srpe(s.rpe, s.durationSec));
     if (!res && hrMaxBpm && s.avgHrBpm) {
-      const t = epocFromAverage(s.avgHrBpm, s.durationSec, hrMaxBpm);
+      const t = epocFromAverage(s.avgHrBpm, s.durationSec, hrMaxBpm, restAt(sessionDay(s)));
       if (t !== null) res = { load: t * factor, method: 'trimp_avg', drift, assise: 'estimated' };
     }
     if (res) loads.set(s.id, res);
@@ -230,7 +239,7 @@ export function computeSessionLoads(data: AppData, settings: CalcSettings, now: 
     loads.set(s.id, load === null ? { load: null, method: 'pending', drift: null, assise: 'none' } : { load, method: 'provisional', drift: null, assise: 'estimated' });
   }
 
-  return { loads, ctx: { hrMax, hrMaxAt, sex, sexDeclared: !!athlete?.sex, srpeFactor, srpeCalibrationPairs: ratios.length, resting } };
+  return { loads, ctx: { hrMax, hrMaxAt, sex, sexDeclared: !!athlete?.sex, srpeFactor, srpeCalibrationPairs: ratios.length, resting, restAt } };
 }
 
 // ------------------------------------------------------------------ Banister (forme normalisée, amorçage « steady »)

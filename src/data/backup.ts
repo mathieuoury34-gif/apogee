@@ -1,7 +1,7 @@
 // Sauvegarde JSON complète, restauration, reprise de l'ancienne base Android.
 import { $t } from '../i18n';
 import { emptyData, importLegacyDb, type LegacyReport } from '../domain/legacy';
-import { hrMaxTimeline, liveRecords } from '../domain/load';
+import { hrMaxTimeline, liveRecords, restAtFn } from '../domain/load';
 import { correctSessions, sessionsMessage } from '../domain/garminSessions';
 import { importDossierData, isDossier, type Dossier, type DossierReport } from '../domain/dossier';
 import { correctFromGarmin, correctionMessage, GRAPH_FORMAT_V2, GRAPH_FORMAT_V3, graphMessage, isGarminGraph, mergeGarminGraph, type GarminGraphFile } from '../domain/garminGraph';
@@ -79,7 +79,7 @@ export function importGarminGraph(file: GarminGraphFile): string {
   if (file.format === GRAPH_FORMAT_V2 || file.format === GRAPH_FORMAT_V3) {
     const data = getData();
     const r = correctFromGarmin(data, file);
-    const s = file.format === GRAPH_FORMAT_V3 ? correctSessions(data, file.sessions, hrMaxTimeline(data)) : null;
+    const s = file.format === GRAPH_FORMAT_V3 ? correctSessions(data, file.sessions, hrMaxTimeline(data), restAtFn(data)) : null;
     commit((tx) => { r.energy.forEach((x) => tx.put('energy', x)); r.sleep.forEach((x) => tx.put('sleep', x)); r.checkins.forEach((x) => tx.put('checkins', x)); s?.actual.forEach((x) => tx.put('actual', x)); });
     return [correctionMessage(r.report), s ? sessionsMessage(s.report) : ''].filter(Boolean).join(', ') || $t("Rien à corriger : tout était déjà conforme à Garmin Connect");
   }

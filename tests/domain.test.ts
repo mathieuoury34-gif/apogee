@@ -9,17 +9,18 @@ import { derive, refsAtFn, refsOf } from '../src/domain/engine';
 import { bestSegment, bestSpeedOver, efficiency, personalRecords, suggestZones } from '../src/domain/records';
 import { forecastLoad } from '../src/domain/forecast';
 import { fitnessByDiscipline } from '../src/domain/loadByDiscipline';
-import { polarSplit, zoneIndex, zoneTimes } from '../src/domain/zones';
+import { polarSplit, zoneIndex, zoneRanges, zoneTimes } from '../src/domain/zones';
+import { distanceAt, distanceCurve, intensityMinutes, primaryBenefit, rangeStats, speedStats } from '../src/domain/sessionStats';
 import { trainingAlerts } from '../src/domain/review';
 import { planCompliance } from '../src/domain/compliance';
 import { computeDailyForm } from '../src/domain/form';
 import { ingest } from '../src/domain/health';
 import { encodeFit, fitCrc, fitFileName, toFitWorkouts } from '../src/domain/fit';
 import { sleepStats, weightTrend } from '../src/domain/body';
-import { SWIM_LOAD_FACTOR, analyzeHr, avgHrForLoad, cleanHr, epocFromAverage, epocFromSeries, epocRate, hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
+import { SWIM_LOAD_FACTOR, analyzeHr, avgHrForLoad, bpmFromEquiv, cleanHr, epocFromAverage, equivIntensity, epocFromSeries, epocRate, hrDrift, sustainedPeak, trimpFromAverage, trimpFromSeries } from '../src/domain/hr';
 import { importLegacyDb, emptyData } from '../src/domain/legacy';
 import { cycleAt, cycleColor, cycleInfos, validateCycles, weeklyCycles } from '../src/domain/cycles';
-import { buildLoadSeries, computeSessionLoads, hrMaxTimeline, resolveHrMax } from '../src/domain/load';
+import { buildLoadSeries, computeSessionLoads, hrMaxTimeline, resolveHrMax, restAtFn } from '../src/domain/load';
 import { buildManualSession, parseBulkActual, parseBulkPlanned, parseManualFields } from '../src/domain/manual';
 import { hm } from '../src/ui/format';
 import { bmrKcal, dayEnergy, weekEnergy } from '../src/domain/energy';
@@ -371,17 +372,54 @@ test('respect du plan : séances échues rattachées, interruptions neutres, dur
   assert.ok(rep.last4.planned >= rep.last4.done);
 });
 
-test('zones de FC : bornes, temps par zone, répartition facile / soutenue / intense', () => {
+test('zones de FC (Karvonen) : bornes, temps par zone, répartition facile / soutenue / intense', () => {
+  // sans FC de repos mesurée : repos de référence = 0,26 × FC max = 52 bpm, réserve = 148 bpm
   assert.equal(zoneIndex(100, 200), 0);
-  assert.equal(zoneIndex(120, 200), 1, '60 % est le début de Z2');
-  assert.equal(zoneIndex(160, 200), 3);
-  assert.equal(zoneIndex(180, 200), 4);
-  const ser: [number, number][] = Array.from({ length: 101 }, (_, i) => [i * 10, i < 50 ? 110 : i < 80 ? 170 : 185]);
+  assert.equal(zoneIndex(140, 200), 0, '52 + 0,6 × 148 = 140,8 : juste en dessous, c’est Z1');
+  assert.equal(zoneIndex(142, 200), 1);
+  assert.equal(zoneIndex(171, 200), 3, '80 % de la réserve = 170,4');
+  assert.equal(zoneIndex(165, 200), 2);
+  assert.equal(zoneIndex(185, 200), 3, '90 % de la réserve = 185,2 : 186 est Z5');
+  assert.equal(zoneIndex(186, 200), 4);
+  // avec une FC de repos mesurée de 50 : seuil Z2 = 50 + 0,6 × 150 = 140
+  assert.equal(zoneIndex(139, 200, 50), 0);
+  assert.equal(zoneIndex(140, 200, 50), 1);
+  const r = zoneRanges(200, 50);
+  assert.equal(r[0].lo, 50); assert.equal(r[4].hi, 200); assert.equal(Math.round(r[1].lo), 140);
+  const ser: [number, number][] = Array.from({ length: 101 }, (_, i) => [i * 10, i < 50 ? 110 : i < 80 ? 175 : 192]);
   const z = zoneTimes(ser, 200);
   assert.equal(z.reduce((t, x) => t + x, 0), 1000 + 11, 'le dernier échantillon vaut l’intervalle nominal');
   const p = polarSplit(z);
   assert.equal(p.easy + p.hard + p.intense, p.total);
   assert.ok(p.easy > p.hard && p.hard > p.intense);
+});
+
+test('charge : l’intensité équivalente ne change rien à la FC de repos de référence et monte avec une FC de repos plus basse', () => {
+  assert.ok(Math.abs(equivIntensity(150, 200, 52) - 0.75) < 1e-9, 'au repos de référence : FC ÷ FC max');
+  assert.ok(Math.abs(bpmFromEquiv(equivIntensity(150, 200, 52), 200, 52) - 150) < 1e-9, 'aller-retour');
+  assert.ok(equivIntensity(150, 200, 40) > equivIntensity(150, 200, 52), 'un cœur plus reposé : le même bpm est plus intense');
+  const ser: [number, number][] = Array.from({ length: 121 }, (_, i) => [i * 30, 150]);
+  assert.ok(Math.abs(epocFromSeries(ser, 200, 3600, null)!.value - epocFromSeries(ser, 200, 3600, 52)!.value) < 1e-6);
+});
+
+test('bilan de séance : plage sélectionnée, minutes d’intensité, vitesse et distance', () => {
+  const pts = [{ t: 0, v: 100 }, { t: 10, v: 140 }, { t: 20, v: 140 }, { t: 30, v: 140 }];
+  const r = rangeStats(pts, 0, 20, 60)!;
+  assert.ok(Math.abs(r.avg - 120) < 1e-9 && r.min === 100 && r.max === 140);
+  assert.equal(rangeStats(pts, 100, 200, 60), null);
+  // 10 min à 60 % de la réserve ou plus (soutenues), 10 min à 45 % (modérées), 5 min facile
+  const hr: [number, number][] = [];
+  for (let i = 0; i < 25 * 6; i++) hr.push([i * 10, i < 30 ? 100 : i < 90 ? 118 : 141]);
+  const im = intensityMinutes(hr, 200, 50);
+  assert.equal(im.total, im.moderate + 2 * im.vigorous);
+  assert.ok(im.vigorous >= 9 && im.moderate >= 9);
+  const sp: [number, number][] = Array.from({ length: 61 }, (_, i) => [i * 10, i < 30 ? 3 : 0]);
+  const st = speedStats(sp, null, 600);
+  assert.ok(st.movingSec !== null && Math.abs(st.movingSec - 300) <= 20);
+  const dc = distanceCurve(sp, 900)!;
+  assert.ok(Math.abs(distanceAt(dc, 600) - 900) < 1e-6 && distanceAt(dc, -5) === 0);
+  assert.equal(primaryBenefit([0, 0, 0, 0, 0], 3, 0), null);
+  assert.equal(primaryBenefit([3000, 600, 0, 0, 0], 2, 0), 'recovery');
 });
 
 test('records : meilleur segment et meilleure vitesse tenue dans une série de vitesse', () => {
@@ -1181,7 +1219,7 @@ test('import Garmin v3 : dénivelé remplacé, FC estimée seulement sans courbe
   assert.ok(isGarminGraph(file));
   const now = new Date('2026-10-27T12:00:00Z');
   const hrMax = resolveHrMax(d, now).bpm;
-  const r = correctSessions(d, file.sessions, hrMax);
+  const r = correctSessions(d, file.sessions, hrMax, restAtFn(d));
   const by = new Map(r.actual.map((s) => [s.id, s]));
   assert.equal(by.get('r0')!.elevationGainM, 12, 'dénivelé remplacé'); assert.equal(by.get('r0')!.avgHrBpm, 152, 'courbe : FC moyenne intacte');
   assert.deepEqual(by.get('r0')!.edited, ['elevationGainM']);
@@ -1203,7 +1241,7 @@ test('import Garmin v3 : dénivelé remplacé, FC estimée seulement sans courbe
   assert.ok(Math.abs(after.get('m2')!.load! - 30) < 1.5, 'estimation : ' + after.get('m2')!.load);
   assert.equal(after.get('r0')!.load, before.get('r0')!.load);
   // deuxième passage : rien à faire
-  const again = correctSessions(d, file.sessions, hrMax);
+  const again = correctSessions(d, file.sessions, hrMax, restAtFn(d));
   assert.equal(again.actual.length, 0); assert.equal(again.report.elevationKept, 4); assert.equal(again.report.descentKept, 1); assert.equal(again.report.hrKept, 3);
 });
 

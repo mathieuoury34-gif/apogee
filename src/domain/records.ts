@@ -1,7 +1,7 @@
 // Records personnels, tendance d'efficacité, enchaînements vélo → course et estimations de VMA / CSS.
 // Tout vient des séries de vitesse et de FC déjà stockées ; rien n'est enregistré.
 import { addDays, mondayOf } from './dates';
-import { analyzeHr, median } from './hr';
+import { analyzeHr, median, reserveFraction } from './hr';
 import type { Links } from './links';
 import { hrMaxFor, liveRecords, sessionDay, type HrMaxSrc } from './load';
 import type { ActualSession, AppData, ZoneReading } from './types';
@@ -131,9 +131,9 @@ export function personalRecords(data: AppData): PersonalRecord[] {
 }
 
 // ------------------------------------------------------------------ efficacité (vitesse par battement)
-export const EF_BAND: [number, number] = [0.65, 0.85];
+export const EF_BAND: [number, number] = [0.5, 0.8];
 /** Vélo : les sorties d'endurance se font souvent à une FC plus basse, et le relief est plus fréquent. */
-export const EF_BAND_BIKE: [number, number] = [0.55, 0.85];
+export const EF_BAND_BIKE: [number, number] = [0.4, 0.8];
 export const EF_MIN_SEC = 20 * 60;
 export const EF_MAX_CLIMB = 0.02;
 export const EF_MAX_CLIMB_BIKE = 0.03;
@@ -155,7 +155,7 @@ export interface Efficiency {
   diag: { sessions: number; withHr: number; inBand: number; flat: number };
 }
 
-export function efficiency(data: AppData, hrMax: HrMaxSrc, discipline: 'RUN' | 'BIKE', todayDay: string, spanWeeks = 26): Efficiency {
+export function efficiency(data: AppData, hrMax: HrMaxSrc, discipline: 'RUN' | 'BIKE', todayDay: string, spanWeeks = 26, restAt?: (day: string) => number | null): Efficiency {
   const from = addDays(mondayOf(todayDay), -7 * (spanWeeks - 1));
   const band = discipline === 'BIKE' ? EF_BAND_BIKE : EF_BAND, maxClimb = discipline === 'BIKE' ? EF_MAX_CLIMB_BIKE : EF_MAX_CLIMB;
   const points: EfPoint[] = [];
@@ -169,7 +169,7 @@ export function efficiency(data: AppData, hrMax: HrMaxSrc, discipline: 'RUN' | '
     diag.withHr++;
     const hm = hrMaxFor(hrMax, day);
     if (!hm) continue;
-    const r = s.avgHrBpm / hm;
+    const r = reserveFraction(s.avgHrBpm, hm, restAt ? restAt(day) : null);
     if (r < band[0] || r > band[1]) continue;
     diag.inBand++;
     if (s.elevationGainM && s.elevationGainM / s.distanceM > maxClimb) continue;

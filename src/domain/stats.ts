@@ -107,4 +107,16 @@ export function weeklyVolume(data: AppData, todayDay: string, n: number, fromDay
   return out;
 }
 
+/** Temps et distance par discipline sur une période (jours inclus). La distance du renforcement est un artefact de la montre : elle n'est jamais comptée. */
+export function periodTotals(data: AppData, fromDay: string, toDay: string): { seconds: Record<string, number>; metres: Record<string, number> } {
+  const seconds: Record<string, number> = {}, metres: Record<string, number> = {};
+  for (const s of liveRecords(data.actual)) {
+    const day = sessionDay(s);
+    if (day < fromDay || day > toDay) continue;
+    seconds[s.discipline] = (seconds[s.discipline] ?? 0) + s.durationSec;
+    if (s.discipline !== 'STRENGTH' && s.distanceM && s.distanceM > 0) metres[s.discipline] = (metres[s.discipline] ?? 0) + s.distanceM;
+  }
+  return { seconds, metres };
+}
+
 export const CORE: CoreDiscipline[] = [...DISCIPLINES];

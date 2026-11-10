@@ -16,28 +16,41 @@ import {
   readinessLevel, type ReadinessKey, type ReadinessLevel,
 } from '../domain/capacity';
 import type { TeLevel } from '../domain/science';
+import { cleanHr } from '../domain/hr';
+import { sessionDay } from '../domain/load';
+import { hrView, primaryBenefit, type BenefitKey } from '../domain/sessionStats';
+import { TeGauge } from '../ui/zoneviz';
 import { dayMonth, dayTitle, hhmm, NBSP, num, signed, weekdayShort } from '../ui/format';
 
 // ------------------------------------------------------------------ Training Effect (détail d'une séance)
 export const TE_LABEL: Record<TeLevel, string> = { none: $t("Aucun effet"), minor: $t("Effet léger"), maintain: $t("Maintien"), improve: $t("Amélioration"), high: $t("Forte amélioration"), over: $t("Surcharge") };
 const TE_COLOR: Record<TeLevel, string> = { none: 'var(--text-moderate)', minor: 'var(--form-strained)', maintain: 'var(--form-steady)', improve: 'var(--form-ready)', high: 'var(--form-fresh)', over: 'var(--critical)' };
 
+export const BENEFIT_LABEL: Record<BenefitKey, string> = { recovery: $t("Récupération"), base: $t("Base (aérobie faible)"), tempo: $t("Tempo"), threshold: $t("Seuil"), vo2: $t("VO₂max"), anaerobic: $t("Capacité anaérobie") };
+
 export function TrainingEffectCard({ id }: { id: string }) {
   const { data, d } = useCalc();
   const e = trainingEffects(data, d).get(id);
+  const s = data.actual[id];
+  const ser = data.series[id];
+  const day = s ? sessionDay(s) : null;
+  const hm = day ? d.ctx.hrMaxAt(day) : null;
+  const hv = s && day && hm && s.discipline !== 'OTHER' && ser && !ser.deleted ? hrView(cleanHr(ser.hr), hm, d.ctx.restAt(day)) : null;
   if (!e) return null;
+  const benefit = hv ? primaryBenefit(hv.zones, e.aerobic, e.anaerobic) : null;
   const row = (label: string, v: number | null, lvl: TeLevel | null) => (
     <div className="stack-4">
       <div className="between"><span className="t-label">{label}</span>{v === null || lvl === null ? <span className="t-caption c-moderate">—</span> : <span className="row" style={{ gap: 'var(--space-8)', alignItems: 'baseline' }}><strong>{num(v, 1)}</strong><span className="t-caption" style={{ color: TE_COLOR[lvl] }}>{TE_LABEL[lvl]}</span></span>}</div>
-      <div className="meter" role="img" aria-label={label + ' ' + (v === null ? '—' : num(v, 1) + ' / 5')}><span style={{ width: v === null ? 0 : `${(v / 5) * 100}%`, background: lvl ? TE_COLOR[lvl] : undefined }} /></div>
+      <TeGauge value={v} color={lvl ? TE_COLOR[lvl] : 'var(--text-moderate)'} label={label} />
     </div>
   );
   return (
     <InfoCard className="card g12 dspan-5" aria-label={$t("Effet de la séance")}>
       <h2>{$t("Effet de la séance")}<InfoToggle /></h2>
+      {benefit && <div className="stack-4"><span className="t-label c-moderate">{$t("Bénéfice principal")}</span><span className="t-h3">{BENEFIT_LABEL[benefit]}</span></div>}
       {row($t("Aérobie"), e.aerobic, e.level)}
       {row($t("Anaérobie"), e.anaerobic, e.anaerobicLevel)}
-      <Info>{$t("Échelle de 0 à 5 comme sur les montres. Aérobie : charge de la séance (modèle d’effort de type EPOC, la dépense d’oxygène après l’effort) comparée à une séance solide de tes 90 derniers jours ({0}).", { 0: e.refIsDefault ? $t("valeur type : historique trop court") : num(e.refLoad, 0) })}{e.anaerobic === null ? '' : $t(" Anaérobie : temps passé à 90 % de la FC max ou plus ({0}), approximation d’Apogée.", { 0: Math.round((e.zone5Sec ?? 0) / 60) + NBSP + 'min' })}</Info>
+      <Info>{$t("Échelle de 0 à 5 comme sur les montres. Aérobie : charge de la séance (modèle d’effort de type EPOC, la dépense d’oxygène après l’effort) comparée à une séance solide de tes 90 derniers jours ({0}).", { 0: e.refIsDefault ? $t("valeur type : historique trop court") : num(e.refLoad, 0) })}{e.anaerobic === null ? '' : $t(" Anaérobie : temps passé à 90 % de la FC de réserve ou plus ({0}), approximation d’Apogée.", { 0: Math.round((e.zone5Sec ?? 0) / 60) + NBSP + 'min' })}{benefit ? $t(" Bénéfice principal : règle d’Apogée d’après la zone où se concentre la charge et le niveau aérobie ; ce n’est pas le calcul de Garmin.") : ''}</Info>
     </InfoCard>
   );
 }

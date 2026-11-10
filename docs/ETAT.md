@@ -1,6 +1,6 @@
 # ETAT — Apogée
 
-**Dernière mise à jour** 29 octobre 2026
+**Dernière mise à jour** 10 novembre 2026
 **Phase** Application **livrée et en usage** (web + APK), en finition. Dossier de documentation remis à plat le
 16/10/2026 pour pouvoir refaire l'application de zéro : `PRD.md` (quoi / pourquoi), `SPECS-TECH.md` (comment),
 `GUIDE-REPRISE.md` (par où recommencer), `HISTORIQUE-RN.md` (archive de l'ancienne version React Native),
@@ -106,6 +106,19 @@ copier dans `GARMIN/NewFiles` (ou `GARMIN/Workouts`) de la Fenix 7S Pro et véri
 Décision de Mathieu : **pas de statut HRV** (ni dans les fenêtres ni dans le formulaire).
 
 À valider par Mathieu avec l'APK à jour : la carte Montre doit dire combien de jours de dépense, de VO₂max et de HRV ont été lus.
+
+**Bilan de séance « à la Garmin » + zones de Karvonen (10/11/2026, demande de Mathieu, 30 captures Garmin Connect)** —
+(1) **FC de repos intégrée** : les zones de FC suivent la méthode de **Karvonen** (seuil = FC repos + % × (FC max − FC repos), bornes à 60/70/80/90 % de la
+réserve), avec la FC de repos = médiane glissante 14 jours du jour de la séance (valeurs 30–100 bpm), sinon un repos de référence 0,26 × FC max. Partout où
+l'on comptait en % de FC max : temps par zone, répartition facile / soutenue / intense, anaérobie, efficacité (bandes en % de réserve), répartition de la charge ;
+le **modèle de charge reste numériquement identique** à la FC de repos de référence (intensité équivalente) et la FC de repos ne fait que le corriger.
+Les cibles des séances prévues (en % FC max) ne changent pas. Petits diagrammes : échelle des 5 fourchettes en bpm (`ZoneScale`) dans le bilan et dans Analyse › Temps par zone.
+(2) **Bilan de séance** (`screens/SessionDetail.tsx`) : graphiques FC et vitesse/allure en temps ou en distance, que l'on parcourt au doigt — **un doigt = curseur, deux doigts = FC moyenne
+entre les deux (moyenne pondérée par la durée)**, souris : glisser ; bouton « Zones de FC » (bandes colorées), plein écran (tourné en travers si le téléphone est droit) ;
+temps par zone (durée / %), jauge d'effet d'entraînement 0–5 avec bénéfice principal, statistiques regroupées (vitesse/allure en mouvement, FC, calories, dénivelé, minutes d'intensité).
+Tout est recalculé à l'ouverture, rien de stocké. **Non reproduit** (la montre ne le transmet pas) : carte, endurance, dynamique de course, puissance, SWOLF, séries/poids, body battery, sueur, intervalles.
+Minutes d'intensité et bénéfice principal = estimations d'Apogée (seuils ACSM sur la réserve), pas le calcul de Garmin.
+(3) **Statistiques › Répartition** : sélecteur **% / Heures (xhxx) / Distance (km)** ; le renforcement n'a pas de distance (« — »).
 
 ## 3. Journal condensé (Iron App 2 et suites)
 

@@ -112,13 +112,47 @@ export const AVG_HR_CORRECTION = 1.25;
 /** Une mesure vaut au plus ce temps avant la suivante (les longues sorties sont stockées avec une mesure toutes les 60 à 90 s). */
 export const EPOC_HOLD_SEC = 120;
 
-/** Charge par minute à l'intensité `x` (fraction de la FC max). Nulle sous la moitié de la FC max. */
+/**
+ * Karvonen (FC de réserve) : le modèle ci-dessus a été calé sur 43 séances avec x = FC ÷ FC max, ce qui revient à une FC de repos d'environ
+ * 26 % de la FC max (52 bpm pour 200 : ta médiane). `equivIntensity` ramène une FC à cette même échelle en tenant compte de ta FC de repos
+ * du moment : si elle vaut ce rapport, la charge est exactement celle d'avant ; plus elle est basse (réserve plus large), plus un même
+ * battement pèse peu ; plus elle monte, plus il pèse. Sans FC de repos connue, on prend la valeur du calage (aucun changement).
+ */
+export const EPOC_REF_REST_RATIO = 0.26;
+export const REST_MIN_BPM = 30;
+export const REST_MAX_BPM = 100;
+/** FC de repos utilisable : plausible et assez sous la FC max pour laisser une réserve ; sinon `null`. */
+export function usableRest(hrMax: number, hrRest: number | null | undefined): number | null {
+  return typeof hrRest === 'number' && hrRest >= REST_MIN_BPM && hrRest <= REST_MAX_BPM && hrRest < hrMax - MIN_HR_RESERVE_BPM ? hrRest : null;
+}
+/** FC de repos à retenir : la mesurée, sinon celle du calage (rapport de référence × FC max). */
+export function restOrRef(hrMax: number, hrRest: number | null | undefined): number {
+  return usableRest(hrMax, hrRest) ?? EPOC_REF_REST_RATIO * hrMax;
+}
+/** Fraction de la FC de réserve (Karvonen) d'une FC : (FC − repos) ÷ (FC max − repos). Peut sortir de 0–1. */
+export function reserveFraction(bpm: number, hrMax: number, hrRest?: number | null): number {
+  const r = restOrRef(hrMax, hrRest);
+  return (bpm - r) / (hrMax - r);
+}
+/** Intensité équivalente (fraction de la FC max du calage) d'une FC, avec la FC de repos réelle. */
+export function equivIntensity(bpm: number, hrMax: number, hrRest?: number | null): number {
+  const r0 = EPOC_REF_REST_RATIO;
+  return r0 + reserveFraction(bpm, hrMax, hrRest) * (1 - r0);
+}
+/** Inverse : FC qui donne l'intensité équivalente `x`. */
+export function bpmFromEquiv(x: number, hrMax: number, hrRest?: number | null): number {
+  const r0 = EPOC_REF_REST_RATIO;
+  const r = restOrRef(hrMax, hrRest);
+  return r + ((x - r0) / (1 - r0)) * (hrMax - r);
+}
+
+/** Charge par minute à l'intensité `x` (fraction de la FC max du calage). Nulle sous la moitié de la FC max. */
 export function epocRate(x: number): number {
   return x <= EPOC_ONSET ? 0 : EPOC_GAIN * Math.pow(Math.min(x, 1.05) - EPOC_ONSET, EPOC_EXP);
 }
 
 /** Charge d'une séance depuis sa courbe cardiaque. `null` si la série est inexploitable. */
-export function epocFromSeries(series: Series, hrMaxBpm: number, durationSec: number): { value: number; coverage: number } | null {
+export function epocFromSeries(series: Series, hrMaxBpm: number, durationSec: number, hrRestBpm: number | null = null): { value: number; coverage: number } | null {
   if (series.length < MIN_SAMPLES_FOR_TRIMP || !(hrMaxBpm > 100)) return null;
   let e = 0, slow = 0, peak = 0, covered = 0, weighted = 0;
   const step = (rate: number, sec: number) => {
@@ -130,7 +164,7 @@ export function epocFromSeries(series: Series, hrMaxBpm: number, durationSec: nu
     const next = series[i + 1];
     const dt = Math.max(0, Math.min(next ? next[0] - series[i][0] : NOMINAL_SAMPLE_SEC, EPOC_HOLD_SEC));
     if (!dt) continue;
-    const rate = epocRate(series[i][1] / hrMaxBpm);
+    const rate = epocRate(equivIntensity(series[i][1], hrMaxBpm, hrRestBpm));
     step(rate, dt);
     covered += dt; weighted += rate * dt;
   }
@@ -147,20 +181,20 @@ function epocConstant(rate: number, durationSec: number): number {
 }
 
 /** Charge d'une séance depuis sa FC moyenne seulement (estimation : une moyenne lisse les pics, la charge est un peu sous-estimée). */
-export function epocFromAverage(avgBpm: number, durationSec: number, hrMaxBpm: number): number | null {
+export function epocFromAverage(avgBpm: number, durationSec: number, hrMaxBpm: number, hrRestBpm: number | null = null): number | null {
   if (!(avgBpm > 0) || !(durationSec > 0) || !(hrMaxBpm > 100)) return null;
-  return epocConstant(epocRate(avgBpm / hrMaxBpm), durationSec) * AVG_HR_CORRECTION;
+  return epocConstant(epocRate(equivIntensity(avgBpm, hrMaxBpm, hrRestBpm)), durationSec) * AVG_HR_CORRECTION;
 }
 
 /**
  * Inverse de `epocFromAverage` : FC moyenne qui, sur `durationSec`, redonne la charge `load` (utile pour une activité sans capteur
  * dont on connaît la charge d'après la montre). `null` si la charge est nulle ou hors de portée (au-delà d'une FC de 105 % de la FC max).
  */
-export function avgHrForLoad(load: number, durationSec: number, hrMaxBpm: number, factor = 1): number | null {
+export function avgHrForLoad(load: number, durationSec: number, hrMaxBpm: number, factor = 1, hrRestBpm: number | null = null): number | null {
   if (!(load > 0) || !(durationSec > 0) || !(hrMaxBpm > 100)) return null;
   const rate = load / factor / AVG_HR_CORRECTION / epocConstant(1, durationSec);
   if (rate > epocRate(1.05)) return null;
-  return (EPOC_ONSET + Math.pow(rate / EPOC_GAIN, 1 / EPOC_EXP)) * hrMaxBpm;
+  return bpmFromEquiv(EPOC_ONSET + Math.pow(rate / EPOC_GAIN, 1 / EPOC_EXP), hrMaxBpm, hrRestBpm);
 }
 
 /** sRPE de Foster : RPE × minutes (échelle propre, recalée ensuite sur celle du TRIMP). */

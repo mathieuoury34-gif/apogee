@@ -3,7 +3,7 @@
 // Ce sont des ESTIMATIONS d'Apogée calculées sur ta propre charge (modèle d’effort de hr.ts) : Garmin utilise d'autres données
 // et d'autres seuils, les chiffres ne sont pas comparables un à un.
 import { addDays, mondayOf } from './dates';
-import { analyzeHr, epocRate } from './hr';
+import { analyzeHr, EPOC_REF_REST_RATIO, epocRate, reserveFraction } from './hr';
 import { hrMaxFor, liveRecords, sessionDay, type DayLoad, type HrMaxSrc, type SessionLoad } from './load';
 import { ZONE_DISCIPLINES, zoneTimes } from './zones';
 import type { AppData } from './types';
@@ -98,15 +98,15 @@ export interface LoadFocus { low: number; high: number; anaerobic: number; total
 /** Repères génériques (part de la charge) d'une semaine équilibrée. Ce n'est pas une prescription. */
 export const FOCUS_REF = { low: [0.5, 0.75], high: [0.2, 0.4], anaerobic: [0.02, 0.15] } as const;
 
-/** Poids de chaque zone dans la charge : la charge par minute du modèle d'effort (hr.ts) au centre de la zone. Une minute en zone 5 pèse ≈ 25 fois une minute en zone 1. */
-export const ZONE_LOAD_WEIGHT = [0.55, 0.65, 0.75, 0.85, 0.95].map(epocRate);
+/** Poids de chaque zone (Karvonen : % de la FC de réserve) dans la charge : la charge par minute du modèle d'effort (hr.ts) au centre de la zone. Une minute en zone 5 pèse ≈ 25 fois une minute en zone 1. */
+export const ZONE_LOAD_WEIGHT = [0.55, 0.65, 0.75, 0.85, 0.95].map((c) => epocRate(EPOC_REF_REST_RATIO + c * (1 - EPOC_REF_REST_RATIO)));
 
 /**
  * Répartition de la charge des `span` derniers jours. Endurance : la charge de chaque séance est partagée selon le temps passé dans chaque zone de FC,
  * pondéré par le poids de la zone (une minute intense pèse plus qu'une minute facile) : Z1–Z3 = faible aérobie, Z4 = aérobie élevée, Z5 = anaérobie.
  * Renforcement : sa charge compte en anaérobie (effort de force, comme dans Garmin Connect).
  */
-export function loadFocus(data: AppData, loads: Map<string, SessionLoad>, hrMax: HrMaxSrc, today: string, span = 28): LoadFocus {
+export function loadFocus(data: AppData, loads: Map<string, SessionLoad>, hrMax: HrMaxSrc, today: string, span = 28, restAt?: (day: string) => number | null): LoadFocus {
   const out: LoadFocus = { low: 0, high: 0, anaerobic: 0, total: 0, used: 0, skipped: 0 };
   const from = addDays(today, -(span - 1));
   for (const s of liveRecords(data.actual)) {
@@ -121,12 +121,12 @@ export function loadFocus(data: AppData, loads: Map<string, SessionLoad>, hrMax:
     const hr = ser && !ser.deleted ? analyzeHr(ser.hr).clean : [];
     let e = 0, h = 0, a = 0;
     if (hr.length >= 10) {
-      const z = zoneTimes(hr, hm);
+      const z = zoneTimes(hr, hm, restAt ? restAt(day) : null);
       const w = z.map((t, i) => t * ZONE_LOAD_WEIGHT[i]);
       const tot = w.reduce((t, v) => t + v, 0);
       if (tot > 0) { e = (w[0] + w[1] + w[2]) / tot; h = w[3] / tot; a = w[4] / tot; }
     } else if (s.avgHrBpm) {
-      const r = s.avgHrBpm / hm;
+      const r = reserveFraction(s.avgHrBpm, hm, restAt ? restAt(day) : null);
       if (r < 0.8) e = 1; else if (r < 0.9) h = 1; else a = 1;
     }
     if (e + h + a === 0) { out.skipped++; continue; }
