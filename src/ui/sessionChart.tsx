@@ -104,7 +104,11 @@ export function SessionChart(p: SessionChartProps) {
   };
   const up = (e: RPointerEvent<HTMLDivElement>) => {
     ptrs.current.delete(e.pointerId);
-    if (e.pointerType !== 'mouse' && ptrs.current.size === 0) setCursor(null);
+    if (e.pointerType !== 'mouse') {
+      // doigts levés : la sélection et le curseur disparaissent (il en reste un seul : il redevient le curseur)
+      setSel(null);
+      setCursor(ptrs.current.size === 1 ? [...ptrs.current.values()][0] : null);
+    }
     if (ptrs.current.size === 0) drag.current = null;
   };
 

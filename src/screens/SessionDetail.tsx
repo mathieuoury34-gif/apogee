@@ -13,9 +13,10 @@ import { sessionDay } from '../domain/load';
 import { distanceAt, distanceCurve, hrView, rangeStats, speedStats } from '../domain/sessionStats';
 import { KCAL_J, paceOf } from '../domain/stats';
 import { polarSplit } from '../domain/zones';
-import { autoLaps, detectIntervals, type IntervalSeg, type Segment } from '../domain/intervals';
+import { overlaySteps, type StepResult } from '../domain/plannedSteps';
+import type { Segment } from '../domain/sessionStats';
 import type { ActualSession } from '../domain/types';
-import { NBSP, bpm, descent, duration, elevation, hhmm, kcal, mmss, num, paceFor, speedKmh } from '../ui/format';
+import { KIND_LABEL as BLOCK_KIND, NBSP, bpm, descent, duration, elevation, hhmm, kcal, mmss, num, paceFor, speedKmh, targetText } from '../ui/format';
 
 const HR_COLOR = 'var(--critical)';
 const kindSpeedLabel = (d: string) => (d === 'BIKE' || d === 'OTHER' ? $t("Vitesse") : $t("Allure"));
@@ -75,11 +76,10 @@ export function SessionAnalysis({ s, children }: { s: ActualSession; children?: 
   const spFmt = (v: number) => (kindSpeed ? num(v, 1) + NBSP + 'km/h' : mmss(v) + NBSP + (perHundred ? '/100' + NBSP + 'm' : '/km'));
   const bestPace = sp?.maxMs ? (perHundred ? 100 : 1000) / sp.maxMs : null;
 
-  // ---- tours et intervalles
-  const hasSpeedCurve = !!speed && speed.length >= 20 && s.discipline !== 'STRENGTH';
-  const lapM = s.discipline === 'SWIM' ? 100 : s.discipline === 'BIKE' ? 5000 : 1000;
-  const laps = useMemo(() => (hasSpeedCurve && speed ? autoLaps(speed, hr, s.distanceM, lapM) : []), [hasSpeedCurve, speed, hr, s.distanceM, lapM]);
-  const intervals = useMemo(() => (hasSpeedCurve && speed ? detectIntervals(speed, hr, s.distanceM) : null), [hasSpeedCurve, speed, hr, s.distanceM]);
+  // ---- étapes de la séance prévue (si toutes au temps), tours et séries de la montre
+  const link = d.links.byActual.get(s.id);
+  const planned = link?.plannedId ? data.planned[link.plannedId] : undefined;
+  const planSteps = useMemo(() => (planned && !planned.deleted ? overlaySteps(planned, start, s.durationSec, speed ?? null, hr, s.distanceM, s.discipline) : null), [planned, start, s.durationSec, speed, hr, s.distanceM, s.discipline]);
   const watchLaps: Segment[] = useMemo(() => {
     const L = ser && !ser.deleted ? ser.laps ?? [] : [];
     if (L.length < 2) return [];
@@ -92,17 +92,16 @@ export function SessionAnalysis({ s, children }: { s: ActualSession; children?: 
     });
   }, [ser, hr, curve]);
   const sets = ser && !ser.deleted ? (ser.segments ?? []).filter((x) => x[3] > 0) : [];
-  const [lapMode, setLapMode] = useState<'intervals' | 'laps' | 'watch' | 'sets' | null>(null);
-  const lapModes: ['intervals' | 'laps' | 'watch' | 'sets', string][] = [];
-  if (sets.length) lapModes.push(['sets', $t("Séries")]);
+  const [lapMode, setLapMode] = useState<'plan' | 'watch' | 'sets' | null>(null);
+  const lapModes: ['plan' | 'watch' | 'sets', string][] = [];
+  if (planSteps) lapModes.push(['plan', $t("Intervalles")]);
   if (watchLaps.length) lapModes.push(['watch', $t("Tours montre")]);
-  if (intervals) lapModes.push(['intervals', $t("Intervalles")]);
-  if (laps.length >= 2) lapModes.push(['laps', lapM >= 1000 ? $t("Tours {0} km", { 0: num(lapM / 1000, 0) }) : $t("Tours {0} m", { 0: lapM })]);
+  if (sets.length) lapModes.push(['sets', $t("Séries")]);
   const lapNow = lapMode && lapModes.some(([k]) => k === lapMode) ? lapMode : lapModes[0]?.[0] ?? null;
   const unitPace = (ms: number | null) => (ms && ms > 0.05 ? (s.discipline === 'BIKE' || s.discipline === 'OTHER' ? speedKmh(ms) : paceFor((perHundred ? 100 : 1000) / ms, s.discipline)) : '—');
   const clk = (sec: number) => (sec >= 3600 ? hhmm(sec) : mmss(sec));
   const dist = (m: number | null) => (m === null ? '—' : perHundred ? num(m, 0) + NBSP + 'm' : num(m / 1000, 2) + NBSP + 'km');
-  const KIND_LABEL: Record<IntervalSeg['kind'], string> = { warmup: $t("Échauffement"), work: $t("Effort"), rest: $t("Récupération"), cooldown: $t("Retour au calme") };
+  const stepName = (g: StepResult) => (g.block.label ? g.block.label : BLOCK_KIND[g.kind] + (g.kind === 'WORK' || g.kind === 'RECOVERY' || g.kind === 'REST' ? ' ' + g.rank : ''));
 
   const showHr = hrPts.length >= 20;
   const showSpeed = spPts.length >= 20;
@@ -158,23 +157,20 @@ export function SessionAnalysis({ s, children }: { s: ActualSession; children?: 
             <h2>{$t("Tours et intervalles")}<InfoToggle /></h2>
             {lapModes.length > 1 && <Segmented label={$t("Affichage")} value={lapNow} onChange={setLapMode} options={lapModes} />}
           </div>
-          {lapNow === 'intervals' && intervals && (
-            <>
-              <div className="laps-head"><span className="t-caption c-moderate">{$t("{0} efforts", { 0: intervals.works.length })} · {$t("moyenne")} {unitPace(intervals.works.reduce((a, w) => a + (w.ms ?? 0) * w.sec, 0) / Math.max(1, intervals.works.reduce((a, w) => a + w.sec, 0)))}</span></div>
-              <div className="laps" role="table" aria-label={$t("Intervalles")}>
-                <div className="laps-row laps-h" role="row"><span>{$t("Étape")}</span><span>{$t("Durée")}</span><span>{$t("Dist.")}</span><span>{kindSpeedLabel(s.discipline)}</span><span>{$t("FC")}</span></div>
-                {intervals.segments.map((g, i) => (
-                  <div key={i} role="row" className={'laps-row ' + (g.kind === 'work' ? 'laps-work' : 'laps-other')}>
-                    <span className="laps-name">{KIND_LABEL[g.kind]}{g.kind === 'work' || g.kind === 'rest' ? ' ' + g.rank : ''}</span><span>{clk(g.sec)}</span><span>{dist(g.metres)}</span><span>{unitPace(g.ms)}</span><span>{g.avgHr ? num(g.avgHr, 0) : '—'}</span>
-                  </div>
-                ))}
-              </div>
-            </>
+          {lapNow === 'plan' && planSteps && (
+            <div className="laps" role="table" aria-label={$t("Intervalles")}>
+              <div className="laps-row laps-h" role="row"><span>{$t("Étape")}</span><span>{$t("Durée")}</span><span>{$t("Dist.")}</span><span>{kindSpeedLabel(s.discipline)}</span><span>{$t("FC")}</span></div>
+              {planSteps.map((g, i) => (
+                <div key={i} role="row" className={'laps-row ' + (g.kind === 'WORK' ? 'laps-work' : 'laps-other')}>
+                  <span className="laps-name">{stepName(g)}{planned && targetText(g.block, planned.discipline) ? <span className="laps-target">{targetText(g.block, planned.discipline)}</span> : null}</span><span>{clk(g.to - g.from)}</span><span>{dist(g.metres)}</span><span>{unitPace(g.ms)}</span><span>{g.avgHr ? num(g.avgHr, 0) : '—'}</span>
+                </div>
+              ))}
+            </div>
           )}
-          {(lapNow === 'laps' || lapNow === 'watch') && (
+          {lapNow === 'watch' && (
             <div className="laps" role="table" aria-label={$t("Tours")}>
               <div className="laps-row laps-h" role="row"><span>{$t("Tour")}</span><span>{$t("Temps")}</span><span>{$t("Dist.")}</span><span>{kindSpeedLabel(s.discipline)}</span><span>{$t("FC")}</span></div>
-              {(lapNow === 'laps' ? laps : watchLaps).map((g, i) => (
+              {watchLaps.map((g, i) => (
                 <div key={i} role="row" className="laps-row laps-other">
                   <span className="laps-name">{i + 1}</span><span>{clk(g.sec)}</span><span>{dist(g.metres)}</span><span>{unitPace(g.ms)}</span><span>{g.avgHr ? num(g.avgHr, 0) : '—'}</span>
                 </div>
@@ -189,7 +185,7 @@ export function SessionAnalysis({ s, children }: { s: ActualSession; children?: 
               ))}
             </div>
           )}
-          <Info>{lapNow === 'watch' ? $t("Tours enregistrés par ta montre et transmis par Health Connect.") : lapNow === 'sets' ? $t("Séries transmises par ta montre via Health Connect (durée et répétitions ; le poids n’est pas transmis).") : $t("Détectés par Apogée, pas enregistrés par la montre. Les tours sont découpés tous les {0} sur la courbe de vitesse. Les intervalles sont repérés quand la vitesse alterne nettement entre des efforts rapides et des récupérations lentes (au moins 3 efforts) ; une sortie régulière n’en a pas. Les durées et distances peuvent différer d’une seconde ou de quelques mètres de ceux de la montre.", { 0: lapM >= 1000 ? num(lapM / 1000, 0) + ' km' : lapM + ' m' })}</Info>
+          <Info>{lapNow === 'watch' ? $t("Tours enregistrés par ta montre et transmis par Health Connect.") : lapNow === 'sets' ? $t("Séries transmises par ta montre via Health Connect (durée et répétitions ; le poids n’est pas transmis).") : $t("Les étapes viennent de la séance prévue rattachée (toutes au temps) : la courbe réelle est découpée suivant leurs durées, en partant du début de la séance. Durée, distance, allure et FC sont calculées par Apogée ; elles peuvent s’écarter de quelques secondes si tu as appuyé sur la montre en retard.")}</Info>
         </InfoCard>
       )}
 

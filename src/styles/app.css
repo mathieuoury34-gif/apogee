@@ -777,3 +777,4 @@ input, textarea, select, [contenteditable="true"], pre, code, .help-f, .help-cod
 .laps-row.laps-work { background: var(--bg-grey-minimal); border-left: 4px solid var(--brand-primary); font-weight: 600; }
 .laps-row.laps-other { color: var(--text-neutral); }
 .laps-name { font-weight: 600; color: var(--text); }
+.laps-target { display: block; font-weight: 400; color: var(--text-moderate); font-size: 0.85em; }

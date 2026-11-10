@@ -128,3 +128,10 @@ export function hrView(hr: Series, hrMax: number, restMeasured: number | null): 
     intensity: intensityMinutes(hr, hrMax, restMeasured), avg: mean(hr.map((p) => p[1])),
   };
 }
+
+/** Un tronçon d'une séance (tour de la montre…) : bornes en secondes epoch, durée, distance, vitesse moyenne et FC. */
+export interface Segment {
+  from: number; to: number; sec: number;
+  metres: number | null; ms: number | null;
+  avgHr: number | null; maxHr: number | null;
+}

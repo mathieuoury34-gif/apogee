@@ -11,7 +11,8 @@ import { forecastLoad } from '../src/domain/forecast';
 import { fitnessByDiscipline } from '../src/domain/loadByDiscipline';
 import { polarSplit, zoneIndex, zoneRanges, zoneTimes } from '../src/domain/zones';
 import { speedFromDistances } from '../src/domain/health';
-import { autoLaps, detectIntervals } from '../src/domain/intervals';
+import { overlaySteps, timedSteps } from '../src/domain/plannedSteps';
+import { newBlock } from '../src/domain/blocks';
 import { distanceAt, distanceCurve, intensityMinutes, primaryBenefit, rangeStats, speedStats } from '../src/domain/sessionStats';
 import { trainingAlerts } from '../src/domain/review';
 import { planCompliance } from '../src/domain/compliance';
@@ -1339,27 +1340,28 @@ test('coach : cycles de charge dans un bloc (absent = on garde, null = on efface
   assert.deepEqual(dossier.phases[0].cycles, cyc);
 });
 
-test('intervalles : 6 efforts détectés dans un fractionné, rien dans une sortie régulière, tours au kilomètre', () => {
-  // 5 min à 3 m/s, 6 × (60 s à 5 m/s + 60 s à 2 m/s), 5 min à 3 m/s ; une mesure par seconde
-  const sp: [number, number][] = [];
-  const hr: [number, number][] = [];
+test('séance prévue minutée : étapes à plat, superposition sur la courbe réelle, refus si une étape n’est pas au temps', () => {
+  const wu = { ...newBlock('WARMUP'), measureValue: 300 };
+  const set = { ...newBlock('SET'), setCount: 3, children: [{ ...newBlock('WORK'), measureValue: 60 }, { ...newBlock('RECOVERY'), measureValue: 60 }] };
+  const cd = { ...newBlock('COOLDOWN'), measureValue: 120 };
+  const steps = timedSteps([wu, set, cd])!;
+  assert.equal(steps.length, 8);
+  assert.equal(steps.reduce((a, x) => a + x.sec, 0), 300 + 3 * 120 + 120);
+  const planned = { id: 'p', updatedAt: 'x', discipline: 'RUN', plannedDate: '2026-10-01', title: null, notes: null, origin: 'manual', idempotencyKey: null, coachExchangeId: null, blocks: [wu, set, cd], createdAt: 'x' } as never;
+  // 5 min à 3 m/s, 3 × (60 s à 5 m/s + 60 s à 2 m/s), 2 min à 3 m/s ; une mesure par seconde
+  const sp: [number, number][] = [], hr: [number, number][] = [];
   let t = 1000;
   const push = (sec: number, v: number, h: number) => { for (let i = 0; i < sec; i++, t++) { sp.push([t, v]); hr.push([t, h]); } };
-  push(300, 3, 130);
-  for (let k = 0; k < 6; k++) { push(60, 5, 170); push(60, 2, 140); }
-  push(300, 3, 125);
-  const r = detectIntervals(sp, hr, null)!;
-  assert.ok(r, 'un fractionné est reconnu');
-  assert.equal(r.works.length, 6);
-  assert.ok(r.works.every((w) => Math.abs(w.sec - 60) <= 8), 'efforts d’environ 60 s');
-  assert.ok(r.works.every((w) => w.avgHr! > 160), 'FC moyenne de chaque effort');
-  assert.equal(r.segments[0].kind, 'warmup');
-  assert.equal(r.segments[r.segments.length - 1].kind, 'cooldown');
-  const flat: [number, number][] = Array.from({ length: 1200 }, (_, i) => [1000 + i, 3 + 0.1 * Math.sin(i / 20)]);
-  assert.equal(detectIntervals(flat, [], null), null, 'une sortie régulière n’a pas d’intervalles');
-  const laps = autoLaps(flat, [], 3600, 1000);
-  assert.equal(laps.length, 4, '3,6 km : 3 tours pleins + un tour de 600 m');
-  assert.ok(Math.abs(laps[0].metres! - 1000) < 5 && Math.abs(laps[3].metres! - 600) < 5);
+  push(300, 3, 130); for (let k = 0; k < 3; k++) { push(60, 5, 170); push(60, 2, 140); } push(120, 3, 125);
+  const r = overlaySteps(planned, 1000, 780, sp, hr, null, 'RUN')!;
+  assert.equal(r.length, 8);
+  const works = r.filter((x) => x.kind === 'WORK');
+  assert.equal(works.length, 3);
+  assert.ok(works.every((w) => Math.abs(w.ms! - 5) < 0.05 && Math.abs(w.avgHr! - 170) < 1));
+  assert.equal(works[2].rank, 3);
+  assert.equal(overlaySteps(planned, 1000, 1500, sp, hr, null, 'RUN'), null, 'durée réelle trop éloignée du prévu');
+  assert.equal(overlaySteps(planned, 1000, 780, sp, hr, null, 'BIKE'), null, 'autre discipline');
+  assert.equal(timedSteps([wu, { ...newBlock('WORK'), measure: 'DISTANCE', measureValue: 1000 }]), null, 'une étape à la distance : pas de découpage');
 });
 
 test('natation : la vitesse est reconstruite à partir des distances par longueur, avec les pauses à vitesse nulle', () => {

@@ -365,13 +365,15 @@ export function WeightCard({ data, d }: Props) {
 // ------------------------------------------------------------------ FC de repos (depuis le 31/07/2026)
 export const RESTING_FROM = '2026-07-31';
 export function RestingCard({ data, d }: Props) {
-  const days = dayRange(RESTING_FROM, d.today);
+  const all = dayRange(RESTING_FROM, d.today);
   const raw = (x: string) => { const r = data.resting[x]; return r && !r.deleted ? r.bpm : null; };
-  const med = (x: string) => (raw(x) === null && !days.slice(0, days.indexOf(x) + 1).some((y) => raw(y) !== null) ? null : d.ctx.restAt(x));
-  const measured = days.filter((x) => raw(x) !== null);
+  const firstMeasured = all.find((x) => raw(x) !== null) ?? null;
+  const med = (x: string) => (firstMeasured === null || x < firstMeasured ? null : d.ctx.restAt(x));
+  const rp = usePeriod();
+  const days = rp.slice(all);
   const [si, setSi, rel] = useDaySel(days, (x) => raw(x) !== null);
   const day = days[si] ?? d.today;
-  if (!measured.length) {
+  if (firstMeasured === null) {
     return (
       <InfoCard className="card g12" aria-label={$t("FC de repos")} data-anchor="fc-repos">
         <h2>{$t("FC de repos")}<InfoToggle /></h2>
@@ -380,13 +382,10 @@ export function RestingCard({ data, d }: Props) {
       </InfoCard>
     );
   }
-  const vals = measured.map((x) => raw(x)!);
-  const lo = Math.floor((Math.min(...vals) - 2) / 5) * 5, hi = Math.ceil((Math.max(...vals) + 2) / 5) * 5;
+  const vals = days.map((x) => raw(x)).filter((v): v is number => v !== null);
+  const lo = vals.length ? Math.floor((Math.min(...vals) - 2) / 5) * 5 : 40, hi = vals.length ? Math.ceil((Math.max(...vals) + 2) / 5) * 5 : 60;
   const ticks: number[] = []; for (let v = lo; v <= hi + 1e-9; v += 5) ticks.push(v);
   const cur = d.ctx.restAt(d.today);
-  const firstWeek = measured.slice(0, 7).map((x) => raw(x)!).sort((a, b) => a - b);
-  const mFirst = firstWeek.length ? firstWeek[Math.floor(firstWeek.length / 2)] : null;
-  const delta = cur !== null && mFirst !== null ? cur - mFirst : null;
   return (
     <InfoCard className="card g12" aria-label={$t("FC de repos")} data-anchor="fc-repos">
       <h2>{$t("FC de repos")}<InfoToggle /></h2>
@@ -394,18 +393,18 @@ export function RestingCard({ data, d }: Props) {
         <span className="t-h2">{cur !== null ? num(cur, 0) : '—'}{NBSP}bpm</span>
         <span className="t-caption c-neutral">{$t("médiane des 14 derniers jours")}</span>
       </div>
-      {delta !== null && <span className="t-caption c-neutral">{Math.abs(delta) < 0.5 ? $t("stable") : (delta > 0 ? '+' : '−') + num(Math.abs(delta), 0) + NBSP + 'bpm'} {$t("depuis le {0}", { 0: dateFr(RESTING_FROM) })}</span>}
+      <PeriodBar p={rp} total={all.length} from={days[0]} to={days[days.length - 1]} />
       <Readout when={day === d.today ? $t("Aujourd’hui") : dayTitle(day)} cols={2} cells={[
-        { label: $t("Mesure du jour"), value: raw(day) === null ? '—' : num(raw(day)!, 0) + NBSP + 'bpm', color: 'var(--chart-other)', key: true },
+        { label: $t("Mesure du jour"), value: raw(day) === null ? '—' : num(raw(day)!, 0) + NBSP + 'bpm', color: REST_COLOR, key: true },
         { label: $t("Médiane 14 jours"), value: med(day) === null ? '—' : num(med(day)!, 0) + NBSP + 'bpm', color: 'var(--chart-value)' },
       ]} />
-      <DayChart points={days.map((x) => ({ day: x, v: raw(x), faint: true }))} kind="line" connect dots sel={si} onSel={setSi} onRelease={rel} height={120} min={lo} max={hi} ticks={ticks} fmtTick={(v) => num(v, 0)} color="var(--chart-other)" label={$t("FC de repos par jour")}
+      <DayChart points={days.map((x) => ({ day: x, v: raw(x) }))} kind="line" connect dots sel={si} onSel={setSi} onRelease={rel} height={120} min={lo} max={hi} ticks={ticks} fmtTick={(v) => num(v, 0)} color={REST_COLOR} label={$t("FC de repos par jour")}
         second={{ vals: days.map((x) => med(x)), lo, hi, ticks, fmt: () => '', color: 'var(--chart-value)' }} />
-      <span className="t-legal c-moderate">{$t("{0} jour(s) mesuré(s) depuis le {1}", { 0: num(measured.length), 1: dateFr(RESTING_FROM) })}</span>
-      <Info>{$t("Tu n’as rien à saisir : la FC de repos est lue automatiquement dans Health Connect, où Garmin dépose la mesure de ta montre (une valeur par jour). Apogée garde, pour chaque jour, la médiane des 14 derniers jours (valeurs entre 30 et 100 bpm). Cette médiane sert aux zones de FC (Karvonen), à la charge et à la forme du jour. Les points clairs sont les mesures du jour, la courbe pleine la médiane. Sans mesure, on utilise une valeur de référence (26 % de ta FC max).")}</Info>
+      <Info>{$t("Tu n’as rien à saisir : la FC de repos est lue automatiquement dans Health Connect, où Garmin dépose la mesure de ta montre (une valeur par jour). Apogée garde, pour chaque jour, la médiane des 14 derniers jours (valeurs entre 30 et 100 bpm). Cette médiane sert aux zones de FC (Karvonen), à la charge et à la forme du jour. La courbe violette est la mesure du jour, la courbe bleue la médiane. Sans mesure, on utilise une valeur de référence (26 % de ta FC max).")}</Info>
     </InfoCard>
   );
 }
+const REST_COLOR = 'var(--chart-fresh-neg)';
 
 // ------------------------------------------------------------------ sommeil
 const hhSleep = (sec: number) => Math.floor(sec / 3600) + NBSP + 'h' + String(Math.round((sec % 3600) / 60)).padStart(2, '0');
