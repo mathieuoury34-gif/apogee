@@ -1359,7 +1359,16 @@ test('séance prévue minutée : étapes à plat, superposition sur la courbe r�
   assert.equal(works.length, 3);
   assert.ok(works.every((w) => Math.abs(w.ms! - 5) < 0.05 && Math.abs(w.avgHr! - 170) < 1));
   assert.equal(works[2].rank, 3);
-  assert.equal(overlaySteps(planned, 1000, 1500, sp, hr, null, 'RUN'), null, 'durée réelle trop éloignée du prévu');
+  assert.equal(overlaySteps(planned, 1000, 1500, sp, hr, null, 'RUN')!.length, 8, 'séance plus longue que le prévu : toutes les étapes prévues sont données');
+  const short = overlaySteps(planned, 1000, 400, sp, hr, null, 'RUN')!;
+  assert.equal(short.length, 3, 'séance plus courte : les étapes après la fin sont écartées');
+  assert.equal(short[2].to - short[2].from, 40, 'la dernière étape est tronquée à la fin de la séance');
+  // modification à la main : on inverse l’ordre des deux premières étapes et on raccourcit la première
+  const ed = steps.map((_, i) => ({ i, sec: steps[i].sec }));
+  [ed[0], ed[1]] = [ed[1], ed[0]]; ed[1] = { i: 0, sec: 120 };
+  const r2 = overlaySteps(planned, 1000, 780, sp, hr, null, 'RUN', ed)!;
+  assert.equal(r2[0].kind, 'WORK'); assert.equal(r2[1].kind, 'WARMUP'); assert.equal(r2[1].to - r2[1].from, 120);
+  assert.equal(overlaySteps(planned, 1000, 780, sp, hr, null, 'RUN', ed.slice(1))!.length, 8, 'une modification qui ne colle plus au prévu est ignorée');
   assert.equal(overlaySteps(planned, 1000, 780, sp, hr, null, 'BIKE'), null, 'autre discipline');
   assert.equal(timedSteps([wu, { ...newBlock('WORK'), measure: 'DISTANCE', measureValue: 1000 }]), null, 'une étape à la distance : pas de découpage');
 });

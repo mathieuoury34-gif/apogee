@@ -183,6 +183,8 @@ export interface ActualSession extends Rec {
    * sinon l'id de la séance prévue choisie à la main.
    */
   manualPlannedId?: string | null;
+  /** Étapes du prévu rattaché, réordonnées / rechiffrées à la main pour le découpage du compte rendu : `i` = rang de l'étape dans le prévu, `sec` = durée (0 = retirée). Absent = tel que prévu. */
+  stepsEdit?: { i: number; sec: number }[] | null;
   ingestedAt: string;
 }
 

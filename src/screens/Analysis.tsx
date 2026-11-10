@@ -385,14 +385,9 @@ export function RestingCard({ data, d }: Props) {
   const vals = days.map((x) => raw(x)).filter((v): v is number => v !== null);
   const lo = vals.length ? Math.floor((Math.min(...vals) - 2) / 5) * 5 : 40, hi = vals.length ? Math.ceil((Math.max(...vals) + 2) / 5) * 5 : 60;
   const ticks: number[] = []; for (let v = lo; v <= hi + 1e-9; v += 5) ticks.push(v);
-  const cur = d.ctx.restAt(d.today);
   return (
     <InfoCard className="card g12" aria-label={$t("FC de repos")} data-anchor="fc-repos">
       <h2>{$t("FC de repos")}<InfoToggle /></h2>
-      <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}>
-        <span className="t-h2">{cur !== null ? num(cur, 0) : '—'}{NBSP}bpm</span>
-        <span className="t-caption c-neutral">{$t("médiane des 14 derniers jours")}</span>
-      </div>
       <PeriodBar p={rp} total={all.length} from={days[0]} to={days[days.length - 1]} />
       <Readout when={day === d.today ? $t("Aujourd’hui") : dayTitle(day)} cols={2} cells={[
         { label: $t("Mesure du jour"), value: raw(day) === null ? '—' : num(raw(day)!, 0) + NBSP + 'bpm', color: REST_COLOR, key: true },

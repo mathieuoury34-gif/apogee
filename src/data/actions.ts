@@ -167,6 +167,15 @@ export function setFeedback(id: string, rpe: number | null, comment: string | nu
   commit((tx) => tx.put('actual', { ...cur, rpe, comment: comment && comment.trim() ? comment.trim() : null }));
 }
 
+/** Étapes d'intervalles corrigées à la main (`null` = revenir au prévu). */
+export function setStepsEdit(id: string, edit: { i: number; sec: number }[] | null): void {
+  const cur = getData().actual[id];
+  if (!cur || cur.deleted) return;
+  const next: ActualSession = { ...cur };
+  if (edit === null) delete next.stepsEdit; else next.stepsEdit = edit;
+  commit((tx) => tx.put('actual', next));
+}
+
 /** `undefined` = revenir à l'automatique, `null` = « n'était pas prévue », sinon id du prévu. */
 export function setManualLink(id: string, plannedId: string | null | undefined): void {
   const cur = getData().actual[id];

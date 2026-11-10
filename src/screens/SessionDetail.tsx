@@ -13,7 +13,10 @@ import { sessionDay } from '../domain/load';
 import { distanceAt, distanceCurve, hrView, rangeStats, speedStats } from '../domain/sessionStats';
 import { KCAL_J, paceOf } from '../domain/stats';
 import { polarSplit } from '../domain/zones';
-import { overlaySteps, type StepResult } from '../domain/plannedSteps';
+import { applyEdit, overlaySteps, timedSteps, validEdit, type StepResult } from '../domain/plannedSteps';
+import { StepsEditor } from './StepsEditor';
+import { setStepsEdit } from '../data/actions';
+import { Icon } from '../ui/icons';
 import type { Segment } from '../domain/sessionStats';
 import type { ActualSession } from '../domain/types';
 import { KIND_LABEL as BLOCK_KIND, NBSP, bpm, descent, duration, elevation, hhmm, kcal, mmss, num, paceFor, speedKmh, targetText } from '../ui/format';
@@ -79,7 +82,10 @@ export function SessionAnalysis({ s, children }: { s: ActualSession; children?: 
   // ---- étapes de la séance prévue (si toutes au temps), tours et séries de la montre
   const link = d.links.byActual.get(s.id);
   const planned = link?.plannedId ? data.planned[link.plannedId] : undefined;
-  const planSteps = useMemo(() => (planned && !planned.deleted ? overlaySteps(planned, start, s.durationSec, speed ?? null, hr, s.distanceM, s.discipline) : null), [planned, start, s.durationSec, speed, hr, s.distanceM, s.discipline]);
+  const planSteps = useMemo(() => (planned && !planned.deleted ? overlaySteps(planned, start, s.durationSec, speed ?? null, hr, s.distanceM, s.discipline, s.stepsEdit) : null), [planned, start, s.durationSec, speed, hr, s.distanceM, s.discipline, s.stepsEdit]);
+  const flatSteps = useMemo(() => (planned && !planned.deleted && planned.discipline === s.discipline ? timedSteps(planned.blocks) : null), [planned, s.discipline]);
+  const [editing, setEditing] = useState(false);
+  const stepsTotal = flatSteps ? applyEdit(flatSteps, s.stepsEdit).reduce((a, x) => a + x.sec, 0) : 0;
   const watchLaps: Segment[] = useMemo(() => {
     const L = ser && !ser.deleted ? ser.laps ?? [] : [];
     if (L.length < 2) return [];
@@ -155,9 +161,21 @@ export function SessionAnalysis({ s, children }: { s: ActualSession; children?: 
         <InfoCard className="card g12 dspan-7" aria-label={$t("Tours et intervalles")}>
           <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
             <h2>{$t("Tours et intervalles")}<InfoToggle /></h2>
-            {lapModes.length > 1 && <Segmented label={$t("Affichage")} value={lapNow} onChange={setLapMode} options={lapModes} />}
+            <div className="row" style={{ gap: 'var(--space-8)', alignItems: 'center' }}>
+              {lapModes.length > 1 && <Segmented label={$t("Affichage")} value={lapNow} onChange={(v) => { setEditing(false); setLapMode(v); }} options={lapModes} />}
+              {lapNow === 'plan' && flatSteps && !editing && <button type="button" className="icon-btn" aria-label={$t("Modifier les intervalles")} title={$t("Modifier les intervalles")} onClick={() => setEditing(true)}><Icon name="pencil" size={20} /></button>}
+            </div>
           </div>
-          {lapNow === 'plan' && planSteps && (
+          {lapNow === 'plan' && editing && flatSteps && (
+            <StepsEditor flat={flatSteps} edit={validEdit(flatSteps, s.stepsEdit) ? s.stepsEdit : null} sessionSec={s.durationSec}
+              sub={(f) => (planned ? targetText(f.block, planned.discipline) || null : null)}
+              onSave={(e) => { setStepsEdit(s.id, e.some((x) => x.sec > 0) ? e : null); setEditing(false); }}
+              onReset={() => { setStepsEdit(s.id, null); setEditing(false); }} onCancel={() => setEditing(false)} />
+          )}
+          {lapNow === 'plan' && !editing && flatSteps && Math.abs(stepsTotal - s.durationSec) > Math.max(60, s.durationSec * 0.05) && (
+            <p className="t-caption c-moderate">{stepsTotal > s.durationSec ? $t("La séance est plus courte que le prévu : les dernières étapes sont tronquées ou absentes. Touche le crayon pour ajuster durées et ordre.") : $t("La séance est plus longue que le prévu : le temps en plus n’est pas découpé. Touche le crayon pour ajuster durées et ordre.")}</p>
+          )}
+          {lapNow === 'plan' && planSteps && !editing && (
             <div className="laps" role="table" aria-label={$t("Intervalles")}>
               <div className="laps-row laps-h" role="row"><span>{$t("Étape")}</span><span>{$t("Durée")}</span><span>{$t("Dist.")}</span><span>{kindSpeedLabel(s.discipline)}</span><span>{$t("FC")}</span></div>
               {planSteps.map((g, i) => (
@@ -185,7 +203,7 @@ export function SessionAnalysis({ s, children }: { s: ActualSession; children?: 
               ))}
             </div>
           )}
-          <Info>{lapNow === 'watch' ? $t("Tours enregistrés par ta montre et transmis par Health Connect.") : lapNow === 'sets' ? $t("Séries transmises par ta montre via Health Connect (durée et répétitions ; le poids n’est pas transmis).") : $t("Les étapes viennent de la séance prévue rattachée (toutes au temps) : la courbe réelle est découpée suivant leurs durées, en partant du début de la séance. Durée, distance, allure et FC sont calculées par Apogée ; elles peuvent s’écarter de quelques secondes si tu as appuyé sur la montre en retard.")}</Info>
+          <Info>{lapNow === 'watch' ? $t("Tours enregistrés par ta montre et transmis par Health Connect.") : lapNow === 'sets' ? $t("Séries transmises par ta montre via Health Connect (durée et répétitions ; le poids n’est pas transmis).") : $t("Les étapes viennent de la séance prévue rattachée (toutes au temps) : la courbe réelle est découpée suivant leurs durées, en partant du début de la séance. Durée, distance, allure et FC sont calculées par Apogée ; elles peuvent s’écarter de quelques secondes si tu as appuyé sur la montre en retard. Le crayon permet de corriger la durée et l’ordre des étapes pour cette séance.")}</Info>
         </InfoCard>
       )}
 

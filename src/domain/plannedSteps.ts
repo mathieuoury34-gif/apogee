@@ -37,17 +37,28 @@ export interface StepResult extends FlatStep {
   avgHr: number | null; maxHr: number | null;
 }
 
-/** Écart toléré entre la durée prévue et la durée réelle (10 % ou 2 min) : au-delà, le découpage au temps n'a plus de sens. */
-export function planFits(plannedSec: number, actualSec: number): boolean {
-  return Math.abs(plannedSec - actualSec) <= Math.max(120, plannedSec * 0.1);
+/** Modification faite à la main sur une séance réalisée : ordre des étapes (`i` = rang de l'étape dans le prévu) et durée de chacune (0 = étape retirée). */
+export interface StepEdit { i: number; sec: number }
+
+/** Une modification n'est valable que si elle colle encore au prévu rattaché (même nombre d'étapes, pas de doublon) ; sinon on revient au prévu. */
+export function validEdit(flat: FlatStep[], edit: StepEdit[] | null | undefined): edit is StepEdit[] {
+  return !!edit && edit.length === flat.length && new Set(edit.map((e) => e.i)).size === flat.length && !edit.some((e) => !(e.i >= 0 && e.i < flat.length) || !(e.sec >= 0));
+}
+export function applyEdit(flat: FlatStep[], edit: StepEdit[] | null | undefined): FlatStep[] {
+  if (!validEdit(flat, edit)) return flat;
+  return edit.filter((e) => e.sec > 0).map((e) => ({ ...flat[e.i], sec: e.sec }));
 }
 
-export function overlaySteps(p: PlannedSession, startEpoch: number, actualSec: number, speed: Series | null, hr: Series, distanceM: number | null, discipline: string): StepResult[] | null {
+/**
+ * Superpose les étapes du prévu à la courbe réelle, à partir du début de la séance. Pas de tolérance sur la durée : si la séance dure plus que le prévu, toutes
+ * les étapes prévues sont données (le reste n'est pas découpé) ; si elle est plus courte, les étapes qui commencent après la fin sont écartées et la dernière
+ * est tronquée (l'athlète peut alors corriger durées et ordre : `edit`).
+ */
+export function overlaySteps(p: PlannedSession, startEpoch: number, actualSec: number, speed: Series | null, hr: Series, distanceM: number | null, discipline: string, edit?: StepEdit[] | null): StepResult[] | null {
   if (p.discipline !== discipline) return null;
-  const steps = timedSteps(p.blocks);
-  if (!steps) return null;
-  const total = steps.reduce((a, s) => a + s.sec, 0);
-  if (!planFits(total, actualSec)) return null;
+  const flat = timedSteps(p.blocks);
+  if (!flat) return null;
+  const steps = applyEdit(flat, edit);
   const curve = speed && discipline !== 'STRENGTH' ? distanceCurve(speed, distanceM) : null;
   const hrp = hr.filter((x) => Number.isFinite(x[0]) && Number.isFinite(x[1])).map((x) => ({ t: x[0], v: x[1] })).sort((a, b) => a.t - b.t);
   if (!curve && hrp.length < 10) return null;
