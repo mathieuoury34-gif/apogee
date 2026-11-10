@@ -165,11 +165,11 @@ export function HealthScreen() {
       <SubNav items={NAV} label={$t("Sections Progression")} />
       <main className="content dgrid">
         <div className="dmasonry">
+          <RestingCard data={data} d={d} />
           <ReadinessCard />
           <ReserveCard />
           <SleepCard data={data} d={d} />
           <FormDetailCard />
-          <RestingCard data={data} d={d} />
           <ActivityCard />
           <CaloriesCard />
           <WeightCard data={data} d={d} />
