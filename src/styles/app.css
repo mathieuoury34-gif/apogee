@@ -147,9 +147,9 @@ ul { list-style: none; margin: 0; padding: 0; }
 .dl dt { color: var(--text-neutral); }
 .dl dd { text-align: right; font: var(--type-body-strong); }
 .dl .total { padding-top: var(--space-8); border-top: 1px solid var(--divider-minimal); }
-.kv { display: grid; grid-template-columns: auto 1fr; column-gap: var(--space-12); }
+.kv { display: grid; grid-template-columns: auto 1fr; column-gap: 0; }
 .kv dt { padding: var(--space-10) 0; color: var(--text-neutral); }
-.kv dd { padding: var(--space-10) 0; text-align: right; font: var(--type-body-strong); }
+.kv dd { padding: var(--space-10) 0 var(--space-10) var(--space-12); text-align: right; font: var(--type-body-strong); }
 .kv dt:not(:first-of-type), .kv dd:not(:first-of-type) { border-top: 1px solid var(--divider-minimal); }
 .divided > * + * { border-top: 1px solid var(--divider-minimal); }
 .dot { display: inline-block; flex-shrink: 0; width: 12px; height: 12px; border-radius: var(--radius-full); }
@@ -764,3 +764,16 @@ input, textarea, select, [contenteditable="true"], pre, code, .help-f, .help-cod
 .heads .kpi { padding: var(--space-8) var(--space-12); box-shadow: none; background: var(--bg-grey-minimal); }
 .heads .kpi .label { padding-right: 0; }
 .schart-full { position: fixed; z-index: 40; display: flex; flex-direction: column; gap: var(--space-8); background: var(--bg-surface); overflow: hidden; }
+
+/* titres de groupes des statistiques d'une séance : barre de couleur + capitales, bien distincts des lignes */
+.stat-title { margin: var(--space-8) 0 0; padding: var(--space-6) var(--space-8); border-left: 4px solid var(--brand-primary); border-radius: var(--radius-4); background: var(--bg-grey-minimal); font: var(--type-overline); letter-spacing: var(--overline-tracking); text-transform: uppercase; color: var(--text); }
+
+/* tours et intervalles */
+.laps { display: flex; flex-direction: column; }
+.laps-row { display: grid; grid-template-columns: minmax(0, 2.1fr) repeat(4, minmax(0, 1fr)); gap: var(--space-4); align-items: baseline; padding: var(--space-8) var(--space-6); border-top: 1px solid var(--divider-minimal); font: var(--type-caption); text-align: right; font-variant-numeric: tabular-nums; }
+.laps-row > :first-child { text-align: left; }
+.laps-row.laps-sets { grid-template-columns: minmax(0, 1fr) repeat(2, minmax(0, 1fr)); }
+.laps-row.laps-h { border-top: 0; color: var(--text-moderate); font: var(--type-overline); letter-spacing: var(--overline-tracking); text-transform: uppercase; }
+.laps-row.laps-work { background: var(--bg-grey-minimal); border-left: 4px solid var(--brand-primary); font-weight: 600; }
+.laps-row.laps-other { color: var(--text-neutral); }
+.laps-name { font-weight: 600; color: var(--text); }

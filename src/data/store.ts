@@ -148,6 +148,8 @@ export interface Prefs {
   healthSleepAsleep?: boolean;
   /** Les nuits ont été relues une fois avec le recollage des sessions coupées (sommeil). */
   healthSleepMerged?: boolean;
+  /** Séances relues une fois (120 jours) avec l'APK qui lit les tours, les séries et les distances de la montre. */
+  healthLapScan?: boolean;
   /** Les pas et étages des 120 derniers jours ont été relus une fois (APK avec ces lectures). */
   healthActivityScan?: boolean;
   /** Relecture unique de 120 jours de dépense (totaux et repos), faite une fois que l'historique a été relu avec les totaux. */

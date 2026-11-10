@@ -190,6 +190,10 @@ export interface ActualSession extends Rec {
 export interface SessionSeries extends Rec {
   hr: [number, number][];
   speed: [number, number][];
+  /** Tours enregistrés par la montre (Health Connect) : [début s, fin s, longueur m ou null]. Absent si la montre n'en envoie pas. */
+  laps?: [number, number, number | null][];
+  /** Segments d'exercice de la montre (séries de musculation…) : [début s, fin s, type Health Connect, répétitions]. */
+  segments?: [number, number, number, number][];
 }
 
 export interface BrickPair extends Rec {

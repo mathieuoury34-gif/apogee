@@ -38,6 +38,10 @@ export interface NativeSession {
   elevationM: number | null;
   hr: [number, number][];
   speed: [number, number][];
+  /** Distance par intervalle [début s, fin s, mètres] : sert à reconstruire la vitesse quand la montre n'en envoie pas (APK récent seulement). */
+  distances?: [number, number, number][];
+  laps?: [number, number, number | null][];
+  segments?: [number, number, number, number][];
 }
 export interface NativeSleep { id: string; clientRecordId: string | null; startTime: string; endTime: string; startZoneOffsetSeconds: number | null; /** Temps endormi d'après les étapes (absent avant l'APK qui les lit ; null si pas d'étapes). */ asleepSec?: number | null }
 export interface NativeResting { id: string; time: string; zoneOffsetSeconds: number | null; bpm: number }
@@ -70,6 +74,22 @@ export function mergeSleepParts(nights: NativeSleep[]): NativeSleep[] {
   return out;
 }
 
+/**
+ * Courbe de vitesse reconstruite à partir des distances par intervalle (natation en piscine : la montre n'envoie pas de vitesse).
+ * Chaque intervalle donne sa vitesse au début et à la fin ; un trou entre deux intervalles est une pause (vitesse nulle).
+ */
+export function speedFromDistances(distances: [number, number, number][]): [number, number][] {
+  const iv = distances.filter((d) => Number.isFinite(d[0]) && Number.isFinite(d[1]) && Number.isFinite(d[2]) && d[1] > d[0] && d[2] >= 0).sort((a, b) => a[0] - b[0]);
+  const out: [number, number][] = [];
+  iv.forEach(([a, b, m], i) => {
+    const v = m / (b - a);
+    out.push([a, v], [b - 0.5, v]);
+    const next = iv[i + 1];
+    if (next && next[0] - b > 2) out.push([b + 0.5, 0], [next[0] - 0.5, 0]);
+  });
+  return out;
+}
+
 export function ingest(data: AppData, sessions: NativeSession[], nights: NativeSleep[], resting: NativeResting[], extras: NativeExtras = {}): { ops: IngestOps; report: IngestReport } {
   const now = nowIso();
   const bySource = new Map(liveRecords(data.actual).map((s) => [s.sourceId, s]));
@@ -79,12 +99,19 @@ export function ingest(data: AppData, sessions: NativeSession[], nights: NativeS
     const sourceId = n.clientRecordId || n.id;
     if (!sourceId) continue;
     const hr = cleanHr(n.hr);
-    const speed = (n.speed || []).filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1])).sort((a, b) => a[0] - b[0]);
+    let speed = (n.speed || []).filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1])).sort((a, b) => a[0] - b[0]);
+    if (speed.length < 20 && (n.distances?.length ?? 0) >= 8) speed = speedFromDistances(n.distances!);
+    const laps = (n.laps ?? []).filter((l) => l[1] > l[0]);
+    const segments = (n.segments ?? []).filter((x) => x[1] > x[0]);
     // séance reprise du dossier coach de l'ancienne app (sans identifiant Garmin) : même activité, même heure
     const placeholder = bySource.has(sourceId) ? undefined : liveRecords(data.actual).find((s) => s.sourceId.startsWith('dossier:') && sameActivity(s, EXERCISE_TO_DISCIPLINE[n.exerciseType] ?? 'OTHER', n.startTime));
     const existing = bySource.get(sourceId) ?? placeholder;
     if (existing && !placeholder) {
-      const better = hr.length > (existing.hrSampleCount ?? 0) + 5 && existing.edited.length === 0;
+      const stored = data.series[existing.id];
+      const storedOk = !!stored && !stored.deleted;
+      // une relecture complète une fois l'APK à jour : on complète la vitesse (natation), les tours et les séries qui manquaient
+      const extras = existing.edited.length === 0 && ((speed.length >= 20 && (!storedOk || stored.speed.length < 20)) || (laps.length > 0 && !(storedOk && stored.laps?.length)) || (segments.length > 0 && !(storedOk && stored.segments?.length)));
+      const better = (hr.length > (existing.hrSampleCount ?? 0) + 5 && existing.edited.length === 0) || extras;
       if (!better) { report.known++; continue; }
     }
     const durationSec = Math.max(0, Math.round((Date.parse(n.endTime) - Date.parse(n.startTime)) / 1000));
@@ -109,7 +136,7 @@ export function ingest(data: AppData, sessions: NativeSession[], nights: NativeS
     } as ActualSession;
     ops.actual.push(s);
     if (s.hasSeries) {
-      ops.series.push({ id, updatedAt: now, hr, speed });
+      ops.series.push({ id, updatedAt: now, hr, speed, ...(laps.length ? { laps } : {}), ...(segments.length ? { segments } : {}) });
     }
     if (existing) report.updated++; else report.inserted++;
   }

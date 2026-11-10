@@ -278,6 +278,22 @@ class ApogeeHealthPlugin : Plugin() {
                     safe { readAll(c, SpeedRecord::class, s.startTime, s.endTime) }?.flatMap { it.samples }?.sortedBy { it.time }?.forEach {
                         speed.put(JSArray().put(it.time.epochSecond).put(it.speed.inMetersPerSecond))
                     }
+                    // Distance par intervalles : sert à reconstruire une courbe de vitesse quand la montre n'en envoie pas (natation en piscine)
+                    val distances = JSArray()
+                    if (speed.length() == 0) {
+                        safe { readAll(c, DistanceRecord::class, s.startTime, s.endTime) }?.sortedBy { it.startTime }?.forEach {
+                            distances.put(JSArray().put(it.startTime.epochSecond).put(it.endTime.epochSecond).put(it.distance.inMeters))
+                        }
+                    }
+                    // Tours et segments (séries) écrits par la montre, s'il y en a
+                    val laps = JSArray()
+                    safe { s.laps }?.forEach {
+                        laps.put(JSArray().put(it.startTime.epochSecond).put(it.endTime.epochSecond).put(it.length?.inMeters ?: org.json.JSONObject.NULL))
+                    }
+                    val segs = JSArray()
+                    safe { s.segments }?.forEach {
+                        segs.put(JSArray().put(it.startTime.epochSecond).put(it.endTime.epochSecond).put(it.segmentType).put(it.repetitions))
+                    }
                     // Totaux : agrégats Health Connect (dédoublonnés entre sources) sur la durée de la séance
                     val agg = safe {
                         c.aggregate(androidx.health.connect.client.request.AggregateRequest(
@@ -297,9 +313,12 @@ class ApogeeHealthPlugin : Plugin() {
                     o.putN("elevationM", agg?.get(ElevationGainedRecord.ELEVATION_GAINED_TOTAL)?.inMeters)
                     o.put("hr", hr)
                     o.put("speed", speed)
+                    o.put("distances", distances)
+                    o.put("laps", laps)
+                    o.put("segments", segs)
                     list.put(o)
                 }
-                call.resolve(JSObject().put("sessions", list))
+                call.resolve(JSObject().put("sessions", list).put("version", 3))
             } catch (e: Exception) { call.reject(e.message ?: "Lecture des séances impossible") }
         }
     }

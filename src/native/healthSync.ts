@@ -69,8 +69,10 @@ export async function runHealthSync(): Promise<IngestReport | null> {
     // une fois, relire 400 jours de nuits pour y mettre le temps réellement endormi (les étapes viennent de l'APK à jour)
     const rescanSleep = !getPrefs().healthSleepAsleep || !getPrefs().healthSleepMerged;
     const sleepRange = rescanSleep ? { start: new Date(end.getTime() - FIRST_RUN_DAYS_HISTORY * 86400_000).toISOString(), end: range.end } : range;
+    // une fois, relire 120 jours de séances pour y ajouter tours, séries et vitesse de nage (réponse « version 3 » : APK à jour)
+    const sessRange = getPrefs().healthLapScan ? range : { start: new Date(Math.min(start.getTime(), end.getTime() - 120 * 86400_000)).toISOString(), end: range.end };
     const [s, n, r, wt] = await Promise.all([
-      h.readSessions(range) as Promise<{ sessions: NativeSession[] }>,
+      h.readSessions(sessRange) as Promise<{ sessions: NativeSession[]; version?: number }>,
       (h.readSleep(sleepRange) as Promise<{ nights: NativeSleep[] }>).catch(() => ({ nights: [] })),
       (h.readResting(range) as Promise<{ records: NativeResting[] }>).catch(() => ({ records: [] })),
       // poids : un APK ou une autorisation en retard ne bloque rien
@@ -101,6 +103,7 @@ export async function runHealthSync(): Promise<IngestReport | null> {
     });
     // seul un APK avec le lecteur à jour répond « version 2 » : un ancien APK ne ferme donc pas la relecture
     if (fullScan && en.version === 2 && (act.version ?? 0) >= 2 && ((en.days ?? []).length > 0 || (act.days ?? []).length > 0)) setPrefs({ healthGarminScan: GARMIN_SCAN, healthActivityScan: true, healthEnergyScan: true });
+    if (!getPrefs().healthLapScan && (s.version ?? 0) >= 3) setPrefs({ healthLapScan: true });
     if (rescanSleep && (n.nights ?? []).some((x) => 'asleepSec' in x)) setPrefs({ healthSleepAsleep: true, healthSleepMerged: true });
     setPrefs({ healthSyncedUntil: range.end, healthLastRun: range.end, healthLastError: '', healthLastReport: JSON.stringify(report) });
     set({ running: false, lastReport: report });

@@ -5,7 +5,7 @@ import { $t } from '../i18n';
 import { useState } from 'react';
 import { AppHeader, DatePicker, Empty, ErrorBanner, Hero, Segmented, Sheet, SubHeader, SubNav, showToast, OtherToggle, useWithOther, Info, InfoCard, InfoToggle } from '../ui/kit';
 import { FormChart, LoadPanels, StackedWeeks, StepChart } from '../ui/charts';
-import { FitnessCard, SleepCard, WeightCard } from './Analysis';
+import { FitnessCard, RestingCard, SleepCard, WeightCard } from './Analysis';
 import { ActivityCard, CaloriesCard, CapacitiesTrendsCard } from './Wellness';
 import { EnduranceHillCard, ReadinessCard, ReserveCard } from './Capacity';
 import { AcuteLoadChart, FocusBars, RatioChart, STATUS_INFO, StatusStrip } from '../ui/loadkit';
@@ -168,10 +168,11 @@ export function HealthScreen() {
           <ReadinessCard />
           <ReserveCard />
           <SleepCard data={data} d={d} />
+          <FormDetailCard />
+          <RestingCard data={data} d={d} />
           <ActivityCard />
           <CaloriesCard />
           <WeightCard data={data} d={d} />
-          <FormDetailCard />
         </div>
       </main>
     </div>

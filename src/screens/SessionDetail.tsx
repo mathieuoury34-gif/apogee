@@ -2,7 +2,7 @@
 // Tout est calculé à l'ouverture avec la courbe de FC et la courbe de vitesse déjà stockées ; une donnée que la montre ne nous transmet pas
 // (foulée, puissance, SWOLF, séries et charges de musculation, altitude…) n'est pas inventée : elle n'apparaît pas.
 import { $t } from '../i18n';
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { useCalc } from '../data/store';
 import { Info, InfoCard, InfoToggle, Segmented } from '../ui/kit';
 import { ChartPanel, type ChartBand, type ChartPt, type XKind } from '../ui/sessionChart';
@@ -10,13 +10,15 @@ import { ZONE_COLOR, ZoneRows, ZoneScale } from '../ui/zoneviz';
 import { SplitBars } from '../ui/charts2';
 import { cleanHr } from '../domain/hr';
 import { sessionDay } from '../domain/load';
-import { distanceAt, distanceCurve, hrView, speedStats } from '../domain/sessionStats';
+import { distanceAt, distanceCurve, hrView, rangeStats, speedStats } from '../domain/sessionStats';
 import { KCAL_J, paceOf } from '../domain/stats';
 import { polarSplit } from '../domain/zones';
+import { autoLaps, detectIntervals, type IntervalSeg, type Segment } from '../domain/intervals';
 import type { ActualSession } from '../domain/types';
-import { NBSP, bpm, descent, duration, elevation, kcal, mmss, num, paceFor, speedKmh } from '../ui/format';
+import { NBSP, bpm, descent, duration, elevation, hhmm, kcal, mmss, num, paceFor, speedKmh } from '../ui/format';
 
 const HR_COLOR = 'var(--critical)';
+const kindSpeedLabel = (d: string) => (d === 'BIKE' || d === 'OTHER' ? $t("Vitesse") : $t("Allure"));
 
 function percentile(sorted: number[], p: number): number { return sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(p * (sorted.length - 1))))]; }
 /** Moyenne glissante sur `n` mesures (lisse le bruit du GPS pour tracer la vitesse). */
@@ -26,7 +28,8 @@ function smooth(v: number[], n: number): number[] {
   return out;
 }
 
-export function SessionAnalysis({ s }: { s: ActualSession }) {
+/** `children` : cartes à placer après les statistiques (l'ordre du bilan est choisi par l'écran qui l'appelle). */
+export function SessionAnalysis({ s, children }: { s: ActualSession; children?: ReactNode }) {
   const { data, d } = useCalc();
   const [xKind, setXKind] = useState<XKind>('time');
   const [zmode, setZmode] = useState<'time' | 'pct'>('time');
@@ -72,6 +75,35 @@ export function SessionAnalysis({ s }: { s: ActualSession }) {
   const spFmt = (v: number) => (kindSpeed ? num(v, 1) + NBSP + 'km/h' : mmss(v) + NBSP + (perHundred ? '/100' + NBSP + 'm' : '/km'));
   const bestPace = sp?.maxMs ? (perHundred ? 100 : 1000) / sp.maxMs : null;
 
+  // ---- tours et intervalles
+  const hasSpeedCurve = !!speed && speed.length >= 20 && s.discipline !== 'STRENGTH';
+  const lapM = s.discipline === 'SWIM' ? 100 : s.discipline === 'BIKE' ? 5000 : 1000;
+  const laps = useMemo(() => (hasSpeedCurve && speed ? autoLaps(speed, hr, s.distanceM, lapM) : []), [hasSpeedCurve, speed, hr, s.distanceM, lapM]);
+  const intervals = useMemo(() => (hasSpeedCurve && speed ? detectIntervals(speed, hr, s.distanceM) : null), [hasSpeedCurve, speed, hr, s.distanceM]);
+  const watchLaps: Segment[] = useMemo(() => {
+    const L = ser && !ser.deleted ? ser.laps ?? [] : [];
+    if (L.length < 2) return [];
+    const hp = hr.map((p) => ({ t: p[0], v: p[1] }));
+    return L.map(([a, b, len]) => {
+      const sec = Math.max(0, b - a);
+      const m = len ?? (curve ? Math.max(0, distanceAt(curve, b) - distanceAt(curve, a)) : null);
+      const h = rangeStats(hp, a, b, 120);
+      return { from: a, to: b, sec, metres: m, ms: m !== null && sec > 0 ? m / sec : null, avgHr: h ? h.avg : null, maxHr: h ? h.max : null };
+    });
+  }, [ser, hr, curve]);
+  const sets = ser && !ser.deleted ? (ser.segments ?? []).filter((x) => x[3] > 0) : [];
+  const [lapMode, setLapMode] = useState<'intervals' | 'laps' | 'watch' | 'sets' | null>(null);
+  const lapModes: ['intervals' | 'laps' | 'watch' | 'sets', string][] = [];
+  if (sets.length) lapModes.push(['sets', $t("Séries")]);
+  if (watchLaps.length) lapModes.push(['watch', $t("Tours montre")]);
+  if (intervals) lapModes.push(['intervals', $t("Intervalles")]);
+  if (laps.length >= 2) lapModes.push(['laps', lapM >= 1000 ? $t("Tours {0} km", { 0: num(lapM / 1000, 0) }) : $t("Tours {0} m", { 0: lapM })]);
+  const lapNow = lapMode && lapModes.some(([k]) => k === lapMode) ? lapMode : lapModes[0]?.[0] ?? null;
+  const unitPace = (ms: number | null) => (ms && ms > 0.05 ? (s.discipline === 'BIKE' || s.discipline === 'OTHER' ? speedKmh(ms) : paceFor((perHundred ? 100 : 1000) / ms, s.discipline)) : '—');
+  const clk = (sec: number) => (sec >= 3600 ? hhmm(sec) : mmss(sec));
+  const dist = (m: number | null) => (m === null ? '—' : perHundred ? num(m, 0) + NBSP + 'm' : num(m / 1000, 2) + NBSP + 'km');
+  const KIND_LABEL: Record<IntervalSeg['kind'], string> = { warmup: $t("Échauffement"), work: $t("Effort"), rest: $t("Récupération"), cooldown: $t("Retour au calme") };
+
   const showHr = hrPts.length >= 20;
   const showSpeed = spPts.length >= 20;
   const zt = hv ? hv.zones : null;
@@ -84,27 +116,23 @@ export function SessionAnalysis({ s }: { s: ActualSession }) {
   if (s.discipline !== 'STRENGTH') {
     if (s.discipline === 'BIKE' || s.discipline === 'OTHER') {
       add($t("Vitesse moyenne"), avgSpeedKmh ? speedKmh(avgSpeedKmh / 3.6) : null);
-      add($t("Vitesse moyenne en mouvement"), sp?.avgMovingMs ? speedKmh(sp.avgMovingMs) : null);
       add($t("Vitesse maximale"), sp?.maxMs ? speedKmh(sp.maxMs) : null);
     } else {
       add($t("Allure moyenne"), avgPace ? paceFor(avgPace, s.discipline) : null);
-      add($t("Allure moyenne en mouvement"), sp?.avgMovingMs ? paceFor((perHundred ? 100 : 1000) / sp.avgMovingMs, s.discipline) : null);
       add($t("Meilleure allure"), bestPace ? paceFor(bestPace, s.discipline) : null);
       add($t("Vitesse moyenne"), avgSpeedKmh ? speedKmh(avgSpeedKmh / 3.6) : null);
       add($t("Vitesse maximale"), sp?.maxMs ? speedKmh(sp.maxMs) : null);
     }
   }
-  const timing: [string, string | null][] = [[$t("Durée totale"), duration(s.durationSec)], [$t("Temps en mouvement"), sp?.movingSec ? duration(sp.movingSec) : null]];
+  const timing: [string, string | null][] = [[$t("Durée totale"), duration(s.durationSec)]];
   const heart: [string, string | null][] = [
-    [$t("FC moyenne"), s.avgHrBpm ? bpm(Math.round(s.avgHrBpm)) : null], [$t("FC maximale"), bpm(s.maxHrBpm)], [$t("FC minimale"), bpm(s.minHrBpm)],
-    [$t("FC de repos (médiane 14 jours)"), hv && hv.restKnown ? bpm(restLabel) : null], [$t("FC max retenue"), hrMax ? bpm(Math.round(hrMax)) : null],
+    [$t("FC moyenne"), s.avgHrBpm ? bpm(Math.round(s.avgHrBpm)) : null], [$t("FC maximale"), bpm(s.maxHrBpm)],
   ];
   const restKcal = s.totalCaloriesJ && s.activeCaloriesJ ? Math.max(0, (s.totalCaloriesJ - s.activeCaloriesJ) / KCAL_J) : null;
   const cal: [string, string | null][] = [[$t("Calories actives"), s.activeCaloriesJ ? kcal(s.activeCaloriesJ / KCAL_J) : null], [$t("Calories de repos"), restKcal ? kcal(restKcal) : null], [$t("Calories totales"), s.totalCaloriesJ ? kcal(s.totalCaloriesJ / KCAL_J) : null]];
   const elev: [string, string | null][] = [[$t("Dénivelé positif"), s.elevationGainM ? elevation(s.elevationGainM) : null], [$t("Dénivelé négatif"), s.elevationLossM ? descent(s.elevationLossM) : null]];
-  const inten: [string, string | null][] = hv ? [[$t("Modérées"), hv.intensity.moderate + NBSP + 'min'], [$t("Soutenues (comptées ×2)"), hv.intensity.vigorous + NBSP + 'min'], [$t("Total"), hv.intensity.total + NBSP + 'min']] : [];
   const groups: [string, [string, string | null][]][] = [
-    [$t("Vitesse et allure"), rowsStat], [$t("Temps"), timing], [$t("Fréquence cardiaque"), heart], [$t("Calories"), cal], [$t("Dénivelé"), elev], [$t("Minutes d’intensité"), inten],
+    [$t("Vitesse et allure"), rowsStat], [$t("Temps"), timing], [$t("Fréquence cardiaque"), heart], [$t("Calories"), cal], [$t("Dénivelé"), elev],
   ];
   const shown = groups.map(([t, rows]) => [t, rows.filter((r) => r[1] && r[1] !== '—')] as [string, [string, string | null][]]).filter(([, rows]) => rows.length);
 
@@ -121,6 +149,47 @@ export function SessionAnalysis({ s }: { s: ActualSession }) {
             heads={[{ value: bpm(Math.round(s.avgHrBpm ?? hv?.avg ?? 0)), label: $t("Moyenne") }, { value: bpm(s.maxHrBpm), label: $t("Maximum") }]} />}
           {showSpeed && <ChartPanel title={kindSpeed ? $t("Vitesse") : $t("Allure")} pts={spPts} xKind={kind} valueText={spFmt} tickText={kindSpeed ? undefined : mmss} inverted={!kindSpeed} color="var(--info-icon)" avg={spAvg} cap={30} domain={spDomain} tickStep={spStep} label={kindSpeed ? $t("Vitesse pendant la séance") : $t("Allure pendant la séance")}
             avgWord={$t("Moyenne")} heads={[{ value: spAvg ? spFmt(spAvg) : '—', label: $t("Moyenne") }, { value: kindSpeed ? (sp?.maxMs ? speedKmh(sp.maxMs) : '—') : bestPace ? spFmt(bestPace) : '—', label: kindSpeed ? $t("Maximum") : $t("Meilleure") }]} />}
+        </InfoCard>
+      )}
+
+      {lapNow && (
+        <InfoCard className="card g12 dspan-7" aria-label={$t("Tours et intervalles")}>
+          <div className="between wrap" style={{ gap: 'var(--space-8)' }}>
+            <h2>{$t("Tours et intervalles")}<InfoToggle /></h2>
+            {lapModes.length > 1 && <Segmented label={$t("Affichage")} value={lapNow} onChange={setLapMode} options={lapModes} />}
+          </div>
+          {lapNow === 'intervals' && intervals && (
+            <>
+              <div className="laps-head"><span className="t-caption c-moderate">{$t("{0} efforts", { 0: intervals.works.length })} · {$t("moyenne")} {unitPace(intervals.works.reduce((a, w) => a + (w.ms ?? 0) * w.sec, 0) / Math.max(1, intervals.works.reduce((a, w) => a + w.sec, 0)))}</span></div>
+              <div className="laps" role="table" aria-label={$t("Intervalles")}>
+                <div className="laps-row laps-h" role="row"><span>{$t("Étape")}</span><span>{$t("Durée")}</span><span>{$t("Dist.")}</span><span>{kindSpeedLabel(s.discipline)}</span><span>{$t("FC")}</span></div>
+                {intervals.segments.map((g, i) => (
+                  <div key={i} role="row" className={'laps-row ' + (g.kind === 'work' ? 'laps-work' : 'laps-other')}>
+                    <span className="laps-name">{KIND_LABEL[g.kind]}{g.kind === 'work' || g.kind === 'rest' ? ' ' + g.rank : ''}</span><span>{clk(g.sec)}</span><span>{dist(g.metres)}</span><span>{unitPace(g.ms)}</span><span>{g.avgHr ? num(g.avgHr, 0) : '—'}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          {(lapNow === 'laps' || lapNow === 'watch') && (
+            <div className="laps" role="table" aria-label={$t("Tours")}>
+              <div className="laps-row laps-h" role="row"><span>{$t("Tour")}</span><span>{$t("Temps")}</span><span>{$t("Dist.")}</span><span>{kindSpeedLabel(s.discipline)}</span><span>{$t("FC")}</span></div>
+              {(lapNow === 'laps' ? laps : watchLaps).map((g, i) => (
+                <div key={i} role="row" className="laps-row laps-other">
+                  <span className="laps-name">{i + 1}</span><span>{clk(g.sec)}</span><span>{dist(g.metres)}</span><span>{unitPace(g.ms)}</span><span>{g.avgHr ? num(g.avgHr, 0) : '—'}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {lapNow === 'sets' && (
+            <div className="laps" role="table" aria-label={$t("Séries")}>
+              <div className="laps-row laps-h laps-sets" role="row"><span>{$t("Série")}</span><span>{$t("Durée")}</span><span>{$t("Répétitions")}</span></div>
+              {sets.map((g, i) => (
+                <div key={i} role="row" className="laps-row laps-other laps-sets"><span className="laps-name">{i + 1}</span><span>{clk(Math.max(0, g[1] - g[0]))}</span><span>{g[3]}</span></div>
+              ))}
+            </div>
+          )}
+          <Info>{lapNow === 'watch' ? $t("Tours enregistrés par ta montre et transmis par Health Connect.") : lapNow === 'sets' ? $t("Séries transmises par ta montre via Health Connect (durée et répétitions ; le poids n’est pas transmis).") : $t("Détectés par Apogée, pas enregistrés par la montre. Les tours sont découpés tous les {0} sur la courbe de vitesse. Les intervalles sont repérés quand la vitesse alterne nettement entre des efforts rapides et des récupérations lentes (au moins 3 efforts) ; une sortie régulière n’en a pas. Les durées et distances peuvent différer d’une seconde ou de quelques mètres de ceux de la montre.", { 0: lapM >= 1000 ? num(lapM / 1000, 0) + ' km' : lapM + ' m' })}</Info>
         </InfoCard>
       )}
 
@@ -142,13 +211,14 @@ export function SessionAnalysis({ s }: { s: ActualSession }) {
           <h2>{$t("Statistiques")}<InfoToggle /></h2>
           {shown.map(([title, rows]) => (
             <div key={title} className="stack-4">
-              <span className="t-label c-moderate">{title}</span>
+              <h3 className="stat-title">{title}</h3>
               <dl className="kv">{rows.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl>
             </div>
           ))}
-          <Info>{$t("Calculé par Apogée à partir de la courbe de FC et de vitesse de la montre. « En mouvement » écarte les arrêts (vitesse sous 0,5 m/s) et n’apparaît que si la courbe est assez fine. Minutes d’intensité : modérées de 40 à 59 % de la FC de réserve, soutenues à partir de 60 % (seuils ACSM), les soutenues comptent double, comme sur les montres ; ce n’est pas le calcul exact de Garmin. Foulée, puissance, SWOLF, séries et poids de musculation ne sont pas transmis par la montre à l’application : ils n’apparaissent pas.")}</Info>
+          <Info>{$t("Calculé par Apogée à partir de la courbe de FC et de vitesse de la montre. Foulée, puissance, SWOLF et poids de musculation ne sont pas transmis par la montre à l’application : ils n’apparaissent pas. Les tours et les séries de la montre n’apparaissent que si elle les envoie.")}</Info>
         </InfoCard>
       )}
+      {children}
     </>
   );
 }

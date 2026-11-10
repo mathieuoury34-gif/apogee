@@ -137,7 +137,7 @@ export function SessionChart(p: SessionChartProps) {
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pts, W, lo, hi, inverted]);
-  const base = inverted ? T : T + H;
+  const base = T + H; // l'aire est toujours sous la courbe (en bas du graphique), allure comprise
   const path = line.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' ');
   const area = line.length ? path + ` L${line[line.length - 1][0].toFixed(1)},${base} L${line[0][0].toFixed(1)},${base} Z` : '';
 
@@ -157,7 +157,7 @@ export function SessionChart(p: SessionChartProps) {
     <div className="chart schart" style={{ height: p.height, width: p.width ?? '100%' }} role="img" aria-label={p.label} data-component="SessionChart">
       <svg width={p.width ?? 300} height={p.height} viewBox={`0 0 ${p.width ?? 300} ${p.height}`}>
         <defs>
-          <linearGradient id={gid} x1="0" x2="0" y1={inverted ? 1 : 0} y2={inverted ? 0 : 1}><stop offset="0" stopColor={color} stopOpacity="0.65" /><stop offset="1" stopColor={color} stopOpacity="0.08" /></linearGradient>
+          <linearGradient id={gid} x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor={color} stopOpacity="0.65" /><stop offset="1" stopColor={color} stopOpacity="0.08" /></linearGradient>
           <clipPath id={gid + 'c'}><rect x="0" y={T} width={W} height={H} /></clipPath>
         </defs>
         <g transform={`translate(${AX},0)`}>

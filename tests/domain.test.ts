@@ -10,6 +10,8 @@ import { bestSegment, bestSpeedOver, efficiency, personalRecords, suggestZones }
 import { forecastLoad } from '../src/domain/forecast';
 import { fitnessByDiscipline } from '../src/domain/loadByDiscipline';
 import { polarSplit, zoneIndex, zoneRanges, zoneTimes } from '../src/domain/zones';
+import { speedFromDistances } from '../src/domain/health';
+import { autoLaps, detectIntervals } from '../src/domain/intervals';
 import { distanceAt, distanceCurve, intensityMinutes, primaryBenefit, rangeStats, speedStats } from '../src/domain/sessionStats';
 import { trainingAlerts } from '../src/domain/review';
 import { planCompliance } from '../src/domain/compliance';
@@ -1335,4 +1337,42 @@ test('coach : cycles de charge dans un bloc (absent = on garde, null = on efface
   const r = derive(d, SETTINGS, new Date('2026-08-30T10:00:00Z'));
   const dossier = buildDossier(d, r, Object.keys(d.actual), new Date('2026-08-30T10:00:00Z'));
   assert.deepEqual(dossier.phases[0].cycles, cyc);
+});
+
+test('intervalles : 6 efforts détectés dans un fractionné, rien dans une sortie régulière, tours au kilomètre', () => {
+  // 5 min à 3 m/s, 6 × (60 s à 5 m/s + 60 s à 2 m/s), 5 min à 3 m/s ; une mesure par seconde
+  const sp: [number, number][] = [];
+  const hr: [number, number][] = [];
+  let t = 1000;
+  const push = (sec: number, v: number, h: number) => { for (let i = 0; i < sec; i++, t++) { sp.push([t, v]); hr.push([t, h]); } };
+  push(300, 3, 130);
+  for (let k = 0; k < 6; k++) { push(60, 5, 170); push(60, 2, 140); }
+  push(300, 3, 125);
+  const r = detectIntervals(sp, hr, null)!;
+  assert.ok(r, 'un fractionné est reconnu');
+  assert.equal(r.works.length, 6);
+  assert.ok(r.works.every((w) => Math.abs(w.sec - 60) <= 8), 'efforts d’environ 60 s');
+  assert.ok(r.works.every((w) => w.avgHr! > 160), 'FC moyenne de chaque effort');
+  assert.equal(r.segments[0].kind, 'warmup');
+  assert.equal(r.segments[r.segments.length - 1].kind, 'cooldown');
+  const flat: [number, number][] = Array.from({ length: 1200 }, (_, i) => [1000 + i, 3 + 0.1 * Math.sin(i / 20)]);
+  assert.equal(detectIntervals(flat, [], null), null, 'une sortie régulière n’a pas d’intervalles');
+  const laps = autoLaps(flat, [], 3600, 1000);
+  assert.equal(laps.length, 4, '3,6 km : 3 tours pleins + un tour de 600 m');
+  assert.ok(Math.abs(laps[0].metres! - 1000) < 5 && Math.abs(laps[3].metres! - 600) < 5);
+});
+
+test('natation : la vitesse est reconstruite à partir des distances par longueur, avec les pauses à vitesse nulle', () => {
+  // 10 longueurs de 25 m en 25 s (1 m/s), puis une pause de 20 s, puis 5 longueurs en 20 s (1,25 m/s)
+  const d: [number, number, number][] = [];
+  let t = 100;
+  for (let i = 0; i < 10; i++) { d.push([t, t + 25, 25]); t += 25; }
+  t += 20;
+  for (let i = 0; i < 5; i++) { d.push([t, t + 20, 25]); t += 20; }
+  const sp = speedFromDistances(d);
+  assert.ok(sp.length >= 30);
+  assert.ok(sp.some((p) => p[1] === 0), 'la pause apparaît à vitesse nulle');
+  assert.ok(Math.abs(sp[0][1] - 1) < 1e-9 && Math.abs(sp[sp.length - 1][1] - 1.25) < 1e-9);
+  const curve = distanceCurve(sp, 375)!;
+  assert.ok(Math.abs(distanceAt(curve, 1e9) - 375) < 1e-6);
 });

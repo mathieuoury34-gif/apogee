@@ -214,28 +214,15 @@ export function ReviewScreen({ id }: { id: string }) {
           <Info>{$t("Charge")} {METHOD_LABEL[l.method]}{l.method === 'srpe' ? $t(" (RPE × minutes × {0}, coefficient appris sur {1})", { 0: num(d.ctx.srpeFactor, 2), 1: d.ctx.srpeCalibrationPairs >= 5 ? $t("tes séances") : $t("une valeur type") }) : ''}.{s.edited.length ? $t(" Valeurs soulignées : corrigées à la main.") : ''}{s.elevationGainM ? $t(" Dénivelé {0} m.", { 0: num(s.elevationGainM, 0) }) : ''}{s.elevationLossM ? $t(" Descente {0} m.", { 0: num(s.elevationLossM, 0) }) : ''}{s.activeCaloriesJ ? $t(" {0} kcal actives.", { 0: num(s.activeCaloriesJ / 4184, 0) }) : ''}</Info>
         </InfoCard>
 
-        <TrainingEffectCard id={s.id} />
-        <SessionAnalysis s={s} />
-
-        <section className="card g12 dspan-5" aria-label={$t("Verdict")}>
-          <h2>{$t("Verdict")}</h2>
-          <span className={'var-chip big' + (good ? '' : r.verdict === 'pending' ? ' flat' : ' warn')} style={{ alignSelf: 'flex-start' }}>{VERDICT_TEXT[r.verdict]}</span>
-          {r.basis === 'plan' && r.plan && (
-            <p className="t-caption c-neutral">{$t("Comparé au prévu — écart de")} {r.plan.axis === 'distance' ? 'distance' : $t("durée")} : {r.plan.axis === 'distance' ? (r.plan.distanceDelta! >= 0 ? '+' : '−') + km(Math.abs(r.plan.distanceDelta!)) : (r.plan.durationDelta! >= 0 ? '+' : '−') + duration(Math.abs(r.plan.durationDelta!))} ({pctSigned(r.plan.ratio! - 1)}).</p>
-          )}
-          {r.basis === 'habits' && <p className="t-caption c-neutral">{$t("Comparé à la médiane de tes séances de")} {DISCIPLINE_LABEL[s.discipline].toLowerCase()} {$t("des 8 dernières semaines (")}{pctSigned((r.habit ?? 1) - 1)}).</p>}
-          {r.alerts.map((a) => <div key={a.code} className="note note-warning"><Icon name="alert" size={20} /><span>{a.code === 'HR_DRIFT_HIGH' ? $t("Dérive cardiaque marquée : {0} entre les deux moitiés.", { 0: pctSigned(a.value, 1) }) : $t("Écart important par rapport au plan : {0} du prévu.", { 0: pct(a.value) })}</span></div>)}
-          <div className="stack-4">
-            <span className="t-label">{$t("Dérive cardiaque")}</span>
-            <span className="t-caption c-neutral">{r.drift.value === null ? '—' : pctSigned(r.drift.value, 1)} · {DRIFT_REASON_TEXT[r.drift.reason]}</span>
-          </div>
-        </section>
-
         <section ref={rpeRef as never} className="card g12 dspan-7" aria-label={$t("Ressenti")}>
           <h2>{$t("Ressenti")}</h2>
           <RpeScale value={s.rpe} onChange={(v) => { setFeedback(s.id, v, s.comment); if (v) showToast($t("Ressenti enregistré : la charge est recalculée")); }} />
           <Comment value={s.comment ?? ''} onSave={(c) => setFeedback(s.id, s.rpe, c)} />
         </section>
+
+        <SessionAnalysis s={s}>
+          <TrainingEffectCard id={s.id} />
+        </SessionAnalysis>
 
         <section className="card g12 dspan-5" aria-label={$t("Séance prévue")}>
           <h2>{$t("Séance prévue")}</h2>
@@ -256,6 +243,20 @@ export function ReviewScreen({ id }: { id: string }) {
             <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => setLinkOpen(true)}><Icon name="link" size={16} />{r.plan ? $t("Changer") : $t("Choisir la séance prévue")}</button>
             {link?.type === 'manual' || link?.type === 'none' ? <button type="button" className="btn btn-tertiary" style={{ minHeight: 36 }} onClick={() => setManualLink(s.id, undefined)}>{$t("Revenir à l’automatique")}</button>
               : <button type="button" className="btn btn-tertiary" style={{ minHeight: 36 }} onClick={() => setManualLink(s.id, null)}>{$t("Ce n’était pas prévu")}</button>}
+          </div>
+        </section>
+
+        <section className="card g12 dspan-5" aria-label={$t("Verdict")}>
+          <h2>{$t("Verdict")}</h2>
+          <span className={'var-chip big' + (good ? '' : r.verdict === 'pending' ? ' flat' : ' warn')} style={{ alignSelf: 'flex-start' }}>{VERDICT_TEXT[r.verdict]}</span>
+          {r.basis === 'plan' && r.plan && (
+            <p className="t-caption c-neutral">{$t("Comparé au prévu — écart de")} {r.plan.axis === 'distance' ? 'distance' : $t("durée")} : {r.plan.axis === 'distance' ? (r.plan.distanceDelta! >= 0 ? '+' : '−') + km(Math.abs(r.plan.distanceDelta!)) : (r.plan.durationDelta! >= 0 ? '+' : '−') + duration(Math.abs(r.plan.durationDelta!))} ({pctSigned(r.plan.ratio! - 1)}).</p>
+          )}
+          {r.basis === 'habits' && <p className="t-caption c-neutral">{$t("Comparé à la médiane de tes séances de")} {DISCIPLINE_LABEL[s.discipline].toLowerCase()} {$t("des 8 dernières semaines (")}{pctSigned((r.habit ?? 1) - 1)}).</p>}
+          {r.alerts.map((a) => <div key={a.code} className="note note-warning"><Icon name="alert" size={20} /><span>{a.code === 'HR_DRIFT_HIGH' ? $t("Dérive cardiaque marquée : {0} entre les deux moitiés.", { 0: pctSigned(a.value, 1) }) : $t("Écart important par rapport au plan : {0} du prévu.", { 0: pct(a.value) })}</span></div>)}
+          <div className="stack-4">
+            <span className="t-label">{$t("Dérive cardiaque")}</span>
+            <span className="t-caption c-neutral">{r.drift.value === null ? '—' : pctSigned(r.drift.value, 1)} · {DRIFT_REASON_TEXT[r.drift.reason]}</span>
           </div>
         </section>
         </div>

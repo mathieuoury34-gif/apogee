@@ -40,7 +40,7 @@ export function ZoneRows({ zones, ranges, mode = 'time' }: { zones: ZoneSeconds;
       {[4, 3, 2, 1, 0].map((i) => (
         <li key={i}>
           <div className="between baseline"><span className="t-label">{$t("Zone {0}", { 0: i + 1 })}<span className="t-caption c-moderate"> · {rangeText(ranges, i)}{NBSP}bpm · {ZONE_NAME[i]}</span></span>
-            <span className="t-caption-strong nowrap">{mode === 'time' ? duration(zones[i]) : pct(tot ? zones[i] / tot : 0)}{mode === 'time' && tot ? <span className="c-moderate"> · {pct(zones[i] / tot)}</span> : null}</span></div>
+            <span className="t-caption-strong nowrap">{mode === 'time' ? duration(zones[i]) : pct(tot ? zones[i] / tot : 0)}</span></div>
           <div className="zrow-bar" aria-hidden="true"><span style={{ width: `${(zones[i] / top) * 100}%`, background: ZONE_COLOR[i] }} /></div>
         </li>
       ))}
@@ -49,12 +49,13 @@ export function ZoneRows({ zones, ranges, mode = 'time' }: { zones: ZoneSeconds;
 }
 
 // ------------------------------------------------------------------ jauge d'effet d'entraînement (0 à 5, comme sur les montres)
-const TE_SEG = ['var(--border-moderate)', 'var(--border-moderate)', 'var(--info-icon)', 'var(--success)', 'var(--warning)'];
+// dégradé : bleu clair → bleu franc → vert → ambre → rouge (comme les niveaux des montres, sans segments gris)
+const TE_SEG: [string, number][] = [['var(--info-icon)', 0.3], ['var(--info-icon)', 0.6], ['var(--info-icon)', 1], ['var(--success)', 1], ['var(--warning)', 1]];
 export function TeGauge({ value, color, label }: { value: number | null; color: string; label: string }) {
   const v = value === null ? null : Math.min(5.25, Math.max(0, value));
   return (
     <div className="tegauge" role="img" aria-label={label + ' ' + (value === null ? '—' : num(value, 1) + ' / 5')}>
-      {TE_SEG.map((c, i) => <span key={i} style={{ background: c }} />)}
+      {TE_SEG.map(([c, o], i) => <span key={i} style={{ background: c, opacity: o }} />)}
       <span className="over" style={{ background: 'var(--critical)' }} />
       {v !== null && <i className="dot" style={{ left: `${(v / 5.25) * 100}%`, background: color }} />}
     </div>
