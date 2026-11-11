@@ -1417,3 +1417,65 @@ test('coach : le dossier donne le détail du compte rendu (zones de FC, résulta
   assert.equal((s2.plannedStepResults as { kind: string }[])[0].kind, 'WORK');
   assert.ok('hrZones' in s && 'watchLaps' in s);
 });
+
+// ------------------------------------------------------------------ alimentation
+import { buildNutrition, estimateIntensity, intakeText, leadText, type NutriInput } from '../src/domain/nutrition';
+import { DEFAULT_FOODS, carbsOf, resolveBank, sodiumOf } from '../src/domain/foods';
+
+const NB: NutriInput = { discipline: 'RUN', minutes: 60, level: 'moderate', hot: false, weightKg: 75, test: false, laterToday: false, nextDayQuality: false, daysToRace: null, caffeine: false };
+
+test('alimentation : banque par défaut, valeurs par portion et produit ajouté', () => {
+  const bank = resolveBank(emptyData());
+  assert.equal(bank.length, DEFAULT_FOODS.length);
+  const gel = bank.find((f) => f.id === 'd:gel')!;
+  assert.ok(carbsOf(gel) > 20 && carbsOf(gel) < 26);
+  assert.equal(Math.round(sodiumOf(bank.find((f) => f.id === 'd:salt')!)), 393);
+  const d = emptyData();
+  (d.foods as Record<string, unknown>).f1 = { id: 'f1', updatedAt: 'x', base: null, category: 'bar', name: 'Ma barre', unit: '1 barre', massG: 50, liquid: false, kcal100: 400, carbs100: 60, protein100: 8, salt100: 0.5, caffeineMg: null, mixed: false };
+  (d.foods as Record<string, unknown>).h1 = { id: 'h1', updatedAt: 'x', base: 'd:gel', hidden: true, category: 'drink', name: '', unit: '', massG: 1, liquid: false, kcal100: null, carbs100: 0, protein100: null, salt100: null, caffeineMg: null, mixed: false };
+  const b2 = resolveBank(d);
+  assert.equal(b2[0].name, 'Ma barre');
+  assert.ok(!b2.some((f) => f.id === 'd:gel'));
+  // le calcul choisit d'abord le produit de l'athlète dans sa catégorie
+  const p = buildNutrition({ ...NB, discipline: 'BIKE', minutes: 180, level: 'moderate' }, b2);
+  assert.ok(p.during.shopping.some((x) => x.foodId === 'f1'));
+});
+
+test('alimentation : plans de référence du guide', () => {
+  // vélo 3 h : 60–65 g/h, boisson + barre, sodium couvert ; une prise chaque 20 min au plus
+  const bike = buildNutrition({ ...NB, discipline: 'BIKE', minutes: 190, daysToRace: 189 }, DEFAULT_FOODS);
+  assert.ok(bike.during.carbsPerHActual >= 55 && bike.during.carbsPerHActual <= 66, String(bike.during.carbsPerHActual));
+  assert.ok(bike.during.shopping.length >= 2);
+  assert.ok(bike.events.filter((e) => e.phase === 'during' && e.id.startsWith('d-') && e.items.length === 0 && e.id !== 'd-drink').length === 0, 'pas de prise vide');
+  // natation courte : rien pendant, collation 1 h avant
+  const swim = buildNutrition({ ...NB, discipline: 'SWIM', minutes: 35 }, DEFAULT_FOODS);
+  assert.equal(swim.during.carbsPerHActual, 0);
+  assert.equal(swim.during.shopping.length, 0);
+  assert.ok(swim.events.some((e) => e.id === 'b-meal'));
+  // musculation : protéines après
+  const st = buildNutrition({ ...NB, discipline: 'STRENGTH', minutes: 60 }, DEFAULT_FOODS);
+  assert.ok(st.events.some((e) => e.phase === 'after' && e.proteinG > 10));
+  // course facile de 40 min : rien à manger pendant
+  const easy = buildNutrition({ ...NB, minutes: 40, level: 'easy' }, DEFAULT_FOODS);
+  assert.equal(easy.during.shopping.length, 0);
+  // caféine seulement si activée
+  assert.ok(!buildNutrition({ ...NB, level: 'quality' }, DEFAULT_FOODS).events.some((e) => e.id === 'b-caf'));
+  assert.ok(buildNutrition({ ...NB, level: 'quality', caffeine: true }, DEFAULT_FOODS).events.some((e) => e.id === 'b-caf'));
+  // chaud : plus de boisson
+  const cold = buildNutrition({ ...NB, discipline: 'BIKE', minutes: 120 }, DEFAULT_FOODS), hot = buildNutrition({ ...NB, discipline: 'BIKE', minutes: 120, hot: true }, DEFAULT_FOODS);
+  assert.ok((hot.during.fluidPerH?.[0] ?? 0) > (cold.during.fluidPerH?.[0] ?? 0));
+  // aucun apport ne dépasse le plafond de 90 g/h
+  for (const m of [45, 75, 120, 240, 360]) assert.ok(buildNutrition({ ...NB, discipline: 'BIKE', minutes: m }, DEFAULT_FOODS).during.carbsPerHActual <= 95);
+});
+
+test('alimentation : intensité estimée et textes', () => {
+  const refs = { vma: 4.5, css: 1.2, ftp: 220, hrMax: 190 } as unknown as Parameters<typeof estimateIntensity>[1];
+  const blk = (extra: object) => ({ ...newBlock('WORK'), measure: 'TIME', durationSec: 600, ...extra });
+  const hr = estimateIntensity({ discipline: 'RUN', title: null, blocks: [blk({ targetType: 'HR', targetLow: 90, targetHigh: 95, relativeTo: 'HRMAX' })] as never }, refs);
+  assert.equal(hr.level, 'quality');
+  const easy = estimateIntensity({ discipline: 'RUN', title: 'Footing facile', blocks: [blk({})] as never }, refs);
+  assert.equal(easy.level, 'easy');
+  assert.equal(leadText(120), '2 h'); assert.equal(leadText(90), '1 h 30'); assert.equal(leadText(45), '45 min');
+  const it = (qty: number, name = 'Barre') => intakeText({ foodId: 'x', name, unit: '', qty, amount: 0, liquid: false, carbsG: 0, sodiumMg: 0, proteinG: 0, ml: 0 });
+  assert.equal(it(1), 'Barre'); assert.equal(it(0.5), '½ × Barre'); assert.equal(it(1.5), '1½ × Barre'); assert.equal(it(2), '2 × Barre');
+});

@@ -1,7 +1,7 @@
 import './data/legacy-keys';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import { getDerived, getData, loadStore, onChange } from './data/store';
+import { getDerived, getData, loadStore, onChange, onPrefsChange } from './data/store';
 import { startSync } from './data/sync';
 import { mergeDuplicateActuals } from './data/actions';
 import { native } from './native/bridge';
@@ -39,6 +39,7 @@ createRoot(document.getElementById('root')!).render(<App />);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const plan = () => { clearTimeout(timer); timer = setTimeout(() => scheduleReminders(getData(), getDerived()).catch(() => undefined), 2000); };
     onChange(plan);
+    onPrefsChange(plan);
     native.onResume(plan);
     plan();
   }

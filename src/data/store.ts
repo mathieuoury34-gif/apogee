@@ -189,6 +189,8 @@ export function setPrefs(p: Partial<Prefs>): void {
   try { localStorage.setItem(PREF_KEY, JSON.stringify(prefsCache)); } catch { /* stockage indisponible */ }
   prefListeners.forEach((l) => l());
 }
+/** Appelle `fn` à chaque changement de préférence (rappels à reprogrammer). */
+export function onPrefsChange(fn: () => void): () => void { prefListeners.add(fn); return () => prefListeners.delete(fn); }
 export function usePrefs(): Prefs {
   return useSyncExternalStore((l) => { prefListeners.add(l); return () => prefListeners.delete(l); }, getPrefs, getPrefs);
 }
