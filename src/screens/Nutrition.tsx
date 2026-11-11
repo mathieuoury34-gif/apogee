@@ -7,6 +7,7 @@ import { Info, InfoCard, InfoToggle, Segmented, Sheet, Switch, showToast } from 
 import { ClockField } from '../ui/wheels';
 import { Icon } from '../ui/icons';
 import { navigate } from '../ui/router';
+import { native } from '../native/bridge';
 import { useLocalSheet } from '../ui/menu';
 import { useCalc, usePrefs } from '../data/store';
 import { setNutriBell, setNutriSession } from '../data/actions';
@@ -58,10 +59,10 @@ function Timeline({ plan }: { plan: NutriPlan }) {
         <text key={'l' + e.id} x={pos(e)} y={Y + 36} textAnchor="middle" fontSize="10" fill="var(--text)">{'−' + leadText(e.atMin)}</text>
       ))}
       {plan.events.filter((e) => e.phase === 'after' && e.bell).slice(0, 1).map((e) => (
-        <text key={'l' + e.id} x={xa(e.atMin) + 6} y={Y + 36} textAnchor="start" fontSize="10" fill="var(--text)">{$t("≤ {0}", { 0: leadText((e.toMin ?? e.atMin + 120) - e.atMin) })}</text>
+        <text key={'l' + e.id} x={X2 + 6} y={Y + 36} textAnchor="start" fontSize="10" fill="var(--text)">{$t("≤ {0}", { 0: leadText((e.toMin ?? e.atMin + 120) - e.atMin) })}</text>
       ))}
-      <text x={X1} y={Y + 36} textAnchor="middle" fontSize="10" fill="var(--text)">0</text>
-      <text x={X2} y={Y + 36} textAnchor="middle" fontSize="10" fill="var(--text)">{duration(D * 60)}</text>
+      <text x={X1 + 2} y={Y + 36} textAnchor="start" fontSize="10" fill="var(--text)">0</text>
+      <text x={X2 - 2} y={Y + 36} textAnchor="end" fontSize="10" fill="var(--text)">{duration(D * 60)}</text>
       {drink && drink.phase === 'during' && <text x={(X1 + X2) / 2} y={Y + 48} textAnchor="middle" fontSize="10" fill="var(--text-neutral)">{plan.during.intervalMin ? $t("une prise toutes les {0} min", { 0: plan.during.intervalMin }) : $t("boire régulièrement")}</text>}
     </svg>
   );
@@ -89,7 +90,7 @@ function PhaseBlock({ plan, phase, bells, onBell }: { plan: NutriPlan; phase: Nu
   return (
     <div className="stack" style={{ gap: 'var(--space-8)', padding: 'var(--space-12)', borderRadius: 'var(--radius-12)', background: PHASE[phase].bg, borderLeft: `4px solid ${PHASE[phase].fg}` }}>
       <span className="t-strong" style={{ color: PHASE[phase].fg }}>{PHASE[phase].label()}</span>
-      {list.map((e) => <EventRow key={e.id} e={e} D={plan.minutes} bell={!!e.bell && !!bells[e.bell]} onBell={e.bell ? () => onBell(e) : undefined} />)}
+      {list.map((e) => <EventRow key={e.id} e={e} D={plan.minutes} bell={!!e.bell && !!bells[e.bell]} onBell={e.bell && native.isApp() ? () => onBell(e) : undefined} />)}
     </div>
   );
 }

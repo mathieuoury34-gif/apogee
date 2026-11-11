@@ -240,7 +240,7 @@ existe aujourd'hui dans le Calendrier d'Apogée, c'est une autre construction).
 
 Réseau social façon Strava ; multi-utilisateur ; application iOS native ; envoi **automatique** vers la montre
 (l'export `.FIT` existe depuis le 17/10, mais le fichier se copie à la main) ; carte avec fond de plan (aucun service
-de cartographie) ; coach conversationnel embarqué ; nutrition au-delà du compteur de calories (base d'aliments, macros), hydratation, plan de pacing du jour J ;
+de cartographie) ; coach conversationnel embarqué ; journal alimentaire (repas saisis, macros du jour) — la **carte Alimentation** des séances prévues, elle, est en périmètre depuis le 11/11/2026 ; plan de pacing du jour J ;
 résolution de `ONE_RM` en kilos (aucun 1RM stocké) ; lecture de la montre sur iPhone.
 
 ## 9. Marque et design
@@ -334,3 +334,14 @@ Pas de nouvelle fonctionnalité hors MVP. Statistiques : le bilan de semaine dis
 **29/10/2026 (nuit)** — Dans le périmètre existant (suivi santé et rappels) : fichier et import de corrections d'après Garmin Connect ; Point de la semaine déplacé en bas de l'Accueil avec un éditeur de jour (pas, étages, calories, sommeil) ; « Saisir » pour la VO₂max et les prédictions ; ouverture directe du formulaire après le rappel du dimanche ; Paramètres › Rappels et notifications (séance, sommeil, point de la semaine) ; menu + réduit à Planifier et Séance faite. Point à décider : les séances favorites n'ont plus d'entrée dans l'interface.
 
 **03/11/2026** — Dans le périmètre existant : VO₂max Garmin seule (calcul Apogée retiré) ; import Garmin v2 où la montre remplace les valeurs de l’appli (VO₂max, seuil, prédictions) ; export coach complété (valeurs Garmin + historique + santé récente). Rien hors MVP.
+
+
+## Addendum 11/11/2026 — Alimentation autour des séances (décision de Mathieu : le périmètre s'élargit)
+
+Mathieu a demandé un volet alimentaire pour accompagner l'athlète, d'après le « Guide nutrition entraînement – Ironman 70.3 Aix » rédigé avec son coach. **Nouveau, hors du MVP d'origine ; le journal de repas reste écarté (27/10).**
+
+- **Carte « Alimentation »** dans chaque séance prévue (coach ou athlète), juste après « Sur la montre », pour toutes les séances prévues, passées comprises (recalculée à l'affichage, rien n'est stocké). Elle donne en **premier** une synthèse en schéma (avant, pendant, après, avec les moments), puis le détail : quels aliments, quelles quantités, quelles combinaisons (barre plutôt que banane à vélo ; mélange glucose + fructose au-delà de 60 g/h ; sel si besoin), la liste « à emporter », les cibles chiffrées et les hypothèses.
+- **Calcul** : sport, durée prévue, intensité **estimée** (cibles FC, zone, allure ou puissance rapportées aux seuils ; sinon structure en intervalles ; sinon titre ; sinon « facile ») que l'athlète peut imposer ; case « Chaud » par séance ; poids de l'athlète (règles du guide établies pour 75 kg, recalculées au-delà de ±3 kg) ; progression digestive selon le temps avant la course (plafond 60–65 g/h à vélo l'hiver) ; reprise rapide si une autre séance dure ou de qualité suit le même jour ; caféine **optionnelle**, éteinte par défaut, jamais après 16 h. Repères généraux, pas un avis médical.
+- **Banque d'aliments** (Paramètres › Alimentation) : une soixantaine de produits par défaut classés par catégorie (boissons, gels, pâtes de fruits, bonbons, barres, fruits, sucres, salé, sodium, avant, après), valeurs « ≈ à vérifier sur l'étiquette » ; l'athlète ajoute, adapte ou masque des produits (nom, portion, glucides, kcal, protéines, sel, caféine, mélange glucose + fructose). Ses produits passent en premier dans le calcul.
+- **Rappels** (APK) : trois modes dans Paramètres › Rappels : **silencieux** (aucun rappel d'alimentation, par défaut), **toutes les séances** (un « avant » et un « après » par séance), **celles que je choisis** (seulement les cloches posées dans la carte). Rappel « avant » : le matin à l'heure par défaut (7 h) ; ou, si l'athlète donne l'heure de sa séance en touchant la cloche, exactement « durée avant » (ex. 2 h avant). Rappel « après » : dès que la séance réalisée est reçue de la montre. Aucune heure n'est ajoutée aux séances.
+- Garmin : l'app ne peut pas pousser de notification sur la montre (il faudrait une app Connect IQ). La montre reprend celles du téléphone si Apogée est autorisée dans Garmin Connect (notifications des applis) et sur la montre ; les modes Ne pas déranger / activité peuvent les couper.
