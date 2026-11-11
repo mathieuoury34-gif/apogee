@@ -1,6 +1,6 @@
-// Carte « Alimentation » d'une séance prévue : synthèse en schéma (avant, pendant, après), aliments précis tirés de la banque
-// de Paramètres, liste à emporter, hypothèses modifiables et cloches de rappel. Rien n'est enregistré sauf les choix de l'athlète
-// (journée chaude, intensité imposée, cloches) : le plan est recalculé à l'affichage, y compris pour les séances passées.
+// Carte « Alimentation » d'une séance prévue : synthèse en frise à pictogrammes (avant, pendant, après), contrôle ✅ / ⚠️ des apports,
+// éditeur des aliments, liste à emporter, hypothèses modifiables et cloches de rappel. Rien n'est enregistré sauf les choix de l'athlète
+// (journée chaude, intensité imposée, aliments modifiés, cloches) : le plan est recalculé à l'affichage, y compris pour les séances passées.
 import { $t } from '../i18n';
 import { useState } from 'react';
 import { Info, InfoCard, InfoToggle, Segmented, Sheet, Switch, showToast } from '../ui/kit';
@@ -10,88 +10,167 @@ import { navigate } from '../ui/router';
 import { native } from '../native/bridge';
 import { useLocalSheet } from '../ui/menu';
 import { useCalc, usePrefs } from '../data/store';
-import { setNutriBell, setNutriSession } from '../data/actions';
+import { setNutriBell, setNutriEdit, setNutriSession } from '../data/actions';
 import { today } from '../domain/dates';
-import { resolveBank } from '../domain/foods';
-import { intakeText, leadText, nutritionForSession, type Level, type NutriEvent, type NutriPlan } from '../domain/nutrition';
+import { CATEGORIES, carbsOf, foodIcon, resolveBank, type BankFood } from '../domain/foods';
+import { checkPlan, intakeText, leadText, nutritionForSession, phaseState, qtyText, type Check, type Intake, type Level, type NutriEvent, type NutriPlan } from '../domain/nutrition';
 import { DISCIPLINE_LABEL, duration } from '../ui/format';
 import type { PlannedSession } from '../domain/types';
 
-const LEVEL_LABEL = (l: Level) => (l === 'easy' ? $t("Facile") : l === 'moderate' ? $t("Soutenue") : $t("Qualité"));
+export const LEVEL_LABEL = (l: Level) => (l === 'easy' ? $t("Facile") : l === 'moderate' ? $t("Modérée") : $t("Intense"));
+const LEVEL_HINT = (l: Level) => (l === 'easy' ? $t("Tu peux parler sans effort (zones 1–2).") : l === 'moderate' ? $t("Allure soutenue, tenable longtemps (zone 3).") : $t("Dur : seuil, intervalles, test, course (zones 4–5)."));
 const PHASE: Record<NutriEvent['phase'], { label: () => string; fg: string; bg: string }> = {
   before: { label: () => $t("Avant"), fg: 'var(--info)', bg: 'var(--info-bg)' },
   during: { label: () => $t("Pendant"), fg: 'var(--success)', bg: 'var(--success-bg)' },
   after: { label: () => $t("Après"), fg: 'var(--warning)', bg: 'var(--warning-bg)' },
 };
 
-/** Quand, en mots : « 2 h avant », « à 15 min », « dès la fin, dans les 2 h ». */
-function whenText(e: NutriEvent, D: number): string {
-  if (e.phase === 'before') return e.toMin !== undefined && e.toMin !== e.atMin ? $t("de {0} à {1} avant", { 0: leadText(e.atMin), 1: leadText(e.toMin) }) : $t("{0} avant", { 0: leadText(e.atMin) });
-  if (e.phase === 'during') return e.toMin !== undefined ? $t("toute la séance") : $t("à {0}", { 0: leadText(e.atMin) });
+/** Quand, en mots courts : « 3 h avant », « 15 min », « dès la fin ». */
+export function whenText(e: NutriEvent, D: number): string {
+  if (e.phase === 'before') return e.toMin !== undefined && e.toMin !== e.atMin ? $t("{0} à {1} avant", { 0: leadText(e.atMin), 1: leadText(e.toMin) }) : $t("{0} avant", { 0: leadText(e.atMin) });
+  if (e.phase === 'during') return e.toMin !== undefined ? $t("tout du long") : leadText(e.atMin);
   const rel = e.atMin - D;
-  if (rel <= 0) return e.toMin !== undefined ? $t("dès la fin, dans les {0}", { 0: leadText(e.toMin - e.atMin) }) : $t("dès la fin");
+  if (rel <= 0) return e.toMin !== undefined ? $t("dès la fin, sous {0}", { 0: leadText(e.toMin - e.atMin) }) : $t("dès la fin");
   return $t("{0} après la fin", { 0: leadText(rel) });
 }
+const fmtQ = (q: number) => { const r = Math.round(q * 2) / 2; if (Math.abs(r - q) > 0.05) return String(Math.round(q * 10) / 10).replace('.', ','); return r === Math.floor(r) ? String(r) : (Math.floor(r) ? String(Math.floor(r)) : '') + '½'; };
+const textIcon = (e: NutriEvent) => (e.id === 'b-caf' ? 'f-coffee' : e.id.endsWith('fluid') || e.id === 'd-water' ? 'f-droplet' : 'f-utensils');
 
-// ------------------------------------------------------------------ schéma
-const W = 320, H = 92, X1 = 86, X2 = 234, Y = 34;
-function Timeline({ plan }: { plan: NutriPlan }) {
-  const D = plan.minutes;
-  const xb = (m: number) => Math.max(4, Math.min(X1 - 4, ((m + 240) / 240) * X1));
-  const xd = (m: number) => X1 + Math.max(0, Math.min(1, m / D)) * (X2 - X1);
-  const xa = (m: number) => X2 + Math.max(4, Math.min(W - X2 - 4, ((m - D) / 240) * (W - X2)));
-  const pos = (e: NutriEvent) => (e.phase === 'before' ? xb(e.atMin) : e.phase === 'during' ? xd(e.atMin) : xa(e.atMin));
-  const dots = plan.events.filter((e) => e.items.length || e.id === 'b-caf');
-  const drink = plan.events.find((e) => e.id === 'd-drink' || e.id === 'd-water');
+// ------------------------------------------------------------------ frise
+function FoodChip({ x, byId }: { x: Intake; byId: Map<string, BankFood> }) {
+  const f = byId.get(x.foodId);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={$t("Schéma de l’alimentation : avant, pendant et après la séance")} style={{ width: '100%', height: 'auto', display: 'block' }}>
-      {([['before', 0, X1], ['during', X1, X2], ['after', X2, W]] as const).map(([ph, a, b]) => (
-        <g key={ph}>
-          <rect x={a + 1} y={Y} width={b - a - 2} height={18} rx={ph === 'during' ? 3 : 9} fill={PHASE[ph].bg} stroke={PHASE[ph].fg} strokeWidth={ph === 'during' ? 1.5 : 1} />
-          <text x={(a + b) / 2} y={Y - 8} textAnchor="middle" fontSize="10.5" fontWeight="600" fill={PHASE[ph].fg}>{PHASE[ph].label().toUpperCase()}</text>
-        </g>
-      ))}
-      {drink && drink.phase === 'during' && <line x1={X1 + 3} x2={X2 - 3} y1={Y + 26} y2={Y + 26} stroke={PHASE.during.fg} strokeWidth="2" strokeDasharray="1 4" strokeLinecap="round" />}
-      {dots.map((e) => (
-        <circle key={e.id} cx={pos(e)} cy={Y + 9} r={e.phase === 'during' ? 3.6 : 5} fill={PHASE[e.phase].fg} stroke="var(--bg-surface)" strokeWidth="1.5" />
-      ))}
-      {plan.events.filter((e) => e.phase === 'before' && e.bell === 'meal').map((e) => (
-        <text key={'l' + e.id} x={pos(e)} y={Y + 36} textAnchor="middle" fontSize="10" fill="var(--text)">{'−' + leadText(e.atMin)}</text>
-      ))}
-      {plan.events.filter((e) => e.phase === 'after' && e.bell).slice(0, 1).map((e) => (
-        <text key={'l' + e.id} x={X2 + 6} y={Y + 36} textAnchor="start" fontSize="10" fill="var(--text)">{$t("≤ {0}", { 0: leadText((e.toMin ?? e.atMin + 120) - e.atMin) })}</text>
-      ))}
-      <text x={X1 + 2} y={Y + 36} textAnchor="start" fontSize="10" fill="var(--text)">0</text>
-      <text x={X2 - 2} y={Y + 36} textAnchor="end" fontSize="10" fill="var(--text)">{duration(D * 60)}</text>
-      {drink && drink.phase === 'during' && <text x={(X1 + X2) / 2} y={Y + 48} textAnchor="middle" fontSize="10" fill="var(--text-neutral)">{plan.during.intervalMin ? $t("une prise toutes les {0} min", { 0: plan.during.intervalMin }) : $t("boire régulièrement")}</text>}
-    </svg>
+    <span className="nchip">
+      <span className="nico"><Icon name={f ? foodIcon(f) : 'f-utensils'} size={18} /></span>
+      <span className="nt"><b>{qtyText(x)}</b> {x.name}</span>
+    </span>
   );
 }
 
-// ------------------------------------------------------------------ une ligne du plan
-function EventRow({ e, D, bell, onBell }: { e: NutriEvent; D: number; bell: boolean; onBell?: () => void }) {
+function StateBadge({ st }: { st: Check['state'] | null }) {
+  if (!st) return null;
   return (
-    <div className="row" style={{ gap: 'var(--space-8)', alignItems: 'flex-start' }}>
-      <div className="stack grow" style={{ gap: 2 }}>
-        <span className="t-caption c-moderate">{whenText(e, D)}</span>
-        <span className="t-strong">{e.title}</span>
-        {e.items.length > 0 && <span>{e.items.map(intakeText).join(' + ')}</span>}
-        {e.text && <span className="t-caption c-moderate">{e.text}</span>}
-        {(e.carbsG >= 1 || e.proteinG >= 1) && <span className="t-caption c-neutral">{[e.carbsG >= 1 ? $t("≈ {0} g de glucides", { 0: Math.round(e.carbsG) }) : '', e.proteinG >= 1 ? $t("≈ {0} g de protéines", { 0: Math.round(e.proteinG) }) : ''].filter(Boolean).join(' · ')}</span>}
+    <span className="nstate" style={{ color: st === 'ok' ? 'var(--success-text)' : 'var(--warning-text)' }}>
+      <Icon name={st === 'ok' ? 'ok' : 'warn'} size={18} />{st === 'ok' ? $t("Apports atteints") : st === 'low' ? $t("Un peu juste") : $t("Au-dessus du conseil")}
+    </span>
+  );
+}
+
+function Node({ e, D, byId, bell, onBell, full }: { e: NutriEvent; D: number; byId: Map<string, BankFood>; bell: boolean; onBell?: () => void; full: boolean }) {
+  if (!e.items.length && !e.text && !e.edited) return null;
+  if (!e.items.length && /^d-\d+$/.test(e.id)) return null;
+  return (
+    <li className="nnode">
+      <span className="ntime">{whenText(e, D)}</span>
+      <div className="stack" style={{ gap: 4 }}>
+        <div className="nchips">
+          {e.items.map((x) => <FoodChip key={x.foodId} x={x} byId={byId} />)}
+          {!e.items.length && e.text && <span className="nchip"><span className="nico"><Icon name={textIcon(e)} size={18} /></span><span className="nt">{e.text}</span></span>}
+        </div>
+        {e.times && <span className="t-caption c-moderate">{$t("toutes les heures, {0} fois", { 0: e.times })}</span>}
+        {e.id === 'd-drink' && e.items.length > 0 && <span className="t-caption c-moderate">{$t("par heure")}</span>}
+        {full && (e.carbsG >= 1 || e.proteinG >= 1) && <span className="t-caption c-neutral">{[e.carbsG >= 1 ? $t("≈ {0} g de glucides", { 0: Math.round(e.carbsG) }) : '', e.proteinG >= 1 ? $t("≈ {0} g de protéines", { 0: Math.round(e.proteinG) }) : ''].filter(Boolean).join(' · ')}</span>}
       </div>
-      {onBell && <button type="button" className="icon-btn" aria-pressed={bell} aria-label={bell ? $t("Rappel programmé : modifier") : $t("Me notifier")} onClick={onBell} style={bell ? { color: 'var(--warning)' } : undefined}><Icon name="bell" size={22} /></button>}
-    </div>
+      {onBell ? <button type="button" className="icon-btn" aria-pressed={bell} aria-label={bell ? $t("Rappel programmé : modifier") : $t("Me notifier")} onClick={onBell} style={bell ? { color: 'var(--warning)' } : undefined}><Icon name="bell" size={22} /></button> : <span />}
+    </li>
   );
 }
 
-function PhaseBlock({ plan, phase, bells, onBell }: { plan: NutriPlan; phase: NutriEvent['phase']; bells: Record<string, unknown>; onBell: (e: NutriEvent) => void }) {
+function PhaseBlock({ plan, phase, bells, onBell, byId, checks, full }: { plan: NutriPlan; phase: NutriEvent['phase']; bells: Record<string, unknown>; onBell: (e: NutriEvent) => void; byId: Map<string, BankFood>; checks: Check[]; full: boolean }) {
   const list = plan.events.filter((e) => e.phase === phase);
   if (!list.length) return null;
   return (
-    <div className="stack" style={{ gap: 'var(--space-8)', padding: 'var(--space-12)', borderRadius: 'var(--radius-12)', background: PHASE[phase].bg, borderLeft: `4px solid ${PHASE[phase].fg}` }}>
-      <span className="t-strong" style={{ color: PHASE[phase].fg }}>{PHASE[phase].label()}</span>
-      {list.map((e) => <EventRow key={e.id} e={e} D={plan.minutes} bell={!!e.bell && !!bells[e.bell]} onBell={e.bell && native.isApp() ? () => onBell(e) : undefined} />)}
-    </div>
+    <section className="nphase" style={{ ['--ph' as string]: PHASE[phase].fg, ['--phbg' as string]: PHASE[phase].bg }} aria-label={PHASE[phase].label()}>
+      <header className="nhead"><span className="nname">{PHASE[phase].label()}</span><StateBadge st={phaseState(checks, phase)} /></header>
+      <ol className="nlist">
+        {list.map((e) => <Node key={e.id} e={e} D={plan.minutes} byId={byId} full={full} bell={!!e.bell && !!bells[e.bell]} onBell={e.bell && native.isApp() ? () => onBell(e) : undefined} />)}
+      </ol>
+      {full && checks.filter((c) => c.phase === phase).map((c) => <CheckLine key={c.key} c={c} />)}
+    </section>
+  );
+}
+
+function CheckLine({ c }: { c: Check }) {
+  const range = c.lo === c.hi ? String(c.lo) : c.lo + '–' + c.hi;
+  const gap = c.state === 'low' ? $t(" · il manque ≈ {0} {1}", { 0: Math.round(c.lo - c.got), 1: c.unit }) : c.state === 'high' ? $t(" · en trop ≈ {0} {1}", { 0: Math.round(c.got - c.hi), 1: c.unit }) : '';
+  return (
+    <span className="t-caption" style={{ display: 'flex', gap: 6, alignItems: 'flex-start', color: c.state === 'ok' ? 'var(--success-text)' : 'var(--warning-text)' }}>
+      <Icon name={c.state === 'ok' ? 'ok' : 'warn'} size={16} style={{ flex: 'none', marginTop: 1 }} />
+      <span>{$t("{0} : {1} {2} (conseil {3} {2})", { 0: c.label, 1: c.got, 2: c.unit, 3: range })}{gap}</span>
+    </span>
+  );
+}
+
+// ------------------------------------------------------------------ éditeur des aliments
+const EDITABLE = (e: NutriEvent) => e.id === 'b-meal' || e.id === 'd-drink' || e.id === 'd-water' || /^d-\d+$/.test(e.id) || e.id === 'a-prot' || e.id === 'a-meal' || e.id === 'a-fast';
+const stepOf = (f?: BankFood) => (f && (f.liquid || f.category === 'bar' || f.id === 'd:banana' || f.category === 'salt') ? 0.5 : 1);
+
+function EditorSheet({ p, sh }: { p: PlannedSession; sh: ReturnType<typeof useLocalSheet> }) {
+  const { data, d } = useCalc();
+  const bank = resolveBank(data);
+  const byId = new Map(bank.map((f) => [f.id, f]));
+  const n = nutritionForSession(data, d.refsAt(p.plannedDate), p, bank, today());
+  const [adding, setAdding] = useState<string | null>(null);
+  const [cat, setCat] = useState<string>('bar');
+  const plan = n.plan;
+  if (!plan) return null;
+  const checks = checkPlan(plan);
+  const hasEdits = Object.keys((data.nutri[p.id] && !data.nutri[p.id].deleted ? data.nutri[p.id].edits : undefined) ?? {}).length > 0;
+  const cur = (e: NutriEvent) => e.items.map((x) => ({ foodId: x.foodId, qty: Math.round(x.qty * 100) / 100 }));
+  const step = (e: NutriEvent, i: number, dir: 1 | -1) => { const l = cur(e); const q = l[i].qty + dir * stepOf(byId.get(l[i].foodId)); if (q < 0.1) l.splice(i, 1); else l[i].qty = q; setNutriEdit(p.id, e.id, l); };
+  const drop = (e: NutriEvent, i: number) => { const l = cur(e); l.splice(i, 1); setNutriEdit(p.id, e.id, l); };
+  const add = (e: NutriEvent, f: BankFood) => { const l = cur(e); const ex = l.find((x) => x.foodId === f.id); if (ex) ex.qty += stepOf(f); else l.push({ foodId: f.id, qty: stepOf(f) }); setNutriEdit(p.id, e.id, l); setAdding(null); };
+  const opening = (e: NutriEvent) => { setAdding(adding === e.id ? null : e.id); setCat(e.phase === 'before' ? 'before' : e.phase === 'after' ? 'after' : e.id === 'd-drink' || e.id === 'd-water' ? 'drink' : 'bar'); };
+  const events = plan.events.filter(EDITABLE);
+  return (
+    <Sheet title={$t("Adapter l’alimentation")} onClose={sh.hide} full head={<span className="t-caption c-moderate">{DISCIPLINE_LABEL[p.discipline]} · {duration(plan.minutes * 60)}</span>}
+      footer={<div className="row wrap" style={{ gap: 'var(--space-8)' }}>
+        <button type="button" className="btn btn-primary grow" onClick={sh.hide}>{$t("Terminé")}</button>
+        {hasEdits && <button type="button" className="btn btn-secondary" onClick={() => { setNutriEdit(p.id, null, null); showToast($t("Retour au calcul")); }}>{$t("Revenir au calcul")}</button>}
+      </div>}>
+      <div className="stack" style={{ gap: 'var(--space-12)', paddingBottom: 'var(--space-16)' }}>
+        <div className="stack" style={{ gap: 6, padding: 'var(--space-12)', borderRadius: 'var(--radius-12)', background: 'var(--bg-grey-minimal)' }}>
+          <span className="t-strong">{$t("Apports par rapport au conseil")}</span>
+          {checks.length === 0 && <span className="t-caption c-moderate">{$t("Rien à contrôler pour cette séance.")}</span>}
+          {checks.map((c) => <CheckLine key={c.phase + c.key} c={c} />)}
+        </div>
+        {events.map((e) => (
+          <div key={e.id} className="stack" style={{ gap: 'var(--space-8)', paddingLeft: 'var(--space-12)', borderLeft: `4px solid ${PHASE[e.phase].fg}` }}>
+            <span className="t-caption c-moderate">{PHASE[e.phase].label()} · {whenText(e, plan.minutes)}{e.id === 'd-drink' || e.id === 'd-water' ? ' · ' + $t("par heure") : ''}{e.times ? ' · ' + $t("{0} fois", { 0: e.times }) : ''}</span>
+            {e.items.map((x, i) => {
+              const f = byId.get(x.foodId);
+              return (
+                <div key={x.foodId} className="row" style={{ gap: 'var(--space-8)' }}>
+                  <span className="nico"><Icon name={f ? foodIcon(f) : 'f-utensils'} size={18} /></span>
+                  <span className="stack grow" style={{ gap: 0 }}><span className="t-strong">{x.name}</span><span className="t-caption c-neutral">{x.unit}{x.ml > 0 ? '' : ''}</span></span>
+                  <button type="button" className="icon-btn" aria-label={$t("Moins")} onClick={() => step(e, i, -1)}><Icon name="minus" size={20} /></button>
+                  <span className="t-strong" style={{ minWidth: 28, textAlign: 'center' }}>{fmtQ(x.qty)}</span>
+                  <button type="button" className="icon-btn" aria-label={$t("Plus")} onClick={() => step(e, i, 1)}><Icon name="plus" size={20} /></button>
+                  <button type="button" className="icon-btn neutral" aria-label={$t("Retirer")} onClick={() => drop(e, i)}><Icon name="trash" size={20} /></button>
+                </div>
+              );
+            })}
+            {e.items.length === 0 && <span className="t-caption c-moderate">{e.text ?? $t("Aucun aliment")}</span>}
+            <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start' }} aria-expanded={adding === e.id} onClick={() => opening(e)}><Icon name="plus" size={18} />{$t("Ajouter un aliment")}</button>
+            {adding === e.id && (
+              <div className="stack" style={{ gap: 'var(--space-8)' }}>
+                <div className="row wrap" style={{ gap: 'var(--space-6)' }}>
+                  {CATEGORIES().map((c) => <button key={c.id} type="button" className="chip" aria-pressed={cat === c.id} onClick={() => setCat(c.id)}>{c.label}</button>)}
+                </div>
+                {bank.filter((f) => f.category === cat).map((f) => (
+                  <button key={f.id} type="button" className="row-btn" onClick={() => add(e, f)}>
+                    <span className="nico"><Icon name={foodIcon(f)} size={18} /></span>
+                    <span className="stack grow" style={{ gap: 0, textAlign: 'left' }}><span className="t-strong">{f.builtin ? $t(f.name) : f.name}</span><span className="t-caption c-moderate">{f.builtin ? $t(f.unit) : f.unit} · {$t("{0} g de glucides", { 0: Math.round(carbsOf(f)) })}</span></span>
+                    <Icon name="plus" size={18} />
+                  </button>
+                ))}
+                {bank.filter((f) => f.category === cat).length === 0 && <span className="t-caption c-moderate">{$t("Aucun produit dans cette catégorie.")}</span>}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </Sheet>
   );
 }
 
@@ -143,49 +222,55 @@ function BellSheet({ p, e, plan, sh, current }: { p: PlannedSession; e: NutriEve
 // ------------------------------------------------------------------ carte
 export function NutritionCard({ p }: { p: PlannedSession }) {
   const { data, d } = useCalc();
-  const sh = useLocalSheet();
+  const bellSh = useLocalSheet();
+  const editSh = useLocalSheet();
   const [bellFor, setBellFor] = useState<NutriEvent | null>(null);
   const [more, setMore] = useState(false);
   const bank = resolveBank(data);
+  const byId = new Map(bank.map((f) => [f.id, f]));
   const n = nutritionForSession(data, d.refsAt(p.plannedDate), p, bank, today());
   const opt = data.nutri[p.id] && !data.nutri[p.id].deleted ? data.nutri[p.id] : undefined;
+  const main = data.nutri.main && !data.nutri.main.deleted ? data.nutri.main : undefined;
+  const full = main?.detail === 'full';
   const bells = opt?.bells ?? {};
   const plan = n.plan;
   const mode = usePrefs().nutriMode;
-  const ring = (e: NutriEvent) => { setBellFor(e); sh.show(); };
+  const checks = plan ? checkPlan(plan) : [];
+  const ring = (e: NutriEvent) => { setBellFor(e); bellSh.show(); };
   return (
     <InfoCard className="card g8 dspan-12" aria-label={$t("Alimentation")}>
       <h2>{$t("Alimentation")}<InfoToggle /></h2>
-      <Info>{$t("Ce qu’il faut manger et boire avant, pendant et après cette séance, calculé d’après le sport, la durée et l’intensité estimée, avec les produits de ta banque d’aliments (Paramètres › Alimentation). Ce sont des repères généraux, pas un avis médical ; la quantité de glucides par heure s’apprend à l’entraînement, un peu plus chaque semaine.")}</Info>
+      <Info>{$t("Ce qu’il faut manger et boire avant, pendant et après cette séance, calculé d’après le sport, la durée et l’intensité, avec les produits de ta banque d’aliments (Paramètres › Alimentation). Ce sont des repères généraux, pas un avis médical. Tout est expliqué dans Aide › Alimentation.")}</Info>
       {!plan && <div className="note"><Icon name="info" size={20} /><span>{n.reason}</span></div>}
       {plan && (
         <>
           <div className="row wrap" style={{ gap: 'var(--space-6)' }}>
-            <span className="chip" style={{ cursor: 'default' }}>{duration(plan.minutes * 60)}</span>
-            <span className="chip" style={{ cursor: 'default' }}>{LEVEL_LABEL(n.level)}</span>
+            <span className="chip" style={{ cursor: 'default' }}><Icon name="clock" size={14} />{duration(plan.minutes * 60)}</span>
+            <span className="chip" style={{ cursor: 'default' }}><Icon name="gauge" size={14} />{LEVEL_LABEL(n.level)}</span>
             {n.hot && <span className="chip" style={{ cursor: 'default' }}>{$t("Chaud")}</span>}
             {mode && mode !== 'off' && Object.keys(bells).length > 0 && <span className="chip" style={{ cursor: 'default' }}><Icon name="bell" size={14} />{Object.keys(bells).length}</span>}
+            <button type="button" className="btn btn-secondary" style={{ marginLeft: 'auto', minHeight: 36, padding: '0 var(--space-12)' }} onClick={editSh.show}><Icon name="pencil" size={16} />{$t("Adapter")}</button>
           </div>
-          <Timeline plan={plan} />
-          <PhaseBlock plan={plan} phase="before" bells={bells} onBell={ring} />
-          <PhaseBlock plan={plan} phase="during" bells={bells} onBell={ring} />
-          <PhaseBlock plan={plan} phase="after" bells={bells} onBell={ring} />
+          <div className="ntl">
+            <PhaseBlock plan={plan} phase="before" bells={bells} onBell={ring} byId={byId} checks={checks} full={full} />
+            <PhaseBlock plan={plan} phase="during" bells={bells} onBell={ring} byId={byId} checks={checks} full={full} />
+            <PhaseBlock plan={plan} phase="after" bells={bells} onBell={ring} byId={byId} checks={checks} full={full} />
+          </div>
           {plan.during.shopping.length > 0 && (
-            <div className="stack" style={{ gap: 'var(--space-4)' }}>
-              <span className="t-strong">{$t("À emporter pour la séance")}</span>
-              {plan.during.shopping.map((x) => <span key={x.foodId}>{intakeText(x)}<span className="t-caption c-neutral"> · {x.unit}</span></span>)}
-              <span className="t-caption c-moderate">{$t("≈ {0} g de glucides en tout, soit {1} g par heure.", { 0: Math.round(plan.during.totalCarbs), 1: Math.round(plan.during.carbsPerHActual) })}</span>
+            <div className="stack" style={{ gap: 'var(--space-6)' }}>
+              <span className="t-strong">{$t("À emporter")}</span>
+              <div className="nchips">{plan.during.shopping.map((x) => <FoodChip key={x.foodId} x={x} byId={byId} />)}</div>
             </div>
           )}
-          {plan.notes.map((t) => <div key={t} className="note"><Icon name="info" size={20} /><span>{t}</span></div>)}
+          {full && plan.notes.map((t) => <div key={t} className="note"><Icon name="info" size={20} /><span>{t}</span></div>)}
           <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start' }} aria-expanded={more} onClick={() => setMore(!more)}>{more ? $t("Masquer les hypothèses") : $t("Hypothèses et réglages de cette séance")}</button>
           {more && (
             <div className="stack" style={{ gap: 'var(--space-12)' }}>
               <div className="field">
                 <span className="lbl">{$t("Intensité")}</span>
-                <Segmented<string> label={$t("Intensité")} value={opt?.intensity ?? 'auto'} options={[['auto', $t("Estimée")], ['easy', $t("Facile")], ['moderate', $t("Soutenue")], ['quality', $t("Qualité")]]}
+                <Segmented<string> label={$t("Intensité")} value={opt?.intensity ?? 'auto'} options={[['auto', $t("Estimée")], ['easy', $t("Facile")], ['moderate', $t("Modérée")], ['quality', $t("Intense")]]}
                   onChange={(v) => setNutriSession(p.id, { intensity: v === 'auto' ? null : (v as Level) })} />
-                <span className="hint">{opt?.intensity ? $t("Imposée par toi.") : $t("Estimée : {0}.", { 0: LEVEL_LABEL(n.guess.level) + ' — ' + n.guess.basis })}</span>
+                <span className="hint">{LEVEL_LABEL(n.level)} : {LEVEL_HINT(n.level)} {opt?.intensity ? $t("Imposée par toi.") : $t("Estimée {0}.", { 0: n.guess.basis })}</span>
               </div>
               <div className="between" style={{ gap: 'var(--space-12)' }}>
                 <span className="stack"><span className="t-strong" id={'hot-' + p.id}>{$t("Chaud")}</span><span className="t-caption c-moderate">{$t("Plus de boisson et plus de sodium par heure.")}</span></span>
@@ -193,18 +278,20 @@ export function NutritionCard({ p }: { p: PlannedSession }) {
               </div>
               <div className="stack" style={{ gap: 'var(--space-4)' }}>
                 {plan.before.carbs && <span className="t-caption c-moderate">{$t("Avant : {0}–{1} g de glucides.", { 0: plan.before.carbs[0], 1: plan.before.carbs[1] })}</span>}
-                {plan.during.carbsPerH && <span className="t-caption c-moderate">{$t("Pendant : {0}–{1} g de glucides par heure.", { 0: plan.during.carbsPerH[0], 1: plan.during.carbsPerH[1] })}</span>}
+                {plan.during.carbsPerH && plan.during.carbsPerH[1] > 0 && <span className="t-caption c-moderate">{$t("Pendant : {0}–{1} g de glucides par heure.", { 0: plan.during.carbsPerH[0], 1: plan.during.carbsPerH[1] })}</span>}
                 {plan.during.fluidPerH && <span className="t-caption c-moderate">{$t("Boisson : {0}–{1} ml par heure.", { 0: plan.during.fluidPerH[0], 1: plan.during.fluidPerH[1] })}</span>}
                 {plan.during.sodiumPerH && <span className="t-caption c-moderate">{$t("Sodium : {0}–{1} mg par heure.", { 0: plan.during.sodiumPerH[0], 1: plan.during.sodiumPerH[1] })}</span>}
                 {plan.after.carbs && <span className="t-caption c-moderate">{$t("Après : {0}–{1} g de glucides sur {2} h.", { 0: plan.after.carbs[0], 1: plan.after.carbs[1], 2: plan.after.hours })}</span>}
                 <span className="t-caption c-moderate">{$t("Calculé pour {0} kg (règles établies pour {1} kg).", { 0: Math.round(plan.weightKg), 1: plan.rulesKg })}</span>
               </div>
-              <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/parametres/alimentation')}><Icon name="plus" size={18} />{$t("Ma banque d’aliments")}</button>
+              {!full && plan.notes.map((t) => <div key={t} className="note"><Icon name="info" size={20} /><span>{t}</span></div>)}
+              <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/parametres/alimentation')}><Icon name="nutrition" size={18} />{$t("Banque d’aliments et préférences")}</button>
             </div>
           )}
         </>
       )}
-      {sh.open && bellFor && plan && <BellSheet p={p} e={bellFor} plan={plan} sh={sh} current={bellFor.bell ? bells[bellFor.bell] : undefined} />}
+      {bellSh.open && bellFor && plan && <BellSheet p={p} e={bellFor} plan={plan} sh={bellSh} current={bellFor.bell ? bells[bellFor.bell] : undefined} />}
+      {editSh.open && <EditorSheet p={p} sh={editSh} />}
     </InfoCard>
   );
 }

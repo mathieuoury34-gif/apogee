@@ -42,7 +42,7 @@ Détail des écrans et fonctions : `PRD.md` §7 ; construction : `SPECS-TECH.md`
 
 ## 2 quater. Alimentation autour des séances (11/11/2026)
 
-Nouveau volet demandé par Mathieu (hors MVP d'origine, décision consignée au PRD) : carte **Alimentation** dans chaque séance prévue (schéma avant / pendant / après, aliments et quantités tirés de la banque, à emporter, hypothèses), **banque d'aliments** dans Paramètres › Alimentation, **rappels** (silencieux / toutes les séances / celles que je choisis, cloche par moment, avant à 7 h ou à l'heure donnée, après dès la réception de la séance). Voir `PRD.md` addendum 11/11 et `SPECS-TECH.md`. Garmin : pas de notification directe sur la montre (reprise des notifications du téléphone). Valeurs par défaut « ≈ à vérifier sur l'étiquette ». Tests : 73.
+Nouveau volet demandé par Mathieu (hors MVP d'origine, décision consignée au PRD) : carte **Alimentation** dans chaque séance prévue (schéma avant / pendant / après, aliments et quantités tirés de la banque, à emporter, hypothèses), **banque d'aliments** dans Paramètres › Alimentation, **rappels** (silencieux / toutes les séances / celles que je choisis, cloche par moment, avant à 7 h ou à l'heure donnée, après dès la réception de la séance). Voir `PRD.md` addendum 11/11 et `SPECS-TECH.md`. Garmin : pas de notification directe sur la montre (reprise des notifications du téléphone). Valeurs par défaut « ≈ à vérifier sur l'étiquette ». Retours du soir : frise à pictogrammes avec ✅ / ⚠️, éditeur des aliments (« Adapter »), intensités Facile / Modérée / Intense, récupération en une ligne, préférences (régime, favoris, récupération, détail), rubrique Aide › Alimentation. Tests : 74.
 
 ## 2 bis. Lots du 17/10/2026 (sélection de Mathieu, 19 améliorations)
 

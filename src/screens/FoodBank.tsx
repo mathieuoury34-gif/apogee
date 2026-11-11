@@ -2,12 +2,12 @@
 // Produits par défaut (valeurs indicatives, à vérifier sur l'étiquette) + produits de l'athlète, qui passent en premier.
 import { $t } from '../i18n';
 import { useState } from 'react';
-import { Sheet, SubHeader, Switch, showToast } from '../ui/kit';
+import { Segmented, Sheet, SubHeader, Switch, showToast } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useLocalSheet } from '../ui/menu';
 import { useData } from '../data/store';
 import { hideDefaultFood, removeFood, resetFoods, restore, saveFood, setNutriMain } from '../data/actions';
-import { CATEGORIES, carbsOf, foodName, foodNote, foodUnit, kcalOf, resolveBank, type BankFood } from '../domain/foods';
+import { CATEGORIES, DIETS, carbsOf, foodIcon, foodName, foodNote, foodUnit, kcalOf, resolveBank, type BankFood } from '../domain/foods';
 import { liveRecords } from '../domain/load';
 import type { FoodCategory } from '../domain/types';
 import { num, parseNum, toInput } from '../ui/format';
@@ -88,7 +88,11 @@ export function FoodBankScreen() {
   const sh = useLocalSheet();
   const [target, setTarget] = useState<{ cat: FoodCategory; food: BankFood | null } | null>(null);
   const bank = resolveBank(data);
-  const caffeine = !!(data.nutri.main && !data.nutri.main.deleted && data.nutri.main.caffeine);
+  const main = data.nutri.main && !data.nutri.main.deleted ? data.nutri.main : undefined;
+  const caffeine = !!main?.caffeine;
+  const diet = main?.diet ?? [];
+  const favs = main?.favorites ?? [];
+  const toggleFav = (id: string) => setNutriMain({ favorites: favs.includes(id) ? favs.filter((x) => x !== id) : [...favs, id] });
   const modified = liveRecords(data.foods).filter((r) => r.base).length;
   const open = (cat: FoodCategory, food: BankFood | null) => { setTarget({ cat, food }); sh.show(); };
   return (
@@ -96,12 +100,35 @@ export function FoodBankScreen() {
       <SubHeader title={$t("Ma banque d’aliments")} fallback="/parametres" />
       <main className="content form-narrow" style={{ gap: 'var(--space-24)' }}>
         <div className="note"><Icon name="info" size={20} /><span>{$t("Les cartes « Alimentation » des séances composent leurs repas et leurs prises avec ces produits : ceux que tu ajoutes passent en premier. Les valeurs par défaut sont des ordres de grandeur (≈) : vérifie l’étiquette de ton produit et adapte-le si besoin.")}</span></div>
-        <div className="card g12" style={{ borderRadius: 'var(--radius-12)' }}>
-          <div className="between" style={{ gap: 'var(--space-12)' }}>
-            <span className="stack"><span className="t-strong" id="lbl-caf">{$t("Proposer de la caféine")}</span><span className="t-caption c-moderate">{$t("Avant les séances de qualité et les longues sorties, jamais après 16 h. À essayer à l’entraînement avant une course.")}</span></span>
-            <Switch checked={caffeine} labelledBy="lbl-caf" onChange={(v) => setNutriMain({ caffeine: v })} />
+        <section aria-labelledby="fb-prefs" className="stack-8">
+          <h2 id="fb-prefs" className="overline c-neutral" style={{ padding: '0 var(--space-4)' }}>{$t("Préférences")}</h2>
+          <div className="card g12" style={{ borderRadius: 'var(--radius-12)' }}>
+            <div className="field">
+              <span className="t-strong">{$t("Régime")}</span>
+              <span className="t-caption c-moderate">{$t("Les produits par défaut concernés ne sont plus proposés (les tiens restent).")}</span>
+              <div className="row wrap" style={{ gap: 'var(--space-6)' }}>
+                {DIETS().map(([k, l]) => (
+                  <button key={k} type="button" className="chip" aria-pressed={diet.includes(k)} onClick={() => setNutriMain({ diet: diet.includes(k) ? diet.filter((x) => x !== k) : [...diet, k] })}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <div className="field">
+              <span className="t-strong">{$t("Récupération rapide")}</span>
+              <span className="t-caption c-moderate">{$t("Quand une autre séance dure ou intense suit le jour même : glucides toutes les heures, pendant 4 h (guide) ou 2 h.")}</span>
+              <Segmented<'full' | 'light'> label={$t("Récupération rapide")} value={main?.recovery ?? 'full'} options={[['full', $t("Complète (4 h)")], ['light', $t("Allégée (2 h)")]]} onChange={(v) => setNutriMain({ recovery: v })} />
+            </div>
+            <div className="field">
+              <span className="t-strong">{$t("Niveau de détail")}</span>
+              <span className="t-caption c-moderate">{$t("Simple : frise et pictogrammes. Complet : ajoute les grammes, les contrôles chiffrés et les conseils.")}</span>
+              <Segmented<'simple' | 'full'> label={$t("Niveau de détail")} value={main?.detail ?? 'simple'} options={[['simple', $t("Simple")], ['full', $t("Complet")]]} onChange={(v) => setNutriMain({ detail: v })} />
+            </div>
+            <div className="between" style={{ gap: 'var(--space-12)' }}>
+              <span className="stack"><span className="t-strong" id="lbl-caf">{$t("Proposer de la caféine")}</span><span className="t-caption c-moderate">{$t("Avant les séances intenses et les longues sorties, jamais après 16 h. À essayer à l’entraînement avant une course.")}</span></span>
+              <Switch checked={caffeine} labelledBy="lbl-caf" onChange={(v) => setNutriMain({ caffeine: v })} />
+            </div>
+            <span className="t-caption c-moderate">{$t("Touche le cœur d’un produit pour le mettre en favori : il est choisi en premier dans sa catégorie.")}</span>
           </div>
-        </div>
+        </section>
         {CATEGORIES().map((c) => {
           const list = bank.filter((f) => f.category === c.id);
           return (
@@ -111,8 +138,9 @@ export function FoodBankScreen() {
                 {list.map((f) => {
                   const kc = kcalOf(f);
                   return (
-                    <li key={f.id}>
-                      <button type="button" className="settings-row" onClick={() => open(c.id, f)}>
+                    <li key={f.id} className="row" style={{ gap: 0 }}>
+                      <span className="nico" style={{ marginRight: 'var(--space-8)' }}><Icon name={foodIcon(f)} size={18} /></span>
+                      <button type="button" className="settings-row grow" onClick={() => open(c.id, f)}>
                         <span className="stack grow">
                           <span className="t-strong">{foodName(f)}{!f.builtin && <span className="t-caption" style={{ marginLeft: 'var(--space-8)', color: 'var(--primary-fg)' }}>{$t("à toi")}</span>}</span>
                           <span className="t-caption c-moderate">{foodUnit(f)} · {$t("{0} g de glucides", { 0: num(carbsOf(f), 0, 1) })}{kc !== null ? ' · ' + $t("{0} kcal", { 0: num(kc, 0) }) : ''}{f.approx ? ' · ' + $t("≈ à vérifier sur l’étiquette") : ''}</span>
@@ -120,6 +148,7 @@ export function FoodBankScreen() {
                         </span>
                         <Icon name="pencil" size={18} style={{ color: 'var(--text-moderate)' }} />
                       </button>
+                      <button type="button" className="icon-btn" aria-pressed={favs.includes(f.id)} aria-label={favs.includes(f.id) ? $t("Retirer des favoris") : $t("Mettre en favori")} onClick={() => toggleFav(f.id)} style={favs.includes(f.id) ? { color: 'var(--critical)' } : { color: 'var(--text-moderate)' }}><Icon name="heart" size={20} style={favs.includes(f.id) ? { fill: 'currentColor' } : undefined} /></button>
                     </li>
                   );
                 })}

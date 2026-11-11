@@ -160,18 +160,24 @@ function fill(target: number, list: BankFood[], maxItems = 3, firstShare = 0.6, 
   }
   return out;
 }
-/** Même chose pour les protéines. */
+/** Même chose pour les protéines : à chaque tour, le produit (1 ou 2 portions) qui se rapproche le plus de ce qui reste à couvrir. */
 function fillProtein(target: number, list: BankFood[]): Intake[] {
   const out: Intake[] = [];
   let rem = target;
-  for (const f of list) {
-    if (out.length >= 2 || rem < 4) break;
-    const p = proteinOf(f);
-    if (p < 5) continue;
-    const n = Math.min(2, Math.max(1, Math.round(rem / p)));
-    if (out.length > 0 && p * n > rem + 0.4 * p) continue;
-    out.push(intake(f, n));
-    rem -= p * n;
+  for (let round = 0; round < 2 && rem >= 4; round++) {
+    let best: { f: BankFood; n: number; gap: number } | null = null;
+    for (const f of list) {
+      const p = proteinOf(f);
+      if (p < 5 || out.some((x) => x.foodId === f.id)) continue;
+      for (const n of [1, 2]) {
+        const gap = Math.abs(p * n - rem);
+        if (round > 0 && p * n > rem + 0.35 * rem + 2) continue;
+        if (!best || gap < best.gap) best = { f, n, gap };
+      }
+    }
+    if (!best) break;
+    out.push(intake(best.f, best.n));
+    rem -= proteinOf(best.f) * best.n;
   }
   return out;
 }
@@ -375,7 +381,7 @@ export function buildNutrition(i: NutriInput, bankAll: BankFood[]): NutriPlan {
   } else if (aProt) {
     const target = aCarbs ? aCarbs[0] : 0;
     const carbItems = target ? fill(target, carbsLike, 3, 0.6) : [];
-    const protItems = fillProtein(lerp(aProt[0], aProt[1]), protLike);
+    const protItems = fillProtein(Math.max(0, lerp(aProt[0], aProt[1]) - sum(carbItems, 'proteinG')), protLike);
     const items = [...carbItems, ...protItems];
     events.push({ id: 'a-meal', phase: 'after', atMin: D, toMin: D + 120, title: strength ? $t("Protéines et repas") : $t("Repas de récupération"), items, bell: 'after', carbsG: sum(items, 'carbsG'), proteinG: sum(items, 'proteinG') });
   } else {
@@ -500,6 +506,7 @@ export function phaseState(checks: Check[], phase: Check['phase']): Check['state
 /** Quantité en une ligne courte : « 3× », « ½ », « 600 ml ». */
 export function qtyText(x: Intake): string {
   if (x.liquid && x.ml > 0) return Math.round(x.ml / 10) * 10 + ' ml';
+  if (/^1 g$/.test(x.unit)) return Math.round(x.amount * 10) / 10 + ' g';
   const q = Math.round(x.qty * 2) / 2;
   const f = q === Math.floor(q) ? String(q) : (Math.floor(q) ? String(Math.floor(q)) : '') + '½';
   return q === 1 ? '1' : f + (q >= 2 ? '×' : '');

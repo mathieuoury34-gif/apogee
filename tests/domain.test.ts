@@ -1419,7 +1419,7 @@ test('coach : le dossier donne le détail du compte rendu (zones de FC, résulta
 });
 
 // ------------------------------------------------------------------ alimentation
-import { buildNutrition, estimateIntensity, intakeText, leadText, type NutriInput } from '../src/domain/nutrition';
+import { buildNutrition, checkPlan, estimateIntensity, intakeText, leadText, phaseState, type NutriInput } from '../src/domain/nutrition';
 import { DEFAULT_FOODS, carbsOf, resolveBank, sodiumOf } from '../src/domain/foods';
 
 const NB: NutriInput = { discipline: 'RUN', minutes: 60, level: 'moderate', hot: false, weightKg: 75, test: false, laterToday: false, nextDayQuality: false, daysToRace: null, caffeine: false };
@@ -1478,4 +1478,40 @@ test('alimentation : intensité estimée et textes', () => {
   assert.equal(leadText(120), '2 h'); assert.equal(leadText(90), '1 h 30'); assert.equal(leadText(45), '45 min');
   const it = (qty: number, name = 'Barre') => intakeText({ foodId: 'x', name, unit: '', qty, amount: 0, liquid: false, carbsG: 0, sodiumMg: 0, proteinG: 0, ml: 0 });
   assert.equal(it(1), 'Barre'); assert.equal(it(0.5), '½ × Barre'); assert.equal(it(1.5), '1½ × Barre'); assert.equal(it(2), '2 × Barre');
+});
+
+test('alimentation : modification des aliments, validation, régime, favoris, récupération', () => {
+  const bank = DEFAULT_FOODS;
+  const base = buildNutrition({ ...NB, discipline: 'BIKE', minutes: 190, daysToRace: 189 }, bank);
+  const c0 = checkPlan(base);
+  assert.ok(c0.length >= 3 && c0.every((c) => c.state === 'ok'), JSON.stringify(c0.filter((c) => c.state !== 'ok')));
+  // l'athlète remplace le repas d'avant par un seul pain : l'apport devient insuffisant
+  const edited = buildNutrition({ ...NB, discipline: 'BIKE', minutes: 190, daysToRace: 189, edits: { 'b-meal': [{ foodId: 'd:bread', qty: 1 }] } }, bank);
+  const meal = edited.events.find((e) => e.id === 'b-meal')!;
+  assert.equal(meal.edited, true); assert.equal(meal.items.length, 1);
+  assert.equal(checkPlan(edited).find((c) => c.key === 'b-carbs')!.state, 'low');
+  assert.equal(phaseState(checkPlan(edited), 'before'), 'low');
+  // retirer toute la boisson pendant la séance : les glucides par heure baissent et la liste à emporter suit
+  const noDrink = buildNutrition({ ...NB, discipline: 'BIKE', minutes: 190, daysToRace: 189, edits: { 'd-drink': [] } }, bank);
+  assert.ok(noDrink.during.carbsPerHActual < base.during.carbsPerHActual);
+  assert.ok(!noDrink.during.shopping.some((x) => x.liquid));
+  // produit inconnu ignoré
+  const unk = buildNutrition({ ...NB, edits: { 'b-meal': [{ foodId: 'inconnu', qty: 2 }] } }, bank);
+  assert.equal(unk.events.find((e) => e.id === 'b-meal')?.items.length ?? 0, 0);
+  // récupération rapide : une seule ligne, 4 h ou 2 h
+  const fast = buildNutrition({ ...NB, level: 'quality', laterToday: true }, bank);
+  const f = fast.events.find((e) => e.id === 'a-fast')!;
+  assert.equal(f.times, 4); assert.ok(!fast.events.some((e) => /^a-c\d$/.test(e.id)));
+  assert.equal(buildNutrition({ ...NB, level: 'quality', laterToday: true, recovery: 'light' }, bank).events.find((e) => e.id === 'a-fast')!.times, 2);
+  // protéines après : dans la fourchette (pas de dépassement)
+  const rec = buildNutrition({ ...NB, discipline: 'BIKE', minutes: 190 }, bank);
+  assert.ok(checkPlan(rec).filter((c) => c.phase === 'after').every((c) => c.state !== 'high'));
+  // régime et favoris
+  const d = emptyData();
+  (d.nutri as Record<string, unknown>).main = { id: 'main', updatedAt: 'x', diet: ['lactose', 'gluten'], favorites: ['d:gel'] };
+  const b2 = resolveBank(d);
+  assert.ok(!b2.some((x) => ['d:chocmilk', 'd:skyr', 'd:whey', 'd:bread', 'd:pasta', 'd:oats', 'd:bar', 'd:pretzel'].includes(x.id)));
+  assert.equal(b2.find((x) => x.id === 'd:gel')!.fav, true);
+  const run = buildNutrition({ ...NB, minutes: 100, level: 'moderate' }, b2);
+  assert.ok(run.during.shopping.some((x) => x.foodId === 'd:gel'));
 });
