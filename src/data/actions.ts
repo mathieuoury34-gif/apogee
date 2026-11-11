@@ -5,7 +5,7 @@ import { newId, nowIso } from '../domain/ids';
 import { buildManualSession, existingSourceIds, manualSourceId, type ManualInput } from '../domain/manual';
 import { liveRecords, sessionDay } from '../domain/load';
 import { planDedupe } from '../domain/dedupe';
-import type { SessionTemplate, ActualSession, AppData, Athlete, Checkin, CollectionName, Collections, EditableField, EnergyDay, EnergyPart, Interruption, WeightReading, PlannedSession, Race, SleepNight, TrainingPhase, ZoneReading } from '../domain/types';
+import type { Food, Nutri, SessionTemplate, ActualSession, AppData, Athlete, Checkin, CollectionName, Collections, EditableField, EnergyDay, EnergyPart, Interruption, WeightReading, PlannedSession, Race, SleepNight, TrainingPhase, ZoneReading } from '../domain/types';
 import { COLLECTIONS } from '../domain/types';
 import { applyPreview, type CoachPlan, type Preview } from '../domain/coach';
 import { purgePlan } from '../domain/purge';
@@ -194,6 +194,44 @@ export function brickDecision(a: ActualSession, b: ActualSession, status: 'confi
 export function saveAthlete(a: Omit<Athlete, 'id' | 'updatedAt'>): void {
   commit((tx) => tx.put('athlete', { ...a, id: 'main', updatedAt: '' }));
 }
+// ------------------------------------------------------------------ alimentation
+/** Ajoute ou modifie un produit de la banque d'aliments (`base` = identifiant du produit par défaut qu'il remplace). */
+export function saveFood(f: Omit<Food, 'id' | 'updatedAt'> & { id?: string }): Food {
+  const rec = { ...f, id: f.id ?? newId(), updatedAt: '' } as Food;
+  commit((tx) => tx.put('foods', rec));
+  return rec;
+}
+/** Un produit ajouté est supprimé ; un produit par défaut est masqué (on peut le rétablir en supprimant l'enregistrement qui le masque). */
+export function removeFood(id: string, defaultId?: string): Snapshot {
+  const keys: [CollectionName, string][] = [['foods', id]];
+  const snap = snapshot(keys);
+  if (defaultId) {
+    commit((tx) => tx.put('foods', { id: newId(), updatedAt: '', base: defaultId, hidden: true, category: 'drink', name: '', unit: '', massG: 1, liquid: false, kcal100: null, carbs100: 0, protein100: null, salt100: null, caffeineMg: null, mixed: false } as Food));
+  } else commit((tx) => tx.remove('foods', id));
+  return snap;
+}
+/** Rétablit tous les produits par défaut masqués ou modifiés. */
+export function resetFoods(): void {
+  commit((tx) => { for (const f of liveRecords(getData().foods)) if (f.base) tx.remove('foods', f.id); });
+}
+function putNutri(id: string, patch: (cur: Nutri) => Nutri): void {
+  const c = getData().nutri[id];
+  const cur: Nutri = c && !c.deleted ? c : { id, updatedAt: '' };
+  commit((tx) => tx.put('nutri', patch(cur)));
+}
+/** Réglages d'alimentation (caféine proposée ou non). */
+export function setNutriMain(patch: { caffeine?: boolean }): void { putNutri('main', (c) => ({ ...c, ...patch })); }
+/** Choix propres à une séance prévue : journée chaude, intensité imposée (`null` = estimée). */
+export function setNutriSession(plannedId: string, patch: { hot?: boolean; intensity?: Nutri['intensity'] }): void { putNutri(plannedId, (c) => ({ ...c, ...patch })); }
+/** Cloche de rappel d'un moment du plan (`null` = retirée). */
+export function setNutriBell(plannedId: string, key: string, bell: { startMin: number | null } | null): void {
+  putNutri(plannedId, (c) => {
+    const bells = { ...(c.bells ?? {}) };
+    if (bell === null) delete bells[key]; else bells[key] = bell;
+    return { ...c, bells };
+  });
+}
+
 export function saveRace(r: Omit<Race, 'id' | 'updatedAt' | 'targetRevisedAt'>): void {
   const cur = getData().race.main;
   const revised = cur && !cur.deleted && cur.targetTotalSeconds === r.targetTotalSeconds ? cur.targetRevisedAt : r.targetTotalSeconds !== null ? nowIso() : cur?.targetRevisedAt ?? null;

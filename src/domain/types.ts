@@ -326,6 +326,45 @@ export interface Checkin extends Rec {
   note: string | null;
 }
 
+// ------------------------------------------------------------------ alimentation (guide nutrition, 11/11/2026)
+export const FOOD_CATEGORIES = ['drink', 'gel', 'paste', 'candy', 'bar', 'fruit', 'sugar', 'salty', 'salt', 'before', 'after'] as const;
+export type FoodCategory = (typeof FOOD_CATEGORIES)[number];
+
+/** Produit de la banque d'aliments saisi par l'athlète (ou version modifiée / masquée d'un produit par défaut, voir `base`). Valeurs pour 100 g (100 ml si liquide) ; `massG` = une portion. */
+export interface Food extends Rec {
+  /** Identifiant du produit par défaut que cet enregistrement remplace (modifié ou masqué) ; null = produit ajouté par l'athlète. */
+  base: string | null;
+  hidden?: boolean;
+  category: FoodCategory;
+  name: string;
+  /** Libellé d'une portion : « 1 barre », « 1 sachet », « 500 ml »… */
+  unit: string;
+  /** Masse (g) ou volume (ml) d'une portion. */
+  massG: number;
+  liquid: boolean;
+  kcal100: number | null;
+  carbs100: number;
+  protein100: number | null;
+  /** Sel (g/100 g) : le sodium s'en déduit (1 g de sel = 393 mg de sodium). */
+  salt100: number | null;
+  /** Caféine par portion (mg). */
+  caffeineMg: number | null;
+  /** Glucose + fructose (ou autre mélange de sucres transportables) : utile au-delà de 60 g/h. */
+  mixed: boolean;
+}
+
+/** Réglages d'alimentation (id = « main ») et choix propres à une séance prévue (id = identifiant de la séance prévue). */
+export interface Nutri extends Rec {
+  /** Réglages (id « main »). */
+  caffeine?: boolean;
+  /** Séance prévue : journée chaude (> 25 °C). */
+  hot?: boolean;
+  /** Séance prévue : intensité imposée par l'athlète (sinon estimée). */
+  intensity?: 'easy' | 'moderate' | 'quality' | null;
+  /** Séance prévue : cloches de rappel (clé → heure de la séance en minutes depuis minuit, null = rappel du matin à l'heure par défaut). */
+  bells?: Record<string, { startMin: number | null }>;
+}
+
 /** Collections synchronisées (une collection Firestore chacune). */
 export interface Collections {
   athlete: Athlete;
@@ -346,9 +385,11 @@ export interface Collections {
   meals: Meal;
   vitals: Vitals;
   checkins: Checkin;
+  foods: Food;
+  nutri: Nutri;
 }
 export type CollectionName = keyof Collections;
-export const COLLECTIONS: CollectionName[] = ['athlete', 'race', 'zones', 'phases', 'planned', 'actual', 'series', 'bricks', 'interruptions', 'sleep', 'resting', 'weight', 'exchanges', 'templates', 'energy', 'meals', 'vitals', 'checkins'];
+export const COLLECTIONS: CollectionName[] = ['athlete', 'race', 'zones', 'phases', 'planned', 'actual', 'series', 'bricks', 'interruptions', 'sleep', 'resting', 'weight', 'exchanges', 'templates', 'energy', 'meals', 'vitals', 'checkins', 'foods', 'nutri'];
 
 export type AppData = { [K in CollectionName]: Record<string, Collections[K]> } & { updatedAt: string };
 
