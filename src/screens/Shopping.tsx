@@ -8,20 +8,31 @@ import { useCalc } from '../data/store';
 import { addDays, daysBetween, mondayOf } from '../domain/dates';
 import { resolveBank, foodIcon, foodUnit } from '../domain/foods';
 import { piecesOf, weekShopping, type ShopLine } from '../domain/nutrition';
-import { dayMonth } from '../ui/format';
+import { dayMonth, weekdayShort, sessionLabel } from '../ui/format';
 import type { useLocalSheet } from '../ui/menu';
 
 const qty = (l: ShopLine, unit: string) => { const pc = piecesOf({ unit, liquid: false, ml: 0 }); return l.units > 0 && pc ? l.units * pc.n + ' ' + pc.noun : legacy(l); };
 const legacy = (l: ShopLine) => (l.ml > 0 ? (l.ml >= 1000 ? String(Math.round(l.ml / 100) / 10).replace('.', ',') + ' L' : l.ml + ' ml') : l.grams > 0 ? String(l.grams).replace('.', ',') + ' g' : '× ' + l.units);
 
+/** Quantité d'une séance pour un produit, dans la même unité que la ligne (tranches, ml, g, ×). */
+const partText = (l: ShopLine, unit: string, x: ShopLine['parts'][number]) => {
+  const pc = piecesOf({ unit, liquid: false, ml: 0 });
+  const r = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
+  if (l.ml > 0) return x.ml >= 1000 ? r(x.ml / 1000) + ' L' : Math.round(x.ml) + ' ml';
+  if (l.grams > 0) return r(x.grams) + ' g';
+  return pc ? r(x.qty * pc.n) + ' ' + pc.noun : '× ' + r(x.qty);
+};
+
 export function ShoppingSheet({ monday: m0, sh }: { monday: string; sh: ReturnType<typeof useLocalSheet> }) {
   const { data, d } = useCalc();
   const [monday, setMonday] = useState(m0);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [showSes, setShowSes] = useState(false);
   const go = (k: number) => setMonday(addDays(monday, 7 * k));
   const swipe = useSwipe(() => go(1), () => go(-1));
   const bank = resolveBank(data);
   const byId = new Map(resolveBank(data, true).map((f) => [f.id, f]));
-  const { lines, sessions } = weekShopping(data, d.refsAt, bank, monday, d.today, (id) => d.links.byPlanned.has(id));
+  const { lines, sessions, used } = weekShopping(data, d.refsAt, bank, monday, d.today, (id) => d.links.byPlanned.has(id));
   const diff = daysBetween(mondayOf(d.today), monday) / 7;
   const rel = diff === 0 ? $t("cette semaine") : diff > 0 ? $t("dans {0} sem.", { 0: diff }) : $t("il y a {0} sem.", { 0: -diff });
   return (
@@ -40,14 +51,32 @@ export function ShoppingSheet({ monday: m0, sh }: { monday: string; sh: ReturnTy
           <Empty icon="cart" title={$t("Rien à acheter")} text={$t("Aucune séance à venir cette semaine-là n’a besoin d’aliments.")} />
         ) : (
           <>
-            <span className="t-caption c-moderate">{$t("{0} séance(s) à venir", { 0: sessions })}</span>
+            <div className="stack" style={{ gap: 'var(--space-6)' }}>
+              <button type="button" className="row c-moderate t-caption" aria-expanded={showSes} onClick={() => setShowSes(!showSes)} style={{ gap: 'var(--space-4)', background: 'none', border: 0, padding: 0, font: 'inherit', color: 'inherit', cursor: 'pointer', alignSelf: 'flex-start' }}>
+                {$t("{0} séance(s) à venir", { 0: sessions })}<Icon name="down" size={16} style={{ transform: showSes ? 'rotate(180deg)' : undefined }} />
+              </button>
+              {showSes && (
+                <ul className="stack" style={{ gap: 'var(--space-4)', listStyle: 'none', margin: 0, padding: 0 }}>
+                  {used.map((u) => { const p = data.planned[u.plannedId]; return <li key={u.plannedId}>{weekdayShort(u.day)} {+u.day.slice(8, 10)} · {p ? sessionLabel(p) : ''}</li>; })}
+                </ul>
+              )}
+            </div>
             <ul className="stack" style={{ gap: 0, listStyle: 'none', margin: 0, padding: 0 }}>
               {lines.map((l) => {
                 const f = byId.get(l.foodId);
+                const unit = f ? foodUnit(f) : '';
+                const open = openId === l.foodId;
                 return (
-                  <li key={l.foodId} className="between" style={{ gap: 'var(--space-12)', padding: 'var(--space-8) 0', borderTop: '1px solid var(--border)' }}>
-                    <span className="row" style={{ gap: 'var(--space-8)' }}><span className="nico"><Icon name={f ? foodIcon(f) : 'f-utensils'} size={18} /></span><span className="stack"><span className="t-strong">{l.name}</span>{f && l.units > 0 && !piecesOf({ unit: foodUnit(f), liquid: false, ml: 0 }) && <span className="t-caption c-moderate">{foodUnit(f)}</span>}</span></span>
-                    <span className="t-strong">{qty(l, f ? foodUnit(f) : '')}</span>
+                  <li key={l.foodId} style={{ borderTop: '1px solid var(--border)' }}>
+                    <button type="button" className="between" aria-expanded={open} onClick={() => setOpenId(open ? null : l.foodId)} style={{ gap: 'var(--space-12)', padding: 'var(--space-8) 0', width: '100%', background: 'none', border: 0, font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+                      <span className="row" style={{ gap: 'var(--space-8)' }}><span className="nico"><Icon name={f ? foodIcon(f) : 'f-utensils'} size={18} /></span><span className="stack"><span className="t-strong">{l.name}</span>{f && l.units > 0 && !piecesOf({ unit, liquid: false, ml: 0 }) && <span className="t-caption c-moderate">{unit}</span>}</span></span>
+                      <span className="t-strong">{qty(l, unit)}</span>
+                    </button>
+                    {open && (
+                      <ul className="stack" style={{ gap: 'var(--space-4)', listStyle: 'none', margin: 0, padding: '0 0 var(--space-8) var(--space-32, 32px)' }}>
+                        {[...l.parts].sort((a, b) => a.day.localeCompare(b.day)).map((x) => { const p = data.planned[x.plannedId]; return <li key={x.plannedId} className="between"><span>{weekdayShort(x.day)} {+x.day.slice(8, 10)} · {p ? sessionLabel(p) : ''}</span><span>{partText(l, unit, x)}</span></li>; })}
+                      </ul>
+                    )}
                   </li>
                 );
               })}

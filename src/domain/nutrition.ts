@@ -467,25 +467,29 @@ export function nutritionForSession(data: AppData, refs: RefValues, p: PlannedSe
 }
 
 // ------------------------------------------------------------------ liste de courses de la semaine
-export interface ShopLine { foodId: string; name: string; category: string; /** unités à acheter (arrondies au-dessus) ; 0 pour un liquide ou du sel */ units: number; ml: number; grams: number; sessions: number }
+export interface ShopLine { foodId: string; name: string; category: string; /** unités à acheter (arrondies au-dessus) ; 0 pour un liquide ou du sel */ units: number; ml: number; grams: number; sessions: number; /** d'où vient la quantité : une entrée par séance (quantité en portions, ml ou g, avant arrondi) */ parts: { plannedId: string; day: string; qty: number; ml: number; grams: number }[] }
 
 /** Tout ce que les séances prévues (pas encore faites, aujourd'hui ou après) de la semaine demandent d'acheter. */
-export function weekShopping(data: AppData, refsAt: (day: string) => RefValues, bank: BankFood[], monday: string, todayDay: string, done: (plannedId: string) => boolean): { lines: ShopLine[]; sessions: number } {
+export function weekShopping(data: AppData, refsAt: (day: string) => RefValues, bank: BankFood[], monday: string, todayDay: string, done: (plannedId: string) => boolean): { lines: ShopLine[]; sessions: number; used: { plannedId: string; day: string }[] } {
   const end = addDays(monday, 6);
   const ps = liveRecords(data.planned).filter((p) => p.plannedDate >= monday && p.plannedDate <= end && p.plannedDate >= todayDay && p.blocks.length > 0 && !done(p.id));
   const byId = new Map(bank.map((f) => [f.id, f]));
-  const agg = new Map<string, { qty: number; ml: number; grams: number; sessions: Set<string> }>();
+  const agg = new Map<string, { qty: number; ml: number; grams: number; sessions: Set<string>; parts: ShopLine['parts'] }>();
   let sessions = 0;
+  const used: { plannedId: string; day: string }[] = [];
   for (const p of ps) {
     const plan = nutritionForSession(data, refsAt(p.plannedDate), p, bank, todayDay, done).plan;
     if (!plan) continue;
     const list: Intake[] = [...plan.during.shopping];
     for (const e of plan.events) if (e.phase !== 'during') for (const x of e.items) list.push({ ...x, qty: x.qty * (e.times ?? 1), amount: x.amount * (e.times ?? 1), ml: x.ml * (e.times ?? 1) });
     if (!list.length) continue;
-    sessions++;
+    sessions++; used.push({ plannedId: p.id, day: p.plannedDate });
     for (const x of list) {
-      const a = agg.get(x.foodId) ?? { qty: 0, ml: 0, grams: 0, sessions: new Set<string>() };
-      a.qty += x.qty; a.ml += x.ml; a.grams += /^1 g$/.test(x.unit) ? x.amount : 0; a.sessions.add(p.id);
+      const a = agg.get(x.foodId) ?? { qty: 0, ml: 0, grams: 0, sessions: new Set<string>(), parts: [] };
+      const g = /^1 g$/.test(x.unit) ? x.amount : 0;
+      a.qty += x.qty; a.ml += x.ml; a.grams += g; a.sessions.add(p.id);
+      const part = a.parts.find((y) => y.plannedId === p.id);
+      if (part) { part.qty += x.qty; part.ml += x.ml; part.grams += g; } else a.parts.push({ plannedId: p.id, day: p.plannedDate, qty: x.qty, ml: x.ml, grams: g });
       agg.set(x.foodId, a);
     }
   }
@@ -494,11 +498,11 @@ export function weekShopping(data: AppData, refsAt: (day: string) => RefValues, 
     const f = byId.get(id);
     if (!f) continue;
     const isG = a.grams > 0, isMl = f.liquid && a.ml > 0;
-    lines.push({ foodId: id, name: foodName(f), category: f.category, units: isG || isMl ? 0 : Math.ceil(a.qty - 0.001), ml: isMl ? Math.round(a.ml / 10) * 10 : 0, grams: isG ? Math.round(a.grams * 10) / 10 : 0, sessions: a.sessions.size });
+    lines.push({ foodId: id, name: foodName(f), category: f.category, units: isG || isMl ? 0 : Math.ceil(a.qty - 0.001), ml: isMl ? Math.round(a.ml / 10) * 10 : 0, grams: isG ? Math.round(a.grams * 10) / 10 : 0, sessions: a.sessions.size, parts: a.parts });
   }
   const order: string[] = [...FOOD_CATEGORIES];
   lines.sort((x, y) => order.indexOf(x.category) - order.indexOf(y.category) || x.name.localeCompare(y.name));
-  return { lines, sessions };
+  return { lines, sessions, used };
 }
 
 // ------------------------------------------------------------------ texte court (notifications, résumés)

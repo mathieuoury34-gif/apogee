@@ -651,3 +651,6 @@ prévisionnel ; alerte blessure ; estimation de VMA ; poids et sommeil ; ingesti
 - Correctif 11/11 : `nutritionForSession(..., done)` — `laterToday` = séance non faite rangée **après** celle-ci dans le même jour ; `ShoppingSheet` en `Sheet full` (navigation dans `head`) ; flèche « retour à cette semaine » dans `Calendar.tsx`.
 - Correctifs 11/11 (nuit) : `aHours = recovery === 'full' ? 4 : 2` (2 h par défaut) ; `CalendarWeekScreen` écrit `week` dans `history.state` et le relit au retour ; `Settings.tsx` sans légendes.
 - 12/11 : `piecesOf(x)` (unité « N pièces » → pièces), `scaleIntake`, `qtyText`/`intakeText` en pièces ; `Node` affiche les moments à répétition (`times`) en totaux et le total des boissons par séance ; `Shopping.tsx` utilise `piecesOf`. Tests : 76.
+
+
+**Addendum 12/11/2026 (liste de courses vérifiable).** `ShopLine.parts: {plannedId, day, qty, ml, grams}[]` (une entrée par séance, avant arrondi) et `weekShopping(...).used: {plannedId, day}[]`. `Shopping.tsx` : en-tête dépliable des séances comptées, lignes dépliables (détail par séance). Invariant testé : `units = ceil(Σ parts.qty − 0,001)`.

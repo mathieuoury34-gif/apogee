@@ -1564,6 +1564,9 @@ test('alimentation v3 : intensité, favoris exclusifs, poids daté, liste de cou
     for (const it of [...pl.during.shopping, ...pl.events.filter((e) => e.phase !== 'during').flatMap((e) => e.items.map((i) => ({ ...i, qty: i.qty * (e.times ?? 1) })))]) sum.set(it.foodId, (sum.get(it.foodId) ?? 0) + it.qty);
   }
   for (const l of ws.lines) if (l.units > 0) assert.equal(l.units, Math.ceil((sum.get(l.foodId) ?? 0) - 0.001), l.foodId);
+  // chaque ligne peut être justifiée séance par séance : la somme des parties est la quantité de la ligne
+  for (const l of ws.lines) if (l.units > 0) assert.equal(l.units, Math.ceil(l.parts.reduce((a, x) => a + x.qty, 0) - 0.001));
+  assert.equal(ws.used.length, ws.sessions);
   const none = weekShopping(dd, () => refs, bank, '2030-03-04', '2030-03-04', () => true);
   assert.equal(none.lines.length, 0);
   const past = weekShopping(dd, () => refs, bank, '2030-03-04', '2030-03-06', () => false);
