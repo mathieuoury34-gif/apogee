@@ -5,9 +5,9 @@ import { $t } from '../i18n';
 import { estimateDuration } from './blocks';
 import type { RefValues } from './blocks';
 import { addDays } from './dates';
-import { carbsOf, foodName, foodUnit, mlOf, NA_PER_SALT_G, proteinOf, sodiumOf, type BankFood } from './foods';
+import { carbsOf, foodName, foodUnit, mlOf, NA_PER_SALT_G, proteinOf, resolveBank, sodiumOf, type BankFood } from './foods';
 import { liveRecords } from './load';
-import type { AppData, Block, PlannedDiscipline, PlannedSession } from './types';
+import { FOOD_CATEGORIES, type AppData, type Block, type PlannedDiscipline, type PlannedSession } from './types';
 
 export type Level = 'easy' | 'moderate' | 'quality';
 export const REF_KG = 75;
@@ -200,7 +200,7 @@ export function gutCap(daysToRace: number | null, disc: PlannedDiscipline): { ca
 }
 
 // ------------------------------------------------------------------ le calcul
-export function buildNutrition(i: NutriInput, bankAll: BankFood[]): NutriPlan {
+export function buildNutrition(i: NutriInput, bankAll: BankFood[], lookup: BankFood[] = bankAll): NutriPlan {
   const D = i.minutes;
   const disc = i.discipline;
   const bike = disc === 'BIKE' || disc === 'BRICK';
@@ -210,6 +210,11 @@ export function buildNutrition(i: NutriInput, bankAll: BankFood[]): NutriPlan {
   const quality = i.level === 'quality';
   const rulesKg = Math.abs(i.weightKg - REF_KG) <= 3 ? REF_KG : i.weightKg;
   const kg = rulesKg;
+  // l'intensité place la quantité dans la fourchette du guide : bas = facile, milieu = modérée, haut = intense
+  const lv = i.level === 'easy' ? 0 : i.level === 'moderate' ? 0.5 : 1;
+  const pickIn = (r: Range) => r[0] + (r[1] - r[0]) * lv;
+  const favMode = bankAll.some((f) => f.fav);
+  const noFav = $t("Aucun favori adapté : ajoute-en un dans ta banque d’aliments.");
   const notes: string[] = [];
   const events: NutriEvent[] = [];
   const bank = bankAll;
@@ -228,7 +233,7 @@ export function buildNutrition(i: NutriInput, bankAll: BankFood[]): NutriPlan {
   const caffeineMg = i.caffeine && !strength && D >= 45 && (quality || D >= 90) ? Math.round((3 * kg) / 25) * 25 : null;
 
   if (bCarbs && bAt) {
-    const target = lerp(bCarbs[0], bCarbs[1]);
+    const target = pickIn(bCarbs);
     const starch = own(inCat(bank, 'before')).filter((f) => !f.liquid);
     const extras = [...own(inCat(bank, 'sugar')).filter((f) => f.id === 'd:honey' || !f.builtin), ...own(inCat(bank, 'fruit')).filter((f) => f.id === 'd:banana' || !f.builtin), ...inCat(bank, 'before').filter((f) => f.builtin && f.id === 'd:compote')];
     const small = D < 60;
@@ -271,7 +276,7 @@ export function buildNutrition(i: NutriInput, bankAll: BankFood[]): NutriPlan {
   let shopping: Intake[] = [];
   let totalCarbs = 0;
   if (dCarbs && dCarbs[1] > 0 && !strength) {
-    const T = dCarbs[0] === 0 ? Math.min(dCarbs[1], 20) : Math.round(lerp(dCarbs[0], dCarbs[1]));
+    const T = dCarbs[0] === 0 ? Math.min(dCarbs[1], 20) : Math.round(pickIn(dCarbs));
     const drinks = own(inCat(bank, 'drink')).filter((f) => f.liquid && f.carbs100 > 0);
     const wantMixed = T > 60;
     const defaultDrink = (id: string) => pick(drinks, id);
@@ -355,7 +360,7 @@ export function buildNutrition(i: NutriInput, bankAll: BankFood[]): NutriPlan {
     events.push({ id: 'd-water', phase: 'during', atMin: 0, toMin: D, title: $t("Boire"), items: [], text: $t("Eau à volonté."), carbsG: 0, proteinG: 0 });
   }
   if (cappedBy) notes.push(cappedBy.charAt(0).toUpperCase() + cappedBy.slice(1) + '.');
-  if (dFluid && D >= 90) notes.push($t("Au-delà de 700 ml/h, le risque d’hyponatrémie augmente sur les efforts très longs : le sodium ne protège pas d’un excès d’eau. Pèse-toi avant et après une sortie d’1 h pour ajuster."));
+  if (dFluid && D >= 90) notes.push($t("Au-delà de 700 ml/h, le risque d’hyponatrémie augmente sur les efforts très longs : le sodium ne protège pas d’un excès d’eau. Bois à ta soif sans te forcer : urine jaune pâle, ventre non ballonné."));
 
   // ================= APRÈS
   const fast = !strength && D >= 45 && (i.laterToday || (D >= 150 && i.nextDayQuality)) || (strength && i.laterToday);
@@ -387,15 +392,20 @@ export function buildNutrition(i: NutriInput, bankAll: BankFood[]): NutriPlan {
   } else {
     events.push({ id: 'a-meal', phase: 'after', atMin: D, toMin: D + 120, title: $t("Repas normal"), items: [], text: $t("Repas normal dans les 2 h."), bell: 'after', carbsG: 0, proteinG: 0 });
   }
-  if (!strength && D >= 60) events.push({ id: 'a-fluid', phase: 'after', atMin: D, toMin: D + 120, title: $t("Boire"), items: [], text: $t("Eau : 1,25–1,5 L par kg perdu (pesée avant et après)."), carbsG: 0, proteinG: 0 });
+  if (!strength && D >= 60) events.push({ id: 'a-fluid', phase: 'after', atMin: D, toMin: D + 120, title: $t("Boire"), items: [], text: $t("Eau : ≈ {0} ml dans l’heure, puis à ta soif (urine jaune pâle).", { 0: D >= 150 || i.hot ? 750 : 500 }), carbsG: 0, proteinG: 0 });
 
+  // favoris seuls utilisés : un temps qui a besoin d'aliments mais qu'aucun favori ne peut composer le dit
+  if (favMode) {
+    const need: [NutriEvent['phase'], boolean][] = [['before', !!bCarbs && bCarbs[1] > 0], ['during', !!dCarbs && dCarbs[1] > 0 && !swim], ['after', !!aCarbs || !!aProt || fast]];
+    for (const [ph, wanted] of need) if (wanted && !events.some((e) => e.phase === ph && e.items.length)) events.push({ id: ph[0] + '-nofav', phase: ph, atMin: ph === 'before' ? -(bAt ? bAt[1] : 60) : ph === 'during' ? 0 : D, toMin: ph === 'during' ? D : undefined, title: '', items: [], text: noFav, carbsG: 0, proteinG: 0 });
+  }
   // ================= CHOIX DE L'ATHLÈTE : ses aliments remplacent ceux du calcul, les totaux sont recalculés
   if (i.edits) {
     const perHourEv = (e: NutriEvent) => e.id === 'd-drink' || e.id === 'd-water';
     for (const e of events) {
       const ed = i.edits[e.id];
       if (!ed) continue;
-      e.items = ed.flatMap((x) => { const f = bank.find((b) => b.id === x.foodId); return f && x.qty > 0 ? [intake(f, x.qty)] : []; });
+      e.items = ed.flatMap((x) => { const f = lookup.find((b) => b.id === x.foodId); return f && x.qty > 0 ? [intake(f, x.qty)] : []; });
       e.edited = true;
       if (e.items.length) e.text = undefined;
       e.carbsG = sum(e.items, 'carbsG') * (perHourEv(e) ? hours : e.times ?? 1);
@@ -438,7 +448,9 @@ export function nutritionForSession(data: AppData, refs: RefValues, p: PlannedSe
   const dur = estimateDuration(p.blocks, p.discipline, refs);
   const minutes = Math.round(dur.value / 60);
   if (dur.certainty === 'unknown' || minutes < 1) return { plan: null, guess, level, hot, reason: $t("Durée inconnue : ajoute des durées (ou des distances avec une allure) aux blocs pour calculer l’alimentation.") };
-  const w = liveRecords(data.weight).sort((a, b) => (a.day < b.day ? 1 : -1))[0];
+  // poids : dernière pesée à la date de la séance (une nouvelle pesée ne change pas les séances d'avant) ; à défaut, la plus ancienne
+  const ws = liveRecords(data.weight).sort((a, b) => (a.day < b.day ? 1 : -1));
+  const w = ws.find((x) => x.day <= p.plannedDate) ?? ws[ws.length - 1];
   const main = data.nutri.main && !data.nutri.main.deleted ? data.nutri.main : undefined;
   const others = liveRecords(data.planned).filter((x) => x.id !== p.id);
   const laterToday = others.some((x) => x.plannedDate === p.plannedDate && (x.discipline === 'STRENGTH' || estimateIntensity(x, refs).level !== 'easy'));
@@ -448,8 +460,43 @@ export function nutritionForSession(data: AppData, refs: RefValues, p: PlannedSe
   const daysToRace = race ? Math.round((Date.parse(race.raceDate + 'T12:00:00Z') - Date.parse(p.plannedDate + 'T12:00:00Z')) / 86400000) : null;
   const test = /\btest\b|\bcss\b/i.test(p.title ?? '') && minutes <= 60;
   void todayDay;
-  const plan = buildNutrition({ discipline: p.discipline, minutes, level, hot, weightKg: w?.kg ?? REF_KG, test, laterToday, nextDayQuality, daysToRace: daysToRace !== null && daysToRace > 0 ? daysToRace : null, caffeine: !!main?.caffeine, recovery: main?.recovery, edits: o?.edits }, bank);
+  const plan = buildNutrition({ discipline: p.discipline, minutes, level, hot, weightKg: w?.kg ?? REF_KG, test, laterToday, nextDayQuality, daysToRace: daysToRace !== null && daysToRace > 0 ? daysToRace : null, caffeine: !!main?.caffeine, recovery: main?.recovery, edits: o?.edits }, bank, resolveBank(data, true));
   return { plan, guess, level, hot, reason: null };
+}
+
+// ------------------------------------------------------------------ liste de courses de la semaine
+export interface ShopLine { foodId: string; name: string; category: string; /** unités à acheter (arrondies au-dessus) ; 0 pour un liquide ou du sel */ units: number; ml: number; grams: number; sessions: number }
+
+/** Tout ce que les séances prévues (pas encore faites, aujourd'hui ou après) de la semaine demandent d'acheter. */
+export function weekShopping(data: AppData, refsAt: (day: string) => RefValues, bank: BankFood[], monday: string, todayDay: string, done: (plannedId: string) => boolean): { lines: ShopLine[]; sessions: number } {
+  const end = addDays(monday, 6);
+  const ps = liveRecords(data.planned).filter((p) => p.plannedDate >= monday && p.plannedDate <= end && p.plannedDate >= todayDay && p.blocks.length > 0 && !done(p.id));
+  const byId = new Map(bank.map((f) => [f.id, f]));
+  const agg = new Map<string, { qty: number; ml: number; grams: number; sessions: Set<string> }>();
+  let sessions = 0;
+  for (const p of ps) {
+    const plan = nutritionForSession(data, refsAt(p.plannedDate), p, bank, todayDay).plan;
+    if (!plan) continue;
+    const list: Intake[] = [...plan.during.shopping];
+    for (const e of plan.events) if (e.phase !== 'during') for (const x of e.items) list.push({ ...x, qty: x.qty * (e.times ?? 1), amount: x.amount * (e.times ?? 1), ml: x.ml * (e.times ?? 1) });
+    if (!list.length) continue;
+    sessions++;
+    for (const x of list) {
+      const a = agg.get(x.foodId) ?? { qty: 0, ml: 0, grams: 0, sessions: new Set<string>() };
+      a.qty += x.qty; a.ml += x.ml; a.grams += /^1 g$/.test(x.unit) ? x.amount : 0; a.sessions.add(p.id);
+      agg.set(x.foodId, a);
+    }
+  }
+  const lines: ShopLine[] = [];
+  for (const [id, a] of agg) {
+    const f = byId.get(id);
+    if (!f) continue;
+    const isG = a.grams > 0, isMl = f.liquid && a.ml > 0;
+    lines.push({ foodId: id, name: foodName(f), category: f.category, units: isG || isMl ? 0 : Math.ceil(a.qty - 0.001), ml: isMl ? Math.round(a.ml / 10) * 10 : 0, grams: isG ? Math.round(a.grams * 10) / 10 : 0, sessions: a.sessions.size });
+  }
+  const order: string[] = [...FOOD_CATEGORIES];
+  lines.sort((x, y) => order.indexOf(x.category) - order.indexOf(y.category) || x.name.localeCompare(y.name));
+  return { lines, sessions };
 }
 
 // ------------------------------------------------------------------ texte court (notifications, résumés)

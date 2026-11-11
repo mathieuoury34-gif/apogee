@@ -354,3 +354,13 @@ Mathieu a demandé un volet alimentaire pour accompagner l'athlète, d'après le
 - **Après la séance** : la récupération rapide n'est plus découpée en « heure 1/4… 4/4 » mais en une ligne « toutes les heures, 4 fois » ; option « allégée » (2 h). Les protéines restent dans la fourchette.
 - **Préférences** (Paramètres › Alimentation) : régime (sans lactose / gluten / viande / œuf), produits favoris ♥ choisis en premier, récupération complète ou allégée, niveau de détail simple ou complet, caféine.
 - **Aide** : nouvelle rubrique « Alimentation autour des séances » qui détaille tout (principe, lecture, intensités, chiffres du guide, choix des aliments, modification et validation, banque, préférences, rappels, limites).
+
+## Addendum 12/11/2026 — Alimentation v3 : retours de Mathieu
+
+- **Intensité** : elle place maintenant les quantités dans la fourchette du guide (bas = facile, milieu = modérée, haut = intense) pour les glucides avant et pendant ; avant, le tableau du guide ne dépendait que de la durée.
+- **Poids** : le poids pris pour une séance est la dernière pesée **datée au plus tard du jour de la séance**. Une nouvelle pesée change les séances à partir de sa date, jamais les précédentes.
+- **Favoris exclusifs** : dès qu'il y a au moins un favori ♥, le calcul n'utilise que les favoris (plus le sel). Sans favori, toute la banque est utilisée. Si les favoris ne permettent pas de composer un temps, la carte le dit. Les favoris correspondent aux produits que Mathieu a ou va acheter (humeur, saison, courses du moment).
+- **Eau après la séance** : plus de pesée (« 1,25–1,5 L par kg perdu » supprimé) ; environ 500 ml dans l'heure (750 ml après 2 h 30 ou par temps chaud), puis à la soif (urine jaune pâle).
+- **Carte** : titre, intensité et « Adapter » (crayon) sur une ligne ; durée retirée ; un seul « i » fermé par défaut qui regroupe les notes ; « À emporter » en premier ; « Pendant » en violet (le vert est réservé aux validations).
+- **Calendrier** : trois icônes sous les chiffres de la semaine (Actions de la semaine, Liste de courses, Interruptions avec leur nombre). **Liste de courses** : tout ce que les séances à venir et non faites de la semaine demandent d'acheter (avant, pendant, après), regroupé par produit, avec défilement d'une semaine à l'autre (flèches ou glissement).
+- **Banque d'aliments** : option « Récupération rapide » supprimée (complète 4 h par défaut) ; moins de texte ; ordre Préférences, Favoris (avec « Ajouter un produit », favori par défaut), puis tiroir « Tous les produits » fermé par défaut.

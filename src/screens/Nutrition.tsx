@@ -21,7 +21,7 @@ export const LEVEL_LABEL = (l: Level) => (l === 'easy' ? $t("Facile") : l === 'm
 const LEVEL_HINT = (l: Level) => (l === 'easy' ? $t("Tu peux parler sans effort (zones 1–2).") : l === 'moderate' ? $t("Allure soutenue, tenable longtemps (zone 3).") : $t("Dur : seuil, intervalles, test, course (zones 4–5)."));
 const PHASE: Record<NutriEvent['phase'], { label: () => string; fg: string; bg: string }> = {
   before: { label: () => $t("Avant"), fg: 'var(--info)', bg: 'var(--info-bg)' },
-  during: { label: () => $t("Pendant"), fg: 'var(--success)', bg: 'var(--success-bg)' },
+  during: { label: () => $t("Pendant"), fg: 'var(--d-STRENGTH)', bg: 'var(--d-STRENGTH-bg)' },
   after: { label: () => $t("Après"), fg: 'var(--warning)', bg: 'var(--warning-bg)' },
 };
 
@@ -108,7 +108,7 @@ const stepOf = (f?: BankFood) => (f && (f.liquid || f.category === 'bar' || f.id
 function EditorSheet({ p, sh }: { p: PlannedSession; sh: ReturnType<typeof useLocalSheet> }) {
   const { data, d } = useCalc();
   const bank = resolveBank(data);
-  const byId = new Map(bank.map((f) => [f.id, f]));
+  const byId = new Map(resolveBank(data, true).map((f) => [f.id, f]));
   const n = nutritionForSession(data, d.refsAt(p.plannedDate), p, bank, today());
   const [adding, setAdding] = useState<string | null>(null);
   const [cat, setCat] = useState<string>('bar');
@@ -164,7 +164,7 @@ function EditorSheet({ p, sh }: { p: PlannedSession; sh: ReturnType<typeof useLo
                     <Icon name="plus" size={18} />
                   </button>
                 ))}
-                {bank.filter((f) => f.category === cat).length === 0 && <span className="t-caption c-moderate">{$t("Aucun produit dans cette catégorie.")}</span>}
+                {bank.filter((f) => f.category === cat).length === 0 && <span className="t-caption c-moderate">{$t("Aucun favori dans cette catégorie.")}</span>}
               </div>
             )}
           </div>
@@ -227,7 +227,7 @@ export function NutritionCard({ p }: { p: PlannedSession }) {
   const [bellFor, setBellFor] = useState<NutriEvent | null>(null);
   const [more, setMore] = useState(false);
   const bank = resolveBank(data);
-  const byId = new Map(bank.map((f) => [f.id, f]));
+  const byId = new Map(resolveBank(data, true).map((f) => [f.id, f]));
   const n = nutritionForSession(data, d.refsAt(p.plannedDate), p, bank, today());
   const opt = data.nutri[p.id] && !data.nutri[p.id].deleted ? data.nutri[p.id] : undefined;
   const main = data.nutri.main && !data.nutri.main.deleted ? data.nutri.main : undefined;
@@ -239,30 +239,36 @@ export function NutritionCard({ p }: { p: PlannedSession }) {
   const ring = (e: NutriEvent) => { setBellFor(e); bellSh.show(); };
   return (
     <InfoCard className="card g8 dspan-12" aria-label={$t("Alimentation")}>
-      <h2>{$t("Alimentation")}<InfoToggle /></h2>
-      <Info>{$t("Ce qu’il faut manger et boire avant, pendant et après cette séance, calculé d’après le sport, la durée et l’intensité, avec les produits de ta banque d’aliments (Paramètres › Alimentation). Ce sont des repères généraux, pas un avis médical. Tout est expliqué dans Aide › Alimentation.")}</Info>
+      <div className="between" style={{ gap: 'var(--space-8)', flexWrap: 'nowrap' }}>
+        <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-4)', whiteSpace: 'nowrap' }}>{$t("Alimentation")}{plan && plan.notes.length > 0 && <InfoToggle />}</h2>
+        {plan && (
+          <div className="row" style={{ gap: 'var(--space-6)', flexShrink: 0 }}>
+            <span className="chip" style={{ cursor: 'default', fontSize: 13, padding: '0 var(--space-8)' }}><Icon name="gauge" size={14} />{LEVEL_LABEL(n.level)}</span>
+            <button type="button" className="icon-btn" style={{ border: '1.5px solid var(--border-neutral, currentColor)' }} aria-label={$t("Adapter")} title={$t("Adapter")} onClick={editSh.show}><Icon name="pencil" size={18} /></button>
+          </div>
+        )}
+      </div>
+      {plan && plan.notes.length > 0 && <Info><div className="stack" style={{ gap: 'var(--space-8)' }}>{plan.notes.map((t) => <span key={t}>{t}</span>)}</div></Info>}
       {!plan && <div className="note"><Icon name="info" size={20} /><span>{n.reason}</span></div>}
       {plan && (
         <>
-          <div className="row wrap" style={{ gap: 'var(--space-6)' }}>
-            <span className="chip" style={{ cursor: 'default' }}><Icon name="clock" size={14} />{duration(plan.minutes * 60)}</span>
-            <span className="chip" style={{ cursor: 'default' }}><Icon name="gauge" size={14} />{LEVEL_LABEL(n.level)}</span>
-            {n.hot && <span className="chip" style={{ cursor: 'default' }}>{$t("Chaud")}</span>}
-            {mode && mode !== 'off' && Object.keys(bells).length > 0 && <span className="chip" style={{ cursor: 'default' }}><Icon name="bell" size={14} />{Object.keys(bells).length}</span>}
-            <button type="button" className="btn btn-secondary" style={{ marginLeft: 'auto', minHeight: 36, padding: '0 var(--space-12)' }} onClick={editSh.show}><Icon name="pencil" size={16} />{$t("Adapter")}</button>
-          </div>
-          <div className="ntl">
-            <PhaseBlock plan={plan} phase="before" bells={bells} onBell={ring} byId={byId} checks={checks} full={full} />
-            <PhaseBlock plan={plan} phase="during" bells={bells} onBell={ring} byId={byId} checks={checks} full={full} />
-            <PhaseBlock plan={plan} phase="after" bells={bells} onBell={ring} byId={byId} checks={checks} full={full} />
-          </div>
+          {(n.hot || (mode && mode !== 'off' && Object.keys(bells).length > 0)) && (
+            <div className="row wrap" style={{ gap: 'var(--space-6)' }}>
+              {n.hot && <span className="chip" style={{ cursor: 'default' }}>{$t("Chaud")}</span>}
+              {mode && mode !== 'off' && Object.keys(bells).length > 0 && <span className="chip" style={{ cursor: 'default' }}><Icon name="bell" size={14} />{Object.keys(bells).length}</span>}
+            </div>
+          )}
           {plan.during.shopping.length > 0 && (
             <div className="stack" style={{ gap: 'var(--space-6)' }}>
               <span className="t-strong">{$t("À emporter")}</span>
               <div className="nchips">{plan.during.shopping.map((x) => <FoodChip key={x.foodId} x={x} byId={byId} />)}</div>
             </div>
           )}
-          {full && plan.notes.map((t) => <div key={t} className="note"><Icon name="info" size={20} /><span>{t}</span></div>)}
+          <div className="ntl">
+            <PhaseBlock plan={plan} phase="before" bells={bells} onBell={ring} byId={byId} checks={checks} full={full} />
+            <PhaseBlock plan={plan} phase="during" bells={bells} onBell={ring} byId={byId} checks={checks} full={full} />
+            <PhaseBlock plan={plan} phase="after" bells={bells} onBell={ring} byId={byId} checks={checks} full={full} />
+          </div>
           <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start' }} aria-expanded={more} onClick={() => setMore(!more)}>{more ? $t("Masquer les hypothèses") : $t("Hypothèses et réglages de cette séance")}</button>
           {more && (
             <div className="stack" style={{ gap: 'var(--space-12)' }}>
@@ -284,7 +290,6 @@ export function NutritionCard({ p }: { p: PlannedSession }) {
                 {plan.after.carbs && <span className="t-caption c-moderate">{$t("Après : {0}–{1} g de glucides sur {2} h.", { 0: plan.after.carbs[0], 1: plan.after.carbs[1], 2: plan.after.hours })}</span>}
                 <span className="t-caption c-moderate">{$t("Calculé pour {0} kg (règles établies pour {1} kg).", { 0: Math.round(plan.weightKg), 1: plan.rulesKg })}</span>
               </div>
-              {!full && plan.notes.map((t) => <div key={t} className="note"><Icon name="info" size={20} /><span>{t}</span></div>)}
               <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/parametres/alimentation')}><Icon name="nutrition" size={18} />{$t("Banque d’aliments et préférences")}</button>
             </div>
           )}

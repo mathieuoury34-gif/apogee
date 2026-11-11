@@ -101,14 +101,17 @@ const fromRec = (f: Food): BankFood => ({ id: f.id, category: f.category, name: 
  * Banque telle que l'athlète la voit : produits par défaut (sauf ceux qu'il a masqués ou remplacés par sa version) puis ses propres produits.
  * Les produits de l'athlète passent en premier : ce sont eux que le calcul choisit d'abord dans une catégorie.
  */
-export function resolveBank(data: Pick<AppData, 'foods'> & Partial<Pick<AppData, 'nutri'>>): BankFood[] {
+export function resolveBank(data: Pick<AppData, 'foods'> & Partial<Pick<AppData, 'nutri'>>, all = false): BankFood[] {
   const recs = liveRecords(data.foods);
   const gone = new Set(recs.filter((r) => r.base).map((r) => r.base as string));
   const main = data.nutri?.main && !data.nutri.main.deleted ? data.nutri.main : undefined;
   const banned = new Set((main?.diet ?? []).flatMap((k) => DIET_EXCLUDES[k] ?? []));
   const favs = new Set(main?.favorites ?? []);
   const own = recs.filter((r) => !r.hidden).map(fromRec);
-  return [...own, ...DEFAULT_FOODS.filter((f) => !gone.has(f.id) && !banned.has(f.id))].map((f) => (favs.has(f.id) ? { ...f, fav: true } : f));
+  const list = [...own, ...DEFAULT_FOODS.filter((f) => !gone.has(f.id) && !banned.has(f.id))].map((f) => (favs.has(f.id) ? { ...f, fav: true } : f));
+  // dès qu'un favori existe, seuls les favoris sont utilisés par le calcul (le sel de table reste toujours disponible) ; `all` = banque entière (choix à la main)
+  if (all || !list.some((f) => f.fav)) return list;
+  return list.filter((f) => f.fav || f.category === 'salt');
 }
 
 /** Régimes : produits par défaut écartés (les produits de l'athlète ne sont jamais écartés). */

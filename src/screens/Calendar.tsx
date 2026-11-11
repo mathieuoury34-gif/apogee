@@ -21,6 +21,7 @@ import { refKeyOfSession } from '../domain/coach';
 import { useActualMenu, useLocalSheet, usePlannedMenu } from '../ui/menu';
 import { WeekActionsSheet } from './Templates';
 import { NutritionCard } from './Nutrition';
+import { ShoppingSheet } from './Shopping';
 
 const NAV = [{ to: '/calendrier', label: $t("Semaine") }, { to: '/calendrier/mois', label: $t("Mois") }];
 
@@ -84,6 +85,7 @@ export function CalendarWeekScreen() {
   const go = (k: number) => { setDir(k > 0 ? 'l' : 'r'); const m = addDays(monday, 7 * k); setMonday(m); navigate(m === mondayOf(d.today) ? '/calendrier' : '/calendrier?sem=' + m, { replace: true }); };
   const swipe = useSwipe(() => go(1), () => go(-1));
   const wk = useLocalSheet();
+  const shop = useLocalSheet();
   return (
     <div className="screen" data-screen="calendrier-semaine">
       <AppHeader title={$t("Calendrier")} />
@@ -107,10 +109,15 @@ export function CalendarWeekScreen() {
             <div className="kpi"><span className="label">{$t("Charge")}</span><span className="value">{num(load, 0)}</span></div>
           </div>
         </div>
-        <div className="row wrap" style={{ justifyContent: 'center', gap: 'var(--space-8)' }}>
-          <button type="button" className="btn btn-tertiary" style={{ minHeight: 32 }} onClick={wk.show}><Icon name="layers" size={18} /> {$t("Actions de la semaine")}</button>
-          <button type="button" className="btn btn-tertiary" style={{ minHeight: 32 }} onClick={() => navigate('/calendrier/interruptions')}><Icon name="pause" size={18} /> {$t("Interruptions")}{ints.length ? ' (' + ints.length + ')' : ''}</button>
+        <div className="row" style={{ justifyContent: 'center', gap: 'var(--space-12)' }}>
+          <button type="button" className="icon-btn" aria-label={$t("Actions de la semaine")} title={$t("Actions de la semaine")} onClick={wk.show}><Icon name="layers" size={22} /></button>
+          <button type="button" className="icon-btn" aria-label={$t("Liste de courses")} title={$t("Liste de courses")} onClick={shop.show}><Icon name="cart" size={22} /></button>
+          <button type="button" className="icon-btn" style={{ position: 'relative' }} aria-label={$t("Interruptions") + (ints.length ? ' (' + ints.length + ')' : '')} title={$t("Interruptions")} onClick={() => navigate('/calendrier/interruptions')}>
+            <Icon name="pause" size={22} />
+            {ints.length > 0 && <span className="badge" style={{ position: 'absolute', top: 2, right: -2, padding: '0 5px', fontSize: 11, lineHeight: '16px' }}>{ints.length}</span>}
+          </button>
         </div>
+        {shop.open && <ShoppingSheet monday={monday} sh={shop} />}
         {wk.open && <WeekActionsSheet monday={monday} sh={wk} />}
         {!isThisWeek && <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'center', minHeight: 32 }} onClick={() => setMonday(mondayOf(d.today))}>{$t("Revenir à cette semaine")}</button>}
         <div className="stack dcols-days" style={{ gap: 0 }}>

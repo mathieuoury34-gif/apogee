@@ -1419,7 +1419,7 @@ test('coach : le dossier donne le détail du compte rendu (zones de FC, résulta
 });
 
 // ------------------------------------------------------------------ alimentation
-import { buildNutrition, checkPlan, estimateIntensity, intakeText, leadText, phaseState, type NutriInput } from '../src/domain/nutrition';
+import { buildNutrition, checkPlan, estimateIntensity, intakeText, leadText, nutritionForSession, phaseState, weekShopping, type NutriInput } from '../src/domain/nutrition';
 import { DEFAULT_FOODS, carbsOf, resolveBank, sodiumOf } from '../src/domain/foods';
 
 const NB: NutriInput = { discipline: 'RUN', minutes: 60, level: 'moderate', hot: false, weightKg: 75, test: false, laterToday: false, nextDayQuality: false, daysToRace: null, caffeine: false };
@@ -1514,4 +1514,42 @@ test('alimentation : modification des aliments, validation, régime, favoris, r�
   assert.equal(b2.find((x) => x.id === 'd:gel')!.fav, true);
   const run = buildNutrition({ ...NB, minutes: 100, level: 'moderate' }, b2);
   assert.ok(run.during.shopping.some((x) => x.foodId === 'd:gel'));
+});
+
+test('alimentation v3 : intensité, favoris exclusifs, poids daté, liste de courses', () => {
+  const bank = DEFAULT_FOODS;
+  // l'intensité place les quantités dans la fourchette : facile < modérée < intense
+  const mk = (level: 'easy' | 'moderate' | 'quality') => buildNutrition({ ...NB, discipline: 'BIKE', minutes: 190, level }, bank);
+  const e = mk('easy'), m = mk('moderate'), q = mk('quality');
+  assert.ok(e.during.carbsPerHActual <= m.during.carbsPerHActual && m.during.carbsPerHActual <= q.during.carbsPerHActual);
+  assert.ok(q.during.carbsPerHActual > e.during.carbsPerHActual || q.before.carbs![0] >= e.before.carbs![0]);
+  // favoris : dès qu'il y en a un, seuls les favoris (et le sel) sont utilisés
+  const d = emptyData();
+  (d.nutri as Record<string, unknown>).main = { id: 'main', updatedAt: 'x', favorites: ['d:gel', 'd:banana'] };
+  const fav = resolveBank(d);
+  assert.ok(fav.every((x) => x.fav || x.category === 'salt'));
+  assert.ok(resolveBank(d, true).length > fav.length);
+  const plan = buildNutrition({ ...NB, discipline: 'BIKE', minutes: 190, level: 'moderate' }, fav, resolveBank(d, true));
+  const ids = new Set(plan.events.flatMap((x) => x.items.map((i) => i.foodId)));
+  for (const id of ids) assert.ok(fav.some((f) => f.id === id), id);
+  // poids : la pesée du jour de la séance compte, pas une pesée plus récente
+  const blocks = [{ ...newBlock('WORK'), measure: 'TIME' as const, measureValue: 3600 }];
+  const rec = (id: string, date: string) => ({ id, updatedAt: 'x', discipline: 'RUN', plannedDate: date, title: null, notes: null, origin: 'manual', idempotencyKey: null, coachExchangeId: null, blocks, createdAt: 'x' });
+  const dd = emptyData();
+  const P = dd.planned as Record<string, unknown>;
+  P.a = rec('a', '2030-03-04'); P.b = rec('b', '2030-03-12');
+  const W = dd.weight as Record<string, unknown>;
+  W.w1 = { id: 'w1', updatedAt: 'x', day: '2030-03-01', kg: 60, source: 'manual' };
+  W.w2 = { id: 'w2', updatedAt: 'x', day: '2030-03-10', kg: 90, source: 'manual' };
+  const refs = {} as never;
+  const kgA = nutritionForSession(dd, refs, P.a as never, bank, '2030-03-01').plan!.weightKg;
+  const kgB = nutritionForSession(dd, refs, P.b as never, bank, '2030-03-01').plan!.weightKg;
+  assert.equal(kgA, 60); assert.equal(kgB, 90);
+  // liste de courses : séances à venir de la semaine, sans celles déjà faites
+  const all = weekShopping(dd, () => refs, bank, '2030-03-04', '2030-03-04', () => false);
+  assert.ok(all.sessions >= 1);
+  const none = weekShopping(dd, () => refs, bank, '2030-03-04', '2030-03-04', () => true);
+  assert.equal(none.lines.length, 0);
+  const past = weekShopping(dd, () => refs, bank, '2030-03-04', '2030-03-06', () => false);
+  assert.equal(past.sessions, 0);
 });
