@@ -20,6 +20,7 @@ import { DISCIPLINE_ICON, blockDetail, blockHead, dateFr, dayLong, dayMonth, day
 import { refKeyOfSession } from '../domain/coach';
 import { useActualMenu, useLocalSheet, usePlannedMenu } from '../ui/menu';
 import { WeekActionsSheet } from './Templates';
+import { NutritionCard } from './Nutrition';
 
 const NAV = [{ to: '/calendrier', label: $t("Semaine") }, { to: '/calendrier/mois', label: $t("Mois") }];
 
@@ -325,6 +326,7 @@ export function PlannedDetailScreen({ id }: { id: string }) {
             {p.discipline === 'BRICK' && <Info>{$t("Une montre ne lit qu’un sport par entraînement : un enchaînement donne un fichier par discipline.")}</Info>}
           </InfoCard>
         )}
+        {p.blocks.length > 0 && <NutritionCard p={p} />}
         <section className="card g8 dspan-12" aria-label={$t("Réalisation")}>
           <h2>{$t("Réalisation")}</h2>
           {done.length ? done.map((s) => (

@@ -315,7 +315,7 @@ export function buildNutrition(i: NutriInput, bankAll: BankFood[]): NutriPlan {
         for (const it of items) { const m = merged.find((y) => y.foodId === it.foodId); if (m) { m.qty += it.qty; m.amount += it.amount; m.carbsG += it.carbsG; m.sodiumMg += it.sodiumMg; m.proteinG += it.proteinG; } else merged.push({ ...it }); }
         slots.push({ at: t, items: merged });
       }
-      for (const s of slots) events.push({ id: 'd-' + s.at, phase: 'during', atMin: s.at, title: $t("Prise"), items: s.items, carbsG: sum(s.items, 'carbsG'), proteinG: 0 });
+      for (const s of slots.filter((x) => x.items.length)) events.push({ id: 'd-' + s.at, phase: 'during', atMin: s.at, title: $t("Prise"), items: s.items, carbsG: sum(s.items, 'carbsG'), proteinG: 0 });
       const agg = new Map<string, Intake>();
       for (const s of slots) for (const it of s.items) { const a = agg.get(it.foodId); if (a) { a.qty += it.qty; a.amount += it.amount; a.carbsG += it.carbsG; a.sodiumMg += it.sodiumMg; } else agg.set(it.foodId, { ...it }); }
       shopping = [...agg.values()];
@@ -416,3 +416,20 @@ export function itemsText(items: Intake[]): string {
   return items.map((x) => (x.qty === 1 || x.foodId === 'd:salt' ? '' : Math.round(x.qty * 10) / 10 + ' × ') + x.name).join(' + ');
 }
 export { NA_PER_SALT_G };
+
+// ------------------------------------------------------------------ libellés partagés (carte et notifications)
+/** « 2 h », « 1 h 30 », « 45 min ». */
+export function leadText(min: number): string {
+  const m = Math.round(Math.abs(min));
+  const h = Math.floor(m / 60), r = m % 60;
+  if (!h) return $t("{0} min", { 0: r });
+  return r ? $t("{0} h {1}", { 0: h, 1: String(r).padStart(2, '0') }) : $t("{0} h", { 0: h });
+}
+/** Quantité lisible : demi-portions en ½, liquides en ml. */
+export function intakeText(x: Intake): string {
+  if (x.liquid && x.ml > 0) return $t("{0} ml de {1}", { 0: Math.round(x.ml / 10) * 10, 1: x.name });
+  const q = Math.round(x.qty * 2) / 2;
+  const frac = q === Math.floor(q) ? String(q) : (Math.floor(q) ? String(Math.floor(q)) : '') + '½';
+  const approx = Math.abs(q - x.qty) > 0.05 && !(x.qty < 0.5);
+  return (q === 1 && !approx ? '' : (approx ? '≈ ' : '') + frac + ' × ') + x.name;
+}

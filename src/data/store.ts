@@ -169,6 +169,12 @@ export interface Prefs {
   weeklyReminderHour?: number;
   /** Dernier rappel du point de la semaine dont le formulaire a déjà été ouvert (AAAA-MM-JJTHH) : le suivant l'ouvre en première page. */
   weeklyPromptAck?: string;
+  /** Rappels d'alimentation (APK) : aucun (par défaut), toutes les séances, ou seulement celles où l'athlète a posé une cloche. */
+  nutriMode?: 'off' | 'all' | 'chosen';
+  /** Heure locale du rappel « avant » quand l'athlète n'a pas donné l'heure de sa séance (7 par défaut). */
+  nutriHour?: number;
+  /** Rappels « après » déjà programmés (clé séance prévue:séance réalisée → heure, en ms) : évite de les répéter. */
+  nutriAfter?: Record<string, number>;
 }
 const DEFAULT_PREFS: Prefs = { skipLogin: false, provisionalLoad: true, reminderHour: 7 };
 const prefListeners = new Set<() => void>();
