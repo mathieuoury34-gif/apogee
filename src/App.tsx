@@ -11,6 +11,7 @@ import { PeriodizationScreen } from './screens/Periodization';
 import { LoadingScreen, ProfileScreen, SettingsScreen } from './screens/Settings';
 import { InterruptionsScreen } from './screens/Interruptions';
 import { HelpScreen } from './screens/Help';
+import { FoodBankScreen } from './screens/FoodBank';
 import { useReady } from './data/store';
 
 /** Lien « ancre » : `?ancre=nom` fait défiler jusqu'à l'élément `data-anchor="nom"` de l'écran d'arrivée et le fait clignoter un instant. */
@@ -64,6 +65,7 @@ function Screen() {
     case 'parametres':
       if (b === 'profil') return <ProfileScreen />;
       if (b === 'aide') return <HelpScreen />;
+      if (b === 'alimentation') return <FoodBankScreen />;
       return <SettingsScreen />;
     default:
       return <HomeScreen />;

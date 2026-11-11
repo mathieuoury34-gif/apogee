@@ -201,13 +201,17 @@ export function saveFood(f: Omit<Food, 'id' | 'updatedAt'> & { id?: string }): F
   commit((tx) => tx.put('foods', rec));
   return rec;
 }
-/** Un produit ajouté est supprimé ; un produit par défaut est masqué (on peut le rétablir en supprimant l'enregistrement qui le masque). */
-export function removeFood(id: string, defaultId?: string): Snapshot {
-  const keys: [CollectionName, string][] = [['foods', id]];
-  const snap = snapshot(keys);
-  if (defaultId) {
-    commit((tx) => tx.put('foods', { id: newId(), updatedAt: '', base: defaultId, hidden: true, category: 'drink', name: '', unit: '', massG: 1, liquid: false, kcal100: null, carbs100: 0, protein100: null, salt100: null, caffeineMg: null, mixed: false } as Food));
-  } else commit((tx) => tx.remove('foods', id));
+/** Un produit ajouté (ou une version modifiée d'un produit par défaut) est supprimé : le produit par défaut revient s'il y en avait un. */
+export function removeFood(id: string): Snapshot {
+  const snap = snapshot([['foods', id]]);
+  commit((tx) => tx.remove('foods', id));
+  return snap;
+}
+/** Masque un produit par défaut (on le rétablit en supprimant cet enregistrement, ou avec `resetFoods`). */
+export function hideDefaultFood(defaultId: string): Snapshot {
+  const id = 'hide:' + defaultId;
+  const snap = snapshot([['foods', id]]);
+  commit((tx) => tx.put('foods', { id, updatedAt: '', base: defaultId, hidden: true, category: 'drink', name: '', unit: '', massG: 1, liquid: false, kcal100: null, carbs100: 0, protein100: null, salt100: null, caffeineMg: null, mixed: false } as Food));
   return snap;
 }
 /** Rétablit tous les produits par défaut masqués ou modifiés. */

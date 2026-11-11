@@ -2,7 +2,7 @@
 // profil athlète, interruptions, écran de connexion et écran de chargement.
 import { $t, lang, setLang } from '../i18n';
 import { useRef, useState } from 'react';
-import { DatePicker, Empty, Sheet, SubHeader, Switch, showToast } from '../ui/kit';
+import { DatePicker, Empty, Segmented, Sheet, SubHeader, Switch, showToast } from '../ui/kit';
 import { Icon, Logo } from '../ui/icons';
 import { IntField, numOf } from '../ui/wheels';
 import { navigate, useRoute } from '../ui/router';
@@ -174,6 +174,12 @@ export function SettingsScreen() {
           </ul>
         </Section>
 
+        <Section id="p-food" title={$t("Alimentation")}>
+          <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
+            <Row icon="nutrition" title={$t("Ma banque d’aliments")} sub={$t("Boissons, gels, barres, fruits… : les produits que la carte « Alimentation » des séances utilise. Ajoute les tiens.")} onClick={() => navigate('/parametres/alimentation')} />
+          </ul>
+        </Section>
+
         <Section id="p-data" title={$t("Données")}>
           <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
             <Row icon="sheet" title={$t("Exporter en Excel (.xlsx)")} sub={busy === 'xlsx' ? $t("Préparation du fichier…") : $t("Tableau de bord, séances, plan, charge, zones, périodisation — formules et graphiques")} onClick={exportXlsx} />
@@ -209,6 +215,19 @@ export function SettingsScreen() {
                 <div className="field">
                   <span className="lbl">{$t("Heure du rappel de séance")}</span>
                   <IntField label={$t("Heure du rappel de séance")} unit="h" value={prefs.reminderHour} onChange={(x) => setPrefs({ reminderHour: x ?? 7 })} min={0} max={23} />
+                </div>
+              )}
+              <div className="field">
+                <span className="t-strong">{$t("Rappels d’alimentation")}</span>
+                <span className="t-caption c-moderate">{$t("Avant la séance (repas, caféine) et après (récupération), d’après la carte « Alimentation ».")}</span>
+                <Segmented<'off' | 'all' | 'chosen'> label={$t("Rappels d’alimentation")} value={prefs.nutriMode ?? 'off'} options={[['off', $t("Silencieux")], ['all', $t("Toutes les séances")], ['chosen', $t("Celles que je choisis")]]} onChange={(v) => setPrefs({ nutriMode: v })} />
+                <span className="hint">{(prefs.nutriMode ?? 'off') === 'off' ? $t("Aucun rappel d’alimentation.") : (prefs.nutriMode === 'all' ? $t("Un rappel avant et un après pour chaque séance prévue.") : $t("Seulement les séances où tu as touché la cloche, dans la carte « Alimentation » de la séance."))}</span>
+              </div>
+              {(prefs.nutriMode ?? 'off') !== 'off' && (
+                <div className="field">
+                  <span className="lbl">{$t("Heure du rappel « avant » par défaut")}</span>
+                  <IntField label={$t("Heure du rappel « avant » par défaut")} unit="h" value={prefs.nutriHour ?? 7} onChange={(x) => setPrefs({ nutriHour: x ?? 7 })} min={0} max={23} />
+                  <span className="hint">{$t("Le matin de la séance. Pour un rappel à l’heure exacte, touche la cloche de la séance et donne son heure.")}</span>
                 </div>
               )}
               <div className="between" style={{ gap: 'var(--space-12)' }}>
