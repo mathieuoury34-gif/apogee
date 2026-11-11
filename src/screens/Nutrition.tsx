@@ -13,7 +13,7 @@ import { useCalc, usePrefs } from '../data/store';
 import { setNutriBell, setNutriEdit, setNutriSession } from '../data/actions';
 import { today } from '../domain/dates';
 import { CATEGORIES, carbsOf, foodIcon, resolveBank, type BankFood } from '../domain/foods';
-import { checkPlan, intakeText, leadText, nutritionForSession, phaseState, qtyText, type Check, type Intake, type Level, type NutriEvent, type NutriPlan } from '../domain/nutrition';
+import { checkPlan, intakeText, leadText, nutritionForSession, phaseState, qtyText, scaleIntake, type Check, type Intake, type Level, type NutriEvent, type NutriPlan } from '../domain/nutrition';
 import { DISCIPLINE_LABEL, duration } from '../ui/format';
 import type { PlannedSession } from '../domain/types';
 
@@ -56,7 +56,7 @@ function StateBadge({ st }: { st: Check['state'] | null }) {
   );
 }
 
-function Node({ e, D, byId, bell, onBell, full }: { e: NutriEvent; D: number; byId: Map<string, BankFood>; bell: boolean; onBell?: () => void; full: boolean }) {
+function Node({ e, D, byId, bell, onBell, full, totals }: { e: NutriEvent; D: number; byId: Map<string, BankFood>; bell: boolean; onBell?: () => void; full: boolean; totals?: Intake[] }) {
   if (!e.items.length && !e.text && !e.edited) return null;
   if (!e.items.length && /^d-\d+$/.test(e.id)) return null;
   return (
@@ -64,11 +64,11 @@ function Node({ e, D, byId, bell, onBell, full }: { e: NutriEvent; D: number; by
       <span className="ntime">{whenText(e, D)}</span>
       <div className="stack" style={{ gap: 4 }}>
         <div className="nchips">
-          {e.items.map((x) => <FoodChip key={x.foodId} x={x} byId={byId} />)}
+          {e.items.map((x) => <FoodChip key={x.foodId} x={e.times ? scaleIntake(x, e.times) : x} byId={byId} />)}
           {!e.items.length && e.text && <span className="nchip"><span className="nico"><Icon name={textIcon(e)} size={18} /></span><span className="nt">{e.text}</span></span>}
         </div>
-        {e.times && <span className="t-caption c-moderate">{$t("toutes les heures, {0} fois", { 0: e.times })}</span>}
-        {e.id === 'd-drink' && e.items.length > 0 && <span className="t-caption c-moderate">{$t("par heure")}</span>}
+        {e.times && <span className="t-caption c-moderate">{$t("au total, à répartir sur {0} h", { 0: e.times })}</span>}
+        {(e.id === 'd-drink' || e.id === 'd-water') && e.items.length > 0 && <span className="t-caption c-moderate">{$t("par heure")}{totals && totals.length > 0 ? ' · ' + $t("au total : {0}", { 0: totals.map((t) => qtyText(t) + ' ' + t.name).join(' + ') }) : ''}</span>}
         {full && (e.carbsG >= 1 || e.proteinG >= 1) && <span className="t-caption c-neutral">{[e.carbsG >= 1 ? $t("≈ {0} g de glucides", { 0: Math.round(e.carbsG) }) : '', e.proteinG >= 1 ? $t("≈ {0} g de protéines", { 0: Math.round(e.proteinG) }) : ''].filter(Boolean).join(' · ')}</span>}
       </div>
       {onBell ? <button type="button" className="icon-btn" aria-pressed={bell} aria-label={bell ? $t("Rappel programmé : modifier") : $t("Me notifier")} onClick={onBell} style={bell ? { color: 'var(--warning)' } : undefined}><Icon name="bell" size={22} /></button> : <span />}
@@ -83,7 +83,7 @@ function PhaseBlock({ plan, phase, bells, onBell, byId, checks, full }: { plan: 
     <section className="nphase" style={{ ['--ph' as string]: PHASE[phase].fg, ['--phbg' as string]: PHASE[phase].bg }} aria-label={PHASE[phase].label()}>
       <header className="nhead"><span className="nname">{PHASE[phase].label()}</span><StateBadge st={phaseState(checks, phase)} /></header>
       <ol className="nlist">
-        {list.map((e) => <Node key={e.id} e={e} D={plan.minutes} byId={byId} full={full} bell={!!e.bell && !!bells[e.bell]} onBell={e.bell && native.isApp() ? () => onBell(e) : undefined} />)}
+        {list.map((e) => <Node key={e.id} e={e} D={plan.minutes} byId={byId} full={full} bell={!!e.bell && !!bells[e.bell]} onBell={e.bell && native.isApp() ? () => onBell(e) : undefined} totals={e.id === 'd-drink' || e.id === 'd-water' ? plan.during.shopping.filter((t) => e.items.some((i) => i.foodId === t.foodId)) : undefined} />)}
       </ol>
       {full && checks.filter((c) => c.phase === phase).map((c) => <CheckLine key={c.key} c={c} />)}
     </section>

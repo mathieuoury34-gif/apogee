@@ -1419,7 +1419,7 @@ test('coach : le dossier donne le détail du compte rendu (zones de FC, résulta
 });
 
 // ------------------------------------------------------------------ alimentation
-import { buildNutrition, checkPlan, estimateIntensity, intakeText, leadText, nutritionForSession, phaseState, weekShopping, type NutriInput } from '../src/domain/nutrition';
+import { piecesOf, qtyText, scaleIntake, buildNutrition, checkPlan, estimateIntensity, intakeText, leadText, nutritionForSession, phaseState, weekShopping, type NutriInput } from '../src/domain/nutrition';
 import { DEFAULT_FOODS, carbsOf, resolveBank, sodiumOf } from '../src/domain/foods';
 
 const NB: NutriInput = { discipline: 'RUN', minutes: 60, level: 'moderate', hot: false, weightKg: 75, test: false, laterToday: false, nextDayQuality: false, daysToRace: null, caffeine: false };
@@ -1568,4 +1568,14 @@ test('alimentation v3 : intensité, favoris exclusifs, poids daté, liste de cou
   assert.equal(none.lines.length, 0);
   const past = weekShopping(dd, () => refs, bank, '2030-03-04', '2030-03-06', () => false);
   assert.equal(past.sessions, 0);
+});
+
+test('alimentation : pièces (tranches) comptées et totaux de la récupération', () => {
+  const pain = buildNutrition({ ...NB, discipline: 'BIKE', minutes: 190, level: 'moderate' }, DEFAULT_FOODS).events.find((e) => e.id === 'b-meal')!.items.find((i) => i.foodId === 'd:bread')!;
+  const pc = piecesOf(pain);
+  assert.ok(pc && pc.noun.startsWith('tranche'));
+  assert.equal(qtyText(pain), (pain.qty * pc!.n) + ' ' + pc!.noun);
+  assert.equal(scaleIntake(pain, 2).qty, pain.qty * 2);
+  assert.equal(piecesOf({ unit: '1 barre', liquid: false, ml: 0 }), null);
+  assert.equal(piecesOf({ unit: '250 ml', liquid: true, ml: 250 }), null);
 });

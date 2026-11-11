@@ -516,8 +516,21 @@ export function leadText(min: number): string {
   return r ? $t("{0} h {1}", { 0: h, 1: String(r).padStart(2, '0') }) : $t("{0} h", { 0: h });
 }
 /** Quantité lisible : demi-portions en ½, liquides en ml. */
+/** Produit vendu « par portion de plusieurs pièces » (« 2 tranches ») : on compte les pièces, pas les portions. */
+export function piecesOf(x: Pick<Intake, 'unit' | 'liquid' | 'ml'>): { n: number; noun: string } | null {
+  if (x.liquid && x.ml > 0) return null;
+  const m = /^(\d+)\s+([^\d].*)$/.exec(x.unit.trim());
+  if (!m || Number(m[1]) < 2 || Number(m[1]) > 6 || /^(g|kg|mg|ml|l|cl)\b/i.test(m[2])) return null;
+  return { n: Number(m[1]), noun: m[2] };
+}
+const half = (q: number) => { const r = Math.round(q * 2) / 2; return r === Math.floor(r) ? String(r) : (Math.floor(r) ? String(Math.floor(r)) : '') + '½'; };
+/** Mêmes aliments, quantité multipliée (ex. « toutes les heures, 2 fois » → total). */
+export function scaleIntake(x: Intake, k: number): Intake { return { ...x, qty: x.qty * k, amount: x.amount * k, ml: x.ml * k, carbsG: x.carbsG * k, sodiumMg: x.sodiumMg * k, proteinG: x.proteinG * k }; }
+
 export function intakeText(x: Intake): string {
   if (x.liquid && x.ml > 0) return $t("{0} ml de {1}", { 0: Math.round(x.ml / 10) * 10, 1: x.name });
+  const pc = piecesOf(x);
+  if (pc) return half(x.qty * pc.n) + ' ' + pc.noun + ' ' + x.name;
   const q = Math.round(x.qty * 2) / 2;
   const frac = q === Math.floor(q) ? String(q) : (Math.floor(q) ? String(Math.floor(q)) : '') + '½';
   const approx = Math.abs(q - x.qty) > 0.05 && !(x.qty < 0.5);
@@ -556,6 +569,8 @@ export function phaseState(checks: Check[], phase: Check['phase']): Check['state
 export function qtyText(x: Intake): string {
   if (x.liquid && x.ml > 0) return Math.round(x.ml / 10) * 10 + ' ml';
   if (/^1 g$/.test(x.unit)) return Math.round(x.amount * 10) / 10 + ' g';
+  const pc = piecesOf(x);
+  if (pc) return half(x.qty * pc.n) + ' ' + pc.noun;
   const q = Math.round(x.qty * 2) / 2;
   const f = q === Math.floor(q) ? String(q) : (Math.floor(q) ? String(Math.floor(q)) : '') + '½';
   return q === 1 ? '1' : f + (q >= 2 ? '×' : '');

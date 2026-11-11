@@ -7,13 +7,11 @@ import { Icon } from '../ui/icons';
 import { useCalc } from '../data/store';
 import { addDays, daysBetween, mondayOf } from '../domain/dates';
 import { resolveBank, foodIcon, foodUnit } from '../domain/foods';
-import { weekShopping, type ShopLine } from '../domain/nutrition';
+import { piecesOf, weekShopping, type ShopLine } from '../domain/nutrition';
 import { dayMonth } from '../ui/format';
 import type { useLocalSheet } from '../ui/menu';
 
-/** « 2 tranches » → 2 portions de 2 ; « 1 pot 100 g » → 1. */
-const perUnit = (unit: string): { n: number; noun: string } => { const m = /^(\d+)\s+(\D.*)$/.exec(unit.trim()); return m && Number(m[1]) > 1 ? { n: Number(m[1]), noun: m[2] } : { n: 1, noun: '' }; };
-const qty = (l: ShopLine, unit: string) => { const u = perUnit(unit); return l.units > 0 && u.n > 1 ? l.units * u.n + ' ' + u.noun : legacy(l); };
+const qty = (l: ShopLine, unit: string) => { const pc = piecesOf({ unit, liquid: false, ml: 0 }); return l.units > 0 && pc ? l.units * pc.n + ' ' + pc.noun : legacy(l); };
 const legacy = (l: ShopLine) => (l.ml > 0 ? (l.ml >= 1000 ? String(Math.round(l.ml / 100) / 10).replace('.', ',') + ' L' : l.ml + ' ml') : l.grams > 0 ? String(l.grams).replace('.', ',') + ' g' : '× ' + l.units);
 
 export function ShoppingSheet({ monday: m0, sh }: { monday: string; sh: ReturnType<typeof useLocalSheet> }) {
@@ -48,7 +46,7 @@ export function ShoppingSheet({ monday: m0, sh }: { monday: string; sh: ReturnTy
                 const f = byId.get(l.foodId);
                 return (
                   <li key={l.foodId} className="between" style={{ gap: 'var(--space-12)', padding: 'var(--space-8) 0', borderTop: '1px solid var(--border)' }}>
-                    <span className="row" style={{ gap: 'var(--space-8)' }}><span className="nico"><Icon name={f ? foodIcon(f) : 'f-utensils'} size={18} /></span><span className="stack"><span className="t-strong">{l.name}</span>{f && l.units > 0 && perUnit(foodUnit(f)).n === 1 && <span className="t-caption c-moderate">{foodUnit(f)}</span>}</span></span>
+                    <span className="row" style={{ gap: 'var(--space-8)' }}><span className="nico"><Icon name={f ? foodIcon(f) : 'f-utensils'} size={18} /></span><span className="stack"><span className="t-strong">{l.name}</span>{f && l.units > 0 && !piecesOf({ unit: foodUnit(f), liquid: false, ml: 0 }) && <span className="t-caption c-moderate">{foodUnit(f)}</span>}</span></span>
                     <span className="t-strong">{qty(l, f ? foodUnit(f) : '')}</span>
                   </li>
                 );

@@ -1953,4 +1953,6 @@ export const EN: Record<string, string> = {
   "Aucun favori dans cette catégorie.": "No favourite in this category.",
   "Heure": "Time",
   "Heure du rappel « avant »": "“Before” reminder time",
+  "au total, à répartir sur {0} h": "in total, spread over {0} h",
+  "au total : {0}": "in total: {0}",
 };
