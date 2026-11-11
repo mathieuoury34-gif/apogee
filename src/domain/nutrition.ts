@@ -367,7 +367,7 @@ export function buildNutrition(i: NutriInput, bankAll: BankFood[], lookup: BankF
   const stdProtein: Range = [scale(20, kg), scale(25, kg)];
   let aCarbsPerH: Range | null = null, aHours = 0, aCarbs: Range | null = null, aProt: Range | null = null;
   if (fast) {
-    aCarbsPerH = [Math.round(1.0 * kg), Math.round(1.2 * kg)]; aHours = i.recovery === 'light' ? 2 : 4; aProt = [Math.round(0.25 * kg), Math.round(0.3 * kg)];
+    aCarbsPerH = [Math.round(1.0 * kg), Math.round(1.2 * kg)]; aHours = i.recovery === 'full' ? 4 : 2; aProt = [Math.round(0.25 * kg), Math.round(0.3 * kg)];
   } else if (strength) {
     aProt = stdProtein;
   } else if (D >= 90 || (D >= 60 && quality)) {

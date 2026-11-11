@@ -649,3 +649,4 @@ prévisionnel ; alerte blessure ; estimation de VMA ; poids et sommeil ; ingesti
 - UI : `Calendar.tsx` (trois `icon-btn` + pastille du nombre d'interruptions), `Shopping.tsx` (`ShoppingSheet` avec flèches et glissement), `Nutrition.tsx` (en-tête sur une ligne, `Info` unique, `--d-STRENGTH` / `--d-STRENGTH-bg` pour « Pendant »), `FoodBank.tsx` (Favoris, `Disclosure` « Tous les produits », catégorie et favori dans `FoodSheet`). `Nutri.recovery` n'est plus réglé dans l'interface (champ conservé, défaut complet).
 - Tests : 75.
 - Correctif 11/11 : `nutritionForSession(..., done)` — `laterToday` = séance non faite rangée **après** celle-ci dans le même jour ; `ShoppingSheet` en `Sheet full` (navigation dans `head`) ; flèche « retour à cette semaine » dans `Calendar.tsx`.
+- Correctifs 11/11 (nuit) : `aHours = recovery === 'full' ? 4 : 2` (2 h par défaut) ; `CalendarWeekScreen` écrit `week` dans `history.state` et le relit au retour ; `Settings.tsx` sans légendes.

@@ -1501,8 +1501,8 @@ test('alimentation : modification des aliments, validation, régime, favoris, r�
   // récupération rapide : une seule ligne, 4 h ou 2 h
   const fast = buildNutrition({ ...NB, level: 'quality', laterToday: true }, bank);
   const f = fast.events.find((e) => e.id === 'a-fast')!;
-  assert.equal(f.times, 4); assert.ok(!fast.events.some((e) => /^a-c\d$/.test(e.id)));
-  assert.equal(buildNutrition({ ...NB, level: 'quality', laterToday: true, recovery: 'light' }, bank).events.find((e) => e.id === 'a-fast')!.times, 2);
+  assert.equal(f.times, 2); assert.ok(!fast.events.some((e) => /^a-c\d$/.test(e.id)));
+  assert.equal(buildNutrition({ ...NB, level: 'quality', laterToday: true, recovery: 'full' }, bank).events.find((e) => e.id === 'a-fast')!.times, 4);
   // protéines après : dans la fourchette (pas de dépassement)
   const rec = buildNutrition({ ...NB, discipline: 'BIKE', minutes: 190 }, bank);
   assert.ok(checkPlan(rec).filter((c) => c.phase === 'after').every((c) => c.state !== 'high'));
@@ -1556,6 +1556,14 @@ test('alimentation v3 : intensité, favoris exclusifs, poids daté, liste de cou
   // liste de courses : séances à venir de la semaine, sans celles déjà faites
   const all = weekShopping(dd, () => refs, bank, '2030-03-04', '2030-03-04', () => false);
   assert.ok(all.sessions >= 1);
+  // la liste de courses est exactement la somme des cartes des séances de la semaine
+  const ws = weekShopping(d2, () => refs, bank, '2030-04-01', '2030-04-01', () => false);
+  const sum = new Map<string, number>();
+  for (const id of ['x', 'y']) {
+    const pl = nutritionForSession(d2, refs, Q[id] as never, bank, '2030-04-01').plan!;
+    for (const it of [...pl.during.shopping, ...pl.events.filter((e) => e.phase !== 'during').flatMap((e) => e.items.map((i) => ({ ...i, qty: i.qty * (e.times ?? 1) })))]) sum.set(it.foodId, (sum.get(it.foodId) ?? 0) + it.qty);
+  }
+  for (const l of ws.lines) if (l.units > 0) assert.equal(l.units, Math.ceil((sum.get(l.foodId) ?? 0) - 0.001), l.foodId);
   const none = weekShopping(dd, () => refs, bank, '2030-03-04', '2030-03-04', () => true);
   assert.equal(none.lines.length, 0);
   const past = weekShopping(dd, () => refs, bank, '2030-03-04', '2030-03-06', () => false);

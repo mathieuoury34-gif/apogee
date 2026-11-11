@@ -27,7 +27,7 @@ function Row({ icon, title, sub, onClick, right, danger }: { icon: string; title
     <li>
       <button type="button" className="settings-row" onClick={onClick}>
         <Icon name={icon} style={{ color: danger ? 'var(--critical-text)' : 'var(--primary-fg)' }} />
-        <span className="stack"><span className="t-strong" style={danger ? { color: 'var(--critical-text)' } : undefined}>{title}</span><span className="t-caption c-moderate">{sub}</span></span>
+        <span className="stack"><span className="t-strong" style={danger ? { color: 'var(--critical-text)' } : undefined}>{title}</span></span>
         {right ?? <Icon name="next" size={20} style={{ color: 'var(--text-moderate)' }} />}
       </button>
     </li>
@@ -108,7 +108,6 @@ export function SettingsScreen() {
                 <Icon name="cloud" style={{ color: 'var(--text-moderate)' }} />
                 <span className="stack">
                   <span className="t-strong">{$t("Synchronisation pas encore activée")}</span>
-                  <span className="t-caption c-moderate">{$t("Les données sont enregistrées sur cet appareil. La connexion Google sera disponible dès que le projet Firebase sera relié à l’app (voir le README).")}</span>
                 </span>
               </div>
             ) : sync.user ? (
@@ -133,7 +132,6 @@ export function SettingsScreen() {
               </>
             ) : (
               <>
-                <span className="t-caption c-moderate">{$t("Connecte-toi pour retrouver les mêmes données sur ton téléphone, ton PC et ton iPhone (sauvegarde automatique, gratuite).")}</span>
                 <button type="button" className="btn btn-primary" onClick={() => signIn().catch((e) => showToast($t("Connexion impossible : ") + e.message, { error: true }))}>{$t("Continuer avec Google")}</button>
               </>
             )}
@@ -153,7 +151,6 @@ export function SettingsScreen() {
                 <button key={v} type="button" aria-pressed={theme === v} onClick={() => { setThemePref(v); setTheme(v); }}>{l}</button>
               ))}
             </div>
-            <span className="t-caption c-moderate">{$t("« Système » suit le réglage clair ou sombre du téléphone ou de l’ordinateur.")}</span>
           </div>
         </Section>
 
@@ -164,7 +161,6 @@ export function SettingsScreen() {
                 <button key={v} type="button" aria-pressed={lang === v} onClick={() => { if (lang !== v) setLang(v); }}>{l}</button>
               ))}
             </div>
-            <span className="t-caption c-moderate">{$t("L’app redémarre dans la langue choisie. Le dossier coach et l’export Excel restent en français.")}</span>
           </div>
         </Section>
 
@@ -198,7 +194,7 @@ export function SettingsScreen() {
         <Section id="p-calc" title={$t("Calculs")}>
           <div className="card g12" style={{ borderRadius: 'var(--radius-12)' }}>
             <div className="between" style={{ gap: 'var(--space-12)' }}>
-              <span className="stack"><span className="t-strong" id="lbl-prov">{$t("Charge provisoire")}</span><span className="t-caption c-moderate">{$t("Une séance sans FC ni ressenti compte d’après tes habitudes (charge par minute × durée), marquée « estimée », au lieu de zéro.")}</span></span>
+              <span className="stack"><span className="t-strong" id="lbl-prov">{$t("Charge provisoire")}</span></span>
               <Switch checked={prefs.provisionalLoad} labelledBy="lbl-prov" onChange={(v) => setPrefs({ provisionalLoad: v })} />
             </div>
           </div>
@@ -254,7 +250,6 @@ export function SettingsScreen() {
         <Section id="p-about" title={$t("À propos")}>
           <div className="card g8" style={{ borderRadius: 'var(--radius-12)' }}>
             <span data-component="AppLogo"><Logo size={18} /></span>
-            <span className="t-caption c-neutral">{$t("Application personnelle de suivi d’entraînement multisport. Les données restent les tiennes : sur cet appareil et, si tu te connectes, dans ton espace Firebase privé. Version 2.0.")}</span>
             {cut === null
               ? <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'flex-start', whiteSpace: 'normal', textAlign: 'left' }} onClick={() => setCut('2026-08-02')}>{$t("Effacer l’historique avant une date")}</button>
               : (
@@ -323,21 +318,19 @@ export function ProfileScreen() {
           <div className="field"><span className="lbl">{$t("Date de naissance")}</span>
             <button type="button" className="select-btn" style={{ gridTemplateColumns: '1fr 20px' }} onClick={() => setCal(!cal)}><span>{birth ? $t("{0} · {1} ans", { 0: dateFr(birth), 1: ageAt(birth) }) : $t("Choisir")}</span><Icon name="calendar" size={20} /></button>
             {cal && <DatePicker value={birth || '1990-01-01'} onChange={(v) => { setBirth(v); setCal(false); }}  onClose={() => setCal(false)} />}
-            <span className="hint">{$t("Sert à estimer la FC max (Tanaka) tant qu’aucune valeur testée n’est déclarée.")}</span>
           </div>
           <div className="field"><span className="lbl">{$t("Sexe")}</span>
             <div className="seg" role="group" aria-label={$t("Sexe")}><button type="button" aria-pressed={sex === 'M'} onClick={() => setSex('M')}>{$t("Homme")}</button><button type="button" aria-pressed={sex === 'F'} onClick={() => setSex('F')}>{$t("Femme")}</button></div>
-            <span className="hint">{$t("Le sexe sert à estimer les calories de repos.")}</span>
           </div>
-          <div className="field"><span className="lbl">{$t("Taille (cm)")}</span><IntField label={$t("Taille (cm)")} unit="cm" value={numOf(height)} onChange={(x) => setHeight(x === null ? '' : String(x))} min={120} max={230} clearable initial={175} /><span className="hint">{$t("Sert à estimer ta dépense de repos (calories), avec ton poids, ton âge et ton sexe.")}</span></div>
+          <div className="field"><span className="lbl">{$t("Taille (cm)")}</span><IntField label={$t("Taille (cm)")} unit="cm" value={numOf(height)} onChange={(x) => setHeight(x === null ? '' : String(x))} min={120} max={230} clearable initial={175} /></div>
           <div className="field" data-anchor="repos"><span className="lbl">{$t("Calories de repos de ta montre (par jour)")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><IntField label={$t("Calories de repos de ta montre (par jour)")} unit="kcal" value={numOf(restKcal)} onChange={(x) => setRestKcal(x === null ? '' : String(x))} min={1000} max={4000} step={10} clearable initial={2000} />
-            <span className="hint">{$t("Le total de calories vient de Health Connect ; le partage entre repos et actives, lui, diffère de Garmin Connect. Recopie ici les calories de repos d’une journée complète affichées par Garmin Connect (par exemple 2 150) : Apogée en déduit les actives comme la montre.")}</span></div>
+            </div>
           <div className="field"><span className="lbl">{$t("Jours disponibles pour s’entraîner")}</span>
             <div className="chips g6" style={{ margin: 0, padding: 0, flexWrap: 'wrap' }}>
               {WEEKDAYS.map((w) => <button key={w} type="button" className="chip" aria-pressed={avail.includes(w)} onClick={() => setAvail(avail.includes(w) ? avail.filter((x) => x !== w) : [...avail, w])}>{WD_LABEL[w]}</button>)}
             </div>
           </div>
-          <label className="field"><span className="lbl">{$t("Matériel")}</span><input className="input" value={equip} placeholder={$t("Home trainer, piscine 25 m, capteur de puissance…")} onChange={(e) => setEquip(e.target.value)} /><span className="hint">{$t("Séparé par des virgules. Transmis au coach.")}</span></label>
+          <label className="field"><span className="lbl">{$t("Matériel")}</span><input className="input" value={equip} placeholder={$t("Home trainer, piscine 25 m, capteur de puissance…")} onChange={(e) => setEquip(e.target.value)} /></label>
           <div className="field" data-anchor="blessures"><span className="lbl">{$t("Blessures et points de vigilance")}</span>
             <ul className="tile-list divided">
               {injuries.map((i) => (

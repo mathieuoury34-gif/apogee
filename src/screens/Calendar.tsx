@@ -61,8 +61,11 @@ export function CalendarWeekScreen() {
   const route = useRoute();
   const { data, d } = useCalc();
   const focus = route.query.get('jour') || route.query.get('sem') || d.today;
-  const [monday, setMonday] = useState(mondayOf(focus));
-  useEffect(() => { setMonday(mondayOf(focus)); }, [focus]);
+  // la semaine affichée est aussi gardée dans l'entrée d'historique : en revenant d'une séance (retour), on retrouve exactement la même semaine
+  const kept = () => { const w = (history.state as { week?: string } | null)?.week; return w && !route.query.get('jour') ? w : null; };
+  const [monday, setMonday] = useState(kept() ?? mondayOf(focus));
+  useEffect(() => { setMonday(kept() ?? mondayOf(focus)); }, [focus]);
+  useEffect(() => { try { history.replaceState({ ...(history.state ?? {}), week: monday }, ''); } catch { /* sans historique : tant pis */ } }, [monday]);
   useEffect(() => {
     if (!route.query.get('jour')) return;
     const el = document.getElementById('jour-' + focus);
