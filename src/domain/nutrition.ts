@@ -439,7 +439,7 @@ const isSaltId = (bank: BankFood[], id: string) => bank.some((f) => f.id === id 
 // ------------------------------------------------------------------ à partir d'une séance prévue
 export interface PlannedNutri { plan: NutriPlan | null; guess: IntensityGuess; level: Level; hot: boolean; reason: string | null }
 
-export function nutritionForSession(data: AppData, refs: RefValues, p: PlannedSession, bank: BankFood[], todayDay: string): PlannedNutri {
+export function nutritionForSession(data: AppData, refs: RefValues, p: PlannedSession, bank: BankFood[], todayDay: string, done: (plannedId: string) => boolean = () => false): PlannedNutri {
   const guess = estimateIntensity(p, refs);
   const opt = data.nutri[p.id];
   const o = opt && !opt.deleted ? opt : undefined;
@@ -453,7 +453,9 @@ export function nutritionForSession(data: AppData, refs: RefValues, p: PlannedSe
   const w = ws.find((x) => x.day <= p.plannedDate) ?? ws[ws.length - 1];
   const main = data.nutri.main && !data.nutri.main.deleted ? data.nutri.main : undefined;
   const others = liveRecords(data.planned).filter((x) => x.id !== p.id);
-  const laterToday = others.some((x) => x.plannedDate === p.plannedDate && (x.discipline === 'STRENGTH' || estimateIntensity(x, refs).level !== 'easy'));
+  // « plus tard dans la journée » : une séance non faite, rangée après celle-ci dans le jour (les séances n'ont pas d'heure : l'ordre du calendrier fait foi)
+  const sameDay = liveRecords(data.planned).filter((x) => x.plannedDate === p.plannedDate);
+  const laterToday = sameDay.slice(sameDay.findIndex((x) => x.id === p.id) + 1).some((x) => x.id !== p.id && !done(x.id) && (x.discipline === 'STRENGTH' || estimateIntensity(x, refs).level !== 'easy'));
   const nextDay = others.filter((x) => x.plannedDate === addDays(p.plannedDate, 1));
   const nextDayQuality = nextDay.some((x) => estimateIntensity(x, refs).level === 'quality');
   const race = data.race.main && !data.race.main.deleted ? data.race.main : null;
@@ -475,7 +477,7 @@ export function weekShopping(data: AppData, refsAt: (day: string) => RefValues, 
   const agg = new Map<string, { qty: number; ml: number; grams: number; sessions: Set<string> }>();
   let sessions = 0;
   for (const p of ps) {
-    const plan = nutritionForSession(data, refsAt(p.plannedDate), p, bank, todayDay).plan;
+    const plan = nutritionForSession(data, refsAt(p.plannedDate), p, bank, todayDay, done).plan;
     if (!plan) continue;
     const list: Intake[] = [...plan.during.shopping];
     for (const e of plan.events) if (e.phase !== 'during') for (const x of e.items) list.push({ ...x, qty: x.qty * (e.times ?? 1), amount: x.amount * (e.times ?? 1), ml: x.ml * (e.times ?? 1) });

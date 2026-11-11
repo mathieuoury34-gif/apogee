@@ -86,6 +86,9 @@ export function CalendarWeekScreen() {
   const swipe = useSwipe(() => go(1), () => go(-1));
   const wk = useLocalSheet();
   const shop = useLocalSheet();
+  // retour à la semaine en cours : flèche à droite des icônes quand on est dans le passé, à gauche dans le futur
+  const offset = daysBetween(mondayOf(d.today), monday);
+  const backNow = <button type="button" className="icon-btn" aria-label={$t("Revenir à cette semaine")} title={$t("Revenir à cette semaine")} onClick={() => setMonday(mondayOf(d.today))}><Icon name={offset > 0 ? 'back' : 'next'} size={22} /></button>;
   return (
     <div className="screen" data-screen="calendrier-semaine">
       <AppHeader title={$t("Calendrier")} />
@@ -110,16 +113,17 @@ export function CalendarWeekScreen() {
           </div>
         </div>
         <div className="row" style={{ justifyContent: 'center', gap: 'var(--space-12)' }}>
+          {offset > 0 && backNow}
           <button type="button" className="icon-btn" aria-label={$t("Actions de la semaine")} title={$t("Actions de la semaine")} onClick={wk.show}><Icon name="layers" size={22} /></button>
           <button type="button" className="icon-btn" aria-label={$t("Liste de courses")} title={$t("Liste de courses")} onClick={shop.show}><Icon name="cart" size={22} /></button>
           <button type="button" className="icon-btn" style={{ position: 'relative' }} aria-label={$t("Interruptions") + (ints.length ? ' (' + ints.length + ')' : '')} title={$t("Interruptions")} onClick={() => navigate('/calendrier/interruptions')}>
             <Icon name="pause" size={22} />
             {ints.length > 0 && <span className="badge" style={{ position: 'absolute', top: 2, right: -2, padding: '0 5px', fontSize: 11, lineHeight: '16px' }}>{ints.length}</span>}
           </button>
+          {offset < 0 && backNow}
         </div>
         {shop.open && <ShoppingSheet monday={monday} sh={shop} />}
         {wk.open && <WeekActionsSheet monday={monday} sh={wk} />}
-        {!isThisWeek && <button type="button" className="btn btn-tertiary" style={{ alignSelf: 'center', minHeight: 32 }} onClick={() => setMonday(mondayOf(d.today))}>{$t("Revenir à cette semaine")}</button>}
         <div className="stack dcols-days" style={{ gap: 0 }}>
           {days.map((day) => {
             const it = map.get(day) ?? { planned: [], done: [] };

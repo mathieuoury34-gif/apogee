@@ -1545,6 +1545,14 @@ test('alimentation v3 : intensité, favoris exclusifs, poids daté, liste de cou
   const kgA = nutritionForSession(dd, refs, P.a as never, bank, '2030-03-01').plan!.weightKg;
   const kgB = nutritionForSession(dd, refs, P.b as never, bank, '2030-03-01').plan!.weightKg;
   assert.equal(kgA, 60); assert.equal(kgB, 90);
+  // deux séances le même jour : seule la première (ordre du calendrier) a la récupération rapide ; plus du tout si l'autre est déjà faite
+  const long = [{ ...newBlock('WORK'), measure: 'TIME' as const, measureValue: 10800 }];
+  const d2 = emptyData();
+  const Q = d2.planned as Record<string, unknown>;
+  Q.x = { ...rec('x', '2030-04-01'), discipline: 'BIKE', blocks: long };
+  Q.y = { ...rec('y', '2030-04-01'), discipline: 'STRENGTH' };
+  const hasFast = (id: string, done?: (i: string) => boolean) => nutritionForSession(d2, refs, Q[id] as never, bank, '2030-03-01', done).plan!.events.some((e) => e.id === 'a-fast');
+  assert.equal(hasFast('x'), true); assert.equal(hasFast('y'), false); assert.equal(hasFast('x', (i) => i === 'y'), false);
   // liste de courses : séances à venir de la semaine, sans celles déjà faites
   const all = weekShopping(dd, () => refs, bank, '2030-03-04', '2030-03-04', () => false);
   assert.ok(all.sessions >= 1);

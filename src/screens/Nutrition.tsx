@@ -109,7 +109,7 @@ function EditorSheet({ p, sh }: { p: PlannedSession; sh: ReturnType<typeof useLo
   const { data, d } = useCalc();
   const bank = resolveBank(data);
   const byId = new Map(resolveBank(data, true).map((f) => [f.id, f]));
-  const n = nutritionForSession(data, d.refsAt(p.plannedDate), p, bank, today());
+  const n = nutritionForSession(data, d.refsAt(p.plannedDate), p, bank, today(), (id) => d.links.byPlanned.has(id));
   const [adding, setAdding] = useState<string | null>(null);
   const [cat, setCat] = useState<string>('bar');
   const plan = n.plan;
@@ -228,7 +228,7 @@ export function NutritionCard({ p }: { p: PlannedSession }) {
   const [more, setMore] = useState(false);
   const bank = resolveBank(data);
   const byId = new Map(resolveBank(data, true).map((f) => [f.id, f]));
-  const n = nutritionForSession(data, d.refsAt(p.plannedDate), p, bank, today());
+  const n = nutritionForSession(data, d.refsAt(p.plannedDate), p, bank, today(), (id) => d.links.byPlanned.has(id));
   const opt = data.nutri[p.id] && !data.nutri[p.id].deleted ? data.nutri[p.id] : undefined;
   const main = data.nutri.main && !data.nutri.main.deleted ? data.nutri.main : undefined;
   const full = main?.detail === 'full';

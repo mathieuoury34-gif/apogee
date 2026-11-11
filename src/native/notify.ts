@@ -98,7 +98,7 @@ export async function scheduleReminders(data: AppData, d: Derived): Promise<void
       const linked = d.links.byPlanned.get(p.id) ?? [];
       const near = (p.plannedDate >= t && p.plannedDate <= addDays(t, LOOKAHEAD - 1) && linked.length === 0) || linked.length > 0;
       if (!near) continue;
-      const n = nutritionForSession(data, d.refsAt(p.plannedDate), p, bank, t);
+      const n = nutritionForSession(data, d.refsAt(p.plannedDate), p, bank, t, (id) => d.links.byPlanned.has(id));
       if (!n.plan) continue;
       const disc = DISCIPLINE_LABEL[p.discipline];
       // avant : repas (par défaut en mode « toutes ») et toute cloche posée

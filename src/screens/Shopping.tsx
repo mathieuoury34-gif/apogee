@@ -5,13 +5,16 @@ import { useState } from 'react';
 import { Empty, Sheet, useSwipe } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useCalc } from '../data/store';
-import { addDays, mondayOf } from '../domain/dates';
+import { addDays, daysBetween, mondayOf } from '../domain/dates';
 import { resolveBank, foodIcon, foodUnit } from '../domain/foods';
 import { weekShopping, type ShopLine } from '../domain/nutrition';
 import { dayMonth } from '../ui/format';
 import type { useLocalSheet } from '../ui/menu';
 
-const qty = (l: ShopLine) => (l.ml > 0 ? (l.ml >= 1000 ? String(Math.round(l.ml / 100) / 10).replace('.', ',') + ' L' : l.ml + ' ml') : l.grams > 0 ? String(l.grams).replace('.', ',') + ' g' : '× ' + l.units);
+/** « 2 tranches » → 2 portions de 2 ; « 1 pot 100 g » → 1. */
+const perUnit = (unit: string): { n: number; noun: string } => { const m = /^(\d+)\s+(\D.*)$/.exec(unit.trim()); return m && Number(m[1]) > 1 ? { n: Number(m[1]), noun: m[2] } : { n: 1, noun: '' }; };
+const qty = (l: ShopLine, unit: string) => { const u = perUnit(unit); return l.units > 0 && u.n > 1 ? l.units * u.n + ' ' + u.noun : legacy(l); };
+const legacy = (l: ShopLine) => (l.ml > 0 ? (l.ml >= 1000 ? String(Math.round(l.ml / 100) / 10).replace('.', ',') + ' L' : l.ml + ' ml') : l.grams > 0 ? String(l.grams).replace('.', ',') + ' g' : '× ' + l.units);
 
 export function ShoppingSheet({ monday: m0, sh }: { monday: string; sh: ReturnType<typeof useLocalSheet> }) {
   const { data, d } = useCalc();
@@ -21,18 +24,20 @@ export function ShoppingSheet({ monday: m0, sh }: { monday: string; sh: ReturnTy
   const bank = resolveBank(data);
   const byId = new Map(resolveBank(data, true).map((f) => [f.id, f]));
   const { lines, sessions } = weekShopping(data, d.refsAt, bank, monday, d.today, (id) => d.links.byPlanned.has(id));
-  const rel = (mondayOf(monday) === mondayOf(d.today)) ? $t("cette semaine") : '';
+  const diff = daysBetween(mondayOf(d.today), monday) / 7;
+  const rel = diff === 0 ? $t("cette semaine") : diff > 0 ? $t("dans {0} sem.", { 0: diff }) : $t("il y a {0} sem.", { 0: -diff });
   return (
-    <Sheet title={$t("Liste de courses")} onClose={sh.hide}>
-      <div className="stack" style={{ gap: 'var(--space-12)', minHeight: 240 }} {...swipe}>
-        <div className="period-nav">
-          <button type="button" className="icon-btn" aria-label={$t("Semaine précédente")} onClick={() => go(-1)}><Icon name="back" /></button>
-          <span className="stack center grow">
-            <span className="t-amount-m">{dayMonth(monday)} – {dayMonth(addDays(monday, 6))}</span>
-            {rel && <span className="t-caption c-moderate">{rel}</span>}
-          </span>
-          <button type="button" className="icon-btn" aria-label={$t("Semaine suivante")} onClick={() => go(1)}><Icon name="next" /></button>
-        </div>
+    <Sheet title={$t("Liste de courses")} onClose={sh.hide} full head={(
+      <div className="period-nav">
+        <button type="button" className="icon-btn" aria-label={$t("Semaine précédente")} onClick={() => go(-1)}><Icon name="back" /></button>
+        <span className="stack center grow">
+          <span className="t-amount-m">{dayMonth(monday)} – {dayMonth(addDays(monday, 6))}</span>
+          <span className="t-caption c-moderate">{rel}</span>
+        </span>
+        <button type="button" className="icon-btn" aria-label={$t("Semaine suivante")} onClick={() => go(1)}><Icon name="next" /></button>
+      </div>
+    )}>
+      <div className="stack" style={{ gap: 'var(--space-12)', minHeight: '55vh', padding: 'var(--space-12) 0 var(--space-16)' }} {...swipe}>
         {lines.length === 0 ? (
           <Empty icon="cart" title={$t("Rien à acheter")} text={$t("Aucune séance à venir cette semaine-là n’a besoin d’aliments.")} />
         ) : (
@@ -43,8 +48,8 @@ export function ShoppingSheet({ monday: m0, sh }: { monday: string; sh: ReturnTy
                 const f = byId.get(l.foodId);
                 return (
                   <li key={l.foodId} className="between" style={{ gap: 'var(--space-12)', padding: 'var(--space-8) 0', borderTop: '1px solid var(--border)' }}>
-                    <span className="row" style={{ gap: 'var(--space-8)' }}><span className="nico"><Icon name={f ? foodIcon(f) : 'f-utensils'} size={18} /></span><span className="stack"><span className="t-strong">{l.name}</span>{f && l.units > 0 && <span className="t-caption c-moderate">{foodUnit(f)}</span>}</span></span>
-                    <span className="t-strong">{qty(l)}</span>
+                    <span className="row" style={{ gap: 'var(--space-8)' }}><span className="nico"><Icon name={f ? foodIcon(f) : 'f-utensils'} size={18} /></span><span className="stack"><span className="t-strong">{l.name}</span>{f && l.units > 0 && perUnit(foodUnit(f)).n === 1 && <span className="t-caption c-moderate">{foodUnit(f)}</span>}</span></span>
+                    <span className="t-strong">{qty(l, f ? foodUnit(f) : '')}</span>
                   </li>
                 );
               })}
