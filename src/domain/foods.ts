@@ -27,6 +27,8 @@ export interface BankFood {
   approx: boolean;
   /** Remarque d'usage affichée dans la banque. */
   note?: string;
+  /** Favori de l'athlète : choisi en premier dans sa catégorie. */
+  fav?: boolean;
 }
 
 type Def = Omit<BankFood, 'builtin' | 'approx'> & { approx?: boolean };
@@ -99,12 +101,24 @@ const fromRec = (f: Food): BankFood => ({ id: f.id, category: f.category, name: 
  * Banque telle que l'athlète la voit : produits par défaut (sauf ceux qu'il a masqués ou remplacés par sa version) puis ses propres produits.
  * Les produits de l'athlète passent en premier : ce sont eux que le calcul choisit d'abord dans une catégorie.
  */
-export function resolveBank(data: Pick<AppData, 'foods'>): BankFood[] {
+export function resolveBank(data: Pick<AppData, 'foods'> & Partial<Pick<AppData, 'nutri'>>): BankFood[] {
   const recs = liveRecords(data.foods);
   const gone = new Set(recs.filter((r) => r.base).map((r) => r.base as string));
+  const main = data.nutri?.main && !data.nutri.main.deleted ? data.nutri.main : undefined;
+  const banned = new Set((main?.diet ?? []).flatMap((k) => DIET_EXCLUDES[k] ?? []));
+  const favs = new Set(main?.favorites ?? []);
   const own = recs.filter((r) => !r.hidden).map(fromRec);
-  return [...own, ...DEFAULT_FOODS.filter((f) => !gone.has(f.id))];
+  return [...own, ...DEFAULT_FOODS.filter((f) => !gone.has(f.id) && !banned.has(f.id))].map((f) => (favs.has(f.id) ? { ...f, fav: true } : f));
 }
+
+/** Régimes : produits par défaut écartés (les produits de l'athlète ne sont jamais écartés). */
+export const DIET_EXCLUDES: Record<string, string[]> = {
+  lactose: ['d:chocmilk', 'd:skyr', 'd:whey'],
+  gluten: ['d:bread', 'd:pasta', 'd:oats', 'd:bar', 'd:pretzel'],
+  meat: ['d:ham'],
+  egg: ['d:egg'],
+};
+export const DIETS = (): [string, string][] => [['lactose', $t("Sans lactose")], ['gluten', $t("Sans gluten")], ['meat', $t("Sans viande")], ['egg', $t("Sans œuf")]];
 
 // ------------------------------------------------------------------ apports d'une portion
 export const carbsOf = (f: BankFood): number => (f.carbs100 * f.massG) / 100;
@@ -118,3 +132,11 @@ export const mlOf = (f: BankFood): number => (f.liquid ? f.massG : 0);
 export const foodName = (f: Pick<BankFood, 'name' | 'builtin'>): string => (f.builtin ? $t(f.name) : f.name);
 export const foodUnit = (f: Pick<BankFood, 'unit' | 'builtin'>): string => (f.builtin ? $t(f.unit) : f.unit);
 export const foodNote = (f: BankFood): string | null => (f.builtin && f.note ? $t(f.note) : null);
+
+/** Pictogramme d'un produit (nom d'icône de `ui/icons`). */
+export function foodIcon(f: Pick<BankFood, 'id' | 'category'>): string {
+  const byId: Record<string, string> = { 'd:banana': 'f-banana', 'd:date': 'f-cherry', 'd:raisin': 'f-grape', 'd:bread': 'f-sandwich', 'd:compote': 'f-apple', 'd:chocmilk': 'f-milk', 'd:skyr': 'f-milk', 'd:egg': 'f-egg', 'd:ham': 'f-beef', 'd:whey': 'f-cup-soda', 'd:pretzel': 'f-croissant', 'd:honey': 'f-droplet', 'd:syrup': 'f-droplet' };
+  if (byId[f.id]) return byId[f.id];
+  const byCat: Record<FoodCategory, string> = { drink: 'f-glass-water', gel: 'f-zap', paste: 'f-cherry', candy: 'f-candy', bar: 'f-bar', fruit: 'f-apple', sugar: 'f-candy', salty: 'f-croissant', salt: 'f-pill', before: 'f-wheat', after: 'f-milk' };
+  return byCat[f.category];
+}

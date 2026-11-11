@@ -224,9 +224,18 @@ function putNutri(id: string, patch: (cur: Nutri) => Nutri): void {
   commit((tx) => tx.put('nutri', patch(cur)));
 }
 /** Réglages d'alimentation (caféine proposée ou non). */
-export function setNutriMain(patch: { caffeine?: boolean }): void { putNutri('main', (c) => ({ ...c, ...patch })); }
+export function setNutriMain(patch: { caffeine?: boolean; diet?: string[]; favorites?: string[]; recovery?: 'full' | 'light'; detail?: 'simple' | 'full' }): void { putNutri('main', (c) => ({ ...c, ...patch })); }
 /** Choix propres à une séance prévue : journée chaude, intensité imposée (`null` = estimée). */
 export function setNutriSession(plannedId: string, patch: { hot?: boolean; intensity?: Nutri['intensity'] }): void { putNutri(plannedId, (c) => ({ ...c, ...patch })); }
+/** Aliments choisis par l'athlète pour un moment du plan (`null` = retour au calcul ; sans identifiant de moment : tout le plan). */
+export function setNutriEdit(plannedId: string, eventId: string | null, list: { foodId: string; qty: number }[] | null): void {
+  putNutri(plannedId, (c) => {
+    if (eventId === null) { const { edits: _e, ...rest } = c; void _e; return rest; }
+    const edits = { ...(c.edits ?? {}) };
+    if (list === null) delete edits[eventId]; else edits[eventId] = list;
+    return { ...c, edits };
+  });
+}
 /** Cloche de rappel d'un moment du plan (`null` = retirée). */
 export function setNutriBell(plannedId: string, key: string, bell: { startMin: number | null } | null): void {
   putNutri(plannedId, (c) => {

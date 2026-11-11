@@ -363,6 +363,16 @@ export interface Nutri extends Rec {
   intensity?: 'easy' | 'moderate' | 'quality' | null;
   /** Séance prévue : cloches de rappel (clé → heure de la séance en minutes depuis minuit, null = rappel du matin à l'heure par défaut). */
   bells?: Record<string, { startMin: number | null }>;
+  /** Séance prévue : aliments choisis par l'athlète à la place du calcul, par moment du plan (identifiant du moment → liste ; absent = calcul). */
+  edits?: Record<string, { foodId: string; qty: number }[]>;
+  /** Réglages (id « main ») : aliments à exclure (lactose, gluten, viande, oeuf). */
+  diet?: string[];
+  /** Réglages (id « main ») : produits favoris, choisis en premier dans leur catégorie. */
+  favorites?: string[];
+  /** Réglages (id « main ») : récupération rapide complète (4 h, guide) ou allégée (2 h). */
+  recovery?: 'full' | 'light';
+  /** Réglages (id « main ») : niveau de détail de la carte (synthèse seule ou avec les grammes et les conseils). */
+  detail?: 'simple' | 'full';
 }
 
 /** Collections synchronisées (une collection Firestore chacune). */
