@@ -208,45 +208,42 @@ export function SettingsScreen() {
           <Section id="p-reminders" title={$t("Rappels et notifications")}>
             <div className="card g12" style={{ borderRadius: 'var(--radius-12)' }}>
               <div className="between" style={{ gap: 'var(--space-12)' }}>
-                <span className="stack"><span className="t-strong" id="lbl-sessrem">{$t("Rappel de séance")}</span><span className="t-caption c-moderate">{$t("Le matin d’une séance prévue, et rappels de renouvellement du plan. Suspendus pendant une interruption.")}</span></span>
+                <span className="t-strong" id="lbl-sessrem">{$t("Rappel de séance")}</span>
                 <Switch checked={prefs.sessionReminder !== false} labelledBy="lbl-sessrem" onChange={(v) => setPrefs({ sessionReminder: v })} />
               </div>
               {prefs.sessionReminder !== false && (
                 <div className="field">
-                  <span className="lbl">{$t("Heure du rappel de séance")}</span>
+                  <span className="lbl">{$t("Heure")}</span>
                   <IntField label={$t("Heure du rappel de séance")} unit="h" value={prefs.reminderHour} onChange={(x) => setPrefs({ reminderHour: x ?? 7 })} min={0} max={23} />
                 </div>
               )}
               <div className="field">
                 <span className="t-strong">{$t("Rappels d’alimentation")}</span>
-                <span className="t-caption c-moderate">{$t("Avant la séance (repas, caféine) et après (récupération), d’après la carte « Alimentation ».")}</span>
                 <Segmented<'off' | 'all' | 'chosen'> label={$t("Rappels d’alimentation")} value={prefs.nutriMode ?? 'off'} options={[['off', $t("Silencieux")], ['all', $t("Toutes les séances")], ['chosen', $t("Celles que je choisis")]]} onChange={(v) => setPrefs({ nutriMode: v })} />
-                <span className="hint">{(prefs.nutriMode ?? 'off') === 'off' ? $t("Aucun rappel d’alimentation.") : (prefs.nutriMode === 'all' ? $t("Un rappel avant et un après pour chaque séance prévue.") : $t("Seulement les séances où tu as touché la cloche, dans la carte « Alimentation » de la séance."))}</span>
               </div>
               {(prefs.nutriMode ?? 'off') !== 'off' && (
                 <div className="field">
-                  <span className="lbl">{$t("Heure du rappel « avant » par défaut")}</span>
+                  <span className="lbl">{$t("Heure du rappel « avant »")}</span>
                   <IntField label={$t("Heure du rappel « avant » par défaut")} unit="h" value={prefs.nutriHour ?? 7} onChange={(x) => setPrefs({ nutriHour: x ?? 7 })} min={0} max={23} />
-                  <span className="hint">{$t("Le matin de la séance. Pour un rappel à l’heure exacte, touche la cloche de la séance et donne son heure.")}</span>
                 </div>
               )}
               <div className="between" style={{ gap: 'var(--space-12)' }}>
-                <span className="stack"><span className="t-strong" id="lbl-sleeprem">{$t("Rappel du sommeil")}</span><span className="t-caption c-moderate">{$t("Chaque matin, une notification t’invite à valider tes heures de coucher et de lever, ou à les corriger.")}</span></span>
+                <span className="t-strong" id="lbl-sleeprem">{$t("Rappel du sommeil")}</span>
                 <Switch checked={prefs.sleepReminder !== false} labelledBy="lbl-sleeprem" onChange={(v) => setPrefs({ sleepReminder: v })} />
               </div>
               {prefs.sleepReminder !== false && (
                 <div className="field">
-                  <span className="lbl">{$t("Heure du rappel du sommeil")}</span>
+                  <span className="lbl">{$t("Heure")}</span>
                   <IntField label={$t("Heure du rappel du sommeil")} unit="h" value={prefs.sleepReminderHour ?? 8} onChange={(x) => setPrefs({ sleepReminderHour: x ?? 8 })} min={5} max={12} />
                 </div>
               )}
               <div className="between" style={{ gap: 'var(--space-12)' }}>
-                <span className="stack"><span className="t-strong" id="lbl-weekrem">{$t("Rappel du point de la semaine")}</span><span className="t-caption c-moderate">{$t("Chaque dimanche, une notification t’invite à remplir le point de la semaine : relevé de ta montre (VO₂max, ressenti, prédictions) et corrections de pas, étages, calories et sommeil d’après Garmin Connect. L’application s’ouvre alors directement sur le formulaire.")}</span></span>
+                <span className="t-strong" id="lbl-weekrem">{$t("Rappel du point de la semaine")}</span>
                 <Switch checked={prefs.weeklyReminder !== false} labelledBy="lbl-weekrem" onChange={(v) => setPrefs({ weeklyReminder: v })} />
               </div>
               {prefs.weeklyReminder !== false && (
                 <div className="field">
-                  <span className="lbl">{$t("Heure du rappel du point de la semaine")}</span>
+                  <span className="lbl">{$t("Heure")}</span>
                   <IntField label={$t("Heure du rappel du point de la semaine")} unit="h" value={prefs.weeklyReminderHour ?? 18} onChange={(x) => setPrefs({ weeklyReminderHour: x ?? 18 })} min={0} max={23} />
                 </div>
               )}

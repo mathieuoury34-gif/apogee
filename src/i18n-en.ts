@@ -1951,4 +1951,6 @@ export const EN: Record<string, string> = {
   "Aucun favori : tous les produits sont utilisés. Dès qu’il y en a un, seuls tes favoris le sont.": "No favourites: every product is used. As soon as there is one, only your favourites are.",
   "Tous les produits": "All products",
   "Aucun favori dans cette catégorie.": "No favourite in this category.",
+  "Heure": "Time",
+  "Heure du rappel « avant »": "“Before” reminder time",
 };
