@@ -654,3 +654,6 @@ prévisionnel ; alerte blessure ; estimation de VMA ; poids et sommeil ; ingesti
 
 
 **Addendum 12/11/2026 (liste de courses vérifiable).** `ShopLine.parts: {plannedId, day, qty, ml, grams}[]` (une entrée par séance, avant arrondi) et `weekShopping(...).used: {plannedId, day}[]`. `Shopping.tsx` : en-tête dépliable des séances comptées, lignes dépliables (détail par séance). Invariant testé : `units = ceil(Σ parts.qty − 0,001)`.
+
+
+**Addendum 13/11/2026.** `nutrition.ts` : `chokeRisk(food)` (regex sur le nom, exclut ces produits des prises pendant) ; `BIKE_CARRY_ML = 1600` (boisson vélo : `carryPerH = floor(1600 / h / 50) × 50`, note si inférieur au minimum horaire) ; ordre des solides pendant : barre, gel, (vélo : banane, pâte, bonbon) ; vélo : `slotsPerH = 2`, première prise à 20 min, barres jusqu'à 3/h (`firstShare = 1`) ; `fillWithHoney(target, list, max, share, opts)` (pain : 1–4 portions, miel : 1–6, ratio miel/pain ≥ 1,2 visé à 2 ; miel seul si `pairT < carbs(pain) + 1,6 × carbs(miel)`) utilisé pour `b-meal`, `a-meal`, `a-fast` ; `a-meal` : protéines pré-calculées pour décompter leurs glucides. Suppression de `domain/forecast.ts` et de `ForecastCard` ; `FormDetail` (ex-`FormDetailCard`) rendu dans la carte « Forme de fond, fatigue et fraîcheur » vue Forme du jour.

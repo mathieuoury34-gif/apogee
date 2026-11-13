@@ -1955,4 +1955,5 @@ export const EN: Record<string, string> = {
   "Heure du rappel « avant »": "“Before” reminder time",
   "au total, à répartir sur {0} h": "in total, spread over {0} h",
   "au total : {0}": "in total: {0}",
+  "À vélo, tu ne portes que {0} ml : la boisson est limitée à ce que tu emportes, les barres complètent les glucides. Recharge tes bidons en route pour boire {1}–{2} ml par heure.": "On the bike you only carry {0} ml: the drink is limited to what you take along, and bars make up the carbs. Refill your bottles on the way to drink {1}–{2} ml per hour.",
 };

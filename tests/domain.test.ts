@@ -7,7 +7,6 @@ import { estimateDistance, estimateDuration, newBlock, validateSession } from '.
 import { addDays, today, localDay, mondayOf, weeksOfMonth } from '../src/domain/dates';
 import { derive, refsAtFn, refsOf } from '../src/domain/engine';
 import { bestSegment, bestSpeedOver, efficiency, personalRecords, suggestZones } from '../src/domain/records';
-import { forecastLoad } from '../src/domain/forecast';
 import { fitnessByDiscipline } from '../src/domain/loadByDiscipline';
 import { polarSplit, zoneIndex, zoneRanges, zoneTimes } from '../src/domain/zones';
 import { speedFromDistances } from '../src/domain/health';
@@ -508,22 +507,6 @@ test('forme de fond par discipline : la somme des disciplines redonne la forme d
   if (!slices.length) return;
   const last = slices[slices.length - 1];
   assert.ok(Math.abs(last.total - d.series.days[d.series.days.length - 1].fitness) < 1e-6);
-});
-
-test('prévisionnel : une séance prévue à venir fait monter la charge projetée ; sans plan, rien à projeter', () => {
-  const data = legacy();
-  const now = new Date('2026-10-01T12:00:00Z');
-  const d = derive(data, SETTINGS, now);
-  if (!d.series.days.length) return;
-  const base = forecastLoad(data, d.series, d.loads, d.links, d.refs, d.today, 14);
-  assert.equal(base.days[0].day, d.today);
-  assert.ok(base.days.every((x) => x.load >= 0));
-  const tpl = Object.values(data.planned).find((p) => p.discipline === 'RUN' || p.discipline === 'BIKE');
-  if (!tpl) return;
-  const fut = { ...data, planned: { ...data.planned, fx: { ...tpl, id: 'fx', plannedDate: addDays(d.today, 2), blocks: [{ ...tpl.blocks[0], kind: 'WORK' as const, measure: 'TIME' as const, measureValue: 3600, discipline: undefined }] } } } as AppData;
-  const withPlan = forecastLoad(fut, d.series, d.loads, d.links, d.refs, d.today, 14);
-  const day2 = withPlan.days.find((x) => x.day === addDays(d.today, 2))!;
-  assert.ok(day2.load >= base.days.find((x) => x.day === day2.day)!.load);
 });
 
 test('alerte blessure : blessure active + charge qui monte ; rien si la blessure est résolue', () => {
@@ -1419,7 +1402,7 @@ test('coach : le dossier donne le détail du compte rendu (zones de FC, résulta
 });
 
 // ------------------------------------------------------------------ alimentation
-import { piecesOf, qtyText, scaleIntake, buildNutrition, checkPlan, estimateIntensity, intakeText, leadText, nutritionForSession, phaseState, weekShopping, type NutriInput } from '../src/domain/nutrition';
+import { BIKE_CARRY_ML, chokeRisk, piecesOf, qtyText, scaleIntake, buildNutrition, checkPlan, estimateIntensity, intakeText, leadText, nutritionForSession, phaseState, weekShopping, type NutriInput } from '../src/domain/nutrition';
 import { DEFAULT_FOODS, carbsOf, resolveBank, sodiumOf } from '../src/domain/foods';
 
 const NB: NutriInput = { discipline: 'RUN', minutes: 60, level: 'moderate', hot: false, weightKg: 75, test: false, laterToday: false, nextDayQuality: false, daysToRace: null, caffeine: false };
@@ -1441,10 +1424,34 @@ test('alimentation : banque par défaut, valeurs par portion et produit ajouté'
   assert.ok(p.during.shopping.some((x) => x.foodId === 'f1'));
 });
 
+test('alimentation : pas de fruits secs pendant, barres avant gels, 1,6 L max à vélo, prises espacées, miel ≥ 1,5 × pain', () => {
+  const dried = { ...DEFAULT_FOODS.find((f) => f.id === 'd:raisin')!, id: 'dm', name: 'Mélange fruits secs', category: 'fruit' as const, fav: true, builtin: false };
+  assert.ok(chokeRisk(dried)); assert.ok(chokeRisk({ name: 'Noix de cajou' })); assert.ok(!chokeRisk({ name: 'Banane' }));
+  for (const [disc, min] of [['BIKE', 200], ['BIKE', 360], ['RUN', 100]] as const) {
+    const p = buildNutrition({ ...NB, discipline: disc, minutes: min, level: 'quality', daysToRace: 189 }, [...DEFAULT_FOODS, dried]);
+    const during = p.events.filter((e) => e.phase === 'during').flatMap((e) => e.items);
+    assert.ok(!during.some((x) => x.foodId === 'dm'), 'pas de fruits secs pendant');
+    assert.ok(!p.during.shopping.some((x) => x.foodId === 'dm'));
+  }
+  const bike = buildNutrition({ ...NB, discipline: 'BIKE', minutes: 360, level: 'moderate', daysToRace: 189 }, DEFAULT_FOODS);
+  assert.ok(bike.during.shopping.filter((x) => x.liquid).reduce((a, x) => a + x.ml, 0) <= BIKE_CARRY_ML + 1, 'boisson portée ≤ 1,6 L');
+  assert.ok(bike.during.shopping.some((x) => x.foodId === 'd:bar') && !bike.during.shopping.some((x) => x.foodId === 'd:gel'), 'barres, pas de gel');
+  const slots = bike.events.filter((e) => /^d-\d+$/.test(e.id)).map((e) => e.atMin);
+  for (let k = 1; k < slots.length; k++) assert.ok(slots[k] - slots[k - 1] >= 30, 'une prise toutes les 30 min au plus');
+  // miel : au moins 1,5 fois les glucides du pain de mie, dans chaque repas qui contient les deux
+  for (const [disc, min] of [['BIKE', 190], ['RUN', 100], ['STRENGTH', 60]] as const) {
+    const p = buildNutrition({ ...NB, discipline: disc, minutes: min, level: 'moderate' }, DEFAULT_FOODS);
+    for (const e of p.events) {
+      const b = e.items.find((x) => x.foodId === 'd:bread'), h = e.items.find((x) => x.foodId === 'd:honey');
+      if (b) assert.ok(h && h.carbsG >= 1.5 * b.carbsG, disc + ' ' + e.id + ' miel ≥ 1,5 × pain');
+    }
+  }
+});
+
 test('alimentation : plans de référence du guide', () => {
   // vélo 3 h : 60–65 g/h, boisson + barre, sodium couvert ; une prise chaque 20 min au plus
   const bike = buildNutrition({ ...NB, discipline: 'BIKE', minutes: 190, daysToRace: 189 }, DEFAULT_FOODS);
-  assert.ok(bike.during.carbsPerHActual >= 55 && bike.during.carbsPerHActual <= 66, String(bike.during.carbsPerHActual));
+  assert.ok(bike.during.carbsPerHActual >= 55 && bike.during.carbsPerHActual <= 70, String(bike.during.carbsPerHActual));
   assert.ok(bike.during.shopping.length >= 2);
   assert.ok(bike.events.filter((e) => e.phase === 'during' && e.id.startsWith('d-') && e.items.length === 0 && e.id !== 'd-drink').length === 0, 'pas de prise vide');
   // natation courte : rien pendant, collation 1 h avant

@@ -9,7 +9,7 @@ import { FitnessCard, RestingCard, SleepCard, WeightCard } from './Analysis';
 import { ActivityCard, CaloriesCard, CapacitiesTrendsCard } from './Wellness';
 import { EnduranceHillCard, ReadinessCard, ReserveCard } from './Capacity';
 import { AcuteLoadChart, FocusBars, RatioChart, STATUS_INFO, StatusStrip } from '../ui/loadkit';
-import { DEFAULT_SPAN, PeriodBar, SPANS, usePeriod } from '../ui/period';
+import { PeriodBar, usePeriod } from '../ui/period';
 import { acuteSeries, dailyStatus, loadFocus, statusOf, weeklyStatus } from '../domain/loadStatus';
 import { Icon } from '../ui/icons';
 import { navigate, useRoute } from '../ui/router';
@@ -20,7 +20,6 @@ import { FORM_LABEL, FORM_STEP_LABEL, FORM_WEIGHTS, formStep, type FormKey } fro
 import { latestZone, zoneHistory } from '../domain/load';
 import { requiredPaces, type RequiredPace } from '../domain/objective';
 import { weeklyVolume } from '../domain/stats';
-import { forecastLoad } from '../domain/forecast';
 import { suggestZones } from '../domain/records';
 import type { DayLoad } from '../domain/load';
 import type { ZoneKind, ZoneReading, ZoneSource } from '../domain/types';
@@ -104,6 +103,7 @@ export function LoadScreen() {
             <>
               <FormChart days={formDays} forms={d.formByDay} />
               <Info>{$t("Score sur 100, calculé chaque matin à partir de ta nuit, de ta FC de repos, de ta fraîcheur au réveil et du ressenti de la veille, comparés à tes 14 jours précédents.")}</Info>
+              <FormDetail />
             </>
           )}
         </InfoCard>
@@ -115,7 +115,6 @@ export function LoadScreen() {
           <FocusBars focus={focus} />
         </InfoCard>
 
-        <ForecastCard />
         <FitnessCard data={data} d={d} />
         </div>
 
@@ -129,30 +128,31 @@ export function LoadScreen() {
   );
 }
 
-export function FormDetailCard() {
+/** Détail de la forme du jour (score, composantes et leur poids), sous le graphe de la forme du jour. */
+function FormDetail() {
   const { d } = useCalc();
   const form = d.form ?? d.lastForm;
   return (
-        <section className="card g12" aria-label={$t("Forme du jour, détail")} data-anchor="forme-detail">
-          <div className="between"><h2>{$t("Forme du jour, détail")}</h2>{form && <span className="t-caption c-moderate">{form.day === d.today ? $t("ce matin") : dayTitle(form.day)}</span>}</div>
-          {form ? (
-            <>
-              <div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2">{num(form.score, 0)}</span><span className="t-strong" style={{ color: `var(--form-${formStep(form.score)})` }}>{FORM_STEP_LABEL[formStep(form.score)]}</span></div>
-              <ul className="stack" style={{ gap: 'var(--space-10)' }}>
-                {(Object.keys(FORM_WEIGHTS) as FormKey[]).map((k) => {
-                  const comp = form.components.find((x) => x.key === k);
-                  return (
-                    <li key={k} className="stack-4">
-                      <div className="between t-caption"><span className="t-caption-strong">{FORM_LABEL[k]} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("· poids")} {pct(comp ? comp.effectiveWeight : 0)}</span></span><span className="c-neutral">{comp ? componentText(k, comp.value, comp.center) : $t("pas de donnée")}</span></div>
-                      <div className="meter"><span style={{ width: comp ? `${comp.score}%` : 0, background: comp ? `var(--form-${formStep(comp.score)})` : undefined }} /></div>
-                    </li>
-                  );
-                })}
-              </ul>
-              {form.missing.length > 0 && <p className="t-legal c-moderate">{$t("Le poids des données manquantes est réparti sur les autres.")}</p>}
-            </>
-          ) : <p className="t-caption c-moderate">{$t("Il faut au moins 3 jours de sommeil, de FC de repos ou de fraîcheur pour calculer un score. Avec une montre lue par Health Connect, il apparaît en quelques jours.")}</p>}
-        </section>
+    <div className="stack-12" data-anchor="forme-detail">
+      <div className="divider" />
+      {form ? (
+        <>
+          <div className="between"><div className="row" style={{ gap: 'var(--space-12)', alignItems: 'baseline' }}><span className="t-h2">{num(form.score, 0)}</span><span className="t-strong" style={{ color: `var(--form-${formStep(form.score)})` }}>{FORM_STEP_LABEL[formStep(form.score)]}</span></div><span className="t-caption c-moderate">{form.day === d.today ? $t("ce matin") : dayTitle(form.day)}</span></div>
+          <ul className="stack" style={{ gap: 'var(--space-10)' }}>
+            {(Object.keys(FORM_WEIGHTS) as FormKey[]).map((k) => {
+              const comp = form.components.find((x) => x.key === k);
+              return (
+                <li key={k} className="stack-4">
+                  <div className="between t-caption"><span className="t-caption-strong">{FORM_LABEL[k]} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("· poids")} {pct(comp ? comp.effectiveWeight : 0)}</span></span><span className="c-neutral">{comp ? componentText(k, comp.value, comp.center) : $t("pas de donnée")}</span></div>
+                  <div className="meter"><span style={{ width: comp ? `${comp.score}%` : 0, background: comp ? `var(--form-${formStep(comp.score)})` : undefined }} /></div>
+                </li>
+              );
+            })}
+          </ul>
+          {form.missing.length > 0 && <p className="t-legal c-moderate">{$t("Le poids des données manquantes est réparti sur les autres.")}</p>}
+        </>
+      ) : <p className="t-caption c-moderate">{$t("Il faut au moins 3 jours de sommeil, de FC de repos ou de fraîcheur pour calculer un score. Avec une montre lue par Health Connect, il apparaît en quelques jours.")}</p>}
+    </div>
   );
 }
 
@@ -169,7 +169,6 @@ export function HealthScreen() {
           <ReadinessCard />
           <ReserveCard />
           <SleepCard data={data} d={d} />
-          <FormDetailCard />
           <ActivityCard />
           <CaloriesCard />
           <WeightCard data={data} d={d} />
@@ -435,43 +434,6 @@ function ZoneSheet({ kind, onClose }: { kind: ZoneKind; onClose: () => void }) {
         <label className="field"><span className="lbl">{$t("Note")} <span className="c-moderate" style={{ fontWeight: 400 }}>{$t("(facultatif)")}</span></span><input className="input" value={notes} placeholder={$t("Test demi-Cooper, piste…")} onChange={(e) => setNotes(e.target.value)} /></label>
       </div>
     </Sheet>
-  );
-}
-
-// ------------------------------------------------------------------ Prévisionnel de charge
-function ForecastCard() {
-  const { data, d } = useCalc();
-  const [h, setH] = useState<number>(DEFAULT_SPAN);
-  const f = forecastLoad(data, d.series, d.loads, d.links, d.refsAt, d.today, h === 0 ? 'plan' : h);
-  const hasPlan = f.lastPlanned !== null;
-  const past = d.series.days.slice(-15, -1);
-  const days: DayLoad[] = [...past, ...f.days.map((x) => ({ day: x.day, load: x.load, estimated: true, interruptionFill: false, fitness: x.fitness, fatigue: x.fatigue, freshness: x.freshness }))];
-  return (
-    <InfoCard className="card g12" aria-label={$t("Prévisionnel de charge")} data-anchor="prevision">
-      <div className="between">
-        <h2>{$t("Prévisionnel de charge")}<InfoToggle /></h2>
-      </div>
-      <div role="group" aria-label={$t("Horizon")} className="period-spans">
-        {SPANS.map(([n, l]) => <button key={n} type="button" className="chip" aria-pressed={h === n} onClick={() => setH(n)}>{n === 0 ? $t("Tout le plan") : l}</button>)}
-      </div>
-      {!hasPlan || d.series.days.length < 2 ? <p className="t-caption c-moderate">{$t("Aucune séance prévue à venir : importe un plan du coach ou ajoute des séances au calendrier pour voir la projection.")}</p> : (
-        <>
-          <Info>{$t("Ce que deviendraient ta forme de fond, ta fatigue et ta fraîcheur si tu réalisais tout le plan prévu. Les barres pâles à droite sont projetées ; celles de gauche sont réelles.")}</Info>
-          <LoadPanels days={days} today={d.today} />
-          <h3 className="t-strong">{$t("Semaine par semaine")}</h3>
-          <ul>
-            {f.weeks.map((w) => (
-              <li key={w.start} className="rec-row">
-                <span className="stack-4"><span className="t-label">{$t("Semaine du {0}", { 0: dayMonth(w.start) })}</span><span className="t-caption c-moderate">{w.plannedSessions} {$t("séance")}{w.plannedSessions > 1 ? 's' : ''} {$t("prévue")}{w.plannedSessions > 1 ? 's' : ''}{$t(" · charge ")}{num(w.load, 0)}</span></span>
-                <span className="stack-4" style={{ textAlign: 'right' }}><span className="t-strong">{$t("Forme")} {num(w.endFitness, 0)} · {signed(w.endFreshness, 0)}</span><span className={'t-caption' + (w.endAcwr !== null && w.endAcwr > 1.3 ? ' c-critical' : ' c-moderate')}>{$t("Aigu/chronique")} {w.endAcwr === null ? '—' : num(w.endAcwr, 2)}</span></span>
-              </li>
-            ))}
-          </ul>
-          {f.skipped > 0 && <div className="note"><Icon name="info" size={20} /><span>{$t("{0} séance(s) prévue(s) ne sont pas comptées : durée ou habitude inconnue (blocs sans durée, ou aucune séance récente de cette discipline).", { 0: f.skipped })}</span></div>}
-          <Info>{$t("Méthode : charge d’une séance prévue = durée estimée de ses blocs × ta charge par minute habituelle dans la discipline (médiane des 90 derniers jours). L’intensité prévue n’est pas modélisée : une séance de seuil et un footing de même durée valent pareil. Les valeurs sont celles du modèle (forme 42 jours, fatigue 7 jours) ; une projection sert à comparer des semaines, pas à prédire ta forme le jour J.")}</Info>
-        </>
-      )}
-    </InfoCard>
   );
 }
 

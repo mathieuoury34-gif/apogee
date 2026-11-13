@@ -139,6 +139,10 @@ const sum = (xs: Intake[], k: 'carbsG' | 'sodiumMg' | 'proteinG' | 'ml') => xs.r
 const maxQty = (f: BankFood) => { const c = carbsOf(f); return f.liquid ? 4 : c < 12 ? 6 : c < 20 ? 3 : 2; };
 /** Produits qui se mangent en moitiés (une barre en deux, une demi-banane) : les prises sont plus fréquentes et plus simples. */
 const splittable = (f: BankFood) => f.category === 'bar' || f.id === 'd:banana';
+/** Produits qu'on ne mange pas pendant l'effort (risque d'étouffement) : fruits secs en mélange, fruits à coque, graines. */
+export const chokeRisk = (f: Pick<BankFood, 'name'>) => /fruits?\s+secs?|m[eé]lange.*(sec|noix|fruit)|noix|amande|noisette|cacahu[eè]te|cajou|pistache|pignon|graines/i.test(f.name);
+/** Charge qu'un cycliste peut porter en boisson (bidons + poche). */
+export const BIKE_CARRY_ML = 1600;
 interface FillOpts { max?: (f: BankFood) => number; half?: boolean; tol?: number }
 
 /** Remplit `target` g de glucides avec les produits de `list` (dans l'ordre) : le premier pour environ 60 %, les suivants pour le reste. Quantités entières. */
@@ -159,6 +163,33 @@ function fill(target: number, list: BankFood[], maxItems = 3, firstShare = 0.6, 
     rem -= c * n;
   }
   return out;
+}
+/** Comme `fill`, mais quand le pain de mie et le miel sont tous deux disponibles, le miel apporte environ le double de glucides du pain (jamais moins). Le reste est complété avec les autres produits. */
+function fillWithHoney(target: number, list: BankFood[], maxItems = 3, firstShare = 0.6, o: FillOpts = {}): Intake[] {
+  const bread = list.find((f) => f.id === 'd:bread'), honey = list.find((f) => f.id === 'd:honey');
+  if (!bread || !honey || maxItems < 2) return fill(target, list, maxItems, firstShare, o);
+  const others = list.filter((f) => f !== bread && f !== honey);
+  const cb = carbsOf(bread), ch = carbsOf(honey);
+  const pairT = others.length && maxItems > 2 ? target * 0.85 : target;
+  // trop peu de glucides pour du pain avec le double de miel : du miel seul (jamais plus de pain que de miel)
+  if (pairT < cb + 1.6 * ch) {
+    const nH = Math.min(6, Math.round(pairT / ch));
+    if (nH < 1) return fill(target, others, maxItems, firstShare, o);
+    const honeyOnly = [intake(honey, nH)];
+    const r = target - sum(honeyOnly, 'carbsG');
+    return [...honeyOnly, ...(r >= 5 && maxItems > 1 ? fill(r, others, maxItems - 1, firstShare, o) : [])];
+  }
+  let best: { nB: number; nH: number; score: number } | null = null;
+  for (let nB = 1; nB <= 4; nB++) for (let nH = 1; nH <= 6; nH++) {
+    const ratio = (ch * nH) / (cb * nB);
+    if (ratio < 1.2) continue;
+    const score = Math.abs(cb * nB + ch * nH - pairT) / pairT + Math.abs(ratio - 2) / 2;
+    if (!best || score < best.score) best = { nB, nH, score };
+  }
+  if (!best) return fill(target, list, maxItems, firstShare, o);
+  const pair = [intake(bread, best.nB), intake(honey, best.nH)];
+  const rem = target - sum(pair, 'carbsG');
+  return [...pair, ...(rem >= 5 && maxItems > 2 ? fill(rem, others, maxItems - 2, firstShare, o) : [])];
 }
 /** Même chose pour les protéines : à chaque tour, le produit (1 ou 2 portions) qui se rapproche le plus de ce qui reste à couvrir. */
 function fillProtein(target: number, list: BankFood[]): Intake[] {
@@ -238,7 +269,7 @@ export function buildNutrition(i: NutriInput, bankAll: BankFood[], lookup: BankF
     const extras = [...own(inCat(bank, 'sugar')).filter((f) => f.id === 'd:honey' || !f.builtin), ...own(inCat(bank, 'fruit')).filter((f) => f.id === 'd:banana' || !f.builtin), ...inCat(bank, 'before').filter((f) => f.builtin && f.id === 'd:compote')];
     const small = D < 60;
     const bcap = (f: BankFood) => (f.builtin && f.id === 'd:honey' ? 1 : f.builtin && (f.id === 'd:banana' || f.id === 'd:compote') ? 2 : f.category === 'before' ? 4 : maxQty(f));
-    const items = small ? fill(target, [...own(inCat(bank, 'fruit')), ...own(inCat(bank, 'sugar')), ...starch], 2, 0.8, { max: bcap }) : fill(target, [...starch.slice(0, 1), ...extras, ...starch.slice(1)], 3, 0.6, { max: bcap, tol: 0.4 });
+    const items = small ? fill(target, [...own(inCat(bank, 'fruit')), ...own(inCat(bank, 'sugar')), ...starch], 2, 0.8, { max: bcap }) : fillWithHoney(target, [...starch.slice(0, 1), ...extras, ...starch.slice(1)], 3, 0.6, { max: bcap, tol: 0.4 });
     events.push({ id: 'b-meal', phase: 'before', atMin: -bAt[1], toMin: -bAt[0], title: $t("Repas ou collation"), items, bell: 'meal', carbsG: sum(items, 'carbsG'), proteinG: sum(items, 'proteinG') });
   }
   if (bFluid && D >= 60) events.push({ id: 'b-fluid', phase: 'before', atMin: -240, toMin: -120, title: $t("Boire"), items: [], text: $t("{0}–{1} ml d’eau", { 0: bFluid[0], 1: bFluid[1] }), carbsG: 0, proteinG: 0 });
@@ -272,7 +303,7 @@ export function buildNutrition(i: NutriInput, bankAll: BankFood[], lookup: BankF
   if (!strength && D >= 20) dFluid = swim ? [300, 500] : i.hot ? [600, 800] : [400, 800];
 
   const hours = D / 60;
-  let carbsPerHActual = 0, sodiumPerHActual = 0, fluidPerHPlanned = 0, intervalMin: number | null = null;
+  let carbsPerHActual = 0, sodiumPerHActual = 0, fluidPerHPlanned = 0, intervalMin: number | null = null, boostLimited = false;
   let shopping: Intake[] = [];
   let totalCarbs = 0;
   if (dCarbs && dCarbs[1] > 0 && !strength) {
@@ -282,24 +313,28 @@ export function buildNutrition(i: NutriInput, bankAll: BankFood[], lookup: BankF
     const defaultDrink = (id: string) => pick(drinks, id);
     const drink: BankFood | undefined = drinks.find((f) => !f.builtin || f.fav) ?? (swim ? defaultDrink('d:drink6') : wantMixed ? defaultDrink('d:drinkmix') : T > 45 ? defaultDrink('d:drink6') : defaultDrink('d:drink6')) ?? drinks[0];
     const fluidMid = dFluid ? lerp(dFluid[0], dFluid[1]) : 500;
+    // jamais de fruits secs ni de fruits à coque pendant l'effort (étouffement)
     const solids = (ids: string[], cats: string[]) => [
       ...own(inCat(bank, ...cats)).filter((f) => !f.builtin || f.fav),
       ...ids.map((id) => pick(bank, id)).filter((f): f is BankFood => !!f),
-    ].filter((f, k, a) => a.indexOf(f) === k);
+    ].filter((f, k, a) => a.indexOf(f) === k && !chokeRisk(f));
     let hour: Intake[] = [];
     if (swim) {
       if (drink) { const c = drink.carbs100 / 100; const v = Math.min(500, Math.max(200, Math.round(T / c / 50) * 50)); hour = [intake(drink, v / drink.massG)]; }
     } else if (bike) {
       let Vd = fluidMid;
+      // on ne porte que 1,6 L sur le vélo : la boisson est plafonnée, les glucides manquants viennent des barres
+      const carryPerH = Math.max(200, Math.floor(BIKE_CARRY_ML / hours / 50) * 50);
+      if (Vd > carryPerH) { Vd = carryPerH; boostLimited = !!dFluid && carryPerH < dFluid[0]; }
       if (drink) { const c = drink.carbs100 / 100; if (Vd * c > T) Vd = Math.round(T / c / 50) * 50; hour.push(intake(drink, Vd / drink.massG)); }
       const R = T - sum(hour, 'carbsG');
-      // à vélo, une barre est plus simple à manger qu'une banane : barre d'abord, puis fruit, pâte de fruits, gel
-      hour.push(...fill(R, solids(['d:bar', 'd:banana', 'd:paste', 'd:gel', 'd:candy'], ['bar', 'fruit', 'paste', 'gel', 'candy']), 3, 0.55, { half: true }));
+      // à vélo : barres d'abord (faciles à manger), gels seulement si le reste est vraiment à combler, puis fruit, pâte de fruits, bonbons
+      hour.push(...fill(R, solids(['d:bar', 'd:gel', 'd:banana', 'd:paste', 'd:candy'], ['bar', 'gel', 'fruit', 'paste', 'candy']), 3, 1, { half: true, max: (f) => (f.category === 'bar' ? 3 : maxQty(f)) }));
     } else { // course (et reste) : gels, pâtes de fruits, bonbons ; quelques gorgées de boisson si l'effort est de qualité et court
       const sips = quality && D < 75 && drink;
       if (sips) hour.push(intake(drink!, Math.min(250, fluidMid / 2) / drink!.massG));
       const R = T - sum(hour, 'carbsG');
-      hour.push(...fill(R, solids(['d:gel', 'd:paste', 'd:candy'], ['gel', 'paste', 'candy']), 3, 0.65));
+      hour.push(...fill(R, solids(['d:bar', 'd:gel', 'd:paste', 'd:candy'], ['bar', 'gel', 'paste', 'candy']), 3, 0.65));
     }
     // sodium : ce que les produits n'apportent pas est comblé par du sel dans la boisson ou un comprimé
     if (dSodium) {
@@ -323,10 +358,10 @@ export function buildNutrition(i: NutriInput, bankAll: BankFood[], lookup: BankF
     const solidsHour = hour.filter((x) => x.ml === 0 && !isSaltId(bank, x.foodId));
     const unitOf = (x: Intake) => { const f = pick(bank, x.foodId); return f && splittable(f) && bike ? 0.5 : 1; };
     const portions: Intake[] = solidsHour.flatMap((x) => { const u = unitOf(x); const n = Math.max(1, Math.round(x.qty / u)); return Array.from({ length: n }, () => ({ ...x, qty: u, amount: x.amount / x.qty * u, carbsG: x.carbsG / x.qty * u, sodiumMg: x.sodiumMg / x.qty * u, proteinG: x.proteinG / x.qty * u, ml: 0 })); });
-    const slotsPerH = bike ? 3 : Math.min(3, Math.max(2, portions.length));
+    const slotsPerH = bike ? 2 : Math.min(3, Math.max(2, portions.length));
     if (portions.length || bike) {
       intervalMin = Math.round(60 / slotsPerH);
-      const first = bike ? 15 : intervalMin <= 20 ? 20 : 30;
+      const first = bike ? 20 : intervalMin <= 20 ? 20 : 30;
       const slots: { at: number; items: Intake[] }[] = [];
       for (let t = first, k = 0; t <= D - 10; t += intervalMin, k++) {
         const items = portions.filter((_, idx) => idx % slotsPerH === k % slotsPerH);
@@ -359,6 +394,7 @@ export function buildNutrition(i: NutriInput, bankAll: BankFood[], lookup: BankF
   } else {
     events.push({ id: 'd-water', phase: 'during', atMin: 0, toMin: D, title: $t("Boire"), items: [], text: $t("Eau à volonté."), carbsG: 0, proteinG: 0 });
   }
+  if (boostLimited && dFluid) notes.push($t("À vélo, tu ne portes que {0} ml : la boisson est limitée à ce que tu emportes, les barres complètent les glucides. Recharge tes bidons en route pour boire {1}–{2} ml par heure.", { 0: BIKE_CARRY_ML, 1: dFluid[0], 2: dFluid[1] }));
   if (cappedBy) notes.push(cappedBy.charAt(0).toUpperCase() + cappedBy.slice(1) + '.');
   if (dFluid && D >= 90) notes.push($t("Au-delà de 700 ml/h, le risque d’hyponatrémie augmente sur les efforts très longs : le sodium ne protège pas d’un excès d’eau. Bois à ta soif sans te forcer : urine jaune pâle, ventre non ballonné."));
 
@@ -378,15 +414,18 @@ export function buildNutrition(i: NutriInput, bankAll: BankFood[], lookup: BankF
   if (fast && aCarbsPerH && aProt) {
     const target = lerp(aCarbsPerH[0], aCarbsPerH[1]);
     const choc = own(inCat(bank, 'after')).filter((f) => f.liquid && carbsOf(f) > 10);
-    const hourItems = fill(target, [...choc, ...carbsLike.filter((f) => !choc.includes(f))], 3, 0.35);
+    const hourItems = fillWithHoney(target, [...choc, ...carbsLike.filter((f) => !choc.includes(f))], 3, 0.35);
     const protItems = fillProtein(lerp(aProt[0], aProt[1]), protLike.filter((f) => carbsOf(f) < 15));
     events.push({ id: 'a-prot', phase: 'after', atMin: D, toMin: D + 120, title: $t("Protéines"), items: protItems, bell: 'after', carbsG: 0, proteinG: sum(protItems, 'proteinG') });
     events.push({ id: 'a-fast', phase: 'after', atMin: D, toMin: D + aHours * 60, title: $t("Toutes les heures"), items: hourItems, times: aHours, carbsG: sum(hourItems, 'carbsG') * aHours, proteinG: 0 });
     notes.push($t("Une autre séance dure ou intense suit dans la journée : reprise rapide, 1,0–1,2 g/kg/h de glucides pendant {0} h.", { 0: aHours }));
   } else if (aProt) {
-    const target = aCarbs ? aCarbs[0] : 0;
-    const carbItems = target ? fill(target, carbsLike, 3, 0.6) : [];
-    const protItems = fillProtein(Math.max(0, lerp(aProt[0], aProt[1]) - sum(carbItems, 'proteinG')), protLike);
+    // les produits protéinés (lait chocolaté…) apportent aussi des glucides : on les décompte avant de composer le reste
+    const protPre = fillProtein(lerp(aProt[0], aProt[1]), protLike);
+    const target = aCarbs ? Math.max(0, aCarbs[0] - sum(protPre, 'carbsG')) : 0;
+    const carbItems = target ? fillWithHoney(target, carbsLike, 3, 0.6) : [];
+    const protAdj = fillProtein(Math.max(0, lerp(aProt[0], aProt[1]) - sum(carbItems, 'proteinG')), protLike);
+    const protItems = sum(protAdj, 'carbsG') <= sum(protPre, 'carbsG') + 8 ? protAdj : protPre;
     const items = [...carbItems, ...protItems];
     events.push({ id: 'a-meal', phase: 'after', atMin: D, toMin: D + 120, title: strength ? $t("Protéines et repas") : $t("Repas de récupération"), items, bell: 'after', carbsG: sum(items, 'carbsG'), proteinG: sum(items, 'proteinG') });
   } else {
