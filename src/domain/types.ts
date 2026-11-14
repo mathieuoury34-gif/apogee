@@ -351,6 +351,8 @@ export interface Food extends Rec {
   caffeineMg: number | null;
   /** Glucose + fructose (ou autre mélange de sucres transportables) : utile au-delà de 60 g/h. */
   mixed: boolean;
+  /** Plus petite part qu'on peut manger, en fraction de portion (1, ½, ¼…) ; absente = déduite du produit. */
+  step?: number | null;
 }
 
 /** Réglages d'alimentation (id = « main ») et choix propres à une séance prévue (id = identifiant de la séance prévue). */

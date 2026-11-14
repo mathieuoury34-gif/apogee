@@ -1403,7 +1403,7 @@ test('coach : le dossier donne le détail du compte rendu (zones de FC, résulta
 
 // ------------------------------------------------------------------ alimentation
 import { BIKE_CARRY_ML, chokeRisk, piecesOf, qtyText, scaleIntake, buildNutrition, checkPlan, estimateIntensity, intakeText, leadText, nutritionForSession, phaseState, weekShopping, type NutriInput } from '../src/domain/nutrition';
-import { DEFAULT_FOODS, carbsOf, resolveBank, sodiumOf } from '../src/domain/foods';
+import { DEFAULT_FOODS, carbsOf, fracText, resolveBank, sodiumOf, stepOf } from '../src/domain/foods';
 
 const NB: NutriInput = { discipline: 'RUN', minutes: 60, level: 'moderate', hot: false, weightKg: 75, test: false, laterToday: false, nextDayQuality: false, daysToRace: null, caffeine: false };
 
@@ -1444,6 +1444,30 @@ test('alimentation : pas de fruits secs pendant, barres avant gels, 1,6 L max à
     for (const e of p.events) {
       const b = e.items.find((x) => x.foodId === 'd:bread'), h = e.items.find((x) => x.foodId === 'd:honey');
       if (b) assert.ok(h && h.carbsG >= 1.5 * b.carbsG, disc + ' ' + e.id + ' miel ≥ 1,5 × pain');
+    }
+  }
+});
+
+test('alimentation : chaque produit se prend par sa plus petite part (pas de demi-gel, ¾ de miel ou de fromage blanc)', () => {
+  const by = (id: string) => DEFAULT_FOODS.find((f) => f.id === id)!;
+  assert.equal(stepOf(by('d:gel')), 1); assert.equal(stepOf(by('d:banana')), 1); assert.equal(stepOf(by('d:bar')), 0.5);
+  assert.equal(stepOf(by('d:honey')), 0.25); assert.equal(stepOf(by('d:skyr')), 0.25); assert.equal(stepOf(by('d:bread')), 0.5);
+  assert.equal(stepOf(by('d:chocmilk')), 0.2); assert.equal(stepOf(by('d:salt')), 0.5); assert.equal(stepOf(by('d:saltab')), 1);
+  // un gel ajouté par l'athlète et déclaré « liquide » reste un sachet entier, jamais des ml
+  const gel = { ...by('d:gel'), id: 'g35', massG: 35, liquid: true, builtin: false };
+  assert.equal(stepOf(gel), 1);
+  assert.equal(stepOf({ ...gel, step: 0.5 }), 0.5);
+  assert.equal(fracText(0.75), '¾'); assert.equal(fracText(1.25), '1¼'); assert.equal(fracText(0.5), '½'); assert.equal(fracText(2), '2');
+  // toutes les quantités du calcul sont des multiples de la plus petite part
+  const bank = [...DEFAULT_FOODS.filter((f) => f.id !== 'd:gel'), gel];
+  for (const [disc, min, lv, later] of [['BIKE', 190, 'moderate', false], ['BIKE', 300, 'quality', true], ['RUN', 100, 'quality', false], ['RUN', 70, 'moderate', true], ['SWIM', 80, 'moderate', false], ['STRENGTH', 60, 'moderate', true]] as const) {
+    const p = buildNutrition({ ...NB, discipline: disc, minutes: min, level: lv, laterToday: later, daysToRace: 150 }, bank);
+    for (const e of p.events) for (const x of e.items) {
+      const f = bank.find((b) => b.id === x.foodId)!;
+      if (f.category === 'drink' || f.category === 'salt') continue;
+      const k = x.qty / stepOf(f);
+      assert.ok(Math.abs(k - Math.round(k)) < 0.01, `${disc} ${e.id} ${x.name} ${x.qty}`);
+      if (f.category === 'gel') assert.ok(!x.liquid && x.ml === 0 && Number.isInteger(x.qty), 'gel entier, jamais en ml');
     }
   }
 });
@@ -1588,4 +1612,68 @@ test('alimentation : pièces (tranches) comptées et totaux de la récupération
   assert.equal(scaleIntake(pain, 2).qty, pain.qty * 2);
   assert.equal(piecesOf({ unit: '1 barre', liquid: false, ml: 0 }), null);
   assert.equal(piecesOf({ unit: '250 ml', liquid: true, ml: 250 }), null);
+});
+
+// ------------------------------------------------------------------ enchaînements prévus (70.3…)
+import { planTimeline as planTl, brickLegs as legsOf } from '../src/domain/planTimeline';
+import { disciplineStats } from '../src/domain/stats';
+import { isDrinkEv, isSlotEv } from '../src/domain/nutrition';
+import { resolveBank as bankOf } from '../src/domain/foods';
+import { NO_REFS as NOREF } from '../src/domain/blocks';
+
+const bk = (o: Partial<ReturnType<typeof newBlock>>) => ({ ...newBlock((o.kind as never) ?? 'WORK'), ...o });
+const leg = (d: 'SWIM' | 'BIKE' | 'RUN', m: number, tt: 'PACE' | 'SPEED', v: number) => bk({ measure: 'DISTANCE', measureValue: m, discipline: d, targetType: tt, targetLow: v });
+const tr = (label: string, s: number) => bk({ kind: 'TRANSITION', measure: 'TIME', measureValue: s, label });
+const race703 = () => ({ id: 'p1', updatedAt: 'x', createdAt: 'x', discipline: 'BRICK', plannedDate: '2026-12-01', title: 'Nice 70.3', notes: null, origin: 'manual', idempotencyKey: null, coachExchangeId: null,
+  blocks: [leg('SWIM', 1900, 'PACE', 110), tr('T1', 180), leg('BIKE', 90000, 'SPEED', 8.5), tr('T2', 120), leg('RUN', 21097, 'PACE', 330)] }) as never as import('../src/domain/types').PlannedSession;
+
+test('enchaînement 70.3 : trois jambes à la suite, transitions comprises', () => {
+  const legs = legsOf(planTl(race703(), NOREF));
+  assert.deepEqual(legs.map((l) => l.disc), ['SWIM', 'BIKE', 'RUN']);
+  assert.ok(Math.abs(legs[0].minutes - 1900 / (100 / 110) / 60) < 0.1);
+  assert.ok(Math.abs(legs[1].startMin - (legs[0].minutes + 3)) < 0.1, 'T1 de 3 min entre la natation et le vélo');
+  assert.ok(Math.abs(legs[2].startMin - (legs[1].startMin + legs[1].minutes + 2)) < 0.1, 'T2 de 2 min');
+});
+
+test('enchaînement : nourriture jambe par jambe (rien en natation, plan vélo puis plan course), modifiable', () => {
+  const p = race703();
+  const data = emptyData(); data.planned.p1 = p as never;
+  const n = nutritionForSession(data, NOREF, p, bankOf(data), '2026-11-14');
+  const plan = n.plan!;
+  const during = plan.events.filter((e) => e.phase === 'during');
+  const legs = legsOf(planTl(p, NOREF));
+  assert.ok(during.length > 0 && during.every((e) => e.leg === 'BIKE' || e.leg === 'RUN'), 'aucune prise pendant la natation');
+  assert.ok(during.every((e) => e.atMin >= Math.round(legs[1].startMin) - 1), 'la première prise est après la natation et T1');
+  assert.ok(during.filter(isDrinkEv).length === 2, 'une boisson par jambe (vélo, course)');
+  assert.ok(during.filter(isSlotEv).every((e) => !e.leg || e.id.startsWith('L')), 'ids préfixés par la jambe');
+  assert.equal(plan.minutes, Math.round(planTl(p, NOREF).totalS / 60));
+  // le choix de l'athlète sur la prise de la jambe vélo recalcule les totaux
+  const slot = during.find((e) => isSlotEv(e) && e.leg === 'BIKE')!;
+  const bar = bankOf(data).find((f) => f.id === 'd:bar')!;
+  data.nutri.p1 = { id: 'p1', updatedAt: 'x', edits: { [slot.id]: [{ foodId: bar.id, qty: 2 }] } } as never;
+  const n2 = nutritionForSession(data, NOREF, p, bankOf(data), '2026-11-14').plan!;
+  assert.ok(n2.events.find((e) => e.id === slot.id)!.edited);
+  assert.notEqual(n2.during.totalCarbs, plan.during.totalCarbs);
+});
+
+test('enchaînement : export Garmin = un fichier numéroté par jambe, la transition est rappelée sur la dernière étape', () => {
+  const files = toFitWorkouts(race703(), NOREF);
+  assert.deepEqual(files.map((f) => f.name.split(' ')[0]), ['1/3', '2/3', '3/3']);
+  assert.deepEqual(files.map((f) => f.discipline), ['SWIM', 'BIKE', 'RUN']);
+  assert.match(files[0].steps[files[0].steps.length - 1].notes ?? '', /T1 3 min/);
+  assert.match(files[1].steps[files[1].steps.length - 1].notes ?? '', /T2 2 min/);
+  assert.ok(!(files[2].steps[files[2].steps.length - 1].notes ?? '').includes('→'));
+});
+
+test('statistiques : un enchaînement compte pour UNE séance « Enchaînement », ses jambes comptent dans leur sport', () => {
+  const d = emptyData();
+  const mk = (id: string, disc: string, h: number) => ({ id, updatedAt: 'x', sourceId: id, source: 'manual', discipline: disc, rawExerciseType: 'manual', startAt: `2026-11-10T${String(h).padStart(2, '0')}:00:00.000Z`, endAt: `2026-11-10T${String(h + 1).padStart(2, '0')}:00:00.000Z`, durationSec: 3600, distanceM: 20000, zoneOffsetMinutes: 0 }) as never;
+  d.actual.a1 = mk('a1', 'BIKE', 8); d.actual.a2 = mk('a2', 'RUN', 10); d.actual.a3 = mk('a3', 'RUN', 18);
+  d.bricks.b1 = { id: 'b1', updatedAt: 'x', firstId: 'a1', secondId: 'a2', day: '2026-11-10', status: 'confirmed' } as never;
+  const brick = disciplineStats(d, new Map(), 'BRICK', '2026-11-14');
+  assert.equal(brick.totals.sessions, 1, 'un enchaînement, pas deux séances');
+  assert.equal(brick.totals.seconds, 7200);
+  assert.equal(brick.longestSeconds, 7200);
+  assert.equal(brick.weeks.reduce((a, w) => a + w.sessions, 0), 1);
+  assert.equal(disciplineStats(d, new Map(), 'RUN', '2026-11-14').totals.sessions, 2, 'la course de l’enchaînement compte aussi en course');
 });

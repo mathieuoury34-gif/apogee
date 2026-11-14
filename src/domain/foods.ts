@@ -29,6 +29,8 @@ export interface BankFood {
   note?: string;
   /** Favori de l'athlète : choisi en premier dans sa catégorie. */
   fav?: boolean;
+  /** Plus petite part qu'on peut manger, en fraction de portion (1, ½, ¼…) ; absente = déduite du produit (`stepOf`). */
+  step?: number | null;
 }
 
 type Def = Omit<BankFood, 'builtin' | 'approx'> & { approx?: boolean };
@@ -95,7 +97,7 @@ export const CATEGORIES = (): CategoryInfo[] => [
   { id: 'after', label: $t("Après la séance"), hint: $t("Protéines et glucides de récupération") },
 ];
 
-const fromRec = (f: Food): BankFood => ({ id: f.id, category: f.category, name: f.name, unit: f.unit, massG: f.massG, liquid: f.liquid, kcal100: f.kcal100, carbs100: f.carbs100, protein100: f.protein100, salt100: f.salt100, caffeineMg: f.caffeineMg, mixed: f.mixed, builtin: false, approx: false });
+const fromRec = (f: Food): BankFood => ({ id: f.id, category: f.category, name: f.name, unit: f.unit, massG: f.massG, liquid: f.liquid, kcal100: f.kcal100, carbs100: f.carbs100, protein100: f.protein100, salt100: f.salt100, caffeineMg: f.caffeineMg, mixed: f.mixed, step: f.step ?? null, builtin: false, approx: false });
 
 /**
  * Banque telle que l'athlète la voit : produits par défaut (sauf ceux qu'il a masqués ou remplacés par sa version) puis ses propres produits.
@@ -129,7 +131,38 @@ export const proteinOf = (f: BankFood): number => ((f.protein100 ?? 0) * f.massG
 export const sodiumOf = (f: BankFood): number => (((f.salt100 ?? 0) * f.massG) / 100) * NA_PER_SALT_G;
 export const kcalOf = (f: BankFood): number | null => (f.kcal100 === null ? null : (f.kcal100 * f.massG) / 100);
 /** Volume de liquide d'une portion (ml), 0 pour un solide. */
-export const mlOf = (f: BankFood): number => (f.liquid ? f.massG : 0);
+export const mlOf = (f: Pick<BankFood, 'liquid' | 'category' | 'massG'>): number => (f.liquid && f.category !== 'gel' ? f.massG : 0);
+
+/**
+ * Plus petite part qu'on peut manger, en fraction de portion : une barre se coupe en deux, un gel ni une banane ne se coupent, une cuillère de miel
+ * ou un pot de fromage blanc se prennent au quart, une boisson se mesure par 50 ml, une tranche de pain est un demi-paquet de deux. Le choix de
+ * l'athlète (`step`) passe avant tout.
+ */
+export function stepOf(f: Pick<BankFood, 'id' | 'category' | 'liquid' | 'unit' | 'massG'> & { step?: number | null }): number {
+  if (f.step && f.step > 0 && f.step <= 1) return f.step;
+  if (f.liquid && f.category !== 'gel' && f.category !== 'sugar') return Math.min(1, Math.max(0.05, Math.round((50 / Math.max(f.massG, 1)) * 100) / 100));
+  switch (f.category) {
+    case 'gel': return 1;
+    case 'bar': return 0.5;
+    case 'paste': return 1;
+    case 'candy': return 0.5;
+    case 'salt': return f.massG === 1 ? 0.5 : 1;
+    case 'sugar': return f.massG <= 8 ? 1 : 0.25;
+    case 'fruit': return f.id === 'd:banana' || f.id === 'd:date' || /^1 \S+$/.test(f.unit.trim()) ? 1 : 0.5;
+    default: break;
+  }
+  const m = /^(\d+)\s+([^\d].*)$/.exec(f.unit.trim());
+  if (m && Number(m[1]) >= 2 && Number(m[1]) <= 6 && !/^(g|kg|mg|ml|l|cl)\b/i.test(m[2])) return 1 / Number(m[1]); // « 2 tranches » : une tranche
+  if (/\b\d+\s*(g|ml)\b/i.test(f.unit)) return f.massG >= 100 ? 0.25 : 0.5;
+  return f.category === 'after' || f.category === 'before' ? 0.5 : 1;
+}
+/** Fraction lisible : ¼, ½, ¾, 1¼, 2½… */
+export function fracText(q: number): string {
+  const r = Math.round(q * 4) / 4;
+  const w = Math.floor(r + 1e-9), f = r - w;
+  const sym = f > 0.6 ? '¾' : f > 0.4 ? '½' : f > 0.1 ? '¼' : '';
+  return (w ? String(w) : sym ? '' : '0') + sym;
+}
 
 /** Nom affiché : les produits livrés sont traduits, ceux de l'athlète s'affichent tels qu'il les a écrits. */
 export const foodName = (f: Pick<BankFood, 'name' | 'builtin'>): string => (f.builtin ? $t(f.name) : f.name);

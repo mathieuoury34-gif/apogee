@@ -8,7 +8,7 @@ import { useLocalSheet } from '../ui/menu';
 import { useData } from '../data/store';
 import { getData } from '../data/store';
 import { hideDefaultFood, removeFood, resetFoods, restore, saveFood, setNutriMain } from '../data/actions';
-import { CATEGORIES, DIETS, carbsOf, foodIcon, foodName, foodNote, foodUnit, kcalOf, resolveBank, type BankFood } from '../domain/foods';
+import { CATEGORIES, DIETS, carbsOf, fracText, stepOf, foodIcon, foodName, foodNote, foodUnit, kcalOf, resolveBank, type BankFood } from '../domain/foods';
 import { liveRecords } from '../domain/load';
 import type { FoodCategory } from '../domain/types';
 import { num, parseNum, toInput } from '../ui/format';
@@ -28,6 +28,7 @@ function FoodSheet({ cat: cat0, food, sh, fav: fav0 }: { cat: FoodCategory; food
   const [salt, setSalt] = useState(toInput(food?.salt100, 2).replace(/[.,]?0+$/, ''));
   const [caf, setCaf] = useState(toInput(food?.caffeineMg, 0));
   const [mixed, setMixed] = useState(food?.mixed ?? false);
+  const [stepSel, setStepSel] = useState<string>(food?.step ? String(food.step) : 'auto');
   const m = parseNum(mass), c = parseNum(carbs);
   const valid = name.trim().length > 0 && m > 0 && !isNaN(c) && c >= 0 && c <= 100 && (!opt(prot) || (opt(prot) as number) <= 100);
   const per = valid ? (c * m) / 100 : null;
@@ -35,7 +36,7 @@ function FoodSheet({ cat: cat0, food, sh, fav: fav0 }: { cat: FoodCategory; food
   const save = () => {
     const saved = saveFood({
       id: food && !food.builtin ? food.id : undefined, base: food?.builtin ? food.id : null, category: cat, name: name.trim(), unit: unit.trim() || $t("1 portion"),
-      massG: m, liquid, kcal100: opt(kcal), carbs100: c, protein100: opt(prot), salt100: opt(salt), caffeineMg: opt(caf), mixed,
+      massG: m, liquid, kcal100: opt(kcal), carbs100: c, protein100: opt(prot), salt100: opt(salt), caffeineMg: opt(caf), mixed, step: stepSel === 'auto' ? null : Number(stepSel),
     });
     const cur = getData().nutri.main?.favorites ?? [];
     const rest = cur.filter((x) => x !== saved.id && x !== food?.id);
@@ -80,6 +81,11 @@ function FoodSheet({ cat: cat0, food, sh, fav: fav0 }: { cat: FoodCategory; food
         <div className="between" style={{ gap: 'var(--space-12)' }}>
           <span className="stack"><span className="t-strong" id="lbl-mixed">{$t("Glucose + fructose")}</span><span className="t-caption c-moderate">{$t("Sucres mélangés : l’intestin en absorbe davantage (au-delà de 60 g/h).")}</span></span>
           <Switch checked={mixed} labelledBy="lbl-mixed" onChange={setMixed} />
+        </div>
+        <div className="field">
+          <span className="lbl">{$t("Plus petite part qu’on peut manger")}</span>
+          <Segmented<string> label={$t("Plus petite part qu’on peut manger")} value={stepSel} onChange={setStepSel}
+            options={[['auto', $t("Auto : {0}", { 0: fracText(stepOf({ id: food?.id ?? '', category: cat, liquid, unit: unit || '', massG: m > 0 ? m : 1, step: null })) })], ['1', $t("Entier")], ['0.5', '½'], ['0.25', '¼']]} />
         </div>
         {per !== null && <span className="t-caption c-moderate">{$t("Une portion : ≈ {0} g de glucides", { 0: num(per, 0, 1) })}{opt(kcal) !== null ? $t(" et ≈ {0} kcal", { 0: num(((opt(kcal) as number) * m) / 100, 0) }) : ''}.</span>}
         {food && (

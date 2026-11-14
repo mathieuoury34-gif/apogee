@@ -22,6 +22,9 @@ import { useActualMenu, useLocalSheet, usePlannedMenu } from '../ui/menu';
 import { WeekActionsSheet } from './Templates';
 import { NutritionCard } from './Nutrition';
 import { ShoppingSheet } from './Shopping';
+import { LegStrip, PlanTimelinePanel } from '../ui/planTimeline';
+import { resolveBank } from '../domain/foods';
+import { nutritionForSession } from '../domain/nutrition';
 
 const NAV = [{ to: '/calendrier', label: $t("Semaine") }, { to: '/calendrier/mois', label: $t("Mois") }];
 
@@ -192,6 +195,7 @@ function PlannedRow({ p, missed }: { p: PlannedSession; missed: boolean }) {
         <span className="stack" style={{ minWidth: 0 }}>
           <span className="t-strong ellipsis">{p.title ?? DISCIPLINE_LABEL[p.discipline]}</span>
           <span className="t-caption" style={{ color: missed ? 'var(--critical-text)' : 'var(--text-moderate)' }}>{missed ? $t("Non réalisée") : $t("Prévue")} · {DISCIPLINE_LABEL[p.discipline]}{p.origin === 'coach' ? $t(" · coach") : ''}</span>
+          {p.discipline === 'BRICK' && <LegStrip p={p} refs={d.refsAt(p.plannedDate)} />}
         </span>
         <span className={'t-amount-s nowrap' + (dur.certainty !== 'exact' ? ' est' : '')}>{dur.certainty === 'unknown' ? '—' : duration(dur.value)}</span>
       </button>
@@ -296,6 +300,8 @@ export function PlannedDetailScreen({ id }: { id: string }) {
   const dur = estimateDuration(p.blocks, p.discipline, d.refsAt(p.plannedDate));
   const dist = estimateDistance(p.blocks, p.discipline, d.refsAt(p.plannedDate));
   const done = (d.links.byPlanned.get(p.id) ?? []).map((x) => data.actual[x]).filter(Boolean);
+  const nPlan = p.blocks.length ? nutritionForSession(data, d.refsAt(p.plannedDate), p, resolveBank(data), d.today, (id) => d.links.byPlanned.has(id)).plan : null;
+  const foodById = new Map(resolveBank(data, true).map((f) => [f.id, f]));
   const remove = () => {
     const snap = deletePlanned(p.id);
     back('/calendrier');
@@ -321,6 +327,12 @@ export function PlannedDetailScreen({ id }: { id: string }) {
           {(dur.untimed > 0 || dur.approx > 0) && <p className="t-caption c-moderate">{dur.untimed > 0 ? $t("{0} bloc(s) sans durée connue, non compté(s). ", { 0: dur.untimed }) : ''}{dur.approx > 0 ? $t("Blocs sans cible estimés à ton allure d’endurance (70 % VMA, 90 % CSS).") : ''}</p>}
           {p.notes && <Info title={$t("Commentaire de la séance")}>{p.notes}</Info>}
         </section>
+        {p.blocks.length > 0 && (
+          <section className="card g8 dspan-12" aria-label={$t("Plan de séance")}>
+            <h2>{$t("Plan de séance")}</h2>
+            <PlanTimelinePanel p={p} refs={d.refsAt(p.plannedDate)} plan={nPlan} byId={foodById} />
+          </section>
+        )}
         <section className="card g4 dspan-12" aria-label={$t("Blocs")}>
           <h2>{$t("Blocs")}</h2>
           <BlockList p={p} />

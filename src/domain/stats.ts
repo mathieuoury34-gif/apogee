@@ -39,17 +39,29 @@ export function disciplineStats(data: AppData, loads: Map<string, SessionLoad>, 
   const firstMonday = addDays(weekStart, -7 * (WEEK_BARS - 1));
   const weeks: WeekBar[] = Array.from({ length: WEEK_BARS }, (_, i) => ({ start: addDays(firstMonday, 7 * i), seconds: 0, sessions: 0, metres: 0 }));
   let sessions: ActualSession[];
+  // enchaînement : les séances d'un même enchaînement forment UN groupe (un enchaînement = une séance « Enchaînement », pas deux)
+  const groupOf = new Map<string, number>();
+  let groupCount = 0;
   if (discipline === 'BRICK') {
-    const ids = new Set<string>();
-    for (const p of liveRecords(data.bricks)) if (p.status === 'confirmed') { ids.add(p.firstId); ids.add(p.secondId); }
+    const groups: string[][] = [];
+    for (const p of liveRecords(data.bricks)) if (p.status === 'confirmed') groups.push([p.firstId, p.secondId]);
     // séances rattachées à un enchaînement PRÉVU : c'est un BRICK sans avoir à le confirmer
-    if (links) for (const [pid, aids] of links.byPlanned) if (data.planned[pid]?.discipline === 'BRICK' && aids.length > 1) aids.forEach((a) => ids.add(a));
-    sessions = liveRecords(data.actual).filter((s) => ids.has(s.id));
+    if (links) for (const [pid, aids] of links.byPlanned) if (data.planned[pid]?.discipline === 'BRICK' && aids.length > 1) groups.push([...aids]);
+    // groupes qui partagent une séance : un seul enchaînement
+    const parent = new Map<string, string>();
+    const find = (x: string): string => { let r = x; while (parent.get(r) !== undefined && parent.get(r) !== r) r = parent.get(r) as string; return r; };
+    for (const g of groups) for (const id of g) { if (!parent.has(id)) parent.set(id, id); parent.set(find(id), find(g[0])); }
+    const live = new Set(liveRecords(data.actual).map((x) => x.id));
+    const roots = new Map<string, number>();
+    for (const id of parent.keys()) { if (!live.has(id)) continue; const r = find(id); if (!roots.has(r)) roots.set(r, roots.size); groupOf.set(id, roots.get(r) as number); }
+    groupCount = roots.size;
+    sessions = liveRecords(data.actual).filter((s) => groupOf.has(s.id));
   } else sessions = liveRecords(data.actual).filter((s) => s.discipline === discipline);
   sessions.sort((a, b) => (a.startAt < b.startAt ? 1 : -1));
-  const totals = { sessions: sessions.length, seconds: 0, metres: 0, elevation: 0, activeKcal: 0 };
+  const totals = { sessions: discipline === 'BRICK' ? groupCount : sessions.length, seconds: 0, metres: 0, elevation: 0, activeKcal: 0 };
   let pacedSec = 0, pacedM = 0, hrSec = 0, hrW = 0, weekLoad: number | null = null;
   let best: number | null = null, longM: number | null = null, longS: number | null = null;
+  const groupSec = new Map<number, number>(), groupSeen = new Set<number>();
   for (const s of sessions) {
     const day = sessionDay(s);
     totals.seconds += s.durationSec;
@@ -62,12 +74,15 @@ export function disciplineStats(data: AppData, loads: Map<string, SessionLoad>, 
       if (s.durationSec >= MIN_PACE_SEC && (best === null || pace < best)) best = pace;
       if (longM === null || s.distanceM > longM) longM = s.distanceM;
     }
-    if (longS === null || s.durationSec > longS) longS = s.durationSec;
+    const gid = groupOf.get(s.id);
+    const secs = gid === undefined ? s.durationSec : (groupSec.set(gid, (groupSec.get(gid) ?? 0) + s.durationSec), groupSec.get(gid) as number);
+    if (longS === null || secs > longS) longS = secs;
     if (s.avgHrBpm) { hrSec += s.durationSec; hrW += s.avgHrBpm * s.durationSec; }
     const l = loads.get(s.id);
     if (l?.load != null && day >= weekStart) weekLoad = (weekLoad ?? 0) + l.load;
     const bar = weeks.find((w) => w.start === mondayOf(day));
-    if (bar) { bar.seconds += s.durationSec; bar.sessions++; bar.metres += s.distanceM ?? 0; }
+    if (bar) { bar.seconds += s.durationSec; if (gid === undefined || !groupSeen.has(gid)) bar.sessions++; bar.metres += s.distanceM ?? 0; }
+    if (gid !== undefined) groupSeen.add(gid);
   }
   const units = perHundred(discipline) ? pacedM / 100 : pacedM / 1000;
   const refKind = REFERENCE_OF[discipline];
@@ -75,7 +90,7 @@ export function disciplineStats(data: AppData, loads: Map<string, SessionLoad>, 
     discipline, sessions, totals,
     avgPaceSec: discipline !== 'BRICK' && units > 0 ? pacedSec / units : null,
     bestPaceSec: best, avgHr: hrSec ? hrW / hrSec : null,
-    longestMetres: discipline === 'BRICK' ? null : longM, longestSeconds: discipline === 'BRICK' ? null : longS,
+    longestMetres: discipline === 'BRICK' ? null : longM, longestSeconds: longS,
     weekLoad, weeks,
     reference: refKind ? latestZone(data, refKind) : null,
     referenceHistory: refKind ? zoneHistory(data, refKind) : [],

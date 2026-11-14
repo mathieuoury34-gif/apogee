@@ -12,8 +12,8 @@ import { useLocalSheet } from '../ui/menu';
 import { useCalc, usePrefs } from '../data/store';
 import { setNutriBell, setNutriEdit, setNutriSession } from '../data/actions';
 import { today } from '../domain/dates';
-import { CATEGORIES, carbsOf, foodIcon, resolveBank, type BankFood } from '../domain/foods';
-import { checkPlan, intakeText, leadText, nutritionForSession, phaseState, qtyText, scaleIntake, type Check, type Intake, type Level, type NutriEvent, type NutriPlan } from '../domain/nutrition';
+import { CATEGORIES, carbsOf, foodIcon, fracText, resolveBank, stepOf as foodStep, type BankFood } from '../domain/foods';
+import { checkPlan, isDrinkEv, isSlotEv, intakeText, leadText, nutritionForSession, phaseState, qtyText, scaleIntake, type Check, type Intake, type Level, type NutriEvent, type NutriPlan } from '../domain/nutrition';
 import { DISCIPLINE_LABEL, duration } from '../ui/format';
 import type { PlannedSession } from '../domain/types';
 
@@ -28,13 +28,13 @@ const PHASE: Record<NutriEvent['phase'], { label: () => string; fg: string; bg: 
 /** Quand, en mots courts : « 3 h avant », « 15 min », « dès la fin ». */
 export function whenText(e: NutriEvent, D: number): string {
   if (e.phase === 'before') return e.toMin !== undefined && e.toMin !== e.atMin ? $t("{0} à {1} avant", { 0: leadText(e.atMin), 1: leadText(e.toMin) }) : $t("{0} avant", { 0: leadText(e.atMin) });
-  if (e.phase === 'during') return e.toMin !== undefined ? $t("tout du long") : leadText(e.atMin);
+  if (e.phase === 'during') return e.toMin !== undefined ? (e.leg ? DISCIPLINE_LABEL[e.leg] + ' · ' + $t("de {0} à {1}", { 0: leadText(e.atMin), 1: leadText(e.toMin) }) : $t("tout du long")) : leadText(e.atMin);
   const rel = e.atMin - D;
   if (rel <= 0) return e.toMin !== undefined ? $t("dès la fin, sous {0}", { 0: leadText(e.toMin - e.atMin) }) : $t("dès la fin");
   return $t("{0} après la fin", { 0: leadText(rel) });
 }
-const fmtQ = (q: number) => { const r = Math.round(q * 2) / 2; if (Math.abs(r - q) > 0.05) return String(Math.round(q * 10) / 10).replace('.', ','); return r === Math.floor(r) ? String(r) : (Math.floor(r) ? String(Math.floor(r)) : '') + '½'; };
-const textIcon = (e: NutriEvent) => (e.id === 'b-caf' ? 'f-coffee' : e.id.endsWith('fluid') || e.id === 'd-water' ? 'f-droplet' : 'f-utensils');
+const fmtQ = (q: number) => fracText(q);
+const textIcon = (e: NutriEvent) => (e.id === 'b-caf' ? 'f-coffee' : e.id.endsWith('fluid') || isDrinkEv(e) ? 'f-droplet' : 'f-utensils');
 
 // ------------------------------------------------------------------ frise
 function FoodChip({ x, byId }: { x: Intake; byId: Map<string, BankFood> }) {
@@ -58,7 +58,7 @@ function StateBadge({ st }: { st: Check['state'] | null }) {
 
 function Node({ e, D, byId, bell, onBell, full, totals }: { e: NutriEvent; D: number; byId: Map<string, BankFood>; bell: boolean; onBell?: () => void; full: boolean; totals?: Intake[] }) {
   if (!e.items.length && !e.text && !e.edited) return null;
-  if (!e.items.length && /^d-\d+$/.test(e.id)) return null;
+  if (!e.items.length && isSlotEv(e)) return null;
   return (
     <li className="nnode">
       <span className="ntime">{whenText(e, D)}</span>
@@ -68,7 +68,7 @@ function Node({ e, D, byId, bell, onBell, full, totals }: { e: NutriEvent; D: nu
           {!e.items.length && e.text && <span className="nchip"><span className="nico"><Icon name={textIcon(e)} size={18} /></span><span className="nt">{e.text}</span></span>}
         </div>
         {e.times && <span className="t-caption c-moderate">{$t("au total, à répartir sur {0} h", { 0: e.times })}</span>}
-        {(e.id === 'd-drink' || e.id === 'd-water') && e.items.length > 0 && <span className="t-caption c-moderate">{$t("par heure")}{totals && totals.length > 0 ? ' · ' + $t("au total : {0}", { 0: totals.map((t) => qtyText(t) + ' ' + t.name).join(' + ') }) : ''}</span>}
+        {isDrinkEv(e) && e.items.length > 0 && <span className="t-caption c-moderate">{$t("par heure")}{totals && totals.length > 0 ? ' · ' + $t("au total : {0}", { 0: totals.map((t) => qtyText(t) + ' ' + t.name).join(' + ') }) : ''}</span>}
         {full && (e.carbsG >= 1 || e.proteinG >= 1) && <span className="t-caption c-neutral">{[e.carbsG >= 1 ? $t("≈ {0} g de glucides", { 0: Math.round(e.carbsG) }) : '', e.proteinG >= 1 ? $t("≈ {0} g de protéines", { 0: Math.round(e.proteinG) }) : ''].filter(Boolean).join(' · ')}</span>}
       </div>
       {onBell ? <button type="button" className="icon-btn" aria-pressed={bell} aria-label={bell ? $t("Rappel programmé : modifier") : $t("Me notifier")} onClick={onBell} style={bell ? { color: 'var(--warning)' } : undefined}><Icon name="bell" size={22} /></button> : <span />}
@@ -102,8 +102,8 @@ function CheckLine({ c }: { c: Check }) {
 }
 
 // ------------------------------------------------------------------ éditeur des aliments
-const EDITABLE = (e: NutriEvent) => e.id === 'b-meal' || e.id === 'd-drink' || e.id === 'd-water' || /^d-\d+$/.test(e.id) || e.id === 'a-prot' || e.id === 'a-meal' || e.id === 'a-fast';
-const stepOf = (f?: BankFood) => (f && (f.liquid || f.category === 'bar' || f.id === 'd:banana' || f.category === 'salt') ? 0.5 : 1);
+const EDITABLE = (e: NutriEvent) => e.id === 'b-meal' || isDrinkEv(e) || isSlotEv(e) || e.id === 'a-prot' || e.id === 'a-meal' || e.id === 'a-fast';
+const stepOf = (f?: BankFood) => (f ? foodStep(f) : 1);
 
 function EditorSheet({ p, sh }: { p: PlannedSession; sh: ReturnType<typeof useLocalSheet> }) {
   const { data, d } = useCalc();
@@ -117,10 +117,10 @@ function EditorSheet({ p, sh }: { p: PlannedSession; sh: ReturnType<typeof useLo
   const checks = checkPlan(plan);
   const hasEdits = Object.keys((data.nutri[p.id] && !data.nutri[p.id].deleted ? data.nutri[p.id].edits : undefined) ?? {}).length > 0;
   const cur = (e: NutriEvent) => e.items.map((x) => ({ foodId: x.foodId, qty: Math.round(x.qty * 100) / 100 }));
-  const step = (e: NutriEvent, i: number, dir: 1 | -1) => { const l = cur(e); const q = l[i].qty + dir * stepOf(byId.get(l[i].foodId)); if (q < 0.1) l.splice(i, 1); else l[i].qty = q; setNutriEdit(p.id, e.id, l); };
+  const step = (e: NutriEvent, i: number, dir: 1 | -1) => { const l = cur(e); const q = Math.round((l[i].qty + dir * stepOf(byId.get(l[i].foodId))) * 1000) / 1000; if (q < 0.04) l.splice(i, 1); else l[i].qty = q; setNutriEdit(p.id, e.id, l); };
   const drop = (e: NutriEvent, i: number) => { const l = cur(e); l.splice(i, 1); setNutriEdit(p.id, e.id, l); };
-  const add = (e: NutriEvent, f: BankFood) => { const l = cur(e); const ex = l.find((x) => x.foodId === f.id); if (ex) ex.qty += stepOf(f); else l.push({ foodId: f.id, qty: stepOf(f) }); setNutriEdit(p.id, e.id, l); setAdding(null); };
-  const opening = (e: NutriEvent) => { setAdding(adding === e.id ? null : e.id); setCat(e.phase === 'before' ? 'before' : e.phase === 'after' ? 'after' : e.id === 'd-drink' || e.id === 'd-water' ? 'drink' : 'bar'); };
+  const add = (e: NutriEvent, f: BankFood) => { const l = cur(e); const ex = l.find((x) => x.foodId === f.id); if (ex) ex.qty = Math.round((ex.qty + stepOf(f)) * 1000) / 1000; else l.push({ foodId: f.id, qty: stepOf(f) }); setNutriEdit(p.id, e.id, l); setAdding(null); };
+  const opening = (e: NutriEvent) => { setAdding(adding === e.id ? null : e.id); setCat(e.phase === 'before' ? 'before' : e.phase === 'after' ? 'after' : isDrinkEv(e) ? 'drink' : 'bar'); };
   const events = plan.events.filter(EDITABLE);
   return (
     <Sheet title={$t("Adapter l’alimentation")} onClose={sh.hide} full head={<span className="t-caption c-moderate">{DISCIPLINE_LABEL[p.discipline]} · {duration(plan.minutes * 60)}</span>}
@@ -136,7 +136,7 @@ function EditorSheet({ p, sh }: { p: PlannedSession; sh: ReturnType<typeof useLo
         </div>
         {events.map((e) => (
           <div key={e.id} className="stack" style={{ gap: 'var(--space-8)', paddingLeft: 'var(--space-12)', borderLeft: `4px solid ${PHASE[e.phase].fg}` }}>
-            <span className="t-caption c-moderate">{PHASE[e.phase].label()} · {whenText(e, plan.minutes)}{e.id === 'd-drink' || e.id === 'd-water' ? ' · ' + $t("par heure") : ''}{e.times ? ' · ' + $t("{0} fois", { 0: e.times }) : ''}</span>
+            <span className="t-caption c-moderate">{PHASE[e.phase].label()} · {whenText(e, plan.minutes)}{isDrinkEv(e) ? ' · ' + $t("par heure") : ''}{e.times ? ' · ' + $t("{0} fois", { 0: e.times }) : ''}</span>
             {e.items.map((x, i) => {
               const f = byId.get(x.foodId);
               return (
@@ -144,7 +144,7 @@ function EditorSheet({ p, sh }: { p: PlannedSession; sh: ReturnType<typeof useLo
                   <span className="nico"><Icon name={f ? foodIcon(f) : 'f-utensils'} size={18} /></span>
                   <span className="stack grow" style={{ gap: 0 }}><span className="t-strong">{x.name}</span><span className="t-caption c-neutral">{x.unit}{x.ml > 0 ? '' : ''}</span></span>
                   <button type="button" className="icon-btn" aria-label={$t("Moins")} onClick={() => step(e, i, -1)}><Icon name="minus" size={20} /></button>
-                  <span className="t-strong" style={{ minWidth: 28, textAlign: 'center' }}>{fmtQ(x.qty)}</span>
+                  <span className="t-strong" style={{ minWidth: 52, textAlign: 'center' }}>{x.ml > 0 ? Math.round(x.ml / 10) * 10 + ' ml' : fmtQ(x.qty)}</span>
                   <button type="button" className="icon-btn" aria-label={$t("Plus")} onClick={() => step(e, i, 1)}><Icon name="plus" size={20} /></button>
                   <button type="button" className="icon-btn neutral" aria-label={$t("Retirer")} onClick={() => drop(e, i)}><Icon name="trash" size={20} /></button>
                 </div>

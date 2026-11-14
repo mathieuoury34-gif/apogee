@@ -17,6 +17,10 @@ import { DurationField, IntField, MeasureField, TargetField, defaultDisp, fromDi
 import { blockDetail, blockHead, dayTitle, DISCIPLINE_LABEL, distanceFor, duration, KIND_LABEL, MEASURE_LABEL, mmss, parseMmss, parseNum, REL_LABEL, SETMODE_LABEL, TARGET_LABEL, toInput, DISCIPLINE_SHORT } from '../ui/format';
 
 const B = (o: Partial<Block>): Block => ({ ...newBlock(o.kind ?? 'WORK'), ...o });
+/** Jambe d'un enchaînement : une distance à une allure (min/km ou min/100 m en secondes) ou à une vitesse (m/s) — à ajuster. */
+const LEG = (d: 'SWIM' | 'BIKE' | 'RUN', m: number, tt: 'PACE' | 'SPEED', v: number): Block => B({ measure: 'DISTANCE', measureValue: m, discipline: d, targetType: tt, targetLow: v });
+/** Transition chronométrée (T1 : natation → vélo, T2 : vélo → course). */
+const TRANS = (label: string, s: number): Block => B({ kind: 'TRANSITION', measure: 'TIME', measureValue: s, label });
 const TEMPLATES: Record<PlannedDiscipline, { label: string; blocks: () => Block[] }[]> = {
   RUN: [
     { label: $t("Footing 45 min"), blocks: () => [B({ kind: 'WARMUP', measureValue: 600 }), B({ measureValue: 1800, targetType: 'ZONE', targetLow: 2 }), B({ kind: 'COOLDOWN', measureValue: 300 })] },
@@ -35,6 +39,11 @@ const TEMPLATES: Record<PlannedDiscipline, { label: string; blocks: () => Block[
     { label: $t("Circuit 45 min"), blocks: () => [B({ kind: 'WARMUP', measureValue: 600 }), B({ kind: 'SET', setCount: 4, children: [B({ measure: 'REPS', measureValue: 10, label: $t("Squat") }), B({ measure: 'REPS', measureValue: 10, label: $t("Pompes") }), B({ kind: 'REST', measureValue: 90 })] })] },
   ],
   BRICK: [
+    { label: $t("70.3 (1,9 km · 90 km · 21,1 km)"), blocks: () => [LEG('SWIM', 1900, 'PACE', 110), TRANS('T1', 180), LEG('BIKE', 90000, 'SPEED', 8.5), TRANS('T2', 120), LEG('RUN', 21097, 'PACE', 330)] },
+    { label: $t("Ironman (3,8 km · 180 km · 42,2 km)"), blocks: () => [LEG('SWIM', 3800, 'PACE', 115), TRANS('T1', 300), LEG('BIKE', 180000, 'SPEED', 8), TRANS('T2', 240), LEG('RUN', 42195, 'PACE', 360)] },
+    { label: $t("Triathlon olympique (1,5 · 40 · 10 km)"), blocks: () => [LEG('SWIM', 1500, 'PACE', 112), TRANS('T1', 150), LEG('BIKE', 40000, 'SPEED', 8.3), TRANS('T2', 90), LEG('RUN', 10000, 'PACE', 315)] },
+    { label: $t("Triathlon sprint (750 m · 20 km · 5 km)"), blocks: () => [LEG('SWIM', 750, 'PACE', 115), TRANS('T1', 120), LEG('BIKE', 20000, 'SPEED', 8), TRANS('T2', 90), LEG('RUN', 5000, 'PACE', 300)] },
+    { label: $t("Duathlon (5 km · 20 km · 2,5 km)"), blocks: () => [LEG('RUN', 5000, 'PACE', 300), TRANS('T1', 120), LEG('BIKE', 20000, 'SPEED', 8.3), TRANS('T2', 90), LEG('RUN', 2500, 'PACE', 300)] },
     { label: $t("Vélo 1 h + course 20 min"), blocks: () => [B({ measureValue: 3600, discipline: 'BIKE', targetType: 'ZONE', targetLow: 2 }), B({ kind: 'TRANSITION', measure: 'OPEN', measureValue: null }), B({ measureValue: 1200, discipline: 'RUN', targetType: 'ZONE', targetLow: 3 })] },
   ],
 };

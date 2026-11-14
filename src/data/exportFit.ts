@@ -11,5 +11,7 @@ export async function exportWorkoutFit(p: PlannedSession, refs: RefValues): Prom
     const bytes = encodeFit(w);
     await native.saveFile(fitFileName(w.name, p.plannedDate), new Blob([bytes as BlobPart], { type: 'application/octet-stream' }));
   }
-  return { files: list.length, warnings: list.flatMap((w) => w.warnings) };
+  const warnings = list.flatMap((w) => w.warnings);
+  if (list.length > 1) warnings.push(`Enchaînement : ${list.length} fichiers numérotés dans l’ordre (un par discipline) ; la montre ne lit qu’un sport par entraînement, lance-les l’un après l’autre.`);
+  return { files: list.length, warnings };
 }

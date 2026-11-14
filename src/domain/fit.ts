@@ -126,11 +126,15 @@ function pushBlocks(blocks: Block[], d: PlannedDiscipline | null, refs: RefValue
 /** Séance prévue → un ou plusieurs entraînements (un BRICK donne un fichier par discipline : une montre ne lit qu'un sport par entraînement). */
 export function toFitWorkouts(p: PlannedSession, refs: RefValues): FitWorkout[] {
   const title = p.title || { RUN: 'Course', BIKE: 'Vélo', SWIM: 'Natation', STRENGTH: 'Renforcement', BRICK: 'Enchaînement' }[p.discipline];
-  const groups: { d: 'RUN' | 'BIKE' | 'SWIM' | 'STRENGTH'; blocks: Block[] }[] = [];
+  const groups: { d: 'RUN' | 'BIKE' | 'SWIM' | 'STRENGTH'; blocks: Block[]; after?: string }[] = [];
   if (p.discipline === 'BRICK') {
     let cur: 'RUN' | 'BIKE' | 'SWIM' | 'STRENGTH' | null = null;
     for (const b of p.blocks) {
-      if (b.kind === 'TRANSITION') { cur = null; continue; }
+      if (b.kind === 'TRANSITION') {
+        // la transition qui suit une jambe est rappelée sur sa dernière étape (commentaire de la montre)
+        if (groups.length && !groups[groups.length - 1].after) groups[groups.length - 1].after = (b.label || 'Transition') + (b.measure === 'TIME' && b.measureValue ? ' ' + (b.measureValue >= 90 ? Math.round(b.measureValue / 60) + ' min' : b.measureValue + ' s') : '');
+        cur = null; continue;
+      }
       const bd = (b.discipline && b.discipline !== 'BRICK' ? b.discipline : null) as 'RUN' | 'BIKE' | 'SWIM' | 'STRENGTH' | null;
       const dd: 'RUN' | 'BIKE' | 'SWIM' | 'STRENGTH' | null = bd ?? cur;
       if (!dd) continue;
@@ -140,12 +144,15 @@ export function toFitWorkouts(p: PlannedSession, refs: RefValues): FitWorkout[] 
     }
   } else groups.push({ d: p.discipline, blocks: p.blocks });
   const SUFFIX = { RUN: 'course', BIKE: 'vélo', SWIM: 'natation', STRENGTH: 'renfo' };
-  return groups.map((g) => {
+  return groups.map((g, k) => {
     const warnings: string[] = [];
     const steps: FitStep[] = [];
     pushBlocks(g.blocks, g.d, refs, steps, warnings);
+    if (g.after) { for (let j = steps.length - 1; j >= 0; j--) if (steps[j].durationType !== DUR.repeat) { steps[j].notes = ((steps[j].notes ? steps[j].notes + ' · ' : '') + '→ ' + g.after).slice(0, 49); break; } }
     if (steps.length > FIT_MAX_STEPS) warnings.push(`${steps.length} étapes : les montres Garmin en acceptent environ ${FIT_MAX_STEPS}`);
-    return { name: groups.length > 1 ? `${title} — ${SUFFIX[g.d]}` : title, discipline: g.d, steps, warnings };
+    // enchaînement : fichiers numérotés dans l'ordre de la course (« 1/3 natation … »), pour les lancer l'un après l'autre
+    const name = groups.length > 1 ? `${k + 1}/${groups.length} ${SUFFIX[g.d]} ${title}` : title;
+    return { name, discipline: g.d, steps, warnings };
   });
 }
 

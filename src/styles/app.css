@@ -801,3 +801,36 @@ input, textarea, select, [contenteditable="true"], pre, code, .help-f, .help-cod
 .nico { flex: none; width: 32px; height: 32px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--bg-surface); color: var(--ph, var(--primary-fg)); box-shadow: inset 0 0 0 1px var(--border-moderate); }
 .nt { font: var(--type-caption); line-height: 1.25; }
 .nt b { font: var(--type-caption-strong); font-size: 14px; }
+
+/* ---- plan de séance : frise horizontale */
+.ptl { position: relative; user-select: none; -webkit-user-select: none; touch-action: pan-y; }
+.ptl-food { position: relative; width: 100%; overflow: hidden; }
+.ptl-drink { position: absolute; top: 0; height: 20px; display: flex; align-items: center; gap: 4px; padding: 0 6px; border: 0; border-radius: 6px; background: color-mix(in srgb, var(--d-SWIM) 22%, transparent); color: var(--text); font: var(--type-legal); cursor: pointer; overflow: hidden; white-space: nowrap; }
+.ptl-drink.on { outline: 2px solid var(--primary-fg); }
+.ptl-drink-t { overflow: hidden; text-overflow: ellipsis; }
+.ptl-take { position: absolute; top: 25px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 0; padding: 0; border: 0; background: none; color: var(--text); cursor: pointer; }
+.ptl-take-ico { display: flex; gap: 1px; }
+.ptl-take-ico .nico { width: 24px; height: 24px; box-shadow: 0 0 0 2px var(--bg-surface); }
+.ptl-take-q { font: var(--type-legal); font-weight: 600; line-height: 1; margin-top: 1px; white-space: nowrap; }
+.ptl-take.on .nico { outline: 2px solid var(--primary-fg); }
+.ptl-take::after { content: ''; position: absolute; left: 50%; top: 100%; width: 1px; height: 4px; background: var(--chart-grid); }
+.ptl-bars { position: relative; width: 100%; border-bottom: 1px solid var(--chart-grid); background: linear-gradient(var(--chart-grid) 1px, transparent 1px) 0 0 / 100% 25%; }
+.ptl-seg { position: absolute; bottom: 0; display: flex; align-items: flex-start; justify-content: center; padding: 2px 0 0; border: 0; border-radius: 5px 5px 0 0; background: var(--sc, var(--text-moderate)); color: #fff; font: var(--type-legal); font-weight: 600; cursor: pointer; overflow: hidden; min-width: 3px; }
+.ptl-seg.k-RECOVERY, .ptl-seg.k-REST { opacity: 0.55; }
+.ptl-seg.k-WARMUP, .ptl-seg.k-COOLDOWN { opacity: 0.8; }
+.ptl-seg.k-TRANSITION { background: repeating-linear-gradient(45deg, var(--text-moderate) 0 4px, color-mix(in srgb, var(--text-moderate) 40%, transparent) 4px 8px); color: var(--bg-surface); }
+.ptl-seg.unk { background: repeating-linear-gradient(135deg, var(--sc) 0 3px, transparent 3px 7px); outline: 1.5px dashed var(--sc); outline-offset: -1.5px; }
+.ptl-seg.on { outline: 2.5px solid var(--text); outline-offset: 1px; z-index: 2; }
+.ptl-seg-t { text-shadow: 0 0 2px rgba(0,0,0,.35); }
+.ptl-axis { position: relative; width: 100%; }
+.ptl-axis .schart-t { position: absolute; top: 4px; white-space: nowrap; }
+.ptl-detail { display: flex; flex-direction: column; gap: 6px; padding: var(--space-12); border-radius: var(--radius-12); background: var(--bg-surface-minimal); }
+.ptl-hint { padding: 2px 0; }
+.ptl-legend { gap: var(--space-12); }
+.ptl-tdot { background: repeating-linear-gradient(45deg, var(--text-moderate) 0 2px, transparent 2px 4px) !important; }
+
+/* bandeau des jambes d'un enchaînement (liste du calendrier) */
+.ptl-legs { display: flex; gap: 2px; height: 8px; margin-top: 4px; width: 100%; max-width: 220px; border-radius: 4px; overflow: hidden; }
+.ptl-leg { display: flex; align-items: center; justify-content: center; min-width: 4px; flex-basis: 0; border-radius: 2px; }
+.ptl-leg.t { background: var(--text-moderate); opacity: .45; min-width: 3px; }
+.ptl-leg-t { font-size: 9px; color: #fff; }
