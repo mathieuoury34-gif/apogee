@@ -769,7 +769,7 @@ export const EN: Record<string, string> = {
   "Données": "Data",
   "Exporter en Excel (.xlsx)": "Export to Excel (.xlsx)",
   "Préparation du fichier…": "Preparing the file…",
-  "Tableau de bord, séances, plan, charge, zones, périodisation — formules et graphiques": "Dashboard, sessions, plan, load, zones, periodisation — formulas and charts",
+  "Séances, plan, charge, course, alimentation, aliments… — formules et graphiques": "Sessions, plan, load, race, nutrition, foods… — formulas and charts",
   "Exporter une sauvegarde (.json)": "Export a backup (.json)",
   "Toutes les données, relisibles par l’app": "All data, readable by the app",
   "Restaurer ou compléter (.json)": "Restore or complete (.json)",
@@ -1980,4 +1980,6 @@ export const EN: Record<string, string> = {
   "Triathlon sprint (750 m · 20 km · 5 km)": "Sprint triathlon (750 m · 20 km · 5 km)",
   "Duathlon (5 km · 20 km · 2,5 km)": "Duathlon (5 km · 20 km · 2.5 km)",
   "de {0} à {1}": "from {0} to {1}",
+  "{0} transition(s)": "{0} transition(s)",
+  "blocs sans discipline lus comme du vélo": "blocks without a discipline are read as bike",
 };

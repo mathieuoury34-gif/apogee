@@ -65,7 +65,7 @@ Une seule source de vérité : `AppData`, gardée en mémoire, persistée par en
 par enregistrement avec Firestore. Tout enregistrement : `{ id: string, updatedAt: ISO, deleted?: true, … }`.
 **Suppression = pierre tombale** (`{id, updatedAt, deleted:true}`) pour que la suppression se propage.
 
-### 3.1 Les 18 collections
+### 3.1 Les 20 collections
 
 | Collection | Contenu (champs principaux) | Clé |
 |---|---|---|
@@ -86,6 +86,8 @@ par enregistrement avec Firestore. Tout enregistrement : `{ id: string, updatedA
 | `meals` | journal de repas : `day, kcal, label` (aucune base d'aliments) | id |
 | `vitals` | VO₂max et HRV du jour **si la montre les dépose** dans Health Connect : `day, vo2max, hrvMs` (HRV = moyenne des RMSSD du jour) | = day |
 | `checkins` | point hebdomadaire : `week (lundi), vo2max, lthrBpm, lthPaceSecKm, hrvMs, hrvStatus, sleepFelt, recoveryFelt (1 à 5), pred5k/10k/Half/MarathonSec, note` | = week |
+| `foods` | produit de l'athlète (défaut modifié ou masqué via `base`, ou ajouté) : `category, name, unit, massG, liquid, kcal100, carbs100, protein100, salt100, caffeineMg, mixed, step` (plus petite part) | id |
+| `nutri` | réglages d'alimentation (id `main` : `diet, favorites, caffeine, recovery, detail`) et choix propres à une séance prévue (id = id de la séance : `hot, intensity, bells, edits`) | `main` ou id séance |
 | `exchanges` | journal coach : `direction ('export'|'import'), schemaVersion, occurredAt, status (applied|rejected|cancelled), operationCount, payloadHash, planValidUntil, exportSessions, importSummary, error` | id |
 
 Règles de champs :
@@ -141,7 +143,7 @@ supprimer les bases `quadra` puis `ironapp` si elles existent (migration sans pe
   un enregistrement local `dirty` plus récent ou égal.
 - Envoi : `push()` par lots de 400 (`writeBatch`), planifié 1,2 s après un changement local, relancé à 5 s en cas
   d'échec ; `syncNow()` marque tout comme sale et renvoie tout.
-- Écoute : `onSnapshot` sur chacune des 18 collections ; au premier instantané de chaque collection, ce qui n'existe
+- Écoute : `onSnapshot` sur chacune des 20 collections ; au premier instantané de chaque collection, ce qui n'existe
   que localement part vers le cloud ; quand les 12 sont reçues → `syncedUid` enregistré, état `ok`.
 - Persistance hors ligne Firestore : `persistentLocalCache()` (repli `getFirestore`).
 - Connexion web : `signInWithPopup` (Google, `prompt: select_account`), repli `signInWithRedirect` si popup bloquée.
@@ -178,8 +180,8 @@ quand la montre remonte plus tard une séance de même discipline à ±180 s (`S
 lieu de la dupliquer.
 
 ### 4.8 Exports Excel (`excel.ts`, `xlsx.ts`)
-Classeur 6 onglets écrit sans bibliothèque (`jszip` seul) : Tableau de bord, Séances, Plan, Charge, Zones,
-Périodisation ; formules et graphiques recalculés à l'ouverture. Reste en français (les formules filtrent sur les
+Classeur 11 onglets écrit sans bibliothèque (`jszip` seul) : Tableau de bord, Séances (colonne Enchaînement), Plan (jambes d'un BRICK), Charge, Zones,
+Périodisation, Course (objectifs par discipline, total par formule), Alimentation (séances à venir), Aliments (banque), Capacités (mesures de la montre), Suivi (poids, interruptions) ; formules et graphiques recalculés à l'ouverture. Reste en français (les formules filtrent sur les
 libellés). Dans l'APK : fichier écrit dans le cache (`Filesystem`) puis feuille de partage (`Share`) ; sur le web :
 téléchargement.
 
@@ -659,3 +661,5 @@ prévisionnel ; alerte blessure ; estimation de VMA ; poids et sommeil ; ingesti
 **Addendum 13/11/2026.** `nutrition.ts` : `chokeRisk(food)` (regex sur le nom, exclut ces produits des prises pendant) ; `BIKE_CARRY_ML = 1600` (boisson vélo : `carryPerH = floor(1600 / h / 50) × 50`, note si inférieur au minimum horaire) ; ordre des solides pendant : barre, gel, (vélo : banane, pâte, bonbon) ; vélo : `slotsPerH = 2`, première prise à 20 min, barres jusqu'à 3/h (`firstShare = 1`) ; `fillWithHoney(target, list, max, share, opts)` (pain : 1–4 portions, miel : 1–6, ratio miel/pain ≥ 1,2 visé à 2 ; miel seul si `pairT < carbs(pain) + 1,6 × carbs(miel)`) utilisé pour `b-meal`, `a-meal`, `a-fast` ; `a-meal` : protéines pré-calculées pour décompter leurs glucides. Suppression de `domain/forecast.ts` et de `ForecastCard` ; `FormDetail` (ex-`FormDetailCard`) rendu dans la carte « Forme de fond, fatigue et fraîcheur » vue Forme du jour.
 
 **Addendum 14/11/2026 — plan de séance, quantités fines, enchaînements.** `domain/planTimeline.ts` : `planTimeline(p, refs)` met la séance à plat (séries déroulées, max 400 segments ; durée inconnue dessinée 120 s) → `TlSeg {kind, disc, startS, durS, level, rep…}` ; `brickLegs(tl)` regroupe les segments de même discipline séparés par les transitions. `ui/planTimeline.tsx` : `PlanTimelinePanel` (page de la séance prévue, après la carte d'en-tête), `LegStrip` (bandeau des jambes dans `PlannedRow`). `foods.ts` : `stepOf` (pas de la plus petite part, `Food.step` prioritaire), `fracText` (¼ ½ ¾), `mlOf` (un gel n'est pas une boisson). `nutrition.ts` : `fill` arrondit au pas puis affine ; créneaux `unitOf = min(1, step)` ; **`NutriInput.legs: BrickLeg[]`** : si ≥ 2 jambes, le « pendant » du plan d'ensemble est remplacé par celui de chaque jambe vélo/course (`buildNutrition` récursif, `discipline` de la jambe, sans édition), événements préfixés `L<k>-`, `atMin` décalé de `round(startMin)`, `leg` et `legMin` (durée pour les quantités « par heure ») ; notes du pendant via `NutriPlan.duringNotes` ; totaux fusionnés (courses, glucides/h pondérés par la durée) ; les choix de l'athlète s'appliquent ensuite (`hoursOf(e) = (legMin ?? D)/60`). `nutritionForSession` : pour un BRICK la durée est celle de la frise (transitions comprises) ; plan nul si une jambe vélo/course n'a pas de durée estimable. `fit.ts` : BRICK → un fichier par jambe, nom « k/n discipline titre », transition suivante (`label` + durée) ajoutée aux notes de la dernière étape (≤ 49 car.) ; `exportFit.ts` ajoute un avertissement « fichiers numérotés ». `stats.ts` `disciplineStats('BRICK')` : groupes par union (paires confirmées + séances rattachées à un BRICK prévu), `totals.sessions` et barres = nombre de groupes, `longestSeconds` = somme des jambes.
+
+**Addendum 15/11/2026 — audit des exports et imports.** Sauvegarde JSON (`apogee-backup/1`) : pilotée par `COLLECTIONS` (20, dont `foods` et `nutri`), donc complète par construction ; test d'aller-retour. Réglages propres à l'appareil (`apogee:prefs`, thème, langue) hors sauvegarde, par choix. **Dossier coach** (`apogee/1`, additif, toujours lisible par un coach qui ne connaît que l'ancienne version) : `race` donne aussi `targetSwim/Bike/Run/TransitionSeconds`, `targetRevisedAt`, `notes` ; `loadSummary.dayForm` ; section `nutrition` (réglages + règles de l'app) ; chaque séance prévue à venir porte `estimated` (durée et distance déduites des blocs), `legs` (BRICK : jambes avec minute de départ, transitions comprises) et `fueling` (alimentation calculée) ; les consignes décrivent un BRICK (discipline sur chaque bloc, `TRANSITION` chronométrée avec `label`, unités par jambe, export Garmin par jambe) ; l'exemple du contrat contient un BRICK. **Excel** : 5 onglets ajoutés (voir §4.8). `blocksSummary` écrit la discipline d'une jambe et les transitions. `docs/coach-context-apogee-1.md` réécrit (BRICK, nutrition, champs du dossier, §6) : à redéposer dans le projet Claude coach.

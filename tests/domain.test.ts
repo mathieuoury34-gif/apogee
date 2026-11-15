@@ -1677,3 +1677,78 @@ test('statistiques : un enchaînement compte pour UNE séance « Enchaînement �
   assert.equal(brick.weeks.reduce((a, w) => a + w.sessions, 0), 1);
   assert.equal(disciplineStats(d, new Map(), 'RUN', '2026-11-14').totals.sessions, 2, 'la course de l’enchaînement compte aussi en course');
 });
+
+test('coach : le dossier décrit un 70.3 planifié (jambes, transitions, durée estimée, alimentation) et les objectifs de course', () => {
+  const data = runnerData();
+  const p = race703(); p.plannedDate = '2026-11-20';
+  data.planned.p1 = p as never;
+  data.race.main = { id: 'main', updatedAt: 'x', name: 'Aix 70.3', raceDate: '2027-05-23', swimDistanceM: 1900, bikeDistanceM: 90000, runDistanceM: 21097, targetTotalSeconds: 19800, targetSwimSeconds: 2100, targetBikeSeconds: 10800, targetRunSeconds: 6000, targetTransitionSeconds: 300, targetRevisedAt: null, notes: 'test' } as never;
+  data.nutri.main = { id: 'main', updatedAt: 'x', caffeine: true, diet: ['lactose'], favorites: [] } as never;
+  const now = new Date('2026-11-15T10:00:00Z');
+  const dossier = buildDossier(data, derive(data, SETTINGS, now), [], now);
+  const up = dossier.upcomingPlannedSessions.find((s) => s.title === 'Nice 70.3')!;
+  assert.deepEqual(up.legs!.map((l) => l.discipline), ['SWIM', 'BIKE', 'RUN']);
+  assert.ok(up.estimated.durationSec! > 5 * 3600 && up.estimated.durationSec! < 6 * 3600);
+  assert.ok(up.fueling && up.fueling.duringCarbsGPerHour > 0 && up.fueling.minutes === Math.round(up.estimated.durationSec! / 60));
+  assert.equal(dossier.race!.targetBikeSeconds, 10800);
+  assert.equal(dossier.race!.targetTransitionSeconds, 300);
+  assert.deepEqual(dossier.nutrition.settings.excludedFoods, ['lactose']);
+  assert.ok(dossier.nutrition.settings.caffeine);
+  assert.match(dossier.responseContract.instructions, /SÉANCE BRICK/);
+  assert.match(dossier.responseContract.instructions, /TRANSITION/);
+  // l'exemple du contrat contient un BRICK valide, relu tel quel par l'import
+  const text = JSON.stringify({ ...dossier.responseContract.example });
+  const parsed = parsePlan(text);
+  assert.ok(parsed.ok);
+  const brick = (parsed as { ok: true; plan: { operations: { discipline?: string; blocks: { kind: string; discipline: string | null }[] }[] } }).plan.operations.find((o) => o.discipline === 'BRICK')!;
+  assert.ok(brick.blocks.every((b) => b.kind === 'TRANSITION' || b.discipline));
+  // la forme du jour est donnée
+  assert.ok('dayForm' in dossier.loadSummary);
+});
+
+test('Excel : le classeur couvre aussi la course, l’alimentation, la banque d’aliments, les mesures de la montre et les enchaînements', async () => {
+  const { exportExcel } = await import('../src/data/excel');
+  const JSZip = (await import('jszip')).default;
+  const data = emptyData();
+  const p = race703(); p.plannedDate = '2026-12-01';
+  data.planned.p1 = p as never;
+  data.race.main = { id: 'main', updatedAt: 'x', name: 'Aix 70.3', raceDate: '2027-05-23', swimDistanceM: 1900, bikeDistanceM: 90000, runDistanceM: 21097, targetTotalSeconds: 19800, targetSwimSeconds: 2100, targetBikeSeconds: 10800, targetRunSeconds: 6000, targetTransitionSeconds: 300, targetRevisedAt: null, notes: null } as never;
+  const mk = (id: string, disc: string, h: number) => ({ id, updatedAt: 'x', sourceId: id, source: 'manual', discipline: disc, rawExerciseType: 'manual', startAt: `2026-11-10T${String(h).padStart(2, '0')}:00:00.000Z`, endAt: `2026-11-10T${String(h + 1).padStart(2, '0')}:00:00.000Z`, durationSec: 3600, distanceM: 20000, zoneOffsetMinutes: 0 }) as never;
+  data.actual.a1 = mk('a1', 'BIKE', 8); data.actual.a2 = mk('a2', 'RUN', 10);
+  data.bricks.b1 = { id: 'b1', updatedAt: 'x', firstId: 'a1', secondId: 'a2', day: '2026-11-10', status: 'confirmed' } as never;
+  const blob = await exportExcel(data, derive(data, SETTINGS, new Date('2026-11-15T10:00:00Z')));
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  const wbXml = await zip.file('xl/workbook.xml')!.async('string');
+  for (const n of ['Course', 'Alimentation', 'Aliments', 'Capacités', 'Suivi', 'Plan', 'Séances']) assert.ok(wbXml.includes(`name="${n}"`), 'onglet ' + n);
+  const all = (await Promise.all(Object.keys(zip.files).filter((f) => f.includes('sharedStrings') || f.includes('worksheets/sheet')).map((f) => zip.file(f)!.async('string')))).join('\n');
+  assert.ok(all.includes('Vélo + Course'), 'enchaînement réalisé repéré dans les séances');
+  assert.ok(all.includes('T1 3'), 'transition visible dans le plan');
+  assert.ok(all.includes('Natation 35 min'), 'jambes du BRICK prévu');
+});
+
+test('coach : l’aperçu d’un plan BRICK montre les jambes lues et signale un bloc sans discipline', () => {
+  const data = emptyData();
+  const ok = [leg('SWIM', 1900, 'PACE', 110), tr('T1', 180), leg('BIKE', 90000, 'SPEED', 8.5), tr('T2', 120), leg('RUN', 21097, 'PACE', 330)];
+  const bad = [bk({ measure: 'TIME', measureValue: 3600 }), tr('T', 120), leg('RUN', 5000, 'PACE', 300)];
+  const plan = JSON.stringify({ schemaVersion: 'apogee/1', operations: [
+    { entity: 'session', action: 'create', idempotencyKey: 'a', discipline: 'BRICK', plannedDate: '2027-05-23', title: '70.3', blocks: ok },
+    { entity: 'session', action: 'create', idempotencyKey: 'b', discipline: 'BRICK', plannedDate: '2027-05-24', title: 'x', blocks: bad },
+  ] });
+  const parsed = parsePlan(plan);
+  assert.ok(parsed.ok);
+  const pv = preview(data, (parsed as { ok: true; plan: never }).plan);
+  assert.equal(pv.created.length, 2);
+  assert.match(pv.created[0].detail!, /Natation › Vélo › Course · 2 transition/);
+  assert.match(pv.created[1].detail!, /sans discipline/);
+});
+
+test('sauvegarde : la banque d’aliments, les choix par séance et la plus petite part survivent à l’aller-retour', async () => {
+  const { backupBlob, parseBackup } = await import('../src/data/backup');
+  const data = emptyData();
+  data.foods.f1 = { id: 'f1', updatedAt: 'x', base: null, category: 'bar', name: 'Ma barre', unit: '1 barre', massG: 40, liquid: false, kcal100: 400, carbs100: 60, protein100: 8, salt100: 0.5, caffeineMg: null, mixed: true, step: 0.25 } as never;
+  data.nutri.main = { id: 'main', updatedAt: 'x', caffeine: true, diet: ['lactose'], favorites: ['f1'], recovery: 'light', detail: 'full' } as never;
+  data.nutri.p1 = { id: 'p1', updatedAt: 'x', hot: true, intensity: 'quality', edits: { 'L1-d-20': [{ foodId: 'f1', qty: 1.5 }] } } as never;
+  const back = parseBackup(await backupBlob(data).text());
+  assert.deepEqual(back.foods, data.foods);
+  assert.deepEqual(back.nutri, data.nutri);
+});

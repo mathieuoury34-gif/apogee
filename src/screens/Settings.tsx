@@ -178,7 +178,7 @@ export function SettingsScreen() {
 
         <Section id="p-data" title={$t("Données")}>
           <ul className="tile-list divided" style={{ padding: '0 var(--space-16)' }}>
-            <Row icon="sheet" title={$t("Exporter en Excel (.xlsx)")} sub={busy === 'xlsx' ? $t("Préparation du fichier…") : $t("Tableau de bord, séances, plan, charge, zones, périodisation — formules et graphiques")} onClick={exportXlsx} />
+            <Row icon="sheet" title={$t("Exporter en Excel (.xlsx)")} sub={busy === 'xlsx' ? $t("Préparation du fichier…") : $t("Séances, plan, charge, course, alimentation, aliments… — formules et graphiques")} onClick={exportXlsx} />
             <Row icon="download" title={$t("Exporter une sauvegarde (.json)")} sub={$t("Toutes les données, relisibles par l’app")} onClick={exportJson} />
             <Row icon="upload" title={$t("Restaurer ou compléter (.json)")} sub={$t("Sauvegarde Apogée (remplace les données) ou dossier coach de l’ancienne app (ajoute les séances qui manquent)")} onClick={() => jsonInput.current?.click()} />
           </ul>

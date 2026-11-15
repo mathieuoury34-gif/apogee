@@ -192,7 +192,7 @@ Thèmes clair et sombre. Annuler proposé après toute suppression, modification
    optionnelle et suspension optionnelle des rappels. Jamais deux interruptions qui se chevauchent. **Aucune séance
    planifiée n'est modifiée** par une interruption (interprétation étroite de « replanification autour »,
    jamais recontrôlée avec Mathieu).
-9. **Exports** — Excel (6 onglets : Tableau de bord, Séances, Plan, Charge, Zones, Périodisation, avec formules et
+9. **Exports** — Excel (11 onglets : Tableau de bord, Séances, Plan, Charge, Zones, Périodisation, Course, Alimentation, Aliments, Capacités, Suivi, avec formules et
    graphiques) ; sauvegarde JSON complète ; dossier coach.
 10. **Reprise** — import de la base SQLite de l'ancienne application (identifiants conservés) et du dossier coach
     de l'ancienne app (complète sans doublon).
@@ -370,3 +370,6 @@ Mathieu a demandé un volet alimentaire pour accompagner l'athlète, d'après le
 
 ## Addendum 14/11/2026 — Plan de séance, quantités fines, séances BRICK planifiées
 Demande de Mathieu (dans le prolongement de l'alimentation, hors MVP d'origine, signalée comme telle) : (1) bouton **Plan de séance** très visuel, horizontal, couleurs par type de bloc, détail au toucher, aliments du Pendant aux bonnes minutes, agrandissable comme les courbes ; (2) **quantités adaptées à l'aliment** (½ barre oui, ½ gel non, ¾ de miel ou de skyr oui, pas de pain ni de banane) pour mieux atteindre les cibles ; (3) **vraies séances BRICK** : planifiables (calendrier, transitions chronométrées), exportables vers la montre, utilisables pour planifier le jour d'un 70.3 avec temps, allures et nourriture ; le regroupement de deux séances réalisées du même jour est conservé et ne compte plus en double. Décisions validées : export = un fichier numéroté par discipline (la Fenix 7 ne lit pas le multisport structuré) ; frise intégrée à la page de la séance avec un bouton plein écran identique aux courbes.
+
+## Addendum 15/11/2026 — exports et imports à jour (demande de Mathieu avant d'échanger avec le coach)
+Mathieu demande que tous les fichiers d'échange (sauvegarde JSON, Excel, dossier coach, imports) reflètent l'application entière : courbes, alimentation, plan de course, brick. Fait : dossier coach enrichi (objectifs de course par discipline, forme du jour, réglages et règles d'alimentation, durée estimée, jambes et alimentation de chaque séance à venir, consignes BRICK), Excel à 11 onglets, document de contexte du coach réécrit. Hors périmètre signalé : le coach ne peut toujours pas écrire l'alimentation ni les choix d'aliments par import (lecture seule).

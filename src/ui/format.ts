@@ -201,9 +201,14 @@ export function blockDetail(b: Block, d: PlannedDiscipline): string {
 }
 /** Résumé d'une ligne : « 10 min · 4 × (400 m · 4:00 /km + 1 min 30) · 10 min » */
 export function blocksSummary(blocks: Block[], d: PlannedDiscipline): string {
+  // enchaînement : la discipline s'écrit quand elle change (« Natation 1,9 km · T1 3 min · Vélo 90 km… »)
+  let leg: string | null = null;
   return blocks.map((b) => {
-    if (b.kind === 'SET') return `${b.setMode === 'AMRAP' ? 'AMRAP' : (b.setCount ?? '?') + ' ×'} (${b.children.map((c) => [measureText(c), targetText(c, d)].filter(Boolean).join(' ')).join(' + ')})`;
-    return [measureText(b), targetText(b, d)].filter(Boolean).join(' ');
+    let pre = '';
+    if (d === 'BRICK' && b.kind !== 'TRANSITION' && b.discipline && b.discipline !== leg) { leg = b.discipline; pre = DISCIPLINE_SHORT[b.discipline] + ' '; }
+    if (b.kind === 'SET') return pre + `${b.setMode === 'AMRAP' ? 'AMRAP' : (b.setCount ?? '?') + ' ×'} (${b.children.map((c) => [measureText(c), targetText(c, d)].filter(Boolean).join(' ')).join(' + ')})`;
+    if (b.kind === 'TRANSITION') return [b.label || KIND_LABEL.TRANSITION, measureText(b)].filter(Boolean).join(' ');
+    return pre + [measureText(b), targetText(b, d)].filter(Boolean).join(' ');
   }).filter(Boolean).join(' · ');
 }
 

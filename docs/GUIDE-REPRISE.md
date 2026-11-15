@@ -112,10 +112,10 @@ accorder les nouvelles autorisations.
 
 Chaque étape est testable seule. Les constantes sont dans `SPECS-TECH.md` §5.
 
-1. **Domaine pur** (`src/domain/`) : types (18 collections, vocabulaire de blocs) → dates (jour civil local avec
+1. **Domaine pur** (`src/domain/`) : types (20 collections, vocabulaire de blocs) → dates (jour civil local avec
    décalage de la montre) → `hr.ts` (nettoyage, TRIMP, dérive, pic soutenu) → `load.ts` (FC max, repos, charge, Banister)
    → `form.ts` → `blocks.ts` (estimation) → `links.ts` → `review.ts` → `stats.ts`, `objective.ts` → `engine.ts`
-   (`derive`) → analyses (`zones`, `compliance`, `forecast`, `records`, `body`,
+   (`derive`) → analyses (`zones`, `compliance`, `records`, `body`,
    `loadByDiscipline`, `summary`) → `fit.ts`. Écrire les 36 tests au fur et à mesure (liste dans `SPECS-TECH.md` §12).
 2. **Données** : `idb.ts` → `store.ts` (`commit`, `dirty`) → `actions.ts` (avec `Snapshot`/annuler) → `backup.ts` →
    `sync.ts` (Firestore) → `dedupe.ts`.

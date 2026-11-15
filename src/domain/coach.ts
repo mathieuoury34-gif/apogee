@@ -9,7 +9,11 @@
 //    lisibles par un coach qui ne connaît que la version précédente.
 import { $t } from '../i18n';
 import { CYCLE_ISSUE_TEXT, CYCLE_KINDS, validateCycles, type CycleIssueCode } from './cycles';
-import { validateSession, type DraftIssueCode } from './blocks';
+import { estimateDistance, estimateDuration, validateSession, type DraftIssueCode } from './blocks';
+import { formStep } from './form';
+import { foodName, resolveBank } from './foods';
+import { BIKE_CARRY_ML, nutritionForSession } from './nutrition';
+import { brickLegs, planTimeline } from './planTimeline';
 import { checkinsSorted } from './checkin';
 import { addDays, mondayOf, today } from './dates';
 import type { Derived } from './engine';
@@ -177,6 +181,30 @@ function instructions(): string {
     'recalée sur la même échelle (coefficient loadSummary.srpeFactor) ;',
     '"provisional" = provisoire, sans FC ni RPE ; null = pas de charge.',
     '',
+    'SÉANCE BRICK (enchaînement de plusieurs disciplines, ex. triathlon ou duathlon) :',
+    '- "discipline": "BRICK" sur la séance ; CHAQUE bloc porte sa propre "discipline"',
+    '  (SWIM, BIKE, RUN) — un bloc sans discipline est lu comme du vélo. Les blocs',
+    "  s'enchaînent dans l'ordre du fichier ; un changement de discipline = une nouvelle jambe.",
+    '- Entre deux jambes, un bloc "kind": "TRANSITION" chronométré ("measure": "TIME", durée en',
+    '  secondes, "label": "T1" ou "T2") : le temps de transition compte dans la durée de la séance.',
+    '- Une jambe se décrit par une distance et une cible : natation en "DISTANCE" + "PACE" (s/100 m),',
+    '  vélo en "DISTANCE" + "SPEED" (m/s) ou "POWER" (% FTP), course en "DISTANCE" + "PACE" (s/km).',
+    '  Jour de course (ex. 70.3) : natation, T1, vélo, T2, course, avec les allures visées.',
+    "- Export Garmin : chaque jambe devient un fichier d'entraînement distinct, numéroté (1/3, 2/3…),",
+    '  car la montre ne lit qu\'un sport par entraînement structuré ; garde chaque jambe sous ~50 étapes.',
+    '- Les séances réalisées correspondantes arrivent en séances distinctes (une par discipline), toutes',
+    '  rattachées au même BRICK prévu.',
+    '',
+    'À PROPOS DE "estimated", "legs" ET "fueling" (additifs, sur chaque séance prévue à venir) :',
+    '"estimated" = durée et distance déduites des blocs (null si impossible à estimer) ; pour un BRICK,',
+    '"legs" donne chaque jambe (discipline, minute de départ depuis le début, durée) transitions comprises ;',
+    '"fueling" = ce que l\'app a calculé pour l\'alimentation de la séance (intensité retenue, glucides, boisson',
+    "  et sodium par heure PENDANT l'effort, choix de l'athlète ou non). C'est une aide à la discussion : l'alimentation",
+    "  ne s'importe pas — tu peux la commenter dans \"notes\", l'athlète la règle dans l'app. Voir aussi la section",
+    '"nutrition" du dossier (régime, favoris, règles de l\'app : pas de fruits secs ni de fruits à coque pendant',
+    "  l'effort, barres avant gels, 1,6 L de boisson au plus portés à vélo).",
+    '"loadSummary.dayForm" = forme du jour (0 à 100) calculée par l\'app avec son palier.',
+    '',
     'Un exemple de fichier complet et déjà valide se trouve dans',
     '"responseContract.example" de ce même dossier — reprends sa structure',
     'exacte pour ta réponse.',
@@ -192,6 +220,16 @@ function example() {
       {
         entity: 'session', action: 'create', idempotencyKey: '2026-09-16-run-endurance', discipline: 'RUN', plannedDate: '2026-09-16', title: 'Endurance fondamentale', notes: null,
         blocks: [B({ kind: 'WARMUP', measureValue: 600, label: 'Échauffement' }), B({ measureValue: 2400, targetType: 'PACE', targetLow: 330, label: 'Corps de séance', notes: 'Allure conversationnelle, sur sensations' }), B({ kind: 'COOLDOWN', measureValue: 300, label: 'Retour au calme' })],
+      },
+      {
+        entity: 'session', action: 'create', idempotencyKey: '2026-09-20-brick-sprint', discipline: 'BRICK', plannedDate: '2026-09-20', title: 'Triathlon sprint', notes: 'Transitions chronométrées',
+        blocks: [
+          B({ measure: 'DISTANCE', measureValue: 750, discipline: 'SWIM', targetType: 'PACE', targetLow: 115 }),
+          B({ kind: 'TRANSITION', measureValue: 120, label: 'T1' }),
+          B({ measure: 'DISTANCE', measureValue: 20000, discipline: 'BIKE', targetType: 'SPEED', targetLow: 8 }),
+          B({ kind: 'TRANSITION', measureValue: 90, label: 'T2' }),
+          B({ measure: 'DISTANCE', measureValue: 5000, discipline: 'RUN', targetType: 'PACE', targetLow: 300 }),
+        ],
       },
       { entity: 'session', action: 'delete', idempotencyKey: 'session:482' },
       { entity: 'phase', action: 'update', idempotencyKey: 'phase:12', label: 'Bloc de reprise', phase: 'base', startDate: '2026-09-08', endDate: '2026-09-28', intent: 'Reprendre le volume progressivement', objective: null, notes: null, cycles: [{ kind: 'up', startDate: '2026-09-08', endDate: '2026-09-14', label: null }, { kind: 'up', startDate: '2026-09-15', endDate: '2026-09-21', label: null }, { kind: 'down', startDate: '2026-09-22', endDate: '2026-09-28', label: null }] },
@@ -251,6 +289,22 @@ function recentHealth(data: AppData, d: Derived, day: string) {
   };
 }
 
+/** Réglages d'alimentation de l'athlète et règles de l'app (le détail par séance est dans `fueling`). */
+function nutritionContext(data: AppData) {
+  const main = data.nutri.main && !data.nutri.main.deleted ? data.nutri.main : null;
+  return {
+    settings: { excludedFoods: main?.diet ?? [], caffeine: !!main?.caffeine, quickRecovery: main?.recovery ?? 'full', favoriteFoods: resolveBank(data).filter((f) => f.fav).map(foodName) },
+    rules: [
+      'Pendant l\'effort : jamais de fruits secs ni de fruits à coque (risque d\'étouffement) ; barres d\'abord, gels seulement pour combler.',
+      `À vélo : ${BIKE_CARRY_ML} ml de boisson au plus portés ; les barres complètent les glucides ; une prise toutes les 30 min.`,
+      'Quantités par plus petite part raisonnable (barre ½, gel entier, miel ou skyr ¼, pain ou banane entiers).',
+      'Avant et après : le miel apporte environ le double des glucides du pain de mie.',
+      'Enchaînement : alimentation calculée jambe par jambe (rien pendant la natation).',
+    ],
+    note: "Calculé par l'app à partir de la banque d'aliments de l'athlète ; non importable, à commenter dans les notes des séances.",
+  };
+}
+
 const r1 = (v: number) => Math.round(v * 10) / 10;
 /**
  * Détail du compte rendu d'une séance pour le coach : allure/vitesse, FC max, temps par zone de FC (Karvonen), résultat de chaque étape de la séance
@@ -293,7 +347,25 @@ export function buildDossier(data: AppData, d: Derived, selected: string[], now:
     vol.set(k, (vol.get(k) ?? 0) + s.durationSec);
   }
   const upcoming = liveRecords(data.planned).filter((p) => p.plannedDate >= day && p.plannedDate <= addDays(day, UPCOMING_DAYS)).sort((x, y) => (x.plannedDate < y.plannedDate ? -1 : 1));
-  const plannedOut = (p: PlannedSession) => ({ refKey: refKeyOfSession(p), discipline: p.discipline, plannedDate: p.plannedDate, title: p.title, notes: p.notes, origin: p.origin, editedByAthleteAt: p.editedAt ?? null, blocks: p.blocks.map(blockOut) });
+  const bank = resolveBank(data);
+  const plannedOut = (p: PlannedSession, withFueling = false) => {
+    const refs = d.refsAt(p.plannedDate);
+    const dur = estimateDuration(p.blocks, p.discipline, refs), dist = estimateDistance(p.blocks, p.discipline, refs);
+    const legs = p.discipline === 'BRICK' ? brickLegs(planTimeline(p, refs)).map((l) => ({ discipline: l.disc, startMin: Math.round(l.startMin * 10) / 10, durationMin: Math.round(l.minutes * 10) / 10 })) : undefined;
+    const n = withFueling ? nutritionForSession(data, refs, p, bank, day, (id) => d.links.byPlanned.has(id)) : null;
+    const plan = n?.plan ?? null;
+    const o = data.nutri[p.id] && !data.nutri[p.id].deleted ? data.nutri[p.id] : null;
+    return {
+      refKey: refKeyOfSession(p), discipline: p.discipline, plannedDate: p.plannedDate, title: p.title, notes: p.notes, origin: p.origin, editedByAthleteAt: p.editedAt ?? null, blocks: p.blocks.map(blockOut),
+      estimated: { durationSec: dur.certainty === 'unknown' ? null : Math.round(dur.value), distanceM: dist.certainty === 'unknown' ? null : Math.round(dist.value), certainty: dur.certainty },
+      ...(legs ? { legs } : {}),
+      ...(withFueling ? { fueling: plan ? {
+        intensity: n!.level, hot: n!.hot, minutes: plan.minutes,
+        duringCarbsGPerHour: plan.during.carbsPerHActual, duringFluidMlPerHour: plan.during.fluidPerHPlanned, duringSodiumMgPerHour: plan.during.sodiumPerHActual, duringCarbsTotalG: plan.during.totalCarbs,
+        beforeCarbsG: plan.before.carbs, afterQuickRecovery: plan.after.fast, foodsChosenByAthlete: !!o?.edits && Object.keys(o.edits).length > 0,
+      } : null } : {}),
+    };
+  };
   const past = periodFrom ? liveRecords(data.planned).filter((p) => p.plannedDate >= periodFrom && p.plannedDate < day).sort((x, y) => (x.plannedDate < y.plannedDate ? -1 : 1)) : [];
   const recent = selected.map((id) => data.actual[id]).filter((s) => s && !s.deleted).sort((x, y) => (x.startAt < y.startAt ? -1 : 1));
   return {
@@ -304,19 +376,21 @@ export function buildDossier(data: AppData, d: Derived, selected: string[], now:
       displayName: a?.displayName ?? null, birthDate: a?.birthDate ?? null, sex: a?.sex ?? null,
       availability: a ? JSON.stringify(a.availability) : null, equipment: a ? JSON.stringify(a.equipment) : null, injuries: a ? JSON.stringify(a.injuries) : null,
     },
-    race: race ? { name: race.name, raceDate: race.raceDate, targetTotalSeconds: race.targetTotalSeconds, swimDistanceM: race.swimDistanceM, bikeDistanceM: race.bikeDistanceM, runDistanceM: race.runDistanceM } : null,
+    race: race ? { name: race.name, raceDate: race.raceDate, targetTotalSeconds: race.targetTotalSeconds, targetSwimSeconds: race.targetSwimSeconds, targetBikeSeconds: race.targetBikeSeconds, targetRunSeconds: race.targetRunSeconds, targetTransitionSeconds: race.targetTransitionSeconds, targetRevisedAt: race.targetRevisedAt, notes: race.notes, swimDistanceM: race.swimDistanceM, bikeDistanceM: race.bikeDistanceM, runDistanceM: race.runDistanceM } : null,
     zones: ZONE_KINDS.map((k) => latestZone(data, k)).filter((z) => z).map((z) => ({ kind: z!.kind, value: z!.value, unit: UNIT[z!.kind], measuredAt: z!.measuredAt, source: z!.source })),
     phases: liveRecords(data.phases).sort((x, y) => (x.startDate < y.startDate ? -1 : 1)).map((p) => ({ refKey: refKeyOfPhase(p), label: p.label, phase: p.phase, startDate: p.startDate, endDate: p.endDate, intent: p.intent, objective: p.objective, notes: p.notes, cycles: (p.cycles ?? []).slice().sort((a, b) => (a.startDate < b.startDate ? -1 : 1)).map((c) => ({ kind: c.kind, startDate: c.startDate, endDate: c.endDate, label: c.label })) })),
     watchReadings: watchReadings(data),
     recentHealth: recentHealth(data, d, day),
+    nutrition: nutritionContext(data),
     interruptions: liveRecords(data.interruptions).map((i) => ({ label: i.label, startDate: i.startDate, endDate: i.endDate, reason: i.reason, dailyLoadOverride: i.dailyLoadOverride })),
     loadSummary: {
       ...d.constat,
       srpeFactor: Math.round(d.ctx.srpeFactor * 1000) / 1000,
+      dayForm: d.form ? { day: d.form.day, score: Math.round(d.form.score), step: formStep(d.form.score) } : null,
       weeklyVolumeByDiscipline: [...vol.entries()].map(([k, seconds]) => { const [weekStart, discipline] = k.split('\u0000'); return { weekStart, discipline, seconds }; }).sort((x, y) => (x.weekStart < y.weekStart ? -1 : 1)),
     },
-    upcomingPlannedSessions: upcoming.map(plannedOut),
-    recentPlannedSessions: past.map((p) => ({ ...plannedOut(p), status: d.links.byPlanned.has(p.id) ? 'done' : 'missed' })),
+    upcomingPlannedSessions: upcoming.map((p) => plannedOut(p, true)),
+    recentPlannedSessions: past.map((p) => ({ ...plannedOut(p, false), status: d.links.byPlanned.has(p.id) ? 'done' : 'missed' })),
     recentActualSessions: recent.map((s) => {
       const link = d.links.byActual.get(s.id);
       let matched: { refKey: string; title: string | null; matchConfidence: 'linked' | 'heuristic' } | null = null;
@@ -480,7 +554,15 @@ export function preview(data: AppData, plan: CoachPlan, malformed: number): Prev
         continue;
       }
       const issues = validateSession({ discipline: op.discipline ?? 'RUN', plannedDate: op.plannedDate ?? '', blocks: op.blocks });
-      const item: PreviewItem = { entity: 'session', idempotencyKey: op.idempotencyKey, label: sessionLabel(op), issueCodes: issues.map((i) => i.code as DraftIssueCode) };
+      // enchaînement : l'aperçu montre les jambes lues (une jambe sans discipline serait lue comme du vélo : on le voit avant d'appliquer)
+      let detail: string | undefined;
+      if (op.discipline === 'BRICK' && op.blocks.length) {
+        const legs = brickLegs(planTimeline({ discipline: 'BRICK', blocks: op.blocks }));
+        const trans = op.blocks.filter((b) => b.kind === 'TRANSITION').length;
+        detail = legs.map((l) => DISC_FR[l.disc] ?? l.disc).join(' › ') + (trans ? ' · ' + $t("{0} transition(s)", { 0: trans }) : '');
+        if (op.blocks.some((b) => b.kind !== 'TRANSITION' && b.kind !== 'SET' && !b.discipline) && legs.length) detail += ' · ' + $t("blocs sans discipline lus comme du vélo");
+      }
+      const item: PreviewItem = { entity: 'session', idempotencyKey: op.idempotencyKey, label: sessionLabel(op), issueCodes: issues.map((i) => i.code as DraftIssueCode), ...(detail ? { detail } : {}) };
       if (issues.length) { pv.rejected.push(item); pv.resolved.push({ op, existingId: ex?.id ?? null, category: 'rejected' }); continue; }
       (ex ? pv.updated : pv.created).push(item);
       pv.resolved.push({ op, existingId: ex?.id ?? null, category: ex ? 'update' : 'create' });
